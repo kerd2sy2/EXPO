@@ -871,7 +871,8 @@ export default function DelegateApp() {
                       placeholder={t.nationalIdPlaceholder}
                       placeholderTextColor="#94a3b8"
                       value={loginInput}
-                      onChangeText={(val) => setLoginInput(val.replace(/[^0-9]/g, ''))}
+                      onChangeText={(val) => setLoginInput(val.replace(/[^0-9]/g, '').slice(0, 10))}
+                      maxLength={10}
                       keyboardType="number-pad"
                       autoCapitalize="none"
                     />
