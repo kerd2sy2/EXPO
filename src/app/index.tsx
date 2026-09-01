@@ -1771,7 +1771,7 @@ export default function DelegateApp() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0,
   },
   keyboardView: {
     flex: 1,
@@ -1790,21 +1790,21 @@ const styles = StyleSheet.create({
 
   // Login Screen Styles
   loginScrollContent: {
-    padding: 20,
-    paddingTop: Platform.OS === 'android' ? 8 : 4,
+    padding: 24,
+    paddingTop: 16,
     paddingBottom: 40,
   },
   topBarActions: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   langSwitchBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 1,
     shadowColor: '#000',
@@ -1814,100 +1814,101 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   langSwitchText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 'bold',
   },
   loginHeader: {
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: 24,
   },
   logoImage: {
-    width: 80,
-    height: 80,
-    marginBottom: 8,
+    width: 90,
+    height: 90,
+    marginBottom: 12,
   },
   appTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   appSubtitle: {
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: 14,
+    marginTop: 4,
   },
   loginCardTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   loginCardSubtitle: {
-    fontSize: 12,
-    marginBottom: 16,
-    lineHeight: 17,
+    fontSize: 13,
+    marginBottom: 20,
+    lineHeight: 18,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    padding: 10,
+    padding: 12,
     borderRadius: 10,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   errorBannerText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
     flex: 1,
   },
 
-  // Header Bar
+  // Header Bar (Compact & Clean)
   headerBar: {
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderBottomWidth: 1,
+    minHeight: 52,
   },
   headerRight: {
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
   },
   avatarImg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
     borderColor: '#059669',
   },
   avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   headerInfo: {
     flex: 1,
   },
   delegateName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   headerBadgesRow: {
-    gap: 6,
-    marginTop: 3,
+    gap: 4,
+    marginTop: 2,
   },
   pillBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 10,
   },
   pillBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
   headerLeftActions: {
