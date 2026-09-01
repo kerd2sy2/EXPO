@@ -15,6 +15,7 @@ import {
   Image,
   Dimensions,
   useColorScheme,
+  BackHandler,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -370,6 +371,35 @@ export default function DelegateApp() {
       mainScrollRef.current?.scrollTo({ y: 0, animated: true });
     }, 50);
   };
+
+  // Handle Hardware Back Button (Go to Home from subpages, exit app if on Home)
+  useEffect(() => {
+    const onBackPress = () => {
+      // 1. If photo preview lightbox is open, close it
+      if (previewPhoto) {
+        setPreviewPhoto(null);
+        return true;
+      }
+
+      // 2. If language modal is open, close it
+      if (showLangModal) {
+        setShowLangModal(false);
+        return true;
+      }
+
+      // 3. If in a sub-page (Shift, History, Profile), return back to Home
+      if (currentTab !== 'home') {
+        navigateToTab('home');
+        return true; // prevent exit and go to home
+      }
+
+      // 4. If already on Home (or login screen), allow default exit app behavior
+      return false;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSubscription.remove();
+  }, [currentTab, previewPhoto, showLangModal]);
 
   // Check initial login state
   useEffect(() => {
