@@ -1,7 +1,7 @@
-import { Platform } from 'react-native';
-
-// Hosted Backend API URL (Vercel & Cloud Backend)
-export const API_BASE_URL = 'https://aams-frontend-lime.vercel.app/api/v1';
+// Hosted Backend API URL
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  'https://aams-logistics.kerd2sy.com/api/v1';
 
 let storedToken: string | null = null;
 
