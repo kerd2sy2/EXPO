@@ -539,19 +539,23 @@ export default function DelegateApp() {
   }, [activeSession]);
 
   const handleLogin = async (overrideLogin?: string, overridePass?: string) => {
-    const inputVal = overrideLogin || loginInput;
+    let inputVal = (overrideLogin || loginInput).trim();
     const passVal = overridePass || passwordInput;
 
-    if (!inputVal.trim()) {
+    if (!inputVal) {
       setLoginError(t.nationalIdPlaceholder);
       return;
+    }
+
+    if (!inputVal.includes('@')) {
+      inputVal = `${inputVal}@aams-logistics.com`;
     }
 
     setSubmitting(true);
     setLoginError('');
 
     try {
-      const res = await workApi.login(inputVal.trim(), passVal.trim() || undefined);
+      const res = await workApi.login(inputVal, passVal.trim() || undefined);
       setToken(res.access_token);
 
       const empData: EmployeeProfile = res.employee || {
@@ -832,22 +836,27 @@ export default function DelegateApp() {
                 </View>
               ) : null}
 
-              {/* National ID Input */}
+              {/* National ID Input with fixed domain */}
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t.nationalIdLabel}
                 </Text>
-                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Feather name="user" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
                     placeholder={t.nationalIdPlaceholder}
                     placeholderTextColor="#94a3b8"
                     value={loginInput}
-                    onChangeText={setLoginInput}
+                    onChangeText={(val) => setLoginInput(val.replace(/[^0-9]/g, ''))}
                     keyboardType="number-pad"
                     autoCapitalize="none"
                   />
+                  <View style={[styles.domainSuffixBadge, { backgroundColor: isDarkMode ? '#1e2233' : '#f1f5f9', borderColor: colors.border }]}>
+                    <Text style={[styles.domainSuffixText, { color: colors.textSecondary }]}>
+                      @aams-logistics.com
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -856,7 +865,7 @@ export default function DelegateApp() {
                 <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t.passwordLabel}
                 </Text>
-                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.inputIcon}>
                     <Feather name={showPassword ? 'eye' : 'eye-off'} size={18} color={colors.textSecondary} />
                   </TouchableOpacity>
@@ -2283,6 +2292,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     height: '100%',
+  },
+  domainSuffixBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  domainSuffixText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   textArea: {
     borderWidth: 1,
