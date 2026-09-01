@@ -1118,6 +1118,7 @@ export default function DelegateApp() {
             </View>
 
             <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              {/* Row 1: Bike & Key */}
               <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
                   <MaterialCommunityIcons name="bike" size={22} color={colors.primary} />
@@ -1130,30 +1131,31 @@ export default function DelegateApp() {
 
               <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.statIconCircle, { backgroundColor: colors.accentLight }]}>
-                  <MaterialCommunityIcons name="calendar-check" size={22} color={colors.accent} />
-                </View>
-                <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{historySessions.length}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalShifts}</Text>
-              </View>
-
-              <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-                  <MaterialCommunityIcons name="map-marker-distance" size={22} color={colors.primary} />
-                </View>
-                <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                  {historySessions.reduce((sum, s) => sum + (s.distance || 0), 0).toFixed(0)} {t.km}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalDistance}</Text>
-              </View>
-
-              <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: colors.accentLight }]}>
                   <MaterialCommunityIcons name="key-variant" size={22} color={colors.accent} />
                 </View>
                 <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
                   {employee.key_number || '—'}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
+              </View>
+
+              {/* Row 2: Shifts & Distance */}
+              <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
+                  <MaterialCommunityIcons name="calendar-check" size={22} color={colors.primary} />
+                </View>
+                <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{historySessions.length}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalShifts}</Text>
+              </View>
+
+              <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.statIconCircle, { backgroundColor: colors.accentLight }]}>
+                  <MaterialCommunityIcons name="map-marker-distance" size={22} color={colors.accent} />
+                </View>
+                <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
+                  {historySessions.reduce((sum, s) => sum + (s.distance || 0), 0).toFixed(0)} {t.km}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalDistance}</Text>
               </View>
             </View>
 
