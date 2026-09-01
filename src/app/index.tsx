@@ -841,10 +841,12 @@ export default function DelegateApp() {
                 <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t.nationalIdLabel}
                 </Text>
-                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: 'row' }]}>
-                  <Feather name="user" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={styles.inputIcon}>
+                    <Feather name="user" size={18} color={colors.textSecondary} />
+                  </View>
                   <TextInput
-                    style={[styles.input, { color: colors.textPrimary, textAlign: 'left' }]}
+                    style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
                     placeholder={t.nationalIdPlaceholder}
                     placeholderTextColor="#94a3b8"
                     value={loginInput}
@@ -852,9 +854,11 @@ export default function DelegateApp() {
                     keyboardType="number-pad"
                     autoCapitalize="none"
                   />
-                  <Text style={[styles.domainSuffixText, { color: colors.textSecondary }]}>
-                    @aams-logistics.com
-                  </Text>
+                  {loginInput.length > 0 && (
+                    <Text style={[styles.domainSuffixText, { color: colors.textSecondary }]}>
+                      @aams-logistics.com
+                    </Text>
+                  )}
                 </View>
               </View>
 
@@ -872,8 +876,9 @@ export default function DelegateApp() {
                     placeholder={t.passwordPlaceholder}
                     placeholderTextColor="#94a3b8"
                     value={passwordInput}
-                    onChangeText={setPasswordInput}
+                    onChangeText={(val) => setPasswordInput(val.replace(/[^0-9]/g, ''))}
                     keyboardType="number-pad"
+                    autoCapitalize="none"
                     secureTextEntry={!showPassword}
                   />
                 </View>
