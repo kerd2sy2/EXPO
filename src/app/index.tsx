@@ -680,25 +680,25 @@ export default function DelegateApp() {
       .reduce((sum, s) => sum + (s.orders_count || 0), 0);
   }, [historySessions]);
 
-  // Theme Colors
+  // Theme Colors (Brand Orange & Black)
   const colors = {
-    bg: isDarkMode ? '#090d16' : '#f8fafc',
-    card: isDarkMode ? '#131b2e' : '#ffffff',
-    cardHeader: isDarkMode ? '#19243d' : '#f1f5f9',
-    textPrimary: isDarkMode ? '#f8fafc' : '#0f172a',
-    textSecondary: isDarkMode ? '#94a3b8' : '#64748b',
-    border: isDarkMode ? '#222f4c' : '#e2e8f0',
-    primary: '#059669',
-    primaryLight: isDarkMode ? '#064e3b' : '#ecfdf5',
-    primaryText: isDarkMode ? '#6ee7b7' : '#047857',
-    accent: '#2563eb',
-    accentLight: isDarkMode ? '#1e293b' : '#eff6ff',
-    inputBg: isDarkMode ? '#0f172a' : '#f8fafc',
-    inputBorder: isDarkMode ? '#334155' : '#cbd5e1',
-    warningBg: isDarkMode ? '#451a03' : '#fffbeb',
+    bg: isDarkMode ? '#090a0f' : '#f8f9fa',
+    card: isDarkMode ? '#12141c' : '#ffffff',
+    cardHeader: isDarkMode ? '#191c26' : '#f4f4f5',
+    textPrimary: isDarkMode ? '#ffffff' : '#0f172a',
+    textSecondary: isDarkMode ? '#9ca3af' : '#64748b',
+    border: isDarkMode ? '#232738' : '#e2e8f0',
+    primary: '#ea580c', // Pure Brand Orange
+    primaryLight: isDarkMode ? 'rgba(234, 88, 12, 0.16)' : '#fff7ed',
+    primaryText: isDarkMode ? '#fb923c' : '#c2410c',
+    accent: '#f97316',
+    accentLight: isDarkMode ? 'rgba(249, 115, 22, 0.12)' : '#ffedd5',
+    inputBg: isDarkMode ? '#0d0f15' : '#f8fafc',
+    inputBorder: isDarkMode ? '#2a3044' : '#cbd5e1',
+    warningBg: isDarkMode ? '#381e05' : '#fffbeb',
     warningBorder: isDarkMode ? '#78350f' : '#fde68a',
     warningText: isDarkMode ? '#fbbf24' : '#b45309',
-    errorBg: isDarkMode ? '#450a0a' : '#fef2f2',
+    errorBg: isDarkMode ? '#3b0d0c' : '#fef2f2',
     errorText: isDarkMode ? '#f87171' : '#dc2626',
   };
 
@@ -970,50 +970,50 @@ export default function DelegateApp() {
               style={[
                 styles.ordersHeroCard,
                 {
-                  backgroundColor: isDarkMode ? '#1e293b' : '#059669',
-                  borderColor: isDarkMode ? '#334155' : '#047857',
+                  backgroundColor: isDarkMode ? '#18120c' : '#ea580c',
+                  borderColor: isDarkMode ? '#ea580c' : '#c2410c',
                 },
               ]}
             >
               <View style={[styles.ordersHeroTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.ordersHeroLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                  <Text style={[styles.ordersHeroLabel, { color: isDarkMode ? '#fed7aa' : '#ffedd5', textAlign: isRTL ? 'right' : 'left' }]}>
                     {t.approvedOrders} 📦
                   </Text>
-                  <Text style={[styles.ordersHeroBigNumber, { textAlign: isRTL ? 'right' : 'left' }]}>
+                  <Text style={[styles.ordersHeroBigNumber, { color: isDarkMode ? '#fb923c' : '#ffffff', textAlign: isRTL ? 'right' : 'left' }]}>
                     {totalApprovedOrdersCount}
-                    <Text style={styles.ordersHeroUnit}> {t.ordersUnit}</Text>
+                    <Text style={[styles.ordersHeroUnit, { color: isDarkMode ? '#fdba74' : '#fed7aa' }]}> {t.ordersUnit}</Text>
                   </Text>
                 </View>
-                <View style={styles.ordersHeroIconWrapper}>
-                  <MaterialCommunityIcons name="package-variant-closed" size={44} color="#ffffff" style={{ opacity: 0.9 }} />
+                <View style={[styles.ordersHeroIconWrapper, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.25)' : 'rgba(255, 255, 255, 0.2)' }]}>
+                  <MaterialCommunityIcons name="package-variant-closed" size={44} color={isDarkMode ? '#ea580c' : '#ffffff'} />
                 </View>
               </View>
 
-              <View style={styles.ordersHeroDivider} />
+              <View style={[styles.ordersHeroDivider, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.25)' : 'rgba(255, 255, 255, 0.2)' }]} />
 
               <View style={[styles.ordersHeroBottomRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={styles.ordersHeroStatLabel}>{t.totalDistance}</Text>
-                  <Text style={styles.ordersHeroStatValue}>
+                  <Text style={[styles.ordersHeroStatLabel, { color: isDarkMode ? '#fdba74' : '#fed7aa' }]}>{t.totalDistance}</Text>
+                  <Text style={[styles.ordersHeroStatValue, { color: '#ffffff' }]}>
                     {historySessions.reduce((sum, s) => sum + (s.distance || 0), 0).toFixed(0)} {t.km}
                   </Text>
                 </View>
 
-                <View style={styles.ordersHeroStatDivider} />
+                <View style={[styles.ordersHeroStatDivider, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.25)' : 'rgba(255, 255, 255, 0.2)' }]} />
 
                 <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={styles.ordersHeroStatLabel}>{t.totalShifts}</Text>
-                  <Text style={styles.ordersHeroStatValue}>
+                  <Text style={[styles.ordersHeroStatLabel, { color: isDarkMode ? '#fdba74' : '#fed7aa' }]}>{t.totalShifts}</Text>
+                  <Text style={[styles.ordersHeroStatValue, { color: '#ffffff' }]}>
                     {historySessions.length} {t.shiftsUnit}
                   </Text>
                 </View>
 
-                <View style={styles.ordersHeroStatDivider} />
+                <View style={[styles.ordersHeroStatDivider, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.25)' : 'rgba(255, 255, 255, 0.2)' }]} />
 
                 <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={styles.ordersHeroStatLabel}>{t.shiftStatus}</Text>
-                  <Text style={[styles.ordersHeroStatValue, { color: activeSession ? '#6ee7b7' : '#e2e8f0' }]}>
+                  <Text style={[styles.ordersHeroStatLabel, { color: isDarkMode ? '#fdba74' : '#fed7aa' }]}>{t.shiftStatus}</Text>
+                  <Text style={[styles.ordersHeroStatValue, { color: activeSession ? '#34d399' : (isDarkMode ? '#9ca3af' : '#ffffff') }]}>
                     {activeSession ? '🟢 ' + t.shiftActive : '⚪ ' + t.readyToStart}
                   </Text>
                 </View>
@@ -1874,7 +1874,7 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1.5,
-    borderColor: '#059669',
+    borderColor: '#ea580c',
   },
   avatarCircle: {
     width: 38,
@@ -2494,7 +2494,7 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     borderWidth: 3,
-    borderColor: '#059669',
+    borderColor: '#ea580c',
     marginBottom: 8,
   },
   profileAvatarCircle: {
