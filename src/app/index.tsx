@@ -1786,57 +1786,51 @@ export default function DelegateApp() {
       </ScrollView>
 
       {/* =========================================================================
-          DIGITAL ID QR CODE MODAL WITH CENTERED LOGO
+          FULLSCREEN QR CODE VIEW (ONLY QR + CLOSE BUTTON)
          ========================================================================= */}
       {showQrModal && employee && (
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.qrModalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.qrModalTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.qrTitle}
-                </Text>
-                <Text style={[styles.qrModalSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.qrSub}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowQrModal(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={24} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* QR Code Container with Centered Clean Transparent Logo (UUID Data) */}
-            <View style={styles.qrCodeWrapper}>
-              <Image
-                source={{
-                  uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
-                    employee.id
-                  )}&margin=6&ecc=H`,
-                }}
-                style={styles.qrCodeImage}
-                resizeMode="contain"
-              />
-              {/* Direct Transparent Logo in Center (No background / No border) */}
-              <Image
-                source={require('../../assets/images/logo.png')}
-                style={styles.qrDirectLogo}
-                resizeMode="contain"
-              />
-            </View>
-
-            {/* Delegate Info Pill in Modal */}
-            <View style={[styles.qrDelegateInfoBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-              <Text style={[styles.qrDelegateName, { color: colors.textPrimary }]}>{employee.name}</Text>
-              <Text style={[styles.qrDelegateMeta, { color: colors.textSecondary }]}>
-                {t.nationalId}: {employee.national_id} | {t.assignedBike}: {employee.motorcycle_number || '—'}
-              </Text>
-            </View>
-
+        <View style={[styles.fullScreenQrContainer, { backgroundColor: colors.bg }]}>
+          {/* Top Close Button Bar */}
+          <View style={[styles.fullScreenQrTopBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: colors.primary, width: '100%' }]}
+              style={[styles.fullScreenQrCloseBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => setShowQrModal(false)}
             >
-              <Text style={styles.primaryButtonText}>{t.close}</Text>
+              <Ionicons name="close" size={26} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Centered Large QR Code (No background wrapper) */}
+          <View style={styles.fullScreenQrCenter}>
+            <View style={styles.qrCodeWrapperTransparent}>
+              <Image
+                source={{
+                  uri: `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(
+                    employee.id
+                  )}&margin=4&ecc=H`,
+                }}
+                style={styles.fullScreenQrImage}
+                resizeMode="contain"
+              />
+              {/* Square White Background with Larger Logo in Center */}
+              <View style={styles.qrSquareWhiteWrapper}>
+                <Image
+                  source={require('../../assets/images/logo.png')}
+                  style={styles.qrLargeLogo}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Bottom Close Button */}
+          <View style={styles.fullScreenQrBottomBar}>
+            <TouchableOpacity
+              style={[styles.fullScreenQrBottomBtn, { backgroundColor: colors.primary }]}
+              onPress={() => setShowQrModal(false)}
+            >
+              <Ionicons name="close-circle-outline" size={22} color="#ffffff" />
+              <Text style={styles.fullScreenQrBottomBtnText}>{t.close}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -2725,62 +2719,95 @@ const styles = StyleSheet.create({
   },
 
   // QR Modal Styles
-  qrModalCard: {
-    width: '90%',
-    maxWidth: 380,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    padding: 20,
+  // Fullscreen QR View Styles
+  fullScreenQrContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+    justifyContent: 'space-between',
+    padding: 24,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 48,
+    paddingBottom: 36,
+  },
+  fullScreenQrTopBar: {
+    justifyContent: 'flex-end',
+    width: '100%',
+  },
+  fullScreenQrCloseBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  qrModalTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  fullScreenQrCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  qrModalSub: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  qrCodeWrapper: {
-    width: 240,
-    height: 240,
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 10,
+  qrCodeWrapperTransparent: {
+    width: 300,
+    height: 300,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+  },
+  fullScreenQrImage: {
+    width: 290,
+    height: 290,
+    backgroundColor: 'transparent',
+  },
+  qrSquareWhiteWrapper: {
+    position: 'absolute',
+    width: 72,
+    height: 72,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     elevation: 6,
   },
-  qrCodeImage: {
-    width: 220,
-    height: 220,
-    borderRadius: 8,
+  qrLargeLogo: {
+    width: 56,
+    height: 56,
   },
-  qrDirectLogo: {
-    position: 'absolute',
-    width: 44,
-    height: 44,
-  },
-  qrDelegateInfoBox: {
+  fullScreenQrBottomBar: {
     width: '100%',
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
     alignItems: 'center',
   },
-  qrDelegateName: {
-    fontSize: 15,
-    fontWeight: 'bold',
+  fullScreenQrBottomBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    maxWidth: 320,
+    height: 50,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
   },
-  qrDelegateMeta: {
-    fontSize: 12,
-    marginTop: 3,
+  fullScreenQrBottomBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 
   // Language Modal
