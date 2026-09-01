@@ -970,7 +970,7 @@ export default function DelegateApp() {
 
       {/* Top Header Bar — only on Home tab */}
       {currentTab === 'home' && (
-        <View style={[styles.headerBar, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.headerBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <TouchableOpacity
             style={[styles.headerRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
             onPress={() => navigateToTab('profile')}
@@ -1013,7 +1013,7 @@ export default function DelegateApp() {
 
       {/* Sticky Title Bar — Shift Tab */}
       {currentTab === 'shift' && (
-        <View style={[styles.subPageHeader, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.subPageHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={[styles.subPageHeaderIcon, { backgroundColor: activeSession ? '#fee2e2' : colors.primaryLight }]}>
             <Ionicons
               name={activeSession ? 'stop-circle-outline' : 'play-circle-outline'}
@@ -1036,7 +1036,7 @@ export default function DelegateApp() {
 
       {/* Sticky Title Bar — History Tab */}
       {currentTab === 'history' && (
-        <View style={[styles.subPageHeader, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.subPageHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={[styles.subPageHeaderIcon, { backgroundColor: colors.accentLight }]}>
             <Ionicons name="receipt-outline" size={22} color={colors.accent} />
           </View>
@@ -1988,7 +1988,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderBottomWidth: 1,
     minHeight: 72,
   },
   headerRight: {
@@ -2057,7 +2056,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
     gap: 12,
     minHeight: 60,
   },
