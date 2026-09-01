@@ -968,42 +968,48 @@ export default function DelegateApp() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Top Header Bar (Clean & Focused with QR Code on Opposite Side) */}
-      <View style={[styles.headerBar, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <View style={[styles.headerRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          {/* Delegate Avatar / Personal Image */}
-          {empPhotoUrl ? (
-            <Image source={{ uri: empPhotoUrl }} style={styles.avatarImg} />
-          ) : (
-            <View style={[styles.avatarCircle, { backgroundColor: colors.primaryLight }]}>
-              <Text style={[styles.avatarText, { color: colors.primaryText }]}>
-                {employee.name ? employee.name.charAt(0) : 'D'}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.headerInfo}>
-            <Text style={[styles.delegateName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
-              {employee.name || t.delegate}
-            </Text>
-            <View style={[styles.headerBadgesRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <View style={[styles.pillBadge, { backgroundColor: colors.accentLight }]}>
-                <Text style={[styles.pillBadgeText, { color: colors.accent }]}>
-                  {t.idAbbr}: {employee.national_id}
+      {/* Top Header Bar — only on Home tab */}
+      {currentTab === 'home' && (
+        <View style={[styles.headerBar, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <TouchableOpacity
+            style={[styles.headerRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+            onPress={() => navigateToTab('profile')}
+            activeOpacity={0.75}
+          >
+            {/* Delegate Avatar / Personal Image */}
+            {empPhotoUrl ? (
+              <Image source={{ uri: empPhotoUrl }} style={styles.avatarImg} />
+            ) : (
+              <View style={[styles.avatarCircle, { backgroundColor: colors.primaryLight }]}>
+                <Text style={[styles.avatarText, { color: colors.primaryText }]}>
+                  {employee.name ? employee.name.charAt(0) : 'D'}
                 </Text>
               </View>
-            </View>
-          </View>
-        </View>
+            )}
 
-        {/* QR Code Button on the Opposite Side */}
-        <TouchableOpacity
-          style={[styles.qrHeaderBtn, { backgroundColor: colors.accentLight, borderColor: colors.primary }]}
-          onPress={() => setShowQrModal(true)}
-        >
-          <Ionicons name="qr-code" size={20} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
+            <View style={styles.headerInfo}>
+              <Text style={[styles.delegateName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
+                {employee.name || t.delegate}
+              </Text>
+              <View style={[styles.headerBadgesRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.pillBadge, { backgroundColor: colors.accentLight }]}>
+                  <Text style={[styles.pillBadgeText, { color: colors.accent }]}>
+                    {t.idAbbr}: {employee.national_id}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* QR Code Button on the Opposite Side */}
+          <TouchableOpacity
+            style={[styles.qrHeaderBtn, { backgroundColor: colors.accentLight, borderColor: colors.primary }]}
+            onPress={() => setShowQrModal(true)}
+          >
+            <Ionicons name="qr-code" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Body Content with ScrollRef */}
       <ScrollView
@@ -1107,7 +1113,7 @@ export default function DelegateApp() {
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
               </View>
 
-              {/* Row 2: Shifts & Distance */}
+              {/* Row 2: Shifts & Expected Salary */}
               <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
                   <MaterialCommunityIcons name="calendar-check" size={22} color={colors.primary} />
@@ -1117,13 +1123,13 @@ export default function DelegateApp() {
               </View>
 
               <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: colors.accentLight }]}>
-                  <MaterialCommunityIcons name="map-marker-distance" size={22} color={colors.accent} />
+                <View style={[styles.statIconCircle, { backgroundColor: isTargetAchieved ? 'rgba(34,197,94,0.12)' : colors.primaryLight }]}>
+                  <Ionicons name="wallet-outline" size={22} color={isTargetAchieved ? '#22c55e' : colors.primary} />
                 </View>
-                <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                  {historySessions.reduce((sum, s) => sum + (s.distance || 0), 0).toFixed(0)} {t.km}
+                <Text style={[styles.statNumber, { color: isTargetAchieved ? '#22c55e' : colors.textPrimary }]}>
+                  {expectedSalary.toLocaleString()}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalDistance}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.expectedSalary}</Text>
               </View>
             </View>
 
@@ -1171,25 +1177,6 @@ export default function DelegateApp() {
                 </Text>
                 <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t.quickHistorySub}
-                </Text>
-              </View>
-              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-
-            {/* 3. Profile Quick Access */}
-            <TouchableOpacity
-              style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={() => navigateToTab('profile')}
-            >
-              <View style={[styles.quickCardIconCircle, { backgroundColor: colors.primaryLight }]}>
-                <Ionicons name="person-outline" size={24} color={colors.primary} />
-              </View>
-              <View style={styles.quickCardTextCol}>
-                <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.quickProfileTitle}
-                </Text>
-                <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.quickProfileSub}
                 </Text>
               </View>
               <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
@@ -1964,14 +1951,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Header Bar (Compact & Clean)
+  // Header Bar (Taller & More Spacious)
   headerBar: {
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    minHeight: 56,
+    minHeight: 72,
   },
   headerRight: {
     alignItems: 'center',
@@ -1979,21 +1966,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatarImg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 2,
     borderColor: '#ea580c',
   },
   avatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   headerInfo: {
@@ -2054,13 +2041,13 @@ const styles = StyleSheet.create({
   targetCardContainer: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 18,
+    padding: 22,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
-    gap: 12,
+    gap: 14,
   },
   targetCardHeader: {
     justifyContent: 'space-between',
