@@ -841,10 +841,10 @@ export default function DelegateApp() {
                 <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t.nationalIdLabel}
                 </Text>
-                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Feather name="user" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: 'row' }]}>
+                  <Feather name="user" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
                   <TextInput
-                    style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    style={[styles.input, { color: colors.textPrimary, textAlign: 'left' }]}
                     placeholder={t.nationalIdPlaceholder}
                     placeholderTextColor="#94a3b8"
                     value={loginInput}
@@ -852,11 +852,9 @@ export default function DelegateApp() {
                     keyboardType="number-pad"
                     autoCapitalize="none"
                   />
-                  <View style={[styles.domainSuffixBadge, { backgroundColor: isDarkMode ? '#1e2233' : '#f1f5f9', borderColor: colors.border }]}>
-                    <Text style={[styles.domainSuffixText, { color: colors.textSecondary }]}>
-                      @aams-logistics.com
-                    </Text>
-                  </View>
+                  <Text style={[styles.domainSuffixText, { color: colors.textSecondary }]}>
+                    @aams-logistics.com
+                  </Text>
                 </View>
               </View>
 
@@ -2293,15 +2291,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     height: '100%',
   },
-  domainSuffixBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
   domainSuffixText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '500',
   },
   textArea: {
     borderWidth: 1,
