@@ -1805,32 +1805,23 @@ export default function DelegateApp() {
               </TouchableOpacity>
             </View>
 
-            {/* QR Code Container with Centered Brand Logo */}
+            {/* QR Code Container with Centered Clean Transparent Logo (UUID Data) */}
             <View style={styles.qrCodeWrapper}>
               <Image
                 source={{
-                  uri: `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(
-                    JSON.stringify({
-                      id: employee.id,
-                      national_id: employee.national_id,
-                      name: employee.name,
-                      bike: employee.motorcycle_number,
-                      branch: employee.branch_name,
-                      key: employee.key_number,
-                    })
+                  uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+                    employee.id
                   )}&margin=6&ecc=H`,
                 }}
                 style={styles.qrCodeImage}
                 resizeMode="contain"
               />
-              {/* Centered Company Logo Emblem */}
-              <View style={[styles.qrLogoCenterWrapper, { borderColor: colors.primary }]}>
-                <Image
-                  source={require('../../assets/images/logo.png')}
-                  style={styles.qrCenterLogo}
-                  resizeMode="contain"
-                />
-              </View>
+              {/* Direct Transparent Logo in Center (No background / No border) */}
+              <Image
+                source={require('../../assets/images/logo.png')}
+                style={styles.qrDirectLogo}
+                resizeMode="contain"
+              />
             </View>
 
             {/* Delegate Info Pill in Modal */}
@@ -2769,26 +2760,12 @@ const styles = StyleSheet.create({
   qrCodeImage: {
     width: 220,
     height: 220,
-    borderRadius: 10,
+    borderRadius: 8,
   },
-  qrLogoCenterWrapper: {
+  qrDirectLogo: {
     position: 'absolute',
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#ffffff',
-    borderWidth: 2.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  qrCenterLogo: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
   },
   qrDelegateInfoBox: {
     width: '100%',
