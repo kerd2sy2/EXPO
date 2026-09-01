@@ -1771,6 +1771,7 @@ export default function DelegateApp() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   keyboardView: {
     flex: 1,
@@ -1789,21 +1790,21 @@ const styles = StyleSheet.create({
 
   // Login Screen Styles
   loginScrollContent: {
-    padding: 24,
-    paddingTop: 16,
+    padding: 20,
+    paddingTop: Platform.OS === 'android' ? 8 : 4,
     paddingBottom: 40,
   },
   topBarActions: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   langSwitchBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
     shadowColor: '#000',
@@ -1813,47 +1814,47 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   langSwitchText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 'bold',
   },
   loginHeader: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 18,
   },
   logoImage: {
-    width: 90,
-    height: 90,
-    marginBottom: 12,
+    width: 80,
+    height: 80,
+    marginBottom: 8,
   },
   appTitle: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   appSubtitle: {
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 2,
   },
   loginCardTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   loginCardSubtitle: {
-    fontSize: 13,
-    marginBottom: 20,
-    lineHeight: 18,
+    fontSize: 12,
+    marginBottom: 16,
+    lineHeight: 17,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    padding: 12,
+    padding: 10,
     borderRadius: 10,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   errorBannerText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     flex: 1,
   },
@@ -1862,8 +1863,8 @@ const styles = StyleSheet.create({
   headerBar: {
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderBottomWidth: 1,
   },
   headerRight: {
