@@ -466,8 +466,8 @@ export default function DelegateApp() {
 
   const fillDelwarDemo = () => {
     setLoginInput('2569600022');
-    setPasswordInput('9600022');
-    handleLogin('2569600022', '9600022');
+    setPasswordInput('600022');
+    handleLogin('2569600022', '600022');
   };
 
   const handleLogout = () => {
