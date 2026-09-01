@@ -793,33 +793,25 @@ export default function DelegateApp() {
           style={styles.keyboardView}
         >
           <ScrollView contentContainerStyle={styles.loginScrollContent} showsVerticalScrollIndicator={false}>
-            {/* Language Switcher Button Top */}
-            <View style={styles.topBarActions}>
-              <TouchableOpacity
-                style={[styles.langSwitchBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => setShowLangModal(true)}
-              >
-                <Ionicons name="globe-outline" size={16} color={colors.primary} />
-                <Text style={[styles.langSwitchText, { color: colors.textPrimary }]}>
-                  {lang === 'ar' ? 'العربية 🇸🇦' : lang === 'en' ? 'English 🇺🇸' : 'বাংলা 🇧🇩'}
-                </Text>
-                <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Official Logo Header */}
-            <View style={styles.loginHeader}>
+            {/* Official Horizontal Brand Lockup (Logo mark + AAMS LOGISTICS) */}
+            <View style={styles.brandHorizontalLockup}>
               <Image
                 source={require('../../assets/images/logo.png')}
-                style={styles.logoImage}
+                style={styles.brandLogoMark}
                 resizeMode="contain"
               />
-              <Text style={[styles.appTitle, { color: colors.textPrimary }]}>{t.appName}</Text>
-              <Text style={[styles.appSubtitle, { color: colors.textSecondary }]}>{t.appSubtitle}</Text>
+              <View style={styles.brandTextCol}>
+                <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
+                  AAMS
+                </Text>
+                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#94a3b8' : '#475569' }]}>
+                  LOGISTICS
+                </Text>
+              </View>
             </View>
 
             {/* Login Card */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                 {t.loginTitle}
               </Text>
@@ -880,7 +872,7 @@ export default function DelegateApp() {
 
               {/* Login Button */}
               <TouchableOpacity
-                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                style={[styles.primaryButton, { backgroundColor: colors.primary, marginTop: 8 }]}
                 onPress={() => handleLogin()}
                 disabled={submitting}
               >
@@ -896,7 +888,7 @@ export default function DelegateApp() {
 
               {/* ⚡ Quick Demo Test Button */}
               <TouchableOpacity
-                style={[styles.demoButton, { backgroundColor: colors.accentLight, borderColor: colors.accent }]}
+                style={[styles.demoButton, { backgroundColor: colors.accentLight, borderColor: isDarkMode ? 'transparent' : colors.accent }]}
                 onPress={fillDelwarDemo}
                 disabled={submitting}
               >
@@ -1869,49 +1861,45 @@ const styles = StyleSheet.create({
   // Login Screen Styles
   loginScrollContent: {
     padding: 24,
-    paddingTop: 16,
+    paddingTop: Platform.OS === 'android' ? 24 : 40,
     paddingBottom: 40,
-  },
-  topBarActions: {
-    flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 20,
   },
-  langSwitchBtn: {
+  brandHorizontalLockup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 28,
+  },
+  brandLogoMark: {
+    width: 44,
+    height: 44,
+  },
+  brandTextCol: {
+    justifyContent: 'center',
+  },
+  brandMainTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 2,
+    lineHeight: 26,
+  },
+  brandSubTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 2.5,
+    marginTop: -2,
+  },
+  loginCard: {
     borderRadius: 20,
     borderWidth: 1,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  langSwitchText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  loginHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  logoImage: {
-    width: 90,
-    height: 90,
-    marginBottom: 12,
-  },
-  appTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  appSubtitle: {
-    fontSize: 14,
-    marginTop: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   loginCardTitle: {
     fontSize: 20,
