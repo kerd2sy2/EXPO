@@ -49,9 +49,9 @@ const translations = {
     loginSubtitle: 'أدخل رقم الهوية الوطنية لتسجيل الدخول ومباشرة دوامك',
     nationalIdLabel: 'رقم الهوية أو البريد',
     nationalIdPlaceholder: 'مثال: 2569600022',
-    passwordLabel: 'كلمة المرور (اختياري)',
-    passwordPlaceholder: 'آخر 6 أرقام من الهوية افتراضياً',
-    passwordHint: '💡 كلمة المرور الافتراضية هي آخر 6 أرقام من رقم الهوية',
+    passwordLabel: 'كلمة المرور',
+    passwordPlaceholder: 'أدخل كلمة المرور',
+    passwordHint: '',
     loginBtn: 'دخول البوابة',
     demoLoginBtn: '⚡ تجربة سريعة: دلوار اوسين شيبون (2569600022)',
     readyToStart: 'جاهز لبدء الشفت 🚀',
@@ -149,9 +149,9 @@ const translations = {
     loginSubtitle: 'Enter your National ID to sign in and start your shift',
     nationalIdLabel: 'National ID or Email',
     nationalIdPlaceholder: 'e.g. 2569600022',
-    passwordLabel: 'Password (Optional)',
-    passwordPlaceholder: 'Last 6 digits of ID by default',
-    passwordHint: '💡 Default password is the last 6 digits of your National ID',
+    passwordLabel: 'Password',
+    passwordPlaceholder: 'Enter your password',
+    passwordHint: '',
     loginBtn: 'Sign In',
     demoLoginBtn: '⚡ Quick Demo: Delwar Hossain (2569600022)',
     readyToStart: 'Ready to start shift 🚀',
@@ -869,9 +869,6 @@ export default function DelegateApp() {
                     secureTextEntry={!showPassword}
                   />
                 </View>
-                <Text style={[styles.hintText, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.passwordHint}
-                </Text>
               </View>
 
               {/* Login Button */}
@@ -892,14 +889,18 @@ export default function DelegateApp() {
 
               {/* ⚡ Quick Demo Test Button */}
               <TouchableOpacity
-                style={[styles.demoButton, { backgroundColor: colors.accentLight, borderColor: isDarkMode ? 'transparent' : colors.accent }]}
+                style={[styles.demoButton, { borderColor: colors.primary }]}
                 onPress={fillDelwarDemo}
                 disabled={submitting}
               >
-                <Ionicons name="flash" size={16} color={colors.accent} />
-                <Text style={[styles.demoButtonText, { color: colors.accent }]}>
-                  {t.demoLoginBtn}
-                </Text>
+                <View style={styles.demoButtonInner}>
+                  <View style={[styles.demoButtonIconWrap, { backgroundColor: colors.primary }]}>
+                    <Ionicons name="flash" size={16} color="#ffffff" />
+                  </View>
+                  <Text style={[styles.demoButtonText, { color: colors.textPrimary }]}>
+                    {t.demoLoginBtn}
+                  </Text>
+                </View>
               </TouchableOpacity>
               </View>
             </View>
@@ -2495,18 +2496,29 @@ const styles = StyleSheet.create({
 
   // Quick Demo Button
   demoButton: {
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    marginTop: 16,
+    overflow: 'hidden',
+  },
+  demoButtonInner: {
     flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  demoButtonIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
   },
   demoButtonText: {
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    flex: 1,
   },
 
   // History Screen Styles
