@@ -1075,21 +1075,6 @@ export default function DelegateApp() {
                 </Text>
               </View>
 
-              {/* Center Hero: Estimated Salary */}
-              <View style={[styles.targetEarningsHero, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                <Text style={[styles.targetEarningsLabel, { color: colors.textSecondary }]}>
-                  {t.expectedSalary}
-                </Text>
-                <View style={[styles.targetEarningsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text style={[styles.targetEarningsValue, { color: isTargetAchieved ? '#22c55e' : (isDarkMode ? '#ffffff' : '#0f172a') }]}>
-                    {expectedSalary.toLocaleString()}
-                  </Text>
-                  <Text style={[styles.targetEarningsCurrency, { color: colors.primary }]}>
-                    {t.sar}
-                  </Text>
-                </View>
-              </View>
-
               {/* Smooth Progress Bar */}
               <View style={styles.targetProgressContainer}>
                 <View style={[styles.progressBarTrack, { backgroundColor: isDarkMode ? '#1f2433' : '#f1f5f9' }]}>
@@ -2095,13 +2080,13 @@ const styles = StyleSheet.create({
   targetCardContainer: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 22,
+    padding: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
-    gap: 14,
+    gap: 10,
   },
   targetCardHeader: {
     justifyContent: 'space-between',
