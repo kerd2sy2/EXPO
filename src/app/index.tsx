@@ -845,7 +845,7 @@ export default function DelegateApp() {
                     placeholderTextColor="#94a3b8"
                     value={loginInput}
                     onChangeText={setLoginInput}
-                    keyboardType="email-address"
+                    keyboardType="number-pad"
                     autoCapitalize="none"
                   />
                 </View>
@@ -866,6 +866,7 @@ export default function DelegateApp() {
                     placeholderTextColor="#94a3b8"
                     value={passwordInput}
                     onChangeText={setPasswordInput}
+                    keyboardType="number-pad"
                     secureTextEntry={!showPassword}
                   />
                 </View>
