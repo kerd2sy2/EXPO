@@ -1,7 +1,7 @@
-// Hosted Backend API URL
+// Hosted Backend API URL (Render)
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
-  'https://aams-logistics.kerd2sy.com/api/v1';
+  'https://aams-backend-fxy7.onrender.com/api/v1';
 
 let storedToken: string | null = null;
 
