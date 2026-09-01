@@ -793,8 +793,9 @@ export default function DelegateApp() {
           style={styles.keyboardView}
         >
           <ScrollView contentContainerStyle={styles.loginScrollContent} showsVerticalScrollIndicator={false}>
-            {/* Official Horizontal Brand Lockup (Logo on the Right) */}
-            <View style={[styles.brandHorizontalLockup, { flexDirection: 'row-reverse' }]}>
+            <View style={styles.loginWrapper}>
+              {/* Official Horizontal Brand Lockup (Logo on the Right) */}
+              <View style={[styles.brandHorizontalLockup, { flexDirection: 'row-reverse' }]}>
               <Image
                 source={require('../../assets/images/logo.png')}
                 style={styles.brandLogoMark}
@@ -897,6 +898,7 @@ export default function DelegateApp() {
                   {t.demoLoginBtn}
                 </Text>
               </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -1860,10 +1862,15 @@ const styles = StyleSheet.create({
 
   // Login Screen Styles
   loginScrollContent: {
+    flexGrow: 1,
     padding: 24,
-    paddingTop: Platform.OS === 'android' ? 24 : 40,
-    paddingBottom: 40,
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 30,
+  },
+  loginWrapper: {
+    width: '100%',
+    maxWidth: 400,
   },
   brandHorizontalLockup: {
     flexDirection: 'row',
