@@ -19,6 +19,7 @@ export interface EmployeeProfile {
 export interface WorkSession {
   id: string;
   employee_id: string;
+  employee_name?: string;
   employee?: EmployeeProfile;
   start_time: string;
   end_time: string | null;
@@ -33,6 +34,11 @@ export interface WorkSession {
   notes?: string;
   is_reviewed?: boolean;
   review_notes?: string;
+  is_edited_by_supervisor?: boolean;
+  edited_by_name?: string;
+  original_orders_count?: number;
+  original_end_km?: number;
+  original_start_km?: number;
   status: 'ACTIVE' | 'COMPLETED';
 }
 
@@ -131,6 +137,16 @@ export const workApi = {
       return data;
     } catch {
       return null;
+    }
+  },
+
+  // Get delegate shift history
+  getMySessions: async (employeeId: string, limit = 20): Promise<WorkSession[]> => {
+    try {
+      const data = await apiRequest<{ data: WorkSession[] }>(`/reports?employee_id=${employeeId}&limit=${limit}`);
+      return data?.data || [];
+    } catch {
+      return [];
     }
   },
 };
