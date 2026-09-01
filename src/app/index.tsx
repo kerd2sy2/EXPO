@@ -27,6 +27,17 @@ const { width } = Dimensions.get('window');
 type TabType = 'home' | 'shift' | 'history' | 'profile';
 type Language = 'ar' | 'en' | 'bn';
 
+// Helper to resolve full image URLs for backend uploads / personal images
+export const getFullImageUrl = (imagePath?: string): string | null => {
+  if (!imagePath || !imagePath.trim()) return null;
+  const path = imagePath.trim();
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:image')) {
+    return path;
+  }
+  const cleanBase = 'https://aams-backend-fxy7.onrender.com';
+  return `${cleanBase}${path.startsWith('/') ? path : `/${path}`}`;
+};
+
 const translations = {
   ar: {
     appName: 'AAMS Logistics',
@@ -70,9 +81,11 @@ const translations = {
     startKmPlaceholder: 'مثال: 15400',
     autoKmFetched: 'تم جلب عداد نهاية الشفت السابق لهذا الدباب تلقائياً',
     startKmPhotoLabel: 'صورة عداد البداية (مطلوبة للتدقيق)',
-    captureCamera: 'التقاط بالكاميرا 📸',
-    pickGallery: 'من المعرض 🖼️',
-    photoCapturedSuccess: 'تم التقاط صورة العداد',
+    captureCamera: 'فتح الكاميرا وتصوير العداد 📸',
+    odometerGuideTitle: 'وضع شاشة العداد داخل هذا الإطار',
+    odometerGuideSub: 'وجّه الكاميرا نحو شاشة العداد وتأكد من وضوح الأرقام',
+    photoCapturedSuccess: 'تم التقاط صورة العداد بنجاح',
+    retakePhoto: 'إعادة التصوير 🔄',
     startNotesLabel: 'ملاحظات البداية (اختياري)',
     startNotesPlaceholder: 'أي ملاحظات حول حالة الدباب قبل الانطلاق...',
     confirmStartBtn: 'تأكيد وبدء الدوام الآن 🚀',
@@ -153,9 +166,11 @@ const translations = {
     startKmPlaceholder: 'e.g. 15400',
     autoKmFetched: 'Previous end odometer auto-filled for this bike',
     startKmPhotoLabel: 'Start Odometer Photo (Required)',
-    captureCamera: 'Take Photo 📸',
-    pickGallery: 'From Gallery 🖼️',
-    photoCapturedSuccess: 'Odometer photo captured',
+    captureCamera: 'Open Camera & Snap Odometer 📸',
+    odometerGuideTitle: 'Align Odometer Inside Box',
+    odometerGuideSub: 'Point camera at the odometer display clearly',
+    photoCapturedSuccess: 'Odometer photo captured successfully',
+    retakePhoto: 'Retake Photo 🔄',
     startNotesLabel: 'Start Notes (Optional)',
     startNotesPlaceholder: 'Any notes regarding bike condition...',
     confirmStartBtn: 'Confirm & Start Shift 🚀',
@@ -236,9 +251,11 @@ const translations = {
     startKmPlaceholder: 'যেমন: 15400',
     autoKmFetched: 'এই বাইকের পূর্ববর্তী শেষ মিটার স্বয়ংক্রিয়ভাবে যুক্ত হয়েছে',
     startKmPhotoLabel: 'শুরুর মিটারের ছবি (বাধ্যতামূলক)',
-    captureCamera: 'ক্যামেরা দিয়ে ছবি 📸',
-    pickGallery: 'গ্যালারি থেকে 🖼️',
-    photoCapturedSuccess: 'মিটারের ছবি তোলা হয়েছে',
+    captureCamera: 'ক্যামেরা খুলে মিটারের ছবি তুলুন 📸',
+    odometerGuideTitle: 'মিটারে ক্যামেরা সঠিকভাবে ফোকাস করুন',
+    odometerGuideSub: 'মিটারের সংখ্যাগুলো যেন পরিষ্কার দেখা যায়',
+    photoCapturedSuccess: 'মিটারে ছবি সফলভাবে তোলা হয়েছে',
+    retakePhoto: 'আবার ছবি তুলুন 🔄',
     startNotesLabel: 'শুরুর মন্তব্য (ঐচ্ছিক)',
     startNotesPlaceholder: 'বাইক সম্পর্কিত কোনো মন্তব্য...',
     confirmStartBtn: 'নিশ্চিত ও শুরু করুন 🚀',
@@ -390,6 +407,7 @@ export default function DelegateApp() {
             motorcycle_number: me.admin.motorcycle_number || '',
             key_number: me.admin.key_number || '',
             branch_name: me.admin.branch?.name || '',
+            personal_image: me.admin.personal_image || '',
           };
           setEmployee(emp);
           setEnteredMotorcycle(emp.motorcycle_number || '');
@@ -449,6 +467,7 @@ export default function DelegateApp() {
         key_number: '',
         employee_number: '',
         job_role: 'DRIVER',
+        personal_image: '',
       };
 
       setEmployee(empData);
@@ -481,35 +500,21 @@ export default function DelegateApp() {
     setCurrentTab('home');
   };
 
-  // Image picking / capturing helper
-  const pickOdometerImage = async (mode: 'camera' | 'gallery', target: 'start' | 'end') => {
+  // Direct camera capture without cropping (live field verification)
+  const takeOdometerPhoto = async (target: 'start' | 'end') => {
     try {
-      let result: ImagePicker.ImagePickerResult;
-      if (mode === 'camera') {
-        const permission = await ImagePicker.requestCameraPermissionsAsync();
-        if (!permission.granted) {
-          Alert.alert('Permission required', 'Please grant camera permissions to take odometer photo');
-          return;
-        }
-        result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ['images'],
-          allowsEditing: true,
-          quality: 0.5,
-          base64: true,
-        });
-      } else {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
-          Alert.alert('Permission required', 'Please grant gallery permissions to select odometer photo');
-          return;
-        }
-        result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          allowsEditing: true,
-          quality: 0.5,
-          base64: true,
-        });
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('الإذن مطلوب', 'يرجى السماح للتطبيق باستخدام الكاميرا لتصوير العداد مباشرة');
+        return;
       }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false, // لا يوجد قص — موافق مباشرة
+        quality: 0.8,
+        base64: true,
+      });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
@@ -521,7 +526,7 @@ export default function DelegateApp() {
         }
       }
     } catch (err: any) {
-      Alert.alert('Error', 'Image picker error: ' + (err.message || ''));
+      Alert.alert('خطأ', 'تعذر فتح الكاميرا: ' + (err.message || ''));
     }
   };
 
@@ -634,6 +639,11 @@ export default function DelegateApp() {
     return (end - start).toFixed(1);
   }, [endKm, activeSession?.start_km]);
 
+  // Delegate Personal Photo URL
+  const empPhotoUrl = useMemo(() => {
+    return getFullImageUrl(employee?.personal_image);
+  }, [employee?.personal_image]);
+
   // Theme Colors
   const colors = {
     bg: isDarkMode ? '#090d16' : '#f8fafc',
@@ -692,7 +702,7 @@ export default function DelegateApp() {
               </TouchableOpacity>
             </View>
 
-            {/* App Logo & Header */}
+            {/* Official Logo Header */}
             <View style={styles.loginHeader}>
               <Image
                 source={require('../../assets/images/logo.png')}
@@ -772,7 +782,7 @@ export default function DelegateApp() {
                 {submitting ? (
                   <ActivityIndicator color="#ffffff" size="small" />
                 ) : (
-                  <View style={styles.buttonContentRow}>
+                  <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <Ionicons name="log-in-outline" size={20} color="#ffffff" />
                     <Text style={styles.primaryButtonText}>{t.loginBtn}</Text>
                   </View>
@@ -859,11 +869,17 @@ export default function DelegateApp() {
       {/* Top Header Bar */}
       <View style={[styles.headerBar, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <View style={[styles.headerRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.avatarCircle, { backgroundColor: colors.primaryLight }]}>
-            <Text style={[styles.avatarText, { color: colors.primaryText }]}>
-              {employee.name ? employee.name.charAt(0) : 'D'}
-            </Text>
-          </View>
+          {/* Delegate Avatar / Personal Image */}
+          {empPhotoUrl ? (
+            <Image source={{ uri: empPhotoUrl }} style={styles.avatarImg} />
+          ) : (
+            <View style={[styles.avatarCircle, { backgroundColor: colors.primaryLight }]}>
+              <Text style={[styles.avatarText, { color: colors.primaryText }]}>
+                {employee.name ? employee.name.charAt(0) : 'D'}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.headerInfo}>
             <Text style={[styles.delegateName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
               {employee.name || t.delegate}
@@ -1153,7 +1169,7 @@ export default function DelegateApp() {
                   )}
                 </View>
 
-                {/* Start Odometer Photo Capture */}
+                {/* Start Odometer Live Camera Target Guide Box */}
                 <View style={styles.formGroup}>
                   <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                     {t.startKmPhotoLabel} <Text style={{ color: '#ef4444' }}>*</Text>
@@ -1167,28 +1183,35 @@ export default function DelegateApp() {
                         <Text style={styles.imageOverlayText}>{t.photoCapturedSuccess}</Text>
                       </View>
                       <TouchableOpacity
-                        style={styles.removeImageBtn}
-                        onPress={() => setStartKmImage(null)}
+                        style={styles.retakeButton}
+                        onPress={() => takeOdometerPhoto('start')}
                       >
-                        <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                        <Ionicons name="camera-reverse" size={16} color="#ffffff" />
+                        <Text style={styles.retakeButtonText}>{t.retakePhoto}</Text>
                       </TouchableOpacity>
                     </View>
                   ) : (
-                    <View style={[styles.photoPickerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <TouchableOpacity
-                        style={[styles.photoButton, { backgroundColor: colors.primaryLight, borderColor: colors.primary, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                        onPress={() => pickOdometerImage('camera', 'start')}
-                      >
-                        <Ionicons name="camera" size={22} color={colors.primary} />
-                        <Text style={[styles.photoButtonText, { color: colors.primaryText }]}>{t.captureCamera}</Text>
-                      </TouchableOpacity>
+                    <View style={[styles.odometerGuideBox, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}>
+                      {/* Viewfinder corner brackets */}
+                      <View style={[styles.cornerBracket, styles.cornerTopLeft, { borderColor: colors.primary }]} />
+                      <View style={[styles.cornerBracket, styles.cornerTopRight, { borderColor: colors.primary }]} />
+                      <View style={[styles.cornerBracket, styles.cornerBottomLeft, { borderColor: colors.primary }]} />
+                      <View style={[styles.cornerBracket, styles.cornerBottomRight, { borderColor: colors.primary }]} />
+
+                      <MaterialCommunityIcons name="gauge" size={38} color={colors.primary} style={{ marginBottom: 6 }} />
+                      <Text style={[styles.odometerGuideText, { color: colors.textPrimary }]}>
+                        {t.odometerGuideTitle}
+                      </Text>
+                      <Text style={[styles.odometerGuideSub, { color: colors.textSecondary }]}>
+                        {t.odometerGuideSub}
+                      </Text>
 
                       <TouchableOpacity
-                        style={[styles.photoButton, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                        onPress={() => pickOdometerImage('gallery', 'start')}
+                        style={[styles.cameraCaptureBtn, { backgroundColor: colors.primary }]}
+                        onPress={() => takeOdometerPhoto('start')}
                       >
-                        <Ionicons name="images-outline" size={22} color={colors.textSecondary} />
-                        <Text style={[styles.photoButtonText, { color: colors.textSecondary }]}>{t.pickGallery}</Text>
+                        <Ionicons name="camera" size={20} color="#ffffff" />
+                        <Text style={styles.cameraCaptureBtnText}>{t.captureCamera}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -1288,7 +1311,7 @@ export default function DelegateApp() {
                   )}
                 </View>
 
-                {/* End Odometer Photo Capture */}
+                {/* End Odometer Live Camera Target Guide Box */}
                 <View style={styles.formGroup}>
                   <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                     {t.endKmPhotoLabel} <Text style={{ color: '#ef4444' }}>*</Text>
@@ -1302,28 +1325,35 @@ export default function DelegateApp() {
                         <Text style={styles.imageOverlayText}>{t.photoCapturedSuccess}</Text>
                       </View>
                       <TouchableOpacity
-                        style={styles.removeImageBtn}
-                        onPress={() => setEndKmImage(null)}
+                        style={styles.retakeButton}
+                        onPress={() => takeOdometerPhoto('end')}
                       >
-                        <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                        <Ionicons name="camera-reverse" size={16} color="#ffffff" />
+                        <Text style={styles.retakeButtonText}>{t.retakePhoto}</Text>
                       </TouchableOpacity>
                     </View>
                   ) : (
-                    <View style={[styles.photoPickerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <TouchableOpacity
-                        style={[styles.photoButton, { backgroundColor: '#fef2f2', borderColor: '#ef4444', flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                        onPress={() => pickOdometerImage('camera', 'end')}
-                      >
-                        <Ionicons name="camera" size={22} color="#dc2626" />
-                        <Text style={[styles.photoButtonText, { color: '#dc2626' }]}>{t.captureCamera}</Text>
-                      </TouchableOpacity>
+                    <View style={[styles.odometerGuideBox, { backgroundColor: colors.inputBg, borderColor: '#ef4444' }]}>
+                      {/* Viewfinder corner brackets */}
+                      <View style={[styles.cornerBracket, styles.cornerTopLeft, { borderColor: '#ef4444' }]} />
+                      <View style={[styles.cornerBracket, styles.cornerTopRight, { borderColor: '#ef4444' }]} />
+                      <View style={[styles.cornerBracket, styles.cornerBottomLeft, { borderColor: '#ef4444' }]} />
+                      <View style={[styles.cornerBracket, styles.cornerBottomRight, { borderColor: '#ef4444' }]} />
+
+                      <MaterialCommunityIcons name="gauge" size={38} color="#ef4444" style={{ marginBottom: 6 }} />
+                      <Text style={[styles.odometerGuideText, { color: colors.textPrimary }]}>
+                        {t.odometerGuideTitle}
+                      </Text>
+                      <Text style={[styles.odometerGuideSub, { color: colors.textSecondary }]}>
+                        {t.odometerGuideSub}
+                      </Text>
 
                       <TouchableOpacity
-                        style={[styles.photoButton, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                        onPress={() => pickOdometerImage('gallery', 'end')}
+                        style={[styles.cameraCaptureBtn, { backgroundColor: '#dc2626' }]}
+                        onPress={() => takeOdometerPhoto('end')}
                       >
-                        <Ionicons name="images-outline" size={22} color={colors.textSecondary} />
-                        <Text style={[styles.photoButtonText, { color: colors.textSecondary }]}>{t.pickGallery}</Text>
+                        <Ionicons name="camera" size={20} color="#ffffff" />
+                        <Text style={styles.cameraCaptureBtnText}>{t.captureCamera}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -1504,11 +1534,15 @@ export default function DelegateApp() {
         {currentTab === 'profile' && (
           <View style={styles.tabContainer}>
             <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.profileAvatarCircle, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.profileAvatarText, { color: colors.primaryText }]}>
-                  {employee.name ? employee.name.charAt(0) : 'D'}
-                </Text>
-              </View>
+              {empPhotoUrl ? (
+                <Image source={{ uri: empPhotoUrl }} style={styles.profileAvatarImg} />
+              ) : (
+                <View style={[styles.profileAvatarCircle, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={[styles.profileAvatarText, { color: colors.primaryText }]}>
+                    {employee.name ? employee.name.charAt(0) : 'D'}
+                  </Text>
+                </View>
+              )}
 
               <Text style={[styles.profileName, { color: colors.textPrimary }]}>{employee.name}</Text>
               <Text style={[styles.profileJob, { color: colors.textSecondary }]}>{t.jobRole}</Text>
@@ -1837,6 +1871,13 @@ const styles = StyleSheet.create({
     gap: 10,
     flex: 1,
   },
+  avatarImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#059669',
+  },
   avatarCircle: {
     width: 44,
     height: 44,
@@ -2142,27 +2183,90 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
-  photoPickerRow: {
-    gap: 10,
+
+  // Odometer Live Viewfinder Frame Guide Box
+  odometerGuideBox: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
   },
-  photoButton: {
-    flex: 1,
+  cornerBracket: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderColor: '#059669',
+  },
+  cornerTopLeft: {
+    top: 8,
+    left: 8,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 6,
+  },
+  cornerTopRight: {
+    top: 8,
+    right: 8,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: 6,
+  },
+  cornerBottomLeft: {
+    bottom: 8,
+    left: 8,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: 6,
+  },
+  cornerBottomRight: {
+    bottom: 8,
+    right: 8,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: 6,
+  },
+  odometerGuideText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  odometerGuideSub: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  cameraCaptureBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 12,
-    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  photoButtonText: {
-    fontSize: 13,
+  cameraCaptureBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: 'bold',
   },
+
+  // Image Preview & Retake
   imagePreviewContainer: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
-    height: 180,
+    height: 190,
     position: 'relative',
   },
   imagePreview: {
@@ -2171,36 +2275,43 @@ const styles = StyleSheet.create({
   },
   imageOverlayBadge: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    bottom: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.75)',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
   },
   imageOverlayText: {
     color: '#ffffff',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 'bold',
   },
-  removeImageBtn: {
+  retakeButton: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: '#ffffff',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
   },
+  retakeButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+
   twoColRow: {
     gap: 10,
   },
@@ -2373,6 +2484,14 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 16,
     borderWidth: 1,
+  },
+  profileAvatarImg: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 3,
+    borderColor: '#059669',
+    marginBottom: 10,
   },
   profileAvatarCircle: {
     width: 70,
