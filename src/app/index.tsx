@@ -995,13 +995,6 @@ export default function DelegateApp() {
                   {t.idAbbr}: {employee.national_id}
                 </Text>
               </View>
-              {employee.key_number ? (
-                <View style={[styles.pillBadge, { backgroundColor: colors.primaryLight }]}>
-                  <Text style={[styles.pillBadgeText, { color: colors.primaryText }]}>
-                    {t.keyAbbr}: {employee.key_number}
-                  </Text>
-                </View>
-              ) : null}
             </View>
           </View>
         </View>
@@ -1155,12 +1148,12 @@ export default function DelegateApp() {
 
               <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.statIconCircle, { backgroundColor: colors.accentLight }]}>
-                  <MaterialCommunityIcons name="cash-multiple" size={22} color={colors.accent} />
+                  <MaterialCommunityIcons name="key-variant" size={22} color={colors.accent} />
                 </View>
                 <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                  {expectedSalary} {t.sar}
+                  {employee.key_number || '—'}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.expectedSalary}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
               </View>
             </View>
 
@@ -1790,14 +1783,6 @@ export default function DelegateApp() {
          ========================================================================= */}
       {showQrModal && employee && (
         <View style={[styles.qrFullScreenModal, { backgroundColor: colors.bg }]}>
-          {/* Top Close Floating Icon */}
-          <TouchableOpacity
-            style={[styles.qrTopCloseBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => setShowQrModal(false)}
-          >
-            <Ionicons name="close" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-
           {/* Center: QR Code with zero background container, and large centered logo with square white background */}
           <View style={styles.qrFullScreenCenter}>
             <View style={styles.qrCodeWrapperNoBg}>
