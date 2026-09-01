@@ -14,6 +14,7 @@ import {
   Platform,
   Image,
   Dimensions,
+  useColorScheme,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,10 +25,270 @@ import { setAuthToken, getStoredToken } from '../services/api';
 const { width } = Dimensions.get('window');
 
 type TabType = 'home' | 'shift' | 'history' | 'profile';
+type Language = 'ar' | 'en' | 'bn';
+
+const translations = {
+  ar: {
+    appName: 'AAMS Logistics',
+    appSubtitle: 'بوابة المناديب الميدانية',
+    loginTitle: 'تسجيل الدخول',
+    loginSubtitle: 'أدخل رقم الهوية الوطنية لتسجيل الدخول ومباشرة دوامك',
+    nationalIdLabel: 'رقم الهوية أو البريد',
+    nationalIdPlaceholder: 'مثال: 2569600022',
+    passwordLabel: 'كلمة المرور (اختياري)',
+    passwordPlaceholder: 'آخر 6 أرقام من الهوية افتراضياً',
+    passwordHint: '💡 كلمة المرور الافتراضية هي آخر 6 أرقام من رقم الهوية',
+    loginBtn: 'دخول البوابة',
+    demoLoginBtn: '⚡ تجربة سريعة: دلوار اوسين شيبون (2569600022)',
+    readyToStart: 'جاهز لبدء الشفت 🚀',
+    shiftActive: 'شفت العمل قائم الآن 🟢',
+    startShiftNow: 'بدء دوام جديد الآن 🚀',
+    endShiftNow: 'إنهاء الشفت وتسجيل العداد 🏁',
+    shiftInProgressOn: 'الدوام جاري على دباب',
+    startKmLabel: 'عداد البداية',
+    endKmLabel: 'عداد النهاية',
+    durationLabel: 'مدة العمل',
+    notStartedToday: 'لم تسجل بدء العمل اليوم بعد',
+    assignedBike: 'الدباب المربوط',
+    branch: 'الفرع',
+    myAchievements: 'ملخص إنجازاتي',
+    totalShifts: 'الشفتات المسجلة',
+    totalDistance: 'إجمالي المسافة',
+    approvedOrders: 'الطلبات المعتمدة',
+    quickAccess: 'الوصول السريع',
+    quickShiftTitle: 'بدء أو إقفال شفت العمل',
+    quickShiftSub: 'تسجيل قراءات العدادات والتقاط الصور',
+    quickHistoryTitle: 'سجل الشفتات والتصديقات',
+    quickHistorySub: 'متابعة حالة اعتماد المشرف للطلبات',
+    startShiftTitle: 'بدء شفت عمل جديد',
+    startShiftSub: 'تأكد من رقم الدباب وقراءة عداد البداية والتقط صورة واضحة',
+    actualBikeNumber: 'رقم الدباب الفعلي الذي ستقوده',
+    actualBikePlaceholder: 'اكتب رقم الدباب...',
+    bikeMatchingSuccess: 'مطابق للدباب المربوط بك بالنظام ✅',
+    bikeMismatchWarning: '⚠️ تنبيه: الدباب مختلف عن المربوط بك — سيتم إرسال إشعار للمشرف!',
+    startKmInputLabel: 'قراءة عداد البداية (Start KM)',
+    startKmPlaceholder: 'مثال: 15400',
+    autoKmFetched: 'تم جلب عداد نهاية الشفت السابق لهذا الدباب تلقائياً',
+    startKmPhotoLabel: 'صورة عداد البداية (مطلوبة للتدقيق)',
+    captureCamera: 'التقاط بالكاميرا 📸',
+    pickGallery: 'من المعرض 🖼️',
+    photoCapturedSuccess: 'تم التقاط صورة العداد',
+    startNotesLabel: 'ملاحظات البداية (اختياري)',
+    startNotesPlaceholder: 'أي ملاحظات حول حالة الدباب قبل الانطلاق...',
+    confirmStartBtn: 'تأكيد وبدء الدوام الآن 🚀',
+    endShiftTitle: 'إنهاء شفت العمل',
+    endShiftSub: 'أدخل قراءة عداد النهاية وصورته وعدد الطلبات المنجزة',
+    endKmInputLabel: 'قراءة عداد النهاية (End KM)',
+    calculatedDistLabel: 'المسافة المقطوعة المحسوبة',
+    endKmPhotoLabel: 'صورة عداد النهاية (مطلوبة للإقفال)',
+    ordersCountLabel: 'عدد الطلبات المنجزة',
+    ordersCountPlaceholder: 'مثال: 15',
+    fuelCostLabel: 'تكلفة الوقود (ر.س)',
+    fuelCostPlaceholder: '0.00',
+    endNotesLabel: 'ملاحظات إنهاء الشفت (اختياري)',
+    endNotesPlaceholder: 'أي ملاحظات حول الطلبات أو الدباب...',
+    confirmEndBtn: 'إنهاء الشفت وإرسال البيانات 🏁',
+    historyTitle: 'سجل الشفتات والاعتمادات',
+    noHistory: 'لا توجد شفتات سابقة مسجلة',
+    reviewedBadge: 'مصادق عليه ✅',
+    pendingBadge: 'بانتظار المشرف ⏳',
+    editedBySupervisor: 'تم تدقيق وتعديل البيانات بواسطة المشرف',
+    profileTitle: 'الملف الشخصي',
+    jobRole: 'مندوب توصيل معتمد',
+    nationalId: 'رقم الهوية الوطنية',
+    keyNumber: 'رقم المفتاح',
+    appSettings: 'إعدادات التطبيق',
+    language: 'لغة التطبيق',
+    logout: 'تسجيل الخروج من الحساب',
+    tabHome: 'الرئيسية',
+    tabShift: 'الدوام',
+    tabHistory: 'سجل الشفتات',
+    tabProfile: 'حسابي',
+    km: 'كم',
+    sar: 'ر.س',
+    delegate: 'المندوب',
+    idAbbr: 'هوية',
+    keyAbbr: 'مفتاح',
+    selectLang: 'اختر لغة التطبيق',
+  },
+  en: {
+    appName: 'AAMS Logistics',
+    appSubtitle: 'Field Delegate Portal',
+    loginTitle: 'Sign In',
+    loginSubtitle: 'Enter your National ID to sign in and start your shift',
+    nationalIdLabel: 'National ID or Email',
+    nationalIdPlaceholder: 'e.g. 2569600022',
+    passwordLabel: 'Password (Optional)',
+    passwordPlaceholder: 'Last 6 digits of ID by default',
+    passwordHint: '💡 Default password is the last 6 digits of your National ID',
+    loginBtn: 'Sign In',
+    demoLoginBtn: '⚡ Quick Demo: Delwar Hossain (2569600022)',
+    readyToStart: 'Ready to start shift 🚀',
+    shiftActive: 'Shift in progress 🟢',
+    startShiftNow: 'Start New Shift Now 🚀',
+    endShiftNow: 'End Shift & Record Odometer 🏁',
+    shiftInProgressOn: 'Shift in progress on bike',
+    startKmLabel: 'Start KM',
+    endKmLabel: 'End KM',
+    durationLabel: 'Duration',
+    notStartedToday: 'Shift has not started yet today',
+    assignedBike: 'Assigned Bike',
+    branch: 'Branch',
+    myAchievements: 'My Performance Summary',
+    totalShifts: 'Total Shifts',
+    totalDistance: 'Total Distance',
+    approvedOrders: 'Approved Orders',
+    quickAccess: 'Quick Access',
+    quickShiftTitle: 'Start or End Shift',
+    quickShiftSub: 'Record odometer readings & take photos',
+    quickHistoryTitle: 'Shift History & Approvals',
+    quickHistorySub: 'Track supervisor review and order approvals',
+    startShiftTitle: 'Start New Shift',
+    startShiftSub: 'Verify bike plate, enter start KM, and take odometer photo',
+    actualBikeNumber: 'Actual Bike Plate you are riding',
+    actualBikePlaceholder: 'Enter bike plate...',
+    bikeMatchingSuccess: 'Matches assigned motorcycle in system ✅',
+    bikeMismatchWarning: '⚠️ Warning: Bike is different from assigned! Supervisor will be notified.',
+    startKmInputLabel: 'Start Odometer (Start KM)',
+    startKmPlaceholder: 'e.g. 15400',
+    autoKmFetched: 'Previous end odometer auto-filled for this bike',
+    startKmPhotoLabel: 'Start Odometer Photo (Required)',
+    captureCamera: 'Take Photo 📸',
+    pickGallery: 'From Gallery 🖼️',
+    photoCapturedSuccess: 'Odometer photo captured',
+    startNotesLabel: 'Start Notes (Optional)',
+    startNotesPlaceholder: 'Any notes regarding bike condition...',
+    confirmStartBtn: 'Confirm & Start Shift 🚀',
+    endShiftTitle: 'End Work Shift',
+    endShiftSub: 'Enter end odometer, photo, and completed orders count',
+    endKmInputLabel: 'End Odometer (End KM)',
+    calculatedDistLabel: 'Calculated Distance',
+    endKmPhotoLabel: 'End Odometer Photo (Required)',
+    ordersCountLabel: 'Delivered Orders Count',
+    ordersCountPlaceholder: 'e.g. 15',
+    fuelCostLabel: 'Fuel Cost (SAR)',
+    fuelCostPlaceholder: '0.00',
+    endNotesLabel: 'End Shift Notes (Optional)',
+    endNotesPlaceholder: 'Any notes regarding shift or orders...',
+    confirmEndBtn: 'End Shift & Submit Data 🏁',
+    historyTitle: 'Shift History & Approvals',
+    noHistory: 'No previous shifts recorded',
+    reviewedBadge: 'Approved ✅',
+    pendingBadge: 'Pending Review ⏳',
+    editedBySupervisor: 'Values were audited & adjusted by supervisor',
+    profileTitle: 'My Profile',
+    jobRole: 'Certified Delivery Delegate',
+    nationalId: 'National ID',
+    keyNumber: 'Key Number',
+    appSettings: 'App Settings',
+    language: 'App Language',
+    logout: 'Log Out',
+    tabHome: 'Home',
+    tabShift: 'Shift',
+    tabHistory: 'History',
+    tabProfile: 'Profile',
+    km: 'KM',
+    sar: 'SAR',
+    delegate: 'Delegate',
+    idAbbr: 'ID',
+    keyAbbr: 'Key',
+    selectLang: 'Select Language',
+  },
+  bn: {
+    appName: 'AAMS লজিস্টিকস',
+    appSubtitle: 'ফিল্ড ডেলিভারি পোর্টাল',
+    loginTitle: 'লগইন করুন',
+    loginSubtitle: 'আপনার শিফট শুরু করতে জাতীয় পরিচয়পত্র নম্বর দিন',
+    nationalIdLabel: 'আইডি নম্বর বা ইমেইল',
+    nationalIdPlaceholder: 'যেমন: 2569600022',
+    passwordLabel: 'পাসওয়ার্ড (ঐচ্ছিক)',
+    passwordPlaceholder: 'আইডির শেষ ৬ ডিজিট ডিফল্ট',
+    passwordHint: '💡 ডিফল্ট পাসওয়ার্ড হল আপনার আইডি নম্বরের শেষ ৬ ডিজিট',
+    loginBtn: 'প্রবেশ করুন',
+    demoLoginBtn: '⚡ ডেমো লগইন: দেলোয়ার হোসেন (2569600022)',
+    readyToStart: 'শিফট শুরু করতে প্রস্তুত 🚀',
+    shiftActive: 'শিফট বর্তমানে চলছে 🟢',
+    startShiftNow: 'নতুন শিফট শুরু করুন 🚀',
+    endShiftNow: 'শিফট শেষ ও মিটার জমা দিন 🏁',
+    shiftInProgressOn: 'বাইকে কাজ চলছে',
+    startKmLabel: 'শুরুর মিটার',
+    endKmLabel: 'শেষের মিটার',
+    durationLabel: 'কাজের সময়',
+    notStartedToday: 'আজ এখনও শিফট শুরু করা হয়নি',
+    assignedBike: 'নির্ধারিত বাইক',
+    branch: 'শাখা',
+    myAchievements: 'আমার কাজের সারাংশ',
+    totalShifts: 'মোট শিফট',
+    totalDistance: 'মোট দূরত্ব',
+    approvedOrders: 'অনুমোদিত অর্ডার',
+    quickAccess: 'দ্রুত অ্যাক্সেস',
+    quickShiftTitle: 'শিফট শুরু বা শেষ করুন',
+    quickShiftSub: 'মিটার রিডিং রেকর্ড এবং ছবি তুলুন',
+    quickHistoryTitle: 'শিফট ইতিহাস ও অনুমোদন',
+    quickHistorySub: 'সুপারভাইজার অনুমোদন ট্র্যাক করুন',
+    startShiftTitle: 'নতুন শিফট শুরু',
+    startShiftSub: 'বাইকের নম্বর এবং শুরুর মিটার নিশ্চিত করে ছবি তুলুন',
+    actualBikeNumber: 'আপনি যে বাইকটি চালাচ্ছেন তার নম্বর',
+    actualBikePlaceholder: 'বাইক নম্বর লিখুন...',
+    bikeMatchingSuccess: 'সিস্টেমে নির্ধারিত বাইকের সাথে মিলেছে ✅',
+    bikeMismatchWarning: '⚠️ সতর্কতা: নির্ধারিত বাইকের সাথে মিলেনি! সুপারভাইজারকে জানানো হবে।',
+    startKmInputLabel: 'শুরুর মিটার রিডিং (Start KM)',
+    startKmPlaceholder: 'যেমন: 15400',
+    autoKmFetched: 'এই বাইকের পূর্ববর্তী শেষ মিটার স্বয়ংক্রিয়ভাবে যুক্ত হয়েছে',
+    startKmPhotoLabel: 'শুরুর মিটারের ছবি (বাধ্যতামূলক)',
+    captureCamera: 'ক্যামেরা দিয়ে ছবি 📸',
+    pickGallery: 'গ্যালারি থেকে 🖼️',
+    photoCapturedSuccess: 'মিটারের ছবি তোলা হয়েছে',
+    startNotesLabel: 'শুরুর মন্তব্য (ঐচ্ছিক)',
+    startNotesPlaceholder: 'বাইক সম্পর্কিত কোনো মন্তব্য...',
+    confirmStartBtn: 'নিশ্চিত ও শুরু করুন 🚀',
+    endShiftTitle: 'শিফট সমাপ্তি',
+    endShiftSub: 'শেষের মিটার, ছবি এবং অর্ডারের সংখ্যা দিন',
+    endKmInputLabel: 'শেষের মিটার রিডিং (End KM)',
+    calculatedDistLabel: 'মোট অতিক্রান্ত দূরত্ব',
+    endKmPhotoLabel: 'শেষের মিটারের ছবি (বাধ্যতামূলক)',
+    ordersCountLabel: 'সম্পন্ন অর্ডারের সংখ্যা',
+    ordersCountPlaceholder: 'যেমন: 15',
+    fuelCostLabel: 'জ্বালানি খরচ (SAR)',
+    fuelCostPlaceholder: '0.00',
+    endNotesLabel: 'সমাপ্তির মন্তব্য (ঐচ্ছিক)',
+    endNotesPlaceholder: 'অর্ডার বা বাইক সম্পর্কে মন্তব্য...',
+    confirmEndBtn: 'শিফট শেষ ও জমা দিন 🏁',
+    historyTitle: 'শিফট ইতিহাস ও অনুমোদন',
+    noHistory: 'কোনো পূর্ববর্তী শিফট পাওয়া যায়নি',
+    reviewedBadge: 'অনুমোদিত ✅',
+    pendingBadge: 'অপেক্ষমাণ ⏳',
+    editedBySupervisor: 'সুপারভাইজার দ্বারা সংশোধিত হয়েছে',
+    profileTitle: 'প্রোফাইল',
+    jobRole: 'অনুমোদিত ডেলিভারি প্রতিনিধি',
+    nationalId: 'জাতীয় পরিচয়পত্র',
+    keyNumber: 'চাবি নম্বর',
+    appSettings: 'অ্যাপ সেটিংস',
+    language: 'ভাষা পরিবর্তন',
+    logout: 'লগআউট',
+    tabHome: 'হোম',
+    tabShift: 'শিফট',
+    tabHistory: 'ইতিহাস',
+    tabProfile: 'প্রোফাইল',
+    km: 'কিমি',
+    sar: 'রিয়াল',
+    delegate: 'প্রতিনিধি',
+    idAbbr: 'আইডি',
+    keyAbbr: 'চাবি',
+    selectLang: 'ভাষা নির্বাচন করুন',
+  }
+};
 
 export default function DelegateApp() {
-  // Theme State (Default: Light Mode)
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // System Theme Hook (Automatic Phone Default)
+  const systemColorScheme = useColorScheme();
+  const isDarkMode = systemColorScheme === 'dark';
+
+  // Language State (Default: Arabic 'ar')
+  const [lang, setLang] = useState<Language>('ar');
+  const [showLangModal, setShowLangModal] = useState(false);
+  const t = translations[lang];
+  const isRTL = lang === 'ar';
 
   // Auth & Session State
   const [token, setToken] = useState<string | null>(null);
@@ -164,9 +425,12 @@ export default function DelegateApp() {
     return () => clearInterval(interval);
   }, [activeSession]);
 
-  const handleLogin = async () => {
-    if (!loginInput.trim()) {
-      setLoginError('يرجى إدخال رقم الهوية أو البريد الإلكتروني');
+  const handleLogin = async (overrideLogin?: string, overridePass?: string) => {
+    const inputVal = overrideLogin || loginInput;
+    const passVal = overridePass || passwordInput;
+
+    if (!inputVal.trim()) {
+      setLoginError(t.nationalIdPlaceholder);
       return;
     }
 
@@ -174,13 +438,13 @@ export default function DelegateApp() {
     setLoginError('');
 
     try {
-      const res = await workApi.login(loginInput.trim(), passwordInput.trim() || undefined);
+      const res = await workApi.login(inputVal.trim(), passVal.trim() || undefined);
       setToken(res.access_token);
 
       const empData: EmployeeProfile = res.employee || {
         id: res.admin?.id || '',
         name: res.admin?.name || '',
-        national_id: loginInput.split('@')[0],
+        national_id: inputVal.split('@')[0],
         motorcycle_number: '',
         key_number: '',
         employee_number: '',
@@ -198,6 +462,12 @@ export default function DelegateApp() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const fillDelwarDemo = () => {
+    setLoginInput('2569600022');
+    setPasswordInput('9600022');
+    handleLogin('2569600022', '9600022');
   };
 
   const handleLogout = () => {
@@ -218,7 +488,7 @@ export default function DelegateApp() {
       if (mode === 'camera') {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted) {
-          Alert.alert('الإذن مطلوب', 'يرجى السماح للتطبيق باستخدام الكاميرا لالتقاط صورة العداد');
+          Alert.alert('Permission required', 'Please grant camera permissions to take odometer photo');
           return;
         }
         result = await ImagePicker.launchCameraAsync({
@@ -230,7 +500,7 @@ export default function DelegateApp() {
       } else {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-          Alert.alert('الإذن مطلوب', 'يرجى السماح للتطبيق بالوصول للصور لاختيار صورة العداد');
+          Alert.alert('Permission required', 'Please grant gallery permissions to select odometer photo');
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
@@ -251,7 +521,7 @@ export default function DelegateApp() {
         }
       }
     } catch (err: any) {
-      Alert.alert('خطأ', 'تعذر التقاط أو اختيار الصورة: ' + (err.message || ''));
+      Alert.alert('Error', 'Image picker error: ' + (err.message || ''));
     }
   };
 
@@ -259,18 +529,18 @@ export default function DelegateApp() {
     if (!employee) return;
 
     if (!enteredMotorcycle.trim()) {
-      Alert.alert('تنبيه', 'يرجى كتابة رقم الدباب الفعلي');
+      Alert.alert('تنبيه', t.actualBikePlaceholder);
       return;
     }
 
     const kmNum = parseFloat(startKm);
     if (isNaN(kmNum) || kmNum <= 0) {
-      Alert.alert('تنبيه', 'يرجى إدخال قراءة عداد البداية بشكل صحيح');
+      Alert.alert('تنبيه', t.startKmPlaceholder);
       return;
     }
 
     if (!startKmImage) {
-      Alert.alert('صورة العداد مطلوبة 📸', 'يرجى التقاط أو رفع صورة واضحة لعداد البداية للتوثيق والمراجعة.');
+      Alert.alert('📸', t.startKmPhotoLabel);
       return;
     }
 
@@ -289,10 +559,10 @@ export default function DelegateApp() {
       setStartKmImage(null);
       setStartNotes('');
       setCurrentTab('home');
-      Alert.alert('تم بنجاح 🚀', 'تم بدء شفت العمل بنجاح وجرى إشعار المشرف.');
+      Alert.alert('OK 🚀', t.shiftActive);
       loadHistory();
     } catch (err: any) {
-      Alert.alert('خطأ', err.message || 'تعذر بدء شفت العمل');
+      Alert.alert('Error', err.message || 'Error starting shift');
     } finally {
       setSubmitting(false);
     }
@@ -304,20 +574,20 @@ export default function DelegateApp() {
     const endKmNum = parseFloat(endKm);
     if (isNaN(endKmNum) || endKmNum <= activeSession.start_km) {
       Alert.alert(
-        'خطأ في قراءة العداد',
-        `قراءة عداد النهاية (${endKmNum || 0}) يجب أن تكون أكبر من قراءة البداية (${activeSession.start_km})`
+        'Odometer Error',
+        `End KM (${endKmNum || 0}) must be greater than Start KM (${activeSession.start_km})`
       );
       return;
     }
 
     if (!endKmImage) {
-      Alert.alert('صورة العداد مطلوبة 📸', 'يرجى التقاط أو رفع صورة واضحة لعداد النهاية لتأكيد إقفال الشفت.');
+      Alert.alert('📸', t.endKmPhotoLabel);
       return;
     }
 
     const orders = parseInt(ordersCount, 10);
     if (isNaN(orders) || orders < 0) {
-      Alert.alert('تنبيه', 'يرجى إدخال عدد الطلبات بشكل صحيح (0 أو أكثر)');
+      Alert.alert('تنبيه', t.ordersCountPlaceholder);
       return;
     }
 
@@ -341,10 +611,10 @@ export default function DelegateApp() {
       setFuelCost('');
       setEndNotes('');
       setCurrentTab('home');
-      Alert.alert('تم إنهاء الشفت بنجاح 🏁', 'تم إرسال قراءات الشفت والصور وبانتظار مصادقة المشرف.');
+      Alert.alert('🏁', t.endShiftTitle);
       loadHistory();
     } catch (err: any) {
-      Alert.alert('خطأ', err.message || 'تعذر إنهاء الشفت');
+      Alert.alert('Error', err.message || 'Error ending shift');
     } finally {
       setSubmitting(false);
     }
@@ -391,7 +661,7 @@ export default function DelegateApp() {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.bg }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>جاري تجهيز بوابة المندوب...</Text>
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
       </View>
     );
   }
@@ -408,86 +678,95 @@ export default function DelegateApp() {
           style={styles.keyboardView}
         >
           <ScrollView contentContainerStyle={styles.loginScrollContent} showsVerticalScrollIndicator={false}>
-            {/* Theme Toggle Top Right */}
+            {/* Language Switcher Button Top */}
             <View style={styles.topBarActions}>
               <TouchableOpacity
-                style={[styles.themeToggleBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => setIsDarkMode(!isDarkMode)}
+                style={[styles.langSwitchBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => setShowLangModal(true)}
               >
-                <Ionicons name={isDarkMode ? 'sunny' : 'moon'} size={18} color={isDarkMode ? '#fbbf24' : '#64748b'} />
-                <Text style={[styles.themeToggleText, { color: colors.textSecondary }]}>
-                  {isDarkMode ? 'الوضع النهاري' : 'الوضع الليلي'}
+                <Ionicons name="globe-outline" size={16} color={colors.primary} />
+                <Text style={[styles.langSwitchText, { color: colors.textPrimary }]}>
+                  {lang === 'ar' ? 'العربية 🇸🇦' : lang === 'en' ? 'English 🇺🇸' : 'বাংলা 🇧🇩'}
                 </Text>
+                <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             {/* App Logo & Header */}
             <View style={styles.loginHeader}>
-              <View style={[styles.logoIconCircle, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-                <MaterialCommunityIcons name="motorbike" size={44} color={colors.primary} />
-              </View>
-              <Text style={[styles.appTitle, { color: colors.textPrimary }]}>AAMS Logistics</Text>
-              <Text style={[styles.appSubtitle, { color: colors.textSecondary }]}>بوابة المناديب الميدانية</Text>
+              <Image
+                source={require('../../assets/images/logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+              <Text style={[styles.appTitle, { color: colors.textPrimary }]}>{t.appName}</Text>
+              <Text style={[styles.appSubtitle, { color: colors.textSecondary }]}>{t.appSubtitle}</Text>
             </View>
 
             {/* Login Card */}
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.loginCardTitle, { color: colors.textPrimary }]}>تسجيل الدخول</Text>
-              <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary }]}>
-                أدخل رقم الهوية الوطنية لتسجيل الدخول ومباشرة دوامك
+              <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.loginTitle}
+              </Text>
+              <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.loginSubtitle}
               </Text>
 
               {loginError ? (
                 <View style={[styles.errorBanner, { backgroundColor: colors.errorBg }]}>
                   <Ionicons name="alert-circle" size={18} color={colors.errorText} />
-                  <Text style={[styles.errorBannerText, { color: colors.errorText }]}>{loginError}</Text>
+                  <Text style={[styles.errorBannerText, { color: colors.errorText, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {loginError}
+                  </Text>
                 </View>
               ) : null}
 
               {/* National ID Input */}
               <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.textPrimary }]}>رقم الهوية أو البريد</Text>
+                <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.nationalIdLabel}
+                </Text>
                 <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
                   <Feather name="user" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                   <TextInput
-                    style={[styles.input, { color: colors.textPrimary }]}
-                    placeholder="مثال: 2569600022"
+                    style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.nationalIdPlaceholder}
                     placeholderTextColor="#94a3b8"
                     value={loginInput}
                     onChangeText={setLoginInput}
                     keyboardType="email-address"
                     autoCapitalize="none"
-                    textAlign="right"
                   />
                 </View>
               </View>
 
               {/* Password Input */}
               <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.textPrimary }]}>كلمة المرور (اختياري)</Text>
+                <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.passwordLabel}
+                </Text>
                 <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.inputIcon}>
                     <Feather name={showPassword ? 'eye' : 'eye-off'} size={18} color={colors.textSecondary} />
                   </TouchableOpacity>
                   <TextInput
-                    style={[styles.input, { color: colors.textPrimary }]}
-                    placeholder="آخر 6 أرقام من الهوية افتراضياً"
+                    style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.passwordPlaceholder}
                     placeholderTextColor="#94a3b8"
                     value={passwordInput}
                     onChangeText={setPasswordInput}
                     secureTextEntry={!showPassword}
-                    textAlign="right"
                   />
                 </View>
-                <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-                  💡 كلمة المرور الافتراضية هي آخر 6 أرقام من رقم الهوية
+                <Text style={[styles.hintText, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.passwordHint}
                 </Text>
               </View>
 
               {/* Login Button */}
               <TouchableOpacity
                 style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-                onPress={handleLogin}
+                onPress={() => handleLogin()}
                 disabled={submitting}
               >
                 {submitting ? (
@@ -495,13 +774,77 @@ export default function DelegateApp() {
                 ) : (
                   <View style={styles.buttonContentRow}>
                     <Ionicons name="log-in-outline" size={20} color="#ffffff" />
-                    <Text style={styles.primaryButtonText}>دخول البوابة</Text>
+                    <Text style={styles.primaryButtonText}>{t.loginBtn}</Text>
                   </View>
                 )}
+              </TouchableOpacity>
+
+              {/* ⚡ Quick Demo Test Button */}
+              <TouchableOpacity
+                style={[styles.demoButton, { backgroundColor: colors.accentLight, borderColor: colors.accent }]}
+                onPress={fillDelwarDemo}
+                disabled={submitting}
+              >
+                <Ionicons name="flash" size={16} color={colors.accent} />
+                <Text style={[styles.demoButtonText, { color: colors.accent }]}>
+                  {t.demoLoginBtn}
+                </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+
+        {/* Language Modal */}
+        {showLangModal && (
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.langModalCard, { backgroundColor: colors.card }]}>
+              <Text style={[styles.langModalTitle, { color: colors.textPrimary }]}>{t.selectLang}</Text>
+
+              <TouchableOpacity
+                style={[styles.langOptionRow, lang === 'ar' && { backgroundColor: colors.primaryLight }]}
+                onPress={() => {
+                  setLang('ar');
+                  setShowLangModal(false);
+                }}
+              >
+                <Text style={styles.langFlag}>🇸🇦</Text>
+                <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>العربية (Arabic)</Text>
+                {lang === 'ar' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.langOptionRow, lang === 'en' && { backgroundColor: colors.primaryLight }]}
+                onPress={() => {
+                  setLang('en');
+                  setShowLangModal(false);
+                }}
+              >
+                <Text style={styles.langFlag}>🇺🇸</Text>
+                <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>English</Text>
+                {lang === 'en' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.langOptionRow, lang === 'bn' && { backgroundColor: colors.primaryLight }]}
+                onPress={() => {
+                  setLang('bn');
+                  setShowLangModal(false);
+                }}
+              >
+                <Text style={styles.langFlag}>🇧🇩</Text>
+                <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>বাংলা (Bengali)</Text>
+                {lang === 'bn' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.cancelModalBtn, { backgroundColor: colors.inputBg }]}
+                onPress={() => setShowLangModal(false)}
+              >
+                <Text style={[styles.cancelModalText, { color: colors.textSecondary }]}>إلغاء / Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -514,27 +857,27 @@ export default function DelegateApp() {
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
       {/* Top Header Bar */}
-      <View style={[styles.headerBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.headerRight}>
+      <View style={[styles.headerBar, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.headerRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={[styles.avatarCircle, { backgroundColor: colors.primaryLight }]}>
             <Text style={[styles.avatarText, { color: colors.primaryText }]}>
-              {employee.name ? employee.name.charAt(0) : 'م'}
+              {employee.name ? employee.name.charAt(0) : 'D'}
             </Text>
           </View>
           <View style={styles.headerInfo}>
-            <Text style={[styles.delegateName, { color: colors.textPrimary }]} numberOfLines={1}>
-              {employee.name || 'المندوب'}
+            <Text style={[styles.delegateName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
+              {employee.name || t.delegate}
             </Text>
-            <View style={styles.headerBadgesRow}>
+            <View style={[styles.headerBadgesRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={[styles.pillBadge, { backgroundColor: colors.accentLight }]}>
                 <Text style={[styles.pillBadgeText, { color: colors.accent }]}>
-                  هوية: {employee.national_id}
+                  {t.idAbbr}: {employee.national_id}
                 </Text>
               </View>
               {employee.key_number ? (
                 <View style={[styles.pillBadge, { backgroundColor: colors.primaryLight }]}>
                   <Text style={[styles.pillBadgeText, { color: colors.primaryText }]}>
-                    مفتاح: {employee.key_number}
+                    {t.keyAbbr}: {employee.key_number}
                   </Text>
                 </View>
               ) : null}
@@ -544,11 +887,15 @@ export default function DelegateApp() {
 
         <View style={styles.headerLeftActions}>
           <TouchableOpacity
-            style={[styles.iconButton, { backgroundColor: colors.bg, borderColor: colors.border }]}
-            onPress={() => setIsDarkMode(!isDarkMode)}
+            style={[styles.langSmallBtn, { backgroundColor: colors.bg, borderColor: colors.border }]}
+            onPress={() => setShowLangModal(true)}
           >
-            <Ionicons name={isDarkMode ? 'sunny' : 'moon'} size={18} color={isDarkMode ? '#fbbf24' : '#64748b'} />
+            <Ionicons name="globe-outline" size={14} color={colors.primary} />
+            <Text style={[styles.langSmallText, { color: colors.textPrimary }]}>
+              {lang.toUpperCase()}
+            </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.iconButton, { backgroundColor: colors.bg, borderColor: colors.border }]}
             onPress={handleLogout}
@@ -572,16 +919,17 @@ export default function DelegateApp() {
                   : { backgroundColor: isDarkMode ? '#1e293b' : '#f0fdf4', borderColor: colors.border },
               ]}
             >
-              <View style={styles.heroCardTop}>
+              <View style={[styles.heroCardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View
                   style={[
                     styles.statusPill,
                     activeSession ? { backgroundColor: '#10b981' } : { backgroundColor: '#64748b' },
+                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
                   ]}
                 >
                   <View style={styles.pulsingDot} />
                   <Text style={styles.statusPillText}>
-                    {activeSession ? 'شفت العمل قائم الآن 🟢' : 'جاهز لبدء الشفت 🚀'}
+                    {activeSession ? t.shiftActive : t.readyToStart}
                   </Text>
                 </View>
 
@@ -595,38 +943,34 @@ export default function DelegateApp() {
 
               {activeSession ? (
                 <View style={styles.heroActiveDetails}>
-                  <Text style={[styles.heroHeading, { color: isDarkMode ? '#ffffff' : '#065f46' }]}>
-                    الدوام جاري على دباب [{activeSession.motorcycle_number}]
+                  <Text style={[styles.heroHeading, { color: isDarkMode ? '#ffffff' : '#065f46', textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.shiftInProgressOn} [{activeSession.motorcycle_number}]
                   </Text>
-                  <Text style={[styles.heroSub, { color: isDarkMode ? '#a7f3d0' : '#047857' }]}>
-                    عداد البداية: {activeSession.start_km} كم | بدأ الساعة{' '}
-                    {new Date(activeSession.start_time).toLocaleTimeString('ar-SA', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                  <Text style={[styles.heroSub, { color: isDarkMode ? '#a7f3d0' : '#047857', textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.startKmLabel}: {activeSession.start_km} {t.km}
                   </Text>
                   <TouchableOpacity
                     style={[styles.heroActionButton, { backgroundColor: '#dc2626' }]}
                     onPress={() => setCurrentTab('shift')}
                   >
                     <Ionicons name="stop-circle" size={20} color="#ffffff" />
-                    <Text style={styles.heroActionButtonText}>إنهاء الشفت وتسجيل العداد 🏁</Text>
+                    <Text style={styles.heroActionButtonText}>{t.endShiftNow}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.heroInactiveDetails}>
-                  <Text style={[styles.heroHeading, { color: colors.textPrimary }]}>
-                    لم تسجل بدء العمل اليوم بعد
+                  <Text style={[styles.heroHeading, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.notStartedToday}
                   </Text>
-                  <Text style={[styles.heroSub, { color: colors.textSecondary }]}>
-                    الدباب المربوط بك: {employee.motorcycle_number || 'غير محدد'} | فرع: {employee.branch_name || 'الفرع الأول'}
+                  <Text style={[styles.heroSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.assignedBike}: {employee.motorcycle_number || '—'} | {t.branch}: {employee.branch_name || '—'}
                   </Text>
                   <TouchableOpacity
                     style={[styles.heroActionButton, { backgroundColor: colors.primary }]}
                     onPress={() => setCurrentTab('shift')}
                   >
                     <Ionicons name="play-circle" size={20} color="#ffffff" />
-                    <Text style={styles.heroActionButtonText}>بدء دوام جديد الآن 🚀</Text>
+                    <Text style={styles.heroActionButtonText}>{t.startShiftNow}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -634,10 +978,12 @@ export default function DelegateApp() {
 
             {/* Quick KPI Stats */}
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>ملخص إنجازاتي</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.myAchievements}
+              </Text>
             </View>
 
-            <View style={styles.statsGrid}>
+            <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
                   <MaterialCommunityIcons name="bike" size={22} color={colors.primary} />
@@ -645,7 +991,7 @@ export default function DelegateApp() {
                 <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
                   {employee.motorcycle_number || '—'}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>الدباب المربوط</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.assignedBike}</Text>
               </View>
 
               <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -653,7 +999,7 @@ export default function DelegateApp() {
                   <MaterialCommunityIcons name="calendar-check" size={22} color={colors.accent} />
                 </View>
                 <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{historySessions.length}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>الشفتات المسجلة</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalShifts}</Text>
               </View>
 
               <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -661,9 +1007,9 @@ export default function DelegateApp() {
                   <MaterialCommunityIcons name="map-marker-distance" size={22} color={colors.primary} />
                 </View>
                 <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                  {historySessions.reduce((sum, s) => sum + (s.distance || 0), 0).toFixed(0)} كم
+                  {historySessions.reduce((sum, s) => sum + (s.distance || 0), 0).toFixed(0)} {t.km}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>إجمالي المسافة</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalDistance}</Text>
               </View>
 
               <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -673,47 +1019,51 @@ export default function DelegateApp() {
                 <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
                   {historySessions.filter((s) => s.is_reviewed).reduce((sum, s) => sum + (s.orders_count || 0), 0)}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>الطلبات المعتمدة</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.approvedOrders}</Text>
               </View>
             </View>
 
             {/* Quick Navigation Cards */}
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>الوصول السريع</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.quickAccess}
+              </Text>
             </View>
 
             <TouchableOpacity
-              style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+              style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
               onPress={() => setCurrentTab('shift')}
             >
               <View style={[styles.quickCardIconCircle, { backgroundColor: colors.primaryLight }]}>
                 <Ionicons name="speedometer-outline" size={24} color={colors.primary} />
               </View>
               <View style={styles.quickCardTextCol}>
-                <Text style={[styles.quickCardTitle, { color: colors.textPrimary }]}>
-                  {activeSession ? 'إقفال وتوثيق الشفت الحالي' : 'بدء شفت وتصوير العداد'}
+                <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.quickShiftTitle}
                 </Text>
-                <Text style={[styles.quickCardSub, { color: colors.textSecondary }]}>
-                  {activeSession ? 'تسجيل عداد النهاية والطلبات والوقود' : 'التقاط صورة العداد والتحقق من الدباب'}
+                <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.quickShiftSub}
                 </Text>
               </View>
-              <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
+              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+              style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
               onPress={() => setCurrentTab('history')}
             >
               <View style={[styles.quickCardIconCircle, { backgroundColor: colors.accentLight }]}>
                 <Ionicons name="time-outline" size={24} color={colors.accent} />
               </View>
               <View style={styles.quickCardTextCol}>
-                <Text style={[styles.quickCardTitle, { color: colors.textPrimary }]}>سجل الشفتات والتصديقات</Text>
-                <Text style={[styles.quickCardSub, { color: colors.textSecondary }]}>
-                  عرض حالة اعتماد المشرف للطلبات وصور العدادات
+                <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.quickHistoryTitle}
+                </Text>
+                <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.quickHistorySub}
                 </Text>
               </View>
-              <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
+              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         )}
@@ -724,49 +1074,50 @@ export default function DelegateApp() {
             {!activeSession ? (
               /* START SHIFT FORM */
               <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={styles.cardHeaderRow}>
+                <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <View style={[styles.cardHeaderIcon, { backgroundColor: colors.primaryLight }]}>
                     <Ionicons name="play" size={20} color={colors.primary} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>بدء شفت عمل جديد</Text>
-                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                      تأكد من رقم الدباب وقراءة عداد البداية والتقط صورة واضحة
+                    <Text style={[styles.cardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {t.startShiftTitle}
+                    </Text>
+                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {t.startShiftSub}
                     </Text>
                   </View>
                 </View>
 
                 {/* Motorcycle Field */}
                 <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>
-                    رقم الدباب الفعلي الذي ستقوده <Text style={{ color: '#ef4444' }}>*</Text>
+                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.actualBikeNumber} <Text style={{ color: '#ef4444' }}>*</Text>
                   </Text>
                   <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
                     <MaterialCommunityIcons name="numeric" size={20} color={colors.textSecondary} style={styles.inputIcon} />
                     <TextInput
-                      style={[styles.input, { color: colors.textPrimary }]}
-                      placeholder="اكتب رقم الدباب..."
+                      style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                      placeholder={t.actualBikePlaceholder}
                       placeholderTextColor="#94a3b8"
                       value={enteredMotorcycle}
                       onChangeText={setEnteredMotorcycle}
-                      textAlign="right"
                     />
                   </View>
 
                   {/* Matching Indicator */}
                   {enteredMotorcycle.trim() ? (
                     isMotorcycleMatching ? (
-                      <View style={[styles.matchBadgeSuccess, { backgroundColor: colors.primaryLight }]}>
+                      <View style={[styles.matchBadgeSuccess, { backgroundColor: colors.primaryLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
                         <Text style={[styles.matchTextSuccess, { color: colors.primaryText }]}>
-                          مطابق للدباب المربوط بك بالنظام ✅
+                          {t.bikeMatchingSuccess}
                         </Text>
                       </View>
                     ) : (
-                      <View style={[styles.matchBadgeWarning, { backgroundColor: colors.warningBg, borderColor: colors.warningBorder }]}>
+                      <View style={[styles.matchBadgeWarning, { backgroundColor: colors.warningBg, borderColor: colors.warningBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Ionicons name="warning" size={16} color={colors.warningText} />
-                        <Text style={[styles.matchTextWarning, { color: colors.warningText }]}>
-                          ⚠️ تنبيه: الدباب مختلف عن المربوط بك ({employee.motorcycle_number}) — سيتم إرسال إشعار للمشرف!
+                        <Text style={[styles.matchTextWarning, { color: colors.warningText, textAlign: isRTL ? 'right' : 'left' }]}>
+                          {t.bikeMismatchWarning}
                         </Text>
                       </View>
                     )
@@ -775,14 +1126,14 @@ export default function DelegateApp() {
 
                 {/* Starting Odometer Input */}
                 <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>
-                    قراءة عداد البداية (Start KM) <Text style={{ color: '#ef4444' }}>*</Text>
+                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.startKmInputLabel} <Text style={{ color: '#ef4444' }}>*</Text>
                   </Text>
                   <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
                     <MaterialCommunityIcons name="gauge" size={20} color={colors.textSecondary} style={styles.inputIcon} />
                     <TextInput
-                      style={[styles.input, { color: colors.textPrimary }]}
-                      placeholder="مثال: 15400"
+                      style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                      placeholder={t.startKmPlaceholder}
                       placeholderTextColor="#94a3b8"
                       value={startKm}
                       onChangeText={(val) => {
@@ -790,14 +1141,13 @@ export default function DelegateApp() {
                         setAutoFilledKm(null);
                       }}
                       keyboardType="numeric"
-                      textAlign="right"
                     />
                   </View>
                   {autoFilledKm !== null && (
-                    <View style={[styles.matchBadgeSuccess, { backgroundColor: colors.primaryLight }]}>
+                    <View style={[styles.matchBadgeSuccess, { backgroundColor: colors.primaryLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Ionicons name="sparkles" size={14} color={colors.primary} />
                       <Text style={[styles.matchTextSuccess, { color: colors.primaryText }]}>
-                        تم جلب عداد نهاية الشفت السابق لهذا الدباب تلقائياً ({autoFilledKm} كم) 🛵
+                        {t.autoKmFetched} ({autoFilledKm} {t.km}) 🛵
                       </Text>
                     </View>
                   )}
@@ -805,16 +1155,16 @@ export default function DelegateApp() {
 
                 {/* Start Odometer Photo Capture */}
                 <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>
-                    صورة عداد البداية <Text style={{ color: '#ef4444' }}>* (مطلوبة للتدقيق)</Text>
+                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.startKmPhotoLabel} <Text style={{ color: '#ef4444' }}>*</Text>
                   </Text>
 
                   {startKmImage ? (
                     <View style={[styles.imagePreviewContainer, { borderColor: colors.border }]}>
                       <Image source={{ uri: startKmImage }} style={styles.imagePreview} />
-                      <View style={styles.imageOverlayBadge}>
+                      <View style={[styles.imageOverlayBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
-                        <Text style={styles.imageOverlayText}>تم التقاط صورة العداد</Text>
+                        <Text style={styles.imageOverlayText}>{t.photoCapturedSuccess}</Text>
                       </View>
                       <TouchableOpacity
                         style={styles.removeImageBtn}
@@ -824,21 +1174,21 @@ export default function DelegateApp() {
                       </TouchableOpacity>
                     </View>
                   ) : (
-                    <View style={styles.photoPickerRow}>
+                    <View style={[styles.photoPickerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <TouchableOpacity
-                        style={[styles.photoButton, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+                        style={[styles.photoButton, { backgroundColor: colors.primaryLight, borderColor: colors.primary, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                         onPress={() => pickOdometerImage('camera', 'start')}
                       >
                         <Ionicons name="camera" size={22} color={colors.primary} />
-                        <Text style={[styles.photoButtonText, { color: colors.primaryText }]}>التقاط بالكاميرا 📸</Text>
+                        <Text style={[styles.photoButtonText, { color: colors.primaryText }]}>{t.captureCamera}</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={[styles.photoButton, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
+                        style={[styles.photoButton, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                         onPress={() => pickOdometerImage('gallery', 'start')}
                       >
                         <Ionicons name="images-outline" size={22} color={colors.textSecondary} />
-                        <Text style={[styles.photoButtonText, { color: colors.textSecondary }]}>من المعرض 🖼️</Text>
+                        <Text style={[styles.photoButtonText, { color: colors.textSecondary }]}>{t.pickGallery}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -846,16 +1196,17 @@ export default function DelegateApp() {
 
                 {/* Start Notes */}
                 <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>ملاحظات البداية (اختياري)</Text>
+                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.startNotesLabel}
+                  </Text>
                   <TextInput
-                    style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
-                    placeholder="أي ملاحظات حول حالة الدباب قبل الانطلاق..."
+                    style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.startNotesPlaceholder}
                     placeholderTextColor="#94a3b8"
                     value={startNotes}
                     onChangeText={setStartNotes}
                     multiline
                     numberOfLines={2}
-                    textAlign="right"
                   />
                 </View>
 
@@ -868,9 +1219,9 @@ export default function DelegateApp() {
                   {submitting ? (
                     <ActivityIndicator color="#ffffff" size="small" />
                   ) : (
-                    <View style={styles.buttonContentRow}>
+                    <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Ionicons name="play-circle-outline" size={22} color="#ffffff" />
-                      <Text style={styles.primaryButtonText}>تأكيد وبدء الدوام الآن 🚀</Text>
+                      <Text style={styles.primaryButtonText}>{t.confirmStartBtn}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -878,59 +1229,60 @@ export default function DelegateApp() {
             ) : (
               /* END SHIFT FORM */
               <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={styles.cardHeaderRow}>
+                <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <View style={[styles.cardHeaderIcon, { backgroundColor: '#fee2e2' }]}>
                     <Ionicons name="stop" size={20} color="#ef4444" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>إنهاء شفت العمل</Text>
-                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                      أدخل قراءة عداد النهاية وصورته وعدد الطلبات المنجزة
+                    <Text style={[styles.cardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {t.endShiftTitle}
+                    </Text>
+                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {t.endShiftSub}
                     </Text>
                   </View>
                 </View>
 
                 {/* Active Session Info Box */}
-                <View style={[styles.activeShiftSummaryBox, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                <View style={[styles.activeShiftSummaryBox, { backgroundColor: colors.bg, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <View style={styles.summaryItem}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>عداد البداية</Text>
-                    <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>{activeSession.start_km} كم</Text>
+                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t.startKmLabel}</Text>
+                    <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>{activeSession.start_km} {t.km}</Text>
                   </View>
                   <View style={styles.summaryDivider} />
                   <View style={styles.summaryItem}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>رقم الدباب</Text>
+                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t.assignedBike}</Text>
                     <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>{activeSession.motorcycle_number}</Text>
                   </View>
                   <View style={styles.summaryDivider} />
                   <View style={styles.summaryItem}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>مدة العمل</Text>
+                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t.durationLabel}</Text>
                     <Text style={[styles.summaryVal, { color: colors.primary }]}>{elapsedTime}</Text>
                   </View>
                 </View>
 
                 {/* Ending Odometer Input */}
                 <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>
-                    قراءة عداد النهاية (End KM) <Text style={{ color: '#ef4444' }}>*</Text>
+                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.endKmInputLabel} <Text style={{ color: '#ef4444' }}>*</Text>
                   </Text>
                   <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
                     <MaterialCommunityIcons name="gauge" size={20} color={colors.textSecondary} style={styles.inputIcon} />
                     <TextInput
-                      style={[styles.input, { color: colors.textPrimary }]}
-                      placeholder={`أكبر من ${activeSession.start_km}...`}
+                      style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                      placeholder={`> ${activeSession.start_km}`}
                       placeholderTextColor="#94a3b8"
                       value={endKm}
                       onChangeText={setEndKm}
                       keyboardType="numeric"
-                      textAlign="right"
                     />
                   </View>
 
                   {Number(calculatedDistance) > 0 && (
-                    <View style={[styles.matchBadgeSuccess, { backgroundColor: colors.accentLight }]}>
+                    <View style={[styles.matchBadgeSuccess, { backgroundColor: colors.accentLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Ionicons name="speedometer" size={14} color={colors.accent} />
                       <Text style={[styles.matchTextSuccess, { color: colors.accent }]}>
-                        المسافة المقطوعة المحسوبة: {calculatedDistance} كم 🛵
+                        {t.calculatedDistLabel}: {calculatedDistance} {t.km} 🛵
                       </Text>
                     </View>
                   )}
@@ -938,16 +1290,16 @@ export default function DelegateApp() {
 
                 {/* End Odometer Photo Capture */}
                 <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>
-                    صورة عداد النهاية <Text style={{ color: '#ef4444' }}>* (مطلوبة للإقفال)</Text>
+                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.endKmPhotoLabel} <Text style={{ color: '#ef4444' }}>*</Text>
                   </Text>
 
                   {endKmImage ? (
                     <View style={[styles.imagePreviewContainer, { borderColor: colors.border }]}>
                       <Image source={{ uri: endKmImage }} style={styles.imagePreview} />
-                      <View style={styles.imageOverlayBadge}>
+                      <View style={[styles.imageOverlayBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
-                        <Text style={styles.imageOverlayText}>تم التقاط صورة عداد النهاية</Text>
+                        <Text style={styles.imageOverlayText}>{t.photoCapturedSuccess}</Text>
                       </View>
                       <TouchableOpacity
                         style={styles.removeImageBtn}
@@ -957,58 +1309,58 @@ export default function DelegateApp() {
                       </TouchableOpacity>
                     </View>
                   ) : (
-                    <View style={styles.photoPickerRow}>
+                    <View style={[styles.photoPickerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <TouchableOpacity
-                        style={[styles.photoButton, { backgroundColor: '#fef2f2', borderColor: '#ef4444' }]}
+                        style={[styles.photoButton, { backgroundColor: '#fef2f2', borderColor: '#ef4444', flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                         onPress={() => pickOdometerImage('camera', 'end')}
                       >
                         <Ionicons name="camera" size={22} color="#dc2626" />
-                        <Text style={[styles.photoButtonText, { color: '#dc2626' }]}>التقاط بالكاميرا 📸</Text>
+                        <Text style={[styles.photoButtonText, { color: '#dc2626' }]}>{t.captureCamera}</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={[styles.photoButton, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
+                        style={[styles.photoButton, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                         onPress={() => pickOdometerImage('gallery', 'end')}
                       >
                         <Ionicons name="images-outline" size={22} color={colors.textSecondary} />
-                        <Text style={[styles.photoButtonText, { color: colors.textSecondary }]}>من المعرض 🖼️</Text>
+                        <Text style={[styles.photoButtonText, { color: colors.textSecondary }]}>{t.pickGallery}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
                 </View>
 
                 {/* Orders Count & Fuel Cost Grid */}
-                <View style={styles.twoColRow}>
+                <View style={[styles.twoColRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <View style={[styles.formGroup, { flex: 1 }]}>
-                    <Text style={[styles.label, { color: colors.textPrimary }]}>
-                      عدد الطلبات <Text style={{ color: '#ef4444' }}>*</Text>
+                    <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {t.ordersCountLabel} <Text style={{ color: '#ef4444' }}>*</Text>
                     </Text>
                     <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
                       <Feather name="package" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                       <TextInput
-                        style={[styles.input, { color: colors.textPrimary }]}
-                        placeholder="مثال: 15"
+                        style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                        placeholder={t.ordersCountPlaceholder}
                         placeholderTextColor="#94a3b8"
                         value={ordersCount}
                         onChangeText={setOrdersCount}
                         keyboardType="numeric"
-                        textAlign="right"
                       />
                     </View>
                   </View>
 
                   <View style={[styles.formGroup, { flex: 1 }]}>
-                    <Text style={[styles.label, { color: colors.textPrimary }]}>تكلفة الوقود (ر.س)</Text>
+                    <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {t.fuelCostLabel}
+                    </Text>
                     <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
                       <MaterialCommunityIcons name="gas-station" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                       <TextInput
-                        style={[styles.input, { color: colors.textPrimary }]}
-                        placeholder="0.00"
+                        style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                        placeholder={t.fuelCostPlaceholder}
                         placeholderTextColor="#94a3b8"
                         value={fuelCost}
                         onChangeText={setFuelCost}
                         keyboardType="numeric"
-                        textAlign="right"
                       />
                     </View>
                   </View>
@@ -1016,16 +1368,17 @@ export default function DelegateApp() {
 
                 {/* End Notes */}
                 <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>ملاحظات إنهاء الشفت (اختياري)</Text>
+                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.endNotesLabel}
+                  </Text>
                   <TextInput
-                    style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
-                    placeholder="أي ملاحظات حول الطلبات أو الدباب..."
+                    style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.endNotesPlaceholder}
                     placeholderTextColor="#94a3b8"
                     value={endNotes}
                     onChangeText={setEndNotes}
                     multiline
                     numberOfLines={2}
-                    textAlign="right"
                   />
                 </View>
 
@@ -1038,9 +1391,9 @@ export default function DelegateApp() {
                   {submitting ? (
                     <ActivityIndicator color="#ffffff" size="small" />
                   ) : (
-                    <View style={styles.buttonContentRow}>
+                    <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Ionicons name="checkmark-done-circle-outline" size={22} color="#ffffff" />
-                      <Text style={styles.primaryButtonText}>إنهاء الشفت وإرسال البيانات 🏁</Text>
+                      <Text style={styles.primaryButtonText}>{t.confirmEndBtn}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -1053,89 +1406,91 @@ export default function DelegateApp() {
         {currentTab === 'history' && (
           <View style={styles.tabContainer}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>سجل الشفتات والاعتمادات</Text>
-              <Text style={[styles.sectionSub, { color: colors.textSecondary }]}>
-                عرض {historySessions.length} شفت سابق مع حالة تصديق المشرف
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.historyTitle}
+              </Text>
+              <Text style={[styles.sectionSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {historySessions.length} {t.totalShifts}
               </Text>
             </View>
 
             {historySessions.length === 0 ? (
               <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Ionicons name="document-text-outline" size={40} color={colors.textSecondary} />
-                <Text style={[styles.emptyBoxText, { color: colors.textSecondary }]}>لا توجد شفتات سابقة مسجلة</Text>
+                <Text style={[styles.emptyBoxText, { color: colors.textSecondary }]}>{t.noHistory}</Text>
               </View>
             ) : (
               historySessions.map((s) => (
                 <View key={s.id} style={[styles.historyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={styles.historyCardTop}>
+                  <View style={[styles.historyCardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <View>
-                      <Text style={[styles.historyDate, { color: colors.textPrimary }]}>
-                        {new Date(s.start_time).toLocaleDateString('ar-SA')}{' '}
-                        {new Date(s.start_time).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                      <Text style={[styles.historyDate, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                        {new Date(s.start_time).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US')}{' '}
+                        {new Date(s.start_time).toLocaleTimeString(lang === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                       </Text>
-                      <Text style={[styles.historyBike, { color: colors.textSecondary }]}>
-                        دباب: {s.motorcycle_number || '—'}
+                      <Text style={[styles.historyBike, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                        {t.assignedBike}: {s.motorcycle_number || '—'}
                       </Text>
                     </View>
 
                     {s.is_reviewed ? (
-                      <View style={[styles.badgeReviewed, { backgroundColor: colors.primaryLight }]}>
+                      <View style={[styles.badgeReviewed, { backgroundColor: colors.primaryLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
-                        <Text style={[styles.badgeReviewedText, { color: colors.primaryText }]}>مصادق عليه ✅</Text>
+                        <Text style={[styles.badgeReviewedText, { color: colors.primaryText }]}>{t.reviewedBadge}</Text>
                       </View>
                     ) : (
-                      <View style={[styles.badgePending, { backgroundColor: colors.warningBg }]}>
+                      <View style={[styles.badgePending, { backgroundColor: colors.warningBg, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Ionicons name="time" size={14} color={colors.warningText} />
-                        <Text style={[styles.badgePendingText, { color: colors.warningText }]}>بانتظار المشرف ⏳</Text>
+                        <Text style={[styles.badgePendingText, { color: colors.warningText }]}>{t.pendingBadge}</Text>
                       </View>
                     )}
                   </View>
 
                   {/* Stats Row */}
-                  <View style={[styles.historyStatsRow, { backgroundColor: colors.bg }]}>
+                  <View style={[styles.historyStatsRow, { backgroundColor: colors.bg, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <View style={styles.historyStatCol}>
-                      <Text style={[styles.historyStatVal, { color: colors.primary }]}>{s.distance ? s.distance.toFixed(1) : 0} كم</Text>
-                      <Text style={[styles.historyStatLbl, { color: colors.textSecondary }]}>المسافة</Text>
+                      <Text style={[styles.historyStatVal, { color: colors.primary }]}>{s.distance ? s.distance.toFixed(1) : 0} {t.km}</Text>
+                      <Text style={[styles.historyStatLbl, { color: colors.textSecondary }]}>{t.totalDistance}</Text>
                     </View>
                     <View style={styles.historyStatCol}>
                       <Text style={[styles.historyStatVal, { color: colors.textPrimary }]}>{s.orders_count || 0}</Text>
-                      <Text style={[styles.historyStatLbl, { color: colors.textSecondary }]}>الطلبات</Text>
+                      <Text style={[styles.historyStatLbl, { color: colors.textSecondary }]}>{t.approvedOrders}</Text>
                     </View>
                     <View style={styles.historyStatCol}>
-                      <Text style={[styles.historyStatVal, { color: colors.textPrimary }]}>{s.fuel_cost || 0} ر.س</Text>
-                      <Text style={[styles.historyStatLbl, { color: colors.textSecondary }]}>الوقود</Text>
+                      <Text style={[styles.historyStatVal, { color: colors.textPrimary }]}>{s.fuel_cost || 0} {t.sar}</Text>
+                      <Text style={[styles.historyStatLbl, { color: colors.textSecondary }]}>{t.fuelCostLabel}</Text>
                     </View>
                   </View>
 
                   {/* Photos Row */}
-                  <View style={styles.historyPhotosRow}>
+                  <View style={[styles.historyPhotosRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     {s.start_km_image ? (
                       <TouchableOpacity
-                        style={[styles.historyPhotoThumb, { borderColor: colors.border }]}
-                        onPress={() => setPreviewPhoto({ url: s.start_km_image!, title: `صورة عداد البداية (${s.start_km} كم)` })}
+                        style={[styles.historyPhotoThumb, { borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                        onPress={() => setPreviewPhoto({ url: s.start_km_image!, title: `${t.startKmLabel} (${s.start_km} ${t.km})` })}
                       >
                         <Image source={{ uri: s.start_km_image }} style={styles.thumbImg} />
-                        <Text style={[styles.thumbLbl, { color: colors.textSecondary }]}>البداية: {s.start_km}</Text>
+                        <Text style={[styles.thumbLbl, { color: colors.textSecondary }]}>{t.startKmLabel}: {s.start_km}</Text>
                       </TouchableOpacity>
                     ) : null}
 
                     {s.end_km_image ? (
                       <TouchableOpacity
-                        style={[styles.historyPhotoThumb, { borderColor: colors.border }]}
-                        onPress={() => setPreviewPhoto({ url: s.end_km_image!, title: `صورة عداد النهاية (${s.end_km} كم)` })}
+                        style={[styles.historyPhotoThumb, { borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                        onPress={() => setPreviewPhoto({ url: s.end_km_image!, title: `${t.endKmLabel} (${s.end_km} ${t.km})` })}
                       >
                         <Image source={{ uri: s.end_km_image }} style={styles.thumbImg} />
-                        <Text style={[styles.thumbLbl, { color: colors.textSecondary }]}>النهاية: {s.end_km}</Text>
+                        <Text style={[styles.thumbLbl, { color: colors.textSecondary }]}>{t.endKmLabel}: {s.end_km}</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>
 
                   {/* Supervisor Edit Notice */}
                   {s.is_edited_by_supervisor && (
-                    <View style={[styles.editedNoticeBox, { backgroundColor: colors.accentLight }]}>
+                    <View style={[styles.editedNoticeBox, { backgroundColor: colors.accentLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Feather name="edit-2" size={12} color={colors.accent} />
                       <Text style={[styles.editedNoticeText, { color: colors.accent }]}>
-                        تم تدقيق وتعديل البيانات بواسطة {s.edited_by_name || 'المشرف'}
+                        {t.editedBySupervisor} ({s.edited_by_name || 'Supervisor'})
                       </Text>
                     </View>
                   )}
@@ -1151,64 +1506,68 @@ export default function DelegateApp() {
             <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={[styles.profileAvatarCircle, { backgroundColor: colors.primaryLight }]}>
                 <Text style={[styles.profileAvatarText, { color: colors.primaryText }]}>
-                  {employee.name ? employee.name.charAt(0) : 'م'}
+                  {employee.name ? employee.name.charAt(0) : 'D'}
                 </Text>
               </View>
 
               <Text style={[styles.profileName, { color: colors.textPrimary }]}>{employee.name}</Text>
-              <Text style={[styles.profileJob, { color: colors.textSecondary }]}>مندوب توصيل معتمد</Text>
+              <Text style={[styles.profileJob, { color: colors.textSecondary }]}>{t.jobRole}</Text>
 
               <View style={styles.profileDivider} />
 
               <View style={styles.profileInfoList}>
-                <View style={styles.profileInfoRow}>
-                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>رقم الهوية الوطنية</Text>
+                <View style={[styles.profileInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.nationalId}</Text>
                   <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.national_id}</Text>
                 </View>
 
-                <View style={styles.profileInfoRow}>
-                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>رقم المفتاح</Text>
+                <View style={[styles.profileInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
                   <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.key_number || '—'}</Text>
                 </View>
 
-                <View style={styles.profileInfoRow}>
-                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>الدباب المربوط</Text>
+                <View style={[styles.profileInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.assignedBike}</Text>
                   <Text style={[styles.profileInfoValue, { color: colors.primary }]}>{employee.motorcycle_number || '—'}</Text>
                 </View>
 
-                <View style={styles.profileInfoRow}>
-                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>الفرع</Text>
-                  <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.branch_name || 'الفرع الأول'}</Text>
+                <View style={[styles.profileInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.branch}</Text>
+                  <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.branch_name || '—'}</Text>
                 </View>
               </View>
             </View>
 
-            {/* Settings & Theme Box */}
+            {/* Language & Settings Box */}
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12 }]}>إعدادات التطبيق</Text>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.appSettings}
+              </Text>
 
               <TouchableOpacity
-                style={[styles.settingRow, { borderBottomColor: colors.border }]}
-                onPress={() => setIsDarkMode(!isDarkMode)}
+                style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                onPress={() => setShowLangModal(true)}
               >
-                <View style={styles.settingRowRight}>
-                  <Ionicons name={isDarkMode ? 'sunny' : 'moon'} size={20} color={isDarkMode ? '#fbbf24' : '#64748b'} />
+                <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="globe-outline" size={20} color={colors.primary} />
                   <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                    مظهر التطبيق ({isDarkMode ? 'الوضع الليلي' : 'الوضع النهاري'})
+                    {t.language}
                   </Text>
                 </View>
-                <Text style={[styles.settingRowVal, { color: colors.primary }]}>تغيير</Text>
+                <Text style={[styles.settingRowVal, { color: colors.primary }]}>
+                  {lang === 'ar' ? 'العربية 🇸🇦' : lang === 'en' ? 'English 🇺🇸' : 'বাংলা 🇧🇩'}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.settingRow, { borderBottomWidth: 0 }]}
+                style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                 onPress={handleLogout}
               >
-                <View style={styles.settingRowRight}>
+                <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-                  <Text style={[styles.settingRowText, { color: '#ef4444' }]}>تسجيل الخروج من الحساب</Text>
+                  <Text style={[styles.settingRowText, { color: '#ef4444' }]}>{t.logout}</Text>
                 </View>
-                <Ionicons name="chevron-back" size={16} color="#ef4444" />
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color="#ef4444" />
               </TouchableOpacity>
             </View>
           </View>
@@ -1218,7 +1577,7 @@ export default function DelegateApp() {
       {/* =========================================================================
           BOTTOM NAVIGATION BAR
          ========================================================================= */}
-      <View style={[styles.bottomNav, { backgroundColor: colors.bottomNavBg, borderColor: colors.border }]}>
+      <View style={[styles.bottomNav, { backgroundColor: colors.bottomNavBg, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => setCurrentTab('home')}
@@ -1234,7 +1593,7 @@ export default function DelegateApp() {
               { color: currentTab === 'home' ? colors.primary : colors.textSecondary, fontWeight: currentTab === 'home' ? 'bold' : 'normal' },
             ]}
           >
-            الرئيسية
+            {t.tabHome}
           </Text>
         </TouchableOpacity>
 
@@ -1256,7 +1615,7 @@ export default function DelegateApp() {
               { color: currentTab === 'shift' ? colors.primary : colors.textSecondary, fontWeight: currentTab === 'shift' ? 'bold' : 'normal' },
             ]}
           >
-            {activeSession ? 'الدوام الحالي' : 'بدء الدوام'}
+            {t.tabShift}
           </Text>
         </TouchableOpacity>
 
@@ -1275,7 +1634,7 @@ export default function DelegateApp() {
               { color: currentTab === 'history' ? colors.primary : colors.textSecondary, fontWeight: currentTab === 'history' ? 'bold' : 'normal' },
             ]}
           >
-            سجل الشفتات
+            {t.tabHistory}
           </Text>
         </TouchableOpacity>
 
@@ -1294,10 +1653,64 @@ export default function DelegateApp() {
               { color: currentTab === 'profile' ? colors.primary : colors.textSecondary, fontWeight: currentTab === 'profile' ? 'bold' : 'normal' },
             ]}
           >
-            حسابي
+            {t.tabProfile}
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* =========================================================================
+          LANGUAGE SELECTOR MODAL
+         ========================================================================= */}
+      {showLangModal && (
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.langModalCard, { backgroundColor: colors.card }]}>
+            <Text style={[styles.langModalTitle, { color: colors.textPrimary }]}>{t.selectLang}</Text>
+
+            <TouchableOpacity
+              style={[styles.langOptionRow, lang === 'ar' && { backgroundColor: colors.primaryLight }]}
+              onPress={() => {
+                setLang('ar');
+                setShowLangModal(false);
+              }}
+            >
+              <Text style={styles.langFlag}>🇸🇦</Text>
+              <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>العربية (Arabic)</Text>
+              {lang === 'ar' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.langOptionRow, lang === 'en' && { backgroundColor: colors.primaryLight }]}
+              onPress={() => {
+                setLang('en');
+                setShowLangModal(false);
+              }}
+            >
+              <Text style={styles.langFlag}>🇺🇸</Text>
+              <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>English</Text>
+              {lang === 'en' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.langOptionRow, lang === 'bn' && { backgroundColor: colors.primaryLight }]}
+              onPress={() => {
+                setLang('bn');
+                setShowLangModal(false);
+              }}
+            >
+              <Text style={styles.langFlag}>🇧🇩</Text>
+              <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>বাংলা (Bengali)</Text>
+              {lang === 'bn' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.cancelModalBtn, { backgroundColor: colors.inputBg }]}
+              onPress={() => setShowLangModal(false)}
+            >
+              <Text style={[styles.cancelModalText, { color: colors.textSecondary }]}>إلغاء / Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* =========================================================================
           IMAGE PREVIEW LIGHTBOX MODAL
@@ -1305,8 +1718,10 @@ export default function DelegateApp() {
       {previewPhoto && (
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{previewPhoto.title}</Text>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {previewPhoto.title}
+              </Text>
               <TouchableOpacity onPress={() => setPreviewPhoto(null)} style={styles.modalCloseBtn}>
                 <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
@@ -1346,34 +1761,35 @@ const styles = StyleSheet.create({
   },
   topBarActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     marginBottom: 20,
   },
-  themeToggleBtn: {
+  langSwitchBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  themeToggleText: {
-    fontSize: 12,
-    fontWeight: '600',
+  langSwitchText: {
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   loginHeader: {
     alignItems: 'center',
     marginBottom: 24,
   },
-  logoIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+  logoImage: {
+    width: 90,
+    height: 90,
     marginBottom: 12,
-    borderWidth: 2,
   },
   appTitle: {
     fontSize: 26,
@@ -1387,17 +1803,15 @@ const styles = StyleSheet.create({
   loginCardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    textAlign: 'right',
     marginBottom: 4,
   },
   loginCardSubtitle: {
     fontSize: 13,
-    textAlign: 'right',
     marginBottom: 20,
     lineHeight: 18,
   },
   errorBanner: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     padding: 12,
@@ -1408,12 +1822,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     flex: 1,
-    textAlign: 'right',
   },
 
   // Header Bar
   headerBar: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
@@ -1421,7 +1833,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerRight: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 10,
     flex: 1,
@@ -1443,10 +1854,8 @@ const styles = StyleSheet.create({
   delegateName: {
     fontSize: 15,
     fontWeight: 'bold',
-    textAlign: 'right',
   },
   headerBadgesRow: {
-    flexDirection: 'row-reverse',
     gap: 6,
     marginTop: 3,
   },
@@ -1463,6 +1872,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  langSmallBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  langSmallText: {
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   iconButton: {
     width: 36,
@@ -1494,13 +1916,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   heroCardTop: {
-    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
   statusPill: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
@@ -1542,15 +1962,13 @@ const styles = StyleSheet.create({
   heroHeading: {
     fontSize: 17,
     fontWeight: 'bold',
-    textAlign: 'right',
   },
   heroSub: {
     fontSize: 13,
-    textAlign: 'right',
     lineHeight: 18,
   },
   heroActionButton: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -1572,15 +1990,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    textAlign: 'right',
   },
   sectionSub: {
     fontSize: 12,
-    textAlign: 'right',
     marginTop: 2,
   },
   statsGrid: {
-    flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: 10,
   },
@@ -1610,7 +2025,6 @@ const styles = StyleSheet.create({
 
   // Quick Cards
   quickCardRow: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     padding: 14,
     borderRadius: 14,
@@ -1630,11 +2044,9 @@ const styles = StyleSheet.create({
   quickCardTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    textAlign: 'right',
   },
   quickCardSub: {
     fontSize: 12,
-    textAlign: 'right',
     marginTop: 2,
   },
 
@@ -1650,7 +2062,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardHeaderRow: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 10,
     marginBottom: 16,
@@ -1665,11 +2076,9 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    textAlign: 'right',
   },
   cardSubtitle: {
     fontSize: 12,
-    textAlign: 'right',
     marginTop: 2,
   },
 
@@ -1681,7 +2090,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
-    textAlign: 'right',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -1709,10 +2117,8 @@ const styles = StyleSheet.create({
   hintText: {
     fontSize: 11,
     marginTop: 4,
-    textAlign: 'right',
   },
   matchBadgeSuccess: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 6,
     padding: 8,
@@ -1724,7 +2130,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   matchBadgeWarning: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 6,
     padding: 8,
@@ -1736,15 +2141,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     flex: 1,
-    textAlign: 'right',
   },
   photoPickerRow: {
-    flexDirection: 'row-reverse',
     gap: 10,
   },
   photoButton: {
     flex: 1,
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -1772,7 +2174,6 @@ const styles = StyleSheet.create({
     bottom: 8,
     right: 8,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
@@ -1801,13 +2202,11 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   twoColRow: {
-    flexDirection: 'row-reverse',
     gap: 10,
   },
 
   // Active shift summary box inside end shift
   activeShiftSummaryBox: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-around',
     padding: 12,
@@ -1841,13 +2240,28 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   buttonContentRow: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 8,
   },
   primaryButtonText: {
     color: '#ffffff',
     fontSize: 15,
+    fontWeight: 'bold',
+  },
+
+  // Quick Demo Button
+  demoButton: {
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  demoButtonText: {
+    fontSize: 13,
     fontWeight: 'bold',
   },
 
@@ -1859,7 +2273,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   historyCardTop: {
-    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
@@ -1867,15 +2280,12 @@ const styles = StyleSheet.create({
   historyDate: {
     fontSize: 13,
     fontWeight: 'bold',
-    textAlign: 'right',
   },
   historyBike: {
     fontSize: 11,
-    textAlign: 'right',
     marginTop: 2,
   },
   badgeReviewed: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
@@ -1887,7 +2297,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   badgePending: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
@@ -1899,7 +2308,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   historyStatsRow: {
-    flexDirection: 'row-reverse',
     justifyContent: 'space-around',
     padding: 8,
     borderRadius: 8,
@@ -1916,12 +2324,10 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   historyPhotosRow: {
-    flexDirection: 'row-reverse',
     gap: 8,
     marginTop: 10,
   },
   historyPhotoThumb: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 6,
     padding: 4,
@@ -1939,7 +2345,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   editedNoticeBox: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 4,
     padding: 6,
@@ -2000,7 +2405,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   profileInfoRow: {
-    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -2012,14 +2416,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   settingRow: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
   settingRowRight: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 10,
   },
@@ -2038,7 +2440,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingTop: 8,
@@ -2073,6 +2474,45 @@ const styles = StyleSheet.create({
     backgroundColor: '#10b981',
   },
 
+  // Language Modal
+  langModalCard: {
+    width: '90%',
+    borderRadius: 18,
+    padding: 20,
+    gap: 12,
+  },
+  langModalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  langOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
+  },
+  langFlag: {
+    fontSize: 22,
+  },
+  langOptionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
+  },
+  cancelModalBtn: {
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  cancelModalText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
   // Photo Preview Modal
   modalBackdrop: {
     position: 'absolute',
@@ -2094,7 +2534,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalHeader: {
-    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
@@ -2102,7 +2541,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    textAlign: 'right',
     flex: 1,
   },
   modalCloseBtn: {
