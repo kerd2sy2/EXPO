@@ -14,6 +14,7 @@ export interface EmployeeProfile {
   shift?: string;
   branch_id?: string;
   branch_name?: string;
+  phone?: string;
 }
 
 export interface WorkSession {

@@ -139,6 +139,7 @@ const translations = {
     delegate: 'المندوب',
     idAbbr: 'هوية',
     keyAbbr: 'مفتاح',
+    phoneNumber: 'رقم الهاتف',
     selectLang: 'اختر لغة التطبيق',
   },
   en: {
@@ -238,6 +239,7 @@ const translations = {
     delegate: 'Delegate',
     idAbbr: 'ID',
     keyAbbr: 'Key',
+    phoneNumber: 'Phone Number',
     selectLang: 'Select Language',
   },
   bn: {
@@ -337,6 +339,7 @@ const translations = {
     delegate: 'প্রতিনিধি',
     idAbbr: 'আইডি',
     keyAbbr: 'চাবি',
+    phoneNumber: 'ফোন নম্বর',
     selectLang: 'ভাষা নির্বাচন করুন',
   }
 };
@@ -1646,39 +1649,69 @@ export default function DelegateApp() {
         {currentTab === 'profile' && (
           <View style={styles.tabContainer}>
 
+            {/* Avatar + Name Card */}
             <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {empPhotoUrl ? (
-                <Image source={{ uri: empPhotoUrl }} style={styles.profileAvatarImg} />
-              ) : (
-                <View style={[styles.profileAvatarCircle, { backgroundColor: colors.primaryLight }]}>
-                  <Text style={[styles.profileAvatarText, { color: colors.primaryText }]}>
-                    {employee.name ? employee.name.charAt(0) : 'D'}
-                  </Text>
+              {/* Avatar */}
+              <View style={styles.profileAvatarWrap}>
+                {empPhotoUrl ? (
+                  <Image source={{ uri: empPhotoUrl }} style={styles.profileAvatarImg} />
+                ) : (
+                  <View style={[styles.profileAvatarCircle, { backgroundColor: colors.primaryLight }]}>
+                    <Text style={[styles.profileAvatarText, { color: colors.primaryText }]}>
+                      {employee.name ? employee.name.charAt(0).toUpperCase() : 'D'}
+                    </Text>
+                  </View>
+                )}
+                <View style={[styles.profileAvatarBadge, { backgroundColor: colors.primary }]}>
+                  <Ionicons name="person" size={10} color="#fff" />
                 </View>
-              )}
+              </View>
 
               <Text style={[styles.profileName, { color: colors.textPrimary }]}>{employee.name}</Text>
               <Text style={[styles.profileJob, { color: colors.textSecondary }]}>{t.jobRole}</Text>
+            </View>
 
-              <View style={styles.profileDivider} />
-
-              <View style={styles.profileInfoList}>
-                <View style={[styles.profileInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            {/* Info Rows Card */}
+            <View style={[styles.profileInfoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {/* National ID */}
+              <View style={[styles.profileInfoRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.profileInfoIconWrap, { backgroundColor: isDarkMode ? '#1e2233' : '#f8fafc' }]}>
+                  <Feather name="credit-card" size={16} color={colors.primary} />
+                </View>
+                <View style={[styles.profileInfoTexts, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                   <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.nationalId}</Text>
                   <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.national_id}</Text>
                 </View>
+              </View>
 
-                <View style={[styles.profileInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              {/* Key Number */}
+              <View style={[styles.profileInfoRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.profileInfoIconWrap, { backgroundColor: isDarkMode ? '#1e2233' : '#f8fafc' }]}>
+                  <Ionicons name="key-outline" size={16} color={colors.primary} />
+                </View>
+                <View style={[styles.profileInfoTexts, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                   <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
                   <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.key_number || '—'}</Text>
                 </View>
+              </View>
 
-                <View style={[styles.profileInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.assignedBike}</Text>
-                  <Text style={[styles.profileInfoValue, { color: colors.primary }]}>{employee.motorcycle_number || '—'}</Text>
+              {/* Phone */}
+              <View style={[styles.profileInfoRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.profileInfoIconWrap, { backgroundColor: isDarkMode ? '#1e2233' : '#f8fafc' }]}>
+                  <Feather name="phone" size={16} color={colors.primary} />
                 </View>
+                <View style={[styles.profileInfoTexts, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.phoneNumber || 'رقم الهاتف'}</Text>
+                  <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.phone || '—'}</Text>
+                </View>
+              </View>
 
-                <View style={[styles.profileInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              {/* Branch */}
+              <View style={[styles.profileInfoRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.profileInfoIconWrap, { backgroundColor: isDarkMode ? '#1e2233' : '#f8fafc' }]}>
+                  <Ionicons name="business-outline" size={16} color={colors.primary} />
+                </View>
+                <View style={[styles.profileInfoTexts, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                   <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.branch}</Text>
                   <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.branch_name || '—'}</Text>
                 </View>
@@ -1702,7 +1735,7 @@ export default function DelegateApp() {
                   </Text>
                 </View>
                 <Text style={[styles.settingRowVal, { color: colors.primary }]}>
-                  {lang === 'ar' ? 'العربية 🇸🇦' : lang === 'en' ? 'English 🇺🇸' : 'বাংলা 🇧🇩'}
+                  {lang === 'ar' ? 'العربية' : lang === 'en' ? 'English' : 'বাংলা'}
                 </Text>
               </TouchableOpacity>
 
@@ -2555,37 +2588,85 @@ const styles = StyleSheet.create({
   // Profile Screen Styles
   profileCard: {
     alignItems: 'center',
-    padding: 18,
-    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 18,
+    borderRadius: 18,
     borderWidth: 1,
+    gap: 4,
+  },
+  profileAvatarWrap: {
+    position: 'relative',
+    marginBottom: 10,
   },
   profileAvatarImg: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     borderWidth: 3,
     borderColor: '#ea580c',
-    marginBottom: 8,
   },
   profileAvatarCircle: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
   profileAvatarText: {
-    fontSize: 26,
+    fontSize: 30,
     fontWeight: 'bold',
   },
+  profileAvatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
   profileName: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: 'bold',
+    marginTop: 2,
   },
   profileJob: {
     fontSize: 13,
     marginTop: 2,
+  },
+  profileInfoCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  profileInfoRow: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+    borderBottomWidth: 1,
+  },
+  profileInfoIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileInfoTexts: {
+    flex: 1,
+    gap: 1,
+  },
+  profileInfoLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  profileInfoValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   profileDivider: {
     width: '100%',
@@ -2596,17 +2677,6 @@ const styles = StyleSheet.create({
   profileInfoList: {
     width: '100%',
     gap: 10,
-  },
-  profileInfoRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  profileInfoLabel: {
-    fontSize: 13,
-  },
-  profileInfoValue: {
-    fontSize: 13,
-    fontWeight: 'bold',
   },
   settingRow: {
     alignItems: 'center',
