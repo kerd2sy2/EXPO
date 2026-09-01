@@ -1232,14 +1232,6 @@ export default function DelegateApp() {
         {/* ----------------- TAB 2: SHIFT ACTIONS (الدوام) ----------------- */}
         {currentTab === 'shift' && (
           <View style={styles.tabContainer}>
-            {/* Top Back To Home Button */}
-            <TouchableOpacity
-              style={[styles.backToHomeBtn, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={() => navigateToTab('home')}
-            >
-              <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={18} color={colors.primary} />
-              <Text style={[styles.backToHomeText, { color: colors.primary }]}>{t.backToHome}</Text>
-            </TouchableOpacity>
 
             {!activeSession ? (
               /* START SHIFT FORM */
@@ -1589,14 +1581,6 @@ export default function DelegateApp() {
         {/* ----------------- TAB 3: MY SHIFTS HISTORY (سجل الشفتات) ----------------- */}
         {currentTab === 'history' && (
           <View style={styles.tabContainer}>
-            {/* Top Back To Home Button */}
-            <TouchableOpacity
-              style={[styles.backToHomeBtn, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={() => navigateToTab('home')}
-            >
-              <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={18} color={colors.primary} />
-              <Text style={[styles.backToHomeText, { color: colors.primary }]}>{t.backToHome}</Text>
-            </TouchableOpacity>
 
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
@@ -1696,14 +1680,6 @@ export default function DelegateApp() {
         {/* ----------------- TAB 4: PROFILE (الملف الشخصي) ----------------- */}
         {currentTab === 'profile' && (
           <View style={styles.tabContainer}>
-            {/* Top Back To Home Button */}
-            <TouchableOpacity
-              style={[styles.backToHomeBtn, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={() => navigateToTab('home')}
-            >
-              <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={18} color={colors.primary} />
-              <Text style={[styles.backToHomeText, { color: colors.primary }]}>{t.backToHome}</Text>
-            </TouchableOpacity>
 
             <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {empPhotoUrl ? (
