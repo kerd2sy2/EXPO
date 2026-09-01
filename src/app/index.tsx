@@ -850,7 +850,7 @@ export default function DelegateApp() {
                   <View style={styles.inputIcon}>
                     <Feather name="user" size={18} color={colors.textSecondary} />
                   </View>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }}>
+                  <View style={{ flex: 1, height: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }}>
                     <TextInput
                       ref={loginInputRef}
                       style={[
@@ -858,6 +858,10 @@ export default function DelegateApp() {
                         {
                           color: colors.textPrimary,
                           textAlign: 'left',
+                          textAlignVertical: 'center',
+                          includeFontPadding: false,
+                          paddingVertical: 0,
+                          fontSize: 14,
                           flex: loginInput.length > 0 ? 0 : 1,
                           width: loginInput.length > 0 ? Math.max(16, loginInput.length * 9.5 + 4) : undefined,
                           paddingRight: 0,
@@ -872,7 +876,15 @@ export default function DelegateApp() {
                       autoCapitalize="none"
                     />
                     {loginInput.length > 0 && (
-                      <Text style={{ fontSize: 14, color: colors.textSecondary, fontWeight: '400', lineHeight: 18 }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: colors.textSecondary,
+                          fontWeight: '400',
+                          textAlignVertical: 'center',
+                          includeFontPadding: false,
+                        }}
+                      >
                         @aams-logistics.com
                       </Text>
                     )}
