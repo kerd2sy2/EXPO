@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -65,12 +65,18 @@ const translations = {
     myAchievements: 'ملخص إنجازاتي',
     totalShifts: 'الشفتات المسجلة',
     totalDistance: 'إجمالي المسافة',
-    approvedOrders: 'الطلبات المعتمدة',
+    approvedOrders: 'إجمالي الطلبات المنجزة',
     quickAccess: 'الوصول السريع',
     quickShiftTitle: 'بدء أو إقفال شفت العمل',
     quickShiftSub: 'تسجيل قراءات العدادات والتقاط الصور',
     quickHistoryTitle: 'سجل الشفتات والتصديقات',
     quickHistorySub: 'متابعة حالة اعتماد المشرف للطلبات',
+    quickProfileTitle: 'الملف الشخصي وإعدادات الحساب',
+    quickProfileSub: 'عرض بيانات المندوب والدباب ولغة التطبيق',
+    backToHome: 'العودة للرئيسية',
+    ordersUnit: 'طلب',
+    shiftsUnit: 'شفت',
+    shiftStatus: 'حالة الدوام',
     startShiftTitle: 'بدء شفت عمل جديد',
     startShiftSub: 'تأكد من رقم الدباب وقراءة عداد البداية والتقط صورة واضحة',
     actualBikeNumber: 'رقم الدباب الفعلي الذي ستقوده',
@@ -150,12 +156,18 @@ const translations = {
     myAchievements: 'My Performance Summary',
     totalShifts: 'Total Shifts',
     totalDistance: 'Total Distance',
-    approvedOrders: 'Approved Orders',
+    approvedOrders: 'Total Completed Orders',
     quickAccess: 'Quick Access',
     quickShiftTitle: 'Start or End Shift',
     quickShiftSub: 'Record odometer readings & take photos',
     quickHistoryTitle: 'Shift History & Approvals',
     quickHistorySub: 'Track supervisor review and order approvals',
+    quickProfileTitle: 'Profile & Account Settings',
+    quickProfileSub: 'View delegate details, bike info, and app language',
+    backToHome: 'Back to Home',
+    ordersUnit: 'Orders',
+    shiftsUnit: 'Shifts',
+    shiftStatus: 'Shift Status',
     startShiftTitle: 'Start New Shift',
     startShiftSub: 'Verify bike plate, enter start KM, and take odometer photo',
     actualBikeNumber: 'Actual Bike Plate you are riding',
@@ -235,12 +247,18 @@ const translations = {
     myAchievements: 'আমার কাজের সারাংশ',
     totalShifts: 'মোট শিফট',
     totalDistance: 'মোট দূরত্ব',
-    approvedOrders: 'অনুমোদিত অর্ডার',
+    approvedOrders: 'মোট সম্পন্ন অর্ডার',
     quickAccess: 'দ্রুত অ্যাক্সেস',
     quickShiftTitle: 'শিফট শুরু বা শেষ করুন',
     quickShiftSub: 'মিটার রিডিং রেকর্ড এবং ছবি তুলুন',
     quickHistoryTitle: 'শিফট ইতিহাস ও অনুমোদন',
     quickHistorySub: 'সুপারভাইজার অনুমোদন ট্র্যাক করুন',
+    quickProfileTitle: 'প্রোফাইল ও অ্যাকাউন্ট সেটিংস',
+    quickProfileSub: 'প্রতিনিধির তথ্য, বাইক এবং অ্যাপের ভাষা',
+    backToHome: 'হোমে ফিরে যান',
+    ordersUnit: 'অর্ডার',
+    shiftsUnit: 'শিফট',
+    shiftStatus: 'শিফট স্ট্যাটাস',
     startShiftTitle: 'নতুন শিফট শুরু',
     startShiftSub: 'বাইকের নম্বর এবং শুরুর মিটার নিশ্চিত করে ছবি তুলুন',
     actualBikeNumber: 'আপনি যে বাইকটি চালাচ্ছেন তার নম্বর',
@@ -307,6 +325,9 @@ export default function DelegateApp() {
   const t = translations[lang];
   const isRTL = lang === 'ar';
 
+  // Scroll View Ref for scrolling to top on navigation
+  const mainScrollRef = useRef<ScrollView>(null);
+
   // Auth & Session State
   const [token, setToken] = useState<string | null>(null);
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
@@ -341,6 +362,14 @@ export default function DelegateApp() {
 
   // Preview Modal State for Photos in History
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string } | null>(null);
+
+  // Navigate to tab and scroll to top
+  const navigateToTab = (tab: TabType) => {
+    setCurrentTab(tab);
+    setTimeout(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: true });
+    }, 50);
+  };
 
   // Check initial login state
   useEffect(() => {
@@ -475,7 +504,7 @@ export default function DelegateApp() {
 
       const session = await workApi.getActiveSession(empData.id);
       setActiveSession(session);
-      setCurrentTab('home');
+      navigateToTab('home');
     } catch (err: any) {
       setLoginError(err.message || 'فشل تسجيل الدخول، تأكد من صحة البيانات');
     } finally {
@@ -497,7 +526,7 @@ export default function DelegateApp() {
     setLoginInput('');
     setPasswordInput('');
     setLoginError('');
-    setCurrentTab('home');
+    navigateToTab('home');
   };
 
   // Direct camera capture without cropping (live field verification)
@@ -563,7 +592,7 @@ export default function DelegateApp() {
       setStartKm('');
       setStartKmImage(null);
       setStartNotes('');
-      setCurrentTab('home');
+      navigateToTab('home');
       Alert.alert('OK 🚀', t.shiftActive);
       loadHistory();
     } catch (err: any) {
@@ -615,7 +644,7 @@ export default function DelegateApp() {
       setOrdersCount('');
       setFuelCost('');
       setEndNotes('');
-      setCurrentTab('home');
+      navigateToTab('home');
       Alert.alert('🏁', t.endShiftTitle);
       loadHistory();
     } catch (err: any) {
@@ -644,6 +673,13 @@ export default function DelegateApp() {
     return getFullImageUrl(employee?.personal_image);
   }, [employee?.personal_image]);
 
+  // Total completed approved orders
+  const totalApprovedOrdersCount = useMemo(() => {
+    return historySessions
+      .filter((s) => s.is_reviewed)
+      .reduce((sum, s) => sum + (s.orders_count || 0), 0);
+  }, [historySessions]);
+
   // Theme Colors
   const colors = {
     bg: isDarkMode ? '#090d16' : '#f8fafc',
@@ -664,7 +700,6 @@ export default function DelegateApp() {
     warningText: isDarkMode ? '#fbbf24' : '#b45309',
     errorBg: isDarkMode ? '#450a0a' : '#fef2f2',
     errorText: isDarkMode ? '#f87171' : '#dc2626',
-    bottomNavBg: isDarkMode ? '#0f172a' : '#ffffff',
   };
 
   if (loading) {
@@ -921,75 +956,68 @@ export default function DelegateApp() {
         </View>
       </View>
 
-      {/* Body Content by Tab */}
-      <ScrollView contentContainerStyle={styles.mainScrollContent} showsVerticalScrollIndicator={false}>
+      {/* Body Content with ScrollRef */}
+      <ScrollView
+        ref={mainScrollRef}
+        contentContainerStyle={styles.mainScrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ----------------- TAB 1: HOME DASHBOARD (الرئيسية) ----------------- */}
         {currentTab === 'home' && (
           <View style={styles.tabContainer}>
-            {/* Shift Status Hero Card */}
+            {/* Total Orders & Performance Card (البانر الرئيسي المخصص لإجمالي الطلبات المنجزة) */}
             <View
               style={[
-                styles.heroCard,
-                activeSession
-                  ? { backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5', borderColor: '#10b981' }
-                  : { backgroundColor: isDarkMode ? '#1e293b' : '#f0fdf4', borderColor: colors.border },
+                styles.ordersHeroCard,
+                {
+                  backgroundColor: isDarkMode ? '#1e293b' : '#059669',
+                  borderColor: isDarkMode ? '#334155' : '#047857',
+                },
               ]}
             >
-              <View style={[styles.heroCardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View
-                  style={[
-                    styles.statusPill,
-                    activeSession ? { backgroundColor: '#10b981' } : { backgroundColor: '#64748b' },
-                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  ]}
-                >
-                  <View style={styles.pulsingDot} />
-                  <Text style={styles.statusPillText}>
-                    {activeSession ? t.shiftActive : t.readyToStart}
+              <View style={[styles.ordersHeroTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.ordersHeroLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.approvedOrders} 📦
+                  </Text>
+                  <Text style={[styles.ordersHeroBigNumber, { textAlign: isRTL ? 'right' : 'left' }]}>
+                    {totalApprovedOrdersCount}
+                    <Text style={styles.ordersHeroUnit}> {t.ordersUnit}</Text>
                   </Text>
                 </View>
-
-                {activeSession && (
-                  <View style={styles.timerBadge}>
-                    <Ionicons name="time-outline" size={16} color="#047857" />
-                    <Text style={styles.timerBadgeText}>{elapsedTime}</Text>
-                  </View>
-                )}
+                <View style={styles.ordersHeroIconWrapper}>
+                  <MaterialCommunityIcons name="package-variant-closed" size={44} color="#ffffff" style={{ opacity: 0.9 }} />
+                </View>
               </View>
 
-              {activeSession ? (
-                <View style={styles.heroActiveDetails}>
-                  <Text style={[styles.heroHeading, { color: isDarkMode ? '#ffffff' : '#065f46', textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.shiftInProgressOn} [{activeSession.motorcycle_number}]
+              <View style={styles.ordersHeroDivider} />
+
+              <View style={[styles.ordersHeroBottomRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={styles.ordersHeroStatLabel}>{t.totalDistance}</Text>
+                  <Text style={styles.ordersHeroStatValue}>
+                    {historySessions.reduce((sum, s) => sum + (s.distance || 0), 0).toFixed(0)} {t.km}
                   </Text>
-                  <Text style={[styles.heroSub, { color: isDarkMode ? '#a7f3d0' : '#047857', textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.startKmLabel}: {activeSession.start_km} {t.km}
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.heroActionButton, { backgroundColor: '#dc2626' }]}
-                    onPress={() => setCurrentTab('shift')}
-                  >
-                    <Ionicons name="stop-circle" size={20} color="#ffffff" />
-                    <Text style={styles.heroActionButtonText}>{t.endShiftNow}</Text>
-                  </TouchableOpacity>
                 </View>
-              ) : (
-                <View style={styles.heroInactiveDetails}>
-                  <Text style={[styles.heroHeading, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.notStartedToday}
+
+                <View style={styles.ordersHeroStatDivider} />
+
+                <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={styles.ordersHeroStatLabel}>{t.totalShifts}</Text>
+                  <Text style={styles.ordersHeroStatValue}>
+                    {historySessions.length} {t.shiftsUnit}
                   </Text>
-                  <Text style={[styles.heroSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.assignedBike}: {employee.motorcycle_number || '—'} | {t.branch}: {employee.branch_name || '—'}
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.heroActionButton, { backgroundColor: colors.primary }]}
-                    onPress={() => setCurrentTab('shift')}
-                  >
-                    <Ionicons name="play-circle" size={20} color="#ffffff" />
-                    <Text style={styles.heroActionButtonText}>{t.startShiftNow}</Text>
-                  </TouchableOpacity>
                 </View>
-              )}
+
+                <View style={styles.ordersHeroStatDivider} />
+
+                <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={styles.ordersHeroStatLabel}>{t.shiftStatus}</Text>
+                  <Text style={[styles.ordersHeroStatValue, { color: activeSession ? '#6ee7b7' : '#e2e8f0' }]}>
+                    {activeSession ? '🟢 ' + t.shiftActive : '⚪ ' + t.readyToStart}
+                  </Text>
+                </View>
+              </View>
             </View>
 
             {/* Quick KPI Stats */}
@@ -1033,7 +1061,7 @@ export default function DelegateApp() {
                   <MaterialCommunityIcons name="package-variant-closed" size={22} color={colors.accent} />
                 </View>
                 <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                  {historySessions.filter((s) => s.is_reviewed).reduce((sum, s) => sum + (s.orders_count || 0), 0)}
+                  {totalApprovedOrdersCount}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.approvedOrders}</Text>
               </View>
@@ -1046,30 +1074,36 @@ export default function DelegateApp() {
               </Text>
             </View>
 
+            {/* 1. Shift Quick Access */}
             <TouchableOpacity
               style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={() => setCurrentTab('shift')}
+              onPress={() => navigateToTab('shift')}
             >
-              <View style={[styles.quickCardIconCircle, { backgroundColor: colors.primaryLight }]}>
-                <Ionicons name="speedometer-outline" size={24} color={colors.primary} />
+              <View style={[styles.quickCardIconCircle, { backgroundColor: activeSession ? '#fee2e2' : colors.primaryLight }]}>
+                <Ionicons
+                  name={activeSession ? 'stop-circle-outline' : 'play-circle-outline'}
+                  size={24}
+                  color={activeSession ? '#ef4444' : colors.primary}
+                />
               </View>
               <View style={styles.quickCardTextCol}>
                 <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.quickShiftTitle}
+                  {activeSession ? t.endShiftNow : t.quickShiftTitle}
                 </Text>
                 <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.quickShiftSub}
+                  {activeSession ? `${t.durationLabel}: ${elapsedTime}` : t.quickShiftSub}
                 </Text>
               </View>
               <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
             </TouchableOpacity>
 
+            {/* 2. History Quick Access */}
             <TouchableOpacity
               style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={() => setCurrentTab('history')}
+              onPress={() => navigateToTab('history')}
             >
               <View style={[styles.quickCardIconCircle, { backgroundColor: colors.accentLight }]}>
-                <Ionicons name="time-outline" size={24} color={colors.accent} />
+                <Ionicons name="receipt-outline" size={24} color={colors.accent} />
               </View>
               <View style={styles.quickCardTextCol}>
                 <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
@@ -1081,12 +1115,40 @@ export default function DelegateApp() {
               </View>
               <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
             </TouchableOpacity>
+
+            {/* 3. Profile Quick Access */}
+            <TouchableOpacity
+              style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              onPress={() => navigateToTab('profile')}
+            >
+              <View style={[styles.quickCardIconCircle, { backgroundColor: colors.primaryLight }]}>
+                <Ionicons name="person-outline" size={24} color={colors.primary} />
+              </View>
+              <View style={styles.quickCardTextCol}>
+                <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.quickProfileTitle}
+                </Text>
+                <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.quickProfileSub}
+                </Text>
+              </View>
+              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         )}
 
         {/* ----------------- TAB 2: SHIFT ACTIONS (الدوام) ----------------- */}
         {currentTab === 'shift' && (
           <View style={styles.tabContainer}>
+            {/* Top Back To Home Button */}
+            <TouchableOpacity
+              style={[styles.backToHomeBtn, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              onPress={() => navigateToTab('home')}
+            >
+              <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={18} color={colors.primary} />
+              <Text style={[styles.backToHomeText, { color: colors.primary }]}>{t.backToHome}</Text>
+            </TouchableOpacity>
+
             {!activeSession ? (
               /* START SHIFT FORM */
               <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -1435,6 +1497,15 @@ export default function DelegateApp() {
         {/* ----------------- TAB 3: MY SHIFTS HISTORY (سجل الشفتات) ----------------- */}
         {currentTab === 'history' && (
           <View style={styles.tabContainer}>
+            {/* Top Back To Home Button */}
+            <TouchableOpacity
+              style={[styles.backToHomeBtn, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              onPress={() => navigateToTab('home')}
+            >
+              <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={18} color={colors.primary} />
+              <Text style={[styles.backToHomeText, { color: colors.primary }]}>{t.backToHome}</Text>
+            </TouchableOpacity>
+
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                 {t.historyTitle}
@@ -1533,6 +1604,15 @@ export default function DelegateApp() {
         {/* ----------------- TAB 4: PROFILE (الملف الشخصي) ----------------- */}
         {currentTab === 'profile' && (
           <View style={styles.tabContainer}>
+            {/* Top Back To Home Button */}
+            <TouchableOpacity
+              style={[styles.backToHomeBtn, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              onPress={() => navigateToTab('home')}
+            >
+              <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={18} color={colors.primary} />
+              <Text style={[styles.backToHomeText, { color: colors.primary }]}>{t.backToHome}</Text>
+            </TouchableOpacity>
+
             <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {empPhotoUrl ? (
                 <Image source={{ uri: empPhotoUrl }} style={styles.profileAvatarImg} />
@@ -1607,90 +1687,6 @@ export default function DelegateApp() {
           </View>
         )}
       </ScrollView>
-
-      {/* =========================================================================
-          BOTTOM NAVIGATION BAR
-         ========================================================================= */}
-      <View style={[styles.bottomNav, { backgroundColor: colors.bottomNavBg, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setCurrentTab('home')}
-        >
-          <Ionicons
-            name={currentTab === 'home' ? 'home' : 'home-outline'}
-            size={22}
-            color={currentTab === 'home' ? colors.primary : colors.textSecondary}
-          />
-          <Text
-            style={[
-              styles.navItemText,
-              { color: currentTab === 'home' ? colors.primary : colors.textSecondary, fontWeight: currentTab === 'home' ? 'bold' : 'normal' },
-            ]}
-          >
-            {t.tabHome}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setCurrentTab('shift')}
-        >
-          <View style={styles.shiftNavIconWrapper}>
-            <Ionicons
-              name={activeSession ? 'speedometer' : 'speedometer-outline'}
-              size={22}
-              color={currentTab === 'shift' ? colors.primary : colors.textSecondary}
-            />
-            {activeSession && <View style={styles.navActiveDot} />}
-          </View>
-          <Text
-            style={[
-              styles.navItemText,
-              { color: currentTab === 'shift' ? colors.primary : colors.textSecondary, fontWeight: currentTab === 'shift' ? 'bold' : 'normal' },
-            ]}
-          >
-            {t.tabShift}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setCurrentTab('history')}
-        >
-          <Ionicons
-            name={currentTab === 'history' ? 'receipt' : 'receipt-outline'}
-            size={22}
-            color={currentTab === 'history' ? colors.primary : colors.textSecondary}
-          />
-          <Text
-            style={[
-              styles.navItemText,
-              { color: currentTab === 'history' ? colors.primary : colors.textSecondary, fontWeight: currentTab === 'history' ? 'bold' : 'normal' },
-            ]}
-          >
-            {t.tabHistory}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setCurrentTab('profile')}
-        >
-          <Ionicons
-            name={currentTab === 'profile' ? 'person' : 'person-outline'}
-            size={22}
-            color={currentTab === 'profile' ? colors.primary : colors.textSecondary}
-          />
-          <Text
-            style={[
-              styles.navItemText,
-              { color: currentTab === 'profile' ? colors.primary : colors.textSecondary, fontWeight: currentTab === 'profile' ? 'bold' : 'normal' },
-            ]}
-          >
-            {t.tabProfile}
-          </Text>
-        </TouchableOpacity>
-      </View>
 
       {/* =========================================================================
           LANGUAGE SELECTOR MODAL
@@ -1930,9 +1926,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1941,97 +1937,104 @@ const styles = StyleSheet.create({
   // Main Scroll & Tabs
   mainScrollContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 40,
   },
   tabContainer: {
-    gap: 16,
+    gap: 14,
   },
 
-  // Hero Card (Home)
-  heroCard: {
+  // Back to home button at top of tabs
+  backToHomeBtn: {
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  backToHomeText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+
+  // Total Orders Hero Card (Home)
+  ordersHeroCard: {
     borderRadius: 18,
     borderWidth: 1,
     padding: 18,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
-    elevation: 2,
+    elevation: 3,
   },
-  heroCardTop: {
+  ordersHeroTop: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ordersHeroLabel: {
+    color: '#e2e8f0',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  ordersHeroBigNumber: {
+    color: '#ffffff',
+    fontSize: 34,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  ordersHeroUnit: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#cbd5e1',
+  },
+  ordersHeroIconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ordersHeroDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginVertical: 14,
+  },
+  ordersHeroBottomRow: {
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  statusPill: {
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
+  ordersHeroStatItem: {
+    flex: 1,
   },
-  pulsingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ffffff',
+  ordersHeroStatLabel: {
+    color: '#e2e8f0',
+    fontSize: 11,
+    marginBottom: 2,
   },
-  statusPillText: {
+  ordersHeroStatValue: {
     color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  timerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#d1fae5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  timerBadgeText: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#047857',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
-  heroActiveDetails: {
-    gap: 8,
-  },
-  heroInactiveDetails: {
-    gap: 8,
-  },
-  heroHeading: {
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
-  heroSub: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  heroActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  heroActionButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: 'bold',
+  ordersHeroStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 8,
   },
 
   // Stats Grid
   sectionHeader: {
-    marginTop: 6,
+    marginTop: 4,
     marginBottom: 2,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   sectionSub: {
@@ -2044,25 +2047,25 @@ const styles = StyleSheet.create({
   },
   statBox: {
     width: (width - 42) / 2,
-    padding: 14,
+    padding: 12,
     borderRadius: 14,
     borderWidth: 1,
     alignItems: 'center',
   },
   statIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   statNumber: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
 
@@ -2075,9 +2078,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   quickCardIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2097,7 +2100,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 18,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -2107,7 +2110,7 @@ const styles = StyleSheet.create({
   cardHeaderRow: {
     alignItems: 'center',
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   cardHeaderIcon: {
     width: 36,
@@ -2117,7 +2120,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   cardSubtitle: {
@@ -2127,7 +2130,7 @@ const styles = StyleSheet.create({
 
   // Forms
   formGroup: {
-    marginBottom: 14,
+    marginBottom: 12,
   },
   label: {
     fontSize: 13,
@@ -2155,7 +2158,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     fontSize: 14,
-    height: 70,
+    height: 65,
   },
   hintText: {
     fontSize: 11,
@@ -2191,7 +2194,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderStyle: 'dashed',
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -2201,7 +2204,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 20,
     height: 20,
-    borderColor: '#059669',
   },
   cornerTopLeft: {
     top: 8,
@@ -2241,7 +2243,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: 4,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   cameraCaptureBtn: {
     flexDirection: 'row',
@@ -2249,7 +2251,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -2268,7 +2270,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
-    height: 190,
+    height: 180,
     position: 'relative',
   },
   imagePreview: {
@@ -2277,30 +2279,30 @@ const styles = StyleSheet.create({
   },
   imageOverlayBadge: {
     position: 'absolute',
-    bottom: 10,
-    right: 10,
+    bottom: 8,
+    right: 8,
     backgroundColor: 'rgba(0,0,0,0.75)',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 8,
   },
   imageOverlayText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
   },
   retakeButton: {
     position: 'absolute',
-    top: 10,
-    left: 10,
+    top: 8,
+    left: 8,
     backgroundColor: 'rgba(15, 23, 42, 0.85)',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -2310,7 +2312,7 @@ const styles = StyleSheet.create({
   },
   retakeButtonText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
   },
 
@@ -2325,7 +2327,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   summaryItem: {
     alignItems: 'center',
@@ -2483,32 +2485,32 @@ const styles = StyleSheet.create({
   // Profile Screen Styles
   profileCard: {
     alignItems: 'center',
-    padding: 20,
+    padding: 18,
     borderRadius: 16,
     borderWidth: 1,
   },
   profileAvatarImg: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     borderWidth: 3,
     borderColor: '#059669',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   profileAvatarCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   profileAvatarText: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
   },
   profileName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
   },
   profileJob: {
@@ -2519,11 +2521,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 1,
     backgroundColor: '#e2e8f0',
-    marginVertical: 16,
+    marginVertical: 14,
   },
   profileInfoList: {
     width: '100%',
-    gap: 12,
+    gap: 10,
   },
   profileInfoRow: {
     justifyContent: 'space-between',
@@ -2553,46 +2555,6 @@ const styles = StyleSheet.create({
   settingRowVal: {
     fontSize: 13,
     fontWeight: 'bold',
-  },
-
-  // Bottom Navigation Bar
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-    borderTopWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 8,
-  },
-  navItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-    flex: 1,
-  },
-  navItemText: {
-    fontSize: 11,
-    marginTop: 3,
-  },
-  shiftNavIconWrapper: {
-    position: 'relative',
-  },
-  navActiveDot: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10b981',
   },
 
   // Language Modal
