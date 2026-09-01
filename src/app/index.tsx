@@ -28,6 +28,8 @@ const { width } = Dimensions.get('window');
 type TabType = 'home' | 'shift' | 'history' | 'profile';
 type Language = 'ar' | 'en' | 'bn';
 
+const MONTHLY_TARGET = 460;
+
 // Helper to resolve full image URLs for backend uploads / personal images
 export const getFullImageUrl = (imagePath?: string): string | null => {
   if (!imagePath || !imagePath.trim()) return null;
@@ -66,7 +68,12 @@ const translations = {
     myAchievements: 'ملخص إنجازاتي',
     totalShifts: 'الشفتات المسجلة',
     totalDistance: 'إجمالي المسافة',
-    approvedOrders: 'إجمالي الطلبات المنجزة',
+    approvedOrders: 'الطلبات المنجزة',
+    monthlyTarget: 'الهدف الشهري (التارجت)',
+    expectedSalary: 'متوقع الراتب المكتسب',
+    ratePerOrder: 'سعر الطلب الحالي',
+    targetAchievedBadge: 'تم كسر التارجت والبونص 🏆 (شريحة 6 ر.س/طلب)',
+    targetRemainingNotice: 'متبقي {n} طلب للانتقال لشريحة 6 ر.س/طلب 🚀',
     quickAccess: 'الوصول السريع',
     quickShiftTitle: 'بدء أو إقفال شفت العمل',
     quickShiftSub: 'تسجيل قراءات العدادات والتقاط الصور',
@@ -157,7 +164,12 @@ const translations = {
     myAchievements: 'My Performance Summary',
     totalShifts: 'Total Shifts',
     totalDistance: 'Total Distance',
-    approvedOrders: 'Total Completed Orders',
+    approvedOrders: 'Completed Orders',
+    monthlyTarget: 'Monthly Target',
+    expectedSalary: 'Estimated Earnings',
+    ratePerOrder: 'Order Rate',
+    targetAchievedBadge: 'Target Achieved & Bonus Unlocked 🏆 (6 SAR/order)',
+    targetRemainingNotice: '{n} orders left to reach 6 SAR/order tier 🚀',
     quickAccess: 'Quick Access',
     quickShiftTitle: 'Start or End Shift',
     quickShiftSub: 'Record odometer readings & take photos',
@@ -248,7 +260,12 @@ const translations = {
     myAchievements: 'আমার কাজের সারাংশ',
     totalShifts: 'মোট শিফট',
     totalDistance: 'মোট দূরত্ব',
-    approvedOrders: 'মোট সম্পন্ন অর্ডার',
+    approvedOrders: 'সম্পন্ন অর্ডার',
+    monthlyTarget: 'মাসিক টার্গেট',
+    expectedSalary: 'আনুমানিক মোট আয়',
+    ratePerOrder: 'প্রতি অর্ডারের রেট',
+    targetAchievedBadge: 'টার্গেট সম্পন্ন ও বোনাস অর্জিত 🏆 (৬ রিয়াল/অর্ডার)',
+    targetRemainingNotice: '৬ রিয়াল স্তরে পৌঁছাতে বাকি {n} অর্ডার 🚀',
     quickAccess: 'দ্রুত অ্যাক্সেস',
     quickShiftTitle: 'শিফট শুরু বা শেষ করুন',
     quickShiftSub: 'মিটার রিডিং রেকর্ড এবং ছবি তুলুন',
@@ -280,7 +297,7 @@ const translations = {
     confirmStartBtn: 'নিশ্চিত ও শুরু করুন 🚀',
     endShiftTitle: 'শিফট সমাপ্তি',
     endShiftSub: 'শেষের মিটার, ছবি এবং অর্ডারের সংখ্যা দিন',
-    endKmInputLabel: 'শেষের মিটার রিডিং (End KM)',
+    endKmInputLabel: 'শেষের মিটার ریডিং (End KM)',
     calculatedDistLabel: 'মোট অতিক্রান্ত দূরত্ব',
     endKmPhotoLabel: 'শেষের মিটারের ছবি (বাধ্যতামূলক)',
     ordersCountLabel: 'সম্পন্ন অর্ডারের সংখ্যা',
@@ -710,6 +727,13 @@ export default function DelegateApp() {
       .reduce((sum, s) => sum + (s.orders_count || 0), 0);
   }, [historySessions]);
 
+  // Target & Salary Metrics (Target = 460 orders: < 460 => 5 SAR, >= 460 => 6 SAR)
+  const isTargetAchieved = totalApprovedOrdersCount >= MONTHLY_TARGET;
+  const currentRatePerOrder = isTargetAchieved ? 6 : 5;
+  const expectedSalary = totalApprovedOrdersCount * currentRatePerOrder;
+  const targetProgressPct = Math.min(100, Math.round((totalApprovedOrdersCount / MONTHLY_TARGET) * 100));
+  const remainingOrdersToTarget = Math.max(0, MONTHLY_TARGET - totalApprovedOrdersCount);
+
   // Theme Colors (Brand Orange & Black)
   const colors = {
     bg: isDarkMode ? '#090a0f' : '#f8f9fa',
@@ -931,7 +955,7 @@ export default function DelegateApp() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Top Header Bar */}
+      {/* Top Header Bar (Clean & Focused) */}
       <View style={[styles.headerBar, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <View style={[styles.headerRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           {/* Delegate Avatar / Personal Image */}
@@ -965,25 +989,6 @@ export default function DelegateApp() {
             </View>
           </View>
         </View>
-
-        <View style={styles.headerLeftActions}>
-          <TouchableOpacity
-            style={[styles.langSmallBtn, { backgroundColor: colors.bg, borderColor: colors.border }]}
-            onPress={() => setShowLangModal(true)}
-          >
-            <Ionicons name="globe-outline" size={14} color={colors.primary} />
-            <Text style={[styles.langSmallText, { color: colors.textPrimary }]}>
-              {lang.toUpperCase()}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.iconButton, { backgroundColor: colors.bg, borderColor: colors.border }]}
-            onPress={handleLogout}
-          >
-            <Ionicons name="log-out-outline" size={18} color="#ef4444" />
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* Body Content with ScrollRef */}
@@ -995,7 +1000,7 @@ export default function DelegateApp() {
         {/* ----------------- TAB 1: HOME DASHBOARD (الرئيسية) ----------------- */}
         {currentTab === 'home' && (
           <View style={styles.tabContainer}>
-            {/* Total Orders & Performance Card (البانر الرئيسي المخصص لإجمالي الطلبات المنجزة) */}
+            {/* Target & Salary Hero Card (بطاقة التارجت ومتوقع الراتب) */}
             <View
               style={[
                 styles.ordersHeroCard,
@@ -1005,48 +1010,86 @@ export default function DelegateApp() {
                 },
               ]}
             >
+              {/* Row 1: Approved Orders vs Target */}
               <View style={[styles.ordersHeroTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.ordersHeroLabel, { color: isDarkMode ? '#fed7aa' : '#ffedd5', textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.approvedOrders} 📦
+                    {t.monthlyTarget} (460 {t.ordersUnit})
                   </Text>
-                  <Text style={[styles.ordersHeroBigNumber, { color: isDarkMode ? '#fb923c' : '#ffffff', textAlign: isRTL ? 'right' : 'left' }]}>
-                    {totalApprovedOrdersCount}
-                    <Text style={[styles.ordersHeroUnit, { color: isDarkMode ? '#fdba74' : '#fed7aa' }]}> {t.ordersUnit}</Text>
+                  <View style={[styles.ordersHeroNumbersRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Text style={[styles.ordersHeroBigNumber, { color: isDarkMode ? '#fb923c' : '#ffffff' }]}>
+                      {totalApprovedOrdersCount}
+                    </Text>
+                    <Text style={[styles.ordersHeroTargetTotal, { color: isDarkMode ? '#fed7aa' : '#ffedd5' }]}>
+                      / {MONTHLY_TARGET} {t.ordersUnit}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.targetPctBadge, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.3)' : 'rgba(255, 255, 255, 0.25)' }]}>
+                  <Text style={[styles.targetPctText, { color: isDarkMode ? '#fb923c' : '#ffffff' }]}>
+                    {targetProgressPct}%
                   </Text>
                 </View>
-                <View style={[styles.ordersHeroIconWrapper, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.25)' : 'rgba(255, 255, 255, 0.2)' }]}>
-                  <MaterialCommunityIcons name="package-variant-closed" size={44} color={isDarkMode ? '#ea580c' : '#ffffff'} />
-                </View>
+              </View>
+
+              {/* Progress Bar */}
+              <View style={styles.targetProgressTrack}>
+                <View
+                  style={[
+                    styles.targetProgressBar,
+                    {
+                      width: `${targetProgressPct}%`,
+                      backgroundColor: isTargetAchieved ? '#22c55e' : (isDarkMode ? '#ea580c' : '#ffffff'),
+                    },
+                  ]}
+                />
               </View>
 
               <View style={[styles.ordersHeroDivider, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.25)' : 'rgba(255, 255, 255, 0.2)' }]} />
 
+              {/* Row 2: Expected Salary & Rate Tier */}
               <View style={[styles.ordersHeroBottomRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.ordersHeroStatLabel, { color: isDarkMode ? '#fdba74' : '#fed7aa' }]}>{t.totalDistance}</Text>
-                  <Text style={[styles.ordersHeroStatValue, { color: '#ffffff' }]}>
-                    {historySessions.reduce((sum, s) => sum + (s.distance || 0), 0).toFixed(0)} {t.km}
+                  <Text style={[styles.ordersHeroStatLabel, { color: isDarkMode ? '#fed7aa' : '#ffedd5' }]}>
+                    {t.expectedSalary}
+                  </Text>
+                  <Text style={[styles.salaryBigValue, { color: isDarkMode ? '#34d399' : '#ffffff' }]}>
+                    {expectedSalary.toLocaleString()} <Text style={styles.salaryCurrency}>{t.sar}</Text>
                   </Text>
                 </View>
 
                 <View style={[styles.ordersHeroStatDivider, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.25)' : 'rgba(255, 255, 255, 0.2)' }]} />
 
                 <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.ordersHeroStatLabel, { color: isDarkMode ? '#fdba74' : '#fed7aa' }]}>{t.totalShifts}</Text>
-                  <Text style={[styles.ordersHeroStatValue, { color: '#ffffff' }]}>
-                    {historySessions.length} {t.shiftsUnit}
+                  <Text style={[styles.ordersHeroStatLabel, { color: isDarkMode ? '#fed7aa' : '#ffedd5' }]}>
+                    {t.ratePerOrder}
+                  </Text>
+                  <Text style={[styles.ordersHeroStatValue, { color: isTargetAchieved ? '#34d399' : (isDarkMode ? '#fb923c' : '#ffffff') }]}>
+                    {currentRatePerOrder} {t.sar} / {t.ordersUnit}
                   </Text>
                 </View>
+              </View>
 
-                <View style={[styles.ordersHeroStatDivider, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.25)' : 'rgba(255, 255, 255, 0.2)' }]} />
-
-                <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.ordersHeroStatLabel, { color: isDarkMode ? '#fdba74' : '#fed7aa' }]}>{t.shiftStatus}</Text>
-                  <Text style={[styles.ordersHeroStatValue, { color: activeSession ? '#34d399' : (isDarkMode ? '#9ca3af' : '#ffffff') }]}>
-                    {activeSession ? '🟢 ' + t.shiftActive : '⚪ ' + t.readyToStart}
-                  </Text>
-                </View>
+              {/* Target Status / Notice Footer */}
+              <View style={[styles.targetStatusBadge, { backgroundColor: isTargetAchieved ? (isDarkMode ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255, 255, 255, 0.2)') : (isDarkMode ? 'rgba(234, 88, 12, 0.15)' : 'rgba(0, 0, 0, 0.1)'), flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Ionicons
+                  name={isTargetAchieved ? 'trophy' : 'information-circle'}
+                  size={16}
+                  color={isTargetAchieved ? '#22c55e' : (isDarkMode ? '#fb923c' : '#ffedd5')}
+                />
+                <Text
+                  style={[
+                    styles.targetStatusText,
+                    {
+                      color: isTargetAchieved ? '#22c55e' : (isDarkMode ? '#fed7aa' : '#ffffff'),
+                      textAlign: isRTL ? 'right' : 'left',
+                    },
+                  ]}
+                >
+                  {isTargetAchieved
+                    ? t.targetAchievedBadge
+                    : t.targetRemainingNotice.replace('{n}', String(remainingOrdersToTarget))}
+                </Text>
               </View>
             </View>
 
@@ -1088,12 +1131,12 @@ export default function DelegateApp() {
 
               <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.statIconCircle, { backgroundColor: colors.accentLight }]}>
-                  <MaterialCommunityIcons name="package-variant-closed" size={22} color={colors.accent} />
+                  <MaterialCommunityIcons name="cash-multiple" size={22} color={colors.accent} />
                 </View>
                 <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                  {totalApprovedOrdersCount}
+                  {expectedSalary} {t.sar}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.approvedOrders}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.expectedSalary}</Text>
               </View>
             </View>
 
@@ -1890,26 +1933,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    minHeight: 52,
+    minHeight: 56,
   },
   headerRight: {
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     flex: 1,
   },
   avatarImg: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1.5,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
     borderColor: '#ea580c',
   },
   avatarCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1921,47 +1964,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   delegateName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   headerBadgesRow: {
-    gap: 4,
+    gap: 6,
     marginTop: 2,
   },
   pillBadge: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 1.5,
     borderRadius: 10,
   },
   pillBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-  },
-  headerLeftActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  langSmallBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  langSmallText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 
   // Main Scroll & Tabs
@@ -1989,50 +2006,63 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  // Total Orders Hero Card (Home)
+  // Target & Salary Hero Card (Home)
   ordersHeroCard: {
     borderRadius: 18,
-    borderWidth: 1,
+    borderWidth: 1.5,
     padding: 18,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   ordersHeroTop: {
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 8,
   },
   ordersHeroLabel: {
-    color: '#e2e8f0',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 2,
+  },
+  ordersHeroNumbersRow: {
+    alignItems: 'baseline',
+    gap: 6,
   },
   ordersHeroBigNumber: {
-    color: '#ffffff',
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
-  ordersHeroUnit: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#cbd5e1',
+  ordersHeroTargetTotal: {
+    fontSize: 15,
+    fontWeight: 'bold',
   },
-  ordersHeroIconWrapper: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  targetPctBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  targetPctText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  targetProgressTrack: {
+    height: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: 6,
+  },
+  targetProgressBar: {
+    height: '100%',
+    borderRadius: 4,
   },
   ordersHeroDivider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginVertical: 14,
+    marginVertical: 12,
   },
   ordersHeroBottomRow: {
     justifyContent: 'space-between',
@@ -2042,20 +2072,38 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ordersHeroStatLabel: {
-    color: '#e2e8f0',
     fontSize: 11,
     marginBottom: 2,
   },
-  ordersHeroStatValue: {
-    color: '#ffffff',
+  salaryBigValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  salaryCurrency: {
     fontSize: 13,
+    fontWeight: 'bold',
+  },
+  ordersHeroStatValue: {
+    fontSize: 14,
     fontWeight: 'bold',
   },
   ordersHeroStatDivider: {
     width: 1,
-    height: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    height: 28,
     marginHorizontal: 8,
+  },
+  targetStatusBadge: {
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  targetStatusText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    flex: 1,
   },
 
   // Stats Grid
