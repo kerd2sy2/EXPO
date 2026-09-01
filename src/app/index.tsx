@@ -793,14 +793,14 @@ export default function DelegateApp() {
           style={styles.keyboardView}
         >
           <ScrollView contentContainerStyle={styles.loginScrollContent} showsVerticalScrollIndicator={false}>
-            {/* Official Horizontal Brand Lockup (Logo mark + AAMS LOGISTICS) */}
-            <View style={styles.brandHorizontalLockup}>
+            {/* Official Horizontal Brand Lockup (Logo on the Right) */}
+            <View style={[styles.brandHorizontalLockup, { flexDirection: 'row-reverse' }]}>
               <Image
                 source={require('../../assets/images/logo.png')}
                 style={styles.brandLogoMark}
                 resizeMode="contain"
               />
-              <View style={styles.brandTextCol}>
+              <View style={[styles.brandTextCol, { alignItems: 'flex-end' }]}>
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
                   AAMS
                 </Text>
