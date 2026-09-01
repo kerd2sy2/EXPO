@@ -35,6 +35,7 @@ export default function DelegateApp() {
   // Start Shift Form State
   const [enteredMotorcycle, setEnteredMotorcycle] = useState('');
   const [startKm, setStartKm] = useState('');
+  const [autoFilledKm, setAutoFilledKm] = useState<number | null>(null);
   const [startKmImage, setStartKmImage] = useState<string | null>(null);
   const [startNotes, setStartNotes] = useState('');
 
@@ -54,6 +55,32 @@ export default function DelegateApp() {
       SplashScreen.hideAsync().catch(() => {});
     });
   }, []);
+
+  // Automatically fetch last ending odometer when motorcycle is set or changed
+  useEffect(() => {
+    if (!employee || activeSession) return;
+    const bike = enteredMotorcycle.trim();
+    if (!bike) {
+      setAutoFilledKm(null);
+      return;
+    }
+
+    let isMounted = true;
+    workApi.getLastKM(employee.id, bike).then((kmData) => {
+      if (isMounted && kmData && kmData.last_end_km > 0) {
+        setStartKm(String(kmData.last_end_km));
+        setAutoFilledKm(kmData.last_end_km);
+      } else if (isMounted) {
+        setAutoFilledKm(null);
+      }
+    }).catch(() => {
+      if (isMounted) setAutoFilledKm(null);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [enteredMotorcycle, employee?.id, activeSession]);
 
   const checkSession = async () => {
     setLoading(true);
@@ -503,11 +530,22 @@ export default function DelegateApp() {
                       placeholder="مثال: 15400"
                       placeholderTextColor="#94a3b8"
                       value={startKm}
-                      onChangeText={setStartKm}
+                      onChangeText={(val) => {
+                        setStartKm(val);
+                        setAutoFilledKm(null);
+                      }}
                       keyboardType="numeric"
                       textAlign="right"
                     />
                   </View>
+                  {autoFilledKm !== null && (
+                    <View style={styles.matchBadgeSuccess}>
+                      <Ionicons name="sparkles" size={14} color="#16a34a" />
+                      <Text style={styles.matchTextSuccess}>
+                        تم جلب عداد نهاية الشفت السابق لهذا الدباب تلقائياً ({autoFilledKm} كم) 🛵
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Start Odometer Photo Capture */}
