@@ -23,12 +23,16 @@ export interface WorkSession {
   start_time: string;
   end_time: string | null;
   start_km: number;
+  start_km_image?: string;
   end_km: number;
+  end_km_image?: string;
   distance: number;
   orders_count: number;
   fuel_cost: number;
   motorcycle_number: string;
   notes?: string;
+  is_reviewed?: boolean;
+  review_notes?: string;
   status: 'ACTIVE' | 'COMPLETED';
 }
 
@@ -92,6 +96,7 @@ export const workApi = {
   startShift: async (params: {
     employee_id: string;
     start_km: number;
+    start_km_image?: string;
     motorcycle_number: string;
     notes?: string;
   }): Promise<WorkSession> => {
@@ -105,6 +110,7 @@ export const workApi = {
   endShift: async (params: {
     employee_id: string;
     end_km: number;
+    end_km_image?: string;
     orders_count: number;
     fuel_cost: number;
     notes?: string;

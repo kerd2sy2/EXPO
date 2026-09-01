@@ -12,11 +12,13 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as SplashScreen from 'expo-splash-screen';
 import { workApi, EmployeeProfile, WorkSession } from '../services/work';
 import { setAuthToken, getStoredToken } from '../services/api';
-import * as SplashScreen from 'expo-splash-screen';
 
 export default function DelegateApp() {
   const [token, setToken] = useState<string | null>(null);
@@ -33,10 +35,12 @@ export default function DelegateApp() {
   // Start Shift Form State
   const [enteredMotorcycle, setEnteredMotorcycle] = useState('');
   const [startKm, setStartKm] = useState('');
+  const [startKmImage, setStartKmImage] = useState<string | null>(null);
   const [startNotes, setStartNotes] = useState('');
 
   // End Shift Form State
   const [endKm, setEndKm] = useState('');
+  const [endKmImage, setEndKmImage] = useState<string | null>(null);
   const [ordersCount, setOrdersCount] = useState('');
   const [fuelCost, setFuelCost] = useState('');
   const [endNotes, setEndNotes] = useState('');
@@ -148,6 +152,50 @@ export default function DelegateApp() {
     setLoginError('');
   };
 
+  // Image picking / capturing helper
+  const pickOdometerImage = async (mode: 'camera' | 'gallery', target: 'start' | 'end') => {
+    try {
+      let result: ImagePicker.ImagePickerResult;
+      if (mode === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('الإذن مطلوب', 'يرجى السماح للتطبيق باستخدام الكاميرا لالتقاط صورة العداد');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          quality: 0.5,
+          base64: true,
+        });
+      } else {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('الإذن مطلوب', 'يرجى السماح للتطبيق بالوصول للصور لاختيار صورة العداد');
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          quality: 0.5,
+          base64: true,
+        });
+      }
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const base64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        if (target === 'start') {
+          setStartKmImage(base64Data);
+        } else {
+          setEndKmImage(base64Data);
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('خطأ', 'تعذر التقاط أو اختيار الصورة: ' + (err.message || ''));
+    }
+  };
+
   const handleStartShift = async () => {
     if (!employee) return;
 
@@ -162,19 +210,26 @@ export default function DelegateApp() {
       return;
     }
 
+    if (!startKmImage) {
+      Alert.alert('صورة العداد مطلوبة 📸', 'يرجى التقاط أو رفع صورة واضحة لعداد البداية للتوثيق والمراجعة.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const session = await workApi.startShift({
         employee_id: employee.id,
         motorcycle_number: enteredMotorcycle.trim(),
         start_km: kmNum,
+        start_km_image: startKmImage,
         notes: startNotes.trim() || undefined,
       });
 
       setActiveSession(session);
       setStartKm('');
+      setStartKmImage(null);
       setStartNotes('');
-      Alert.alert('تم بنجاح', 'تم بدء شفت العمل بنجاح!');
+      Alert.alert('تم بنجاح ✅', 'تم بدء شفت العمل وتوثيق صورة العداد بنجاح!');
     } catch (err: any) {
       Alert.alert('خطأ', err.message || 'تعذر بدء الشفت');
     } finally {
@@ -194,11 +249,17 @@ export default function DelegateApp() {
       return;
     }
 
+    if (!endKmImage) {
+      Alert.alert('صورة العداد مطلوبة 📸', 'يرجى التقاط أو رفع صورة واضحة لعداد النهاية لإتمام الإقفال.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await workApi.endShift({
         employee_id: employee.id,
         end_km: endKmNum,
+        end_km_image: endKmImage,
         orders_count: parseInt(ordersCount) || 0,
         fuel_cost: parseFloat(fuelCost) || 0,
         notes: endNotes.trim() || undefined,
@@ -206,10 +267,11 @@ export default function DelegateApp() {
 
       setActiveSession(null);
       setEndKm('');
+      setEndKmImage(null);
       setOrdersCount('');
       setFuelCost('');
       setEndNotes('');
-      Alert.alert('تم الإقفال بنجاح', 'تم إقفال شفت العمل وتوثيق البيانات بنجاح!');
+      Alert.alert('تم الإقفال بنجاح ✅', 'تم إقفال شفت العمل وتوثيق صور العدادات بنجاح!');
     } catch (err: any) {
       Alert.alert('خطأ', err.message || 'تعذر إنهاء الشفت');
     } finally {
@@ -448,6 +510,47 @@ export default function DelegateApp() {
                   </View>
                 </View>
 
+                {/* Start Odometer Photo Capture */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>
+                    صورة عداد البداية <Text style={{ color: '#ef4444' }}>* (مطلوبة للتدقيق)</Text>
+                  </Text>
+
+                  {startKmImage ? (
+                    <View style={styles.imagePreviewContainer}>
+                      <Image source={{ uri: startKmImage }} style={styles.imagePreview} />
+                      <View style={styles.imageOverlayBadge}>
+                        <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
+                        <Text style={styles.imageOverlayText}>تم التقاط صورة العداد</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.removeImageBtn}
+                        onPress={() => setStartKmImage(null)}
+                      >
+                        <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                        <Text style={styles.removeImageText}>إعادة التقاط</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.photoActionRow}>
+                      <TouchableOpacity
+                        style={[styles.photoActionBtn, styles.photoActionCamera]}
+                        onPress={() => pickOdometerImage('camera', 'start')}
+                      >
+                        <Ionicons name="camera" size={20} color="#ffffff" />
+                        <Text style={styles.photoActionTextWhite}>تصوير العداد</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.photoActionBtn, styles.photoActionGallery]}
+                        onPress={() => pickOdometerImage('gallery', 'start')}
+                      >
+                        <Ionicons name="images-outline" size={20} color="#60a5fa" />
+                        <Text style={styles.photoActionTextBlue}>من المعرض</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
                 {/* Notes Input */}
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>ملاحظات (اختياري)</Text>
@@ -546,6 +649,47 @@ export default function DelegateApp() {
                       المسافة المقطوعة: <Text style={{ fontWeight: 'bold' }}>{calculatedDistance} كم</Text>
                     </Text>
                   ) : null}
+                </View>
+
+                {/* End Odometer Photo Capture */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>
+                    صورة عداد النهاية <Text style={{ color: '#ef4444' }}>* (مطلوبة للتدقيق)</Text>
+                  </Text>
+
+                  {endKmImage ? (
+                    <View style={styles.imagePreviewContainer}>
+                      <Image source={{ uri: endKmImage }} style={styles.imagePreview} />
+                      <View style={styles.imageOverlayBadge}>
+                        <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
+                        <Text style={styles.imageOverlayText}>تم التقاط صورة عداد النهاية</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.removeImageBtn}
+                        onPress={() => setEndKmImage(null)}
+                      >
+                        <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                        <Text style={styles.removeImageText}>إعادة التقاط</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.photoActionRow}>
+                      <TouchableOpacity
+                        style={[styles.photoActionBtn, styles.photoActionCamera]}
+                        onPress={() => pickOdometerImage('camera', 'end')}
+                      >
+                        <Ionicons name="camera" size={20} color="#ffffff" />
+                        <Text style={styles.photoActionTextWhite}>تصوير عداد النهاية</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.photoActionBtn, styles.photoActionGallery]}
+                        onPress={() => pickOdometerImage('gallery', 'end')}
+                      >
+                        <Ionicons name="images-outline" size={20} color="#60a5fa" />
+                        <Text style={styles.photoActionTextBlue}>من المعرض</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
 
                 {/* Orders Count & Fuel Cost Row */}
@@ -788,6 +932,90 @@ const styles = StyleSheet.create({
   textArea: {
     height: 70,
     textAlignVertical: 'top',
+  },
+  photoActionRow: {
+    flexDirection: 'row-reverse',
+    gap: 12,
+  },
+  photoActionBtn: {
+    flex: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  photoActionCamera: {
+    backgroundColor: '#2563eb',
+    borderColor: '#3b82f6',
+  },
+  photoActionGallery: {
+    backgroundColor: '#1e293b',
+    borderColor: '#3b82f640',
+  },
+  photoActionTextWhite: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  photoActionTextBlue: {
+    color: '#60a5fa',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  imagePreviewContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#22c55e40',
+    backgroundColor: '#0f172a',
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    resizeMode: 'cover',
+  },
+  imageOverlayBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#0f172acc',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#22c55e',
+  },
+  imageOverlayText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0f172ae0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ef444460',
+  },
+  removeImageText: {
+    color: '#ef4444',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   quickFillButton: {
     flexDirection: 'row-reverse',
