@@ -369,6 +369,7 @@ export default function DelegateApp() {
   const [currentTab, setCurrentTab] = useState<TabType>('home');
 
   // Login Form State
+  const loginInputRef = useRef<TextInput>(null);
   const [loginInput, setLoginInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -836,30 +837,47 @@ export default function DelegateApp() {
                 </View>
               ) : null}
 
-              {/* National ID Input with fixed domain */}
+              {/* National ID Input with natural continuous domain */}
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t.nationalIdLabel}
                 </Text>
-                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <TouchableOpacity
+                  activeOpacity={1}
+                  onPress={() => loginInputRef.current?.focus()}
+                  style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                >
                   <View style={styles.inputIcon}>
                     <Feather name="user" size={18} color={colors.textSecondary} />
                   </View>
-                  <TextInput
-                    style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                    placeholder={t.nationalIdPlaceholder}
-                    placeholderTextColor="#94a3b8"
-                    value={loginInput}
-                    onChangeText={(val) => setLoginInput(val.replace(/[^0-9]/g, ''))}
-                    keyboardType="number-pad"
-                    autoCapitalize="none"
-                  />
-                  {loginInput.length > 0 && (
-                    <Text style={[styles.domainSuffixText, { color: colors.textSecondary }]}>
-                      @aams-logistics.com
-                    </Text>
-                  )}
-                </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }}>
+                    <TextInput
+                      ref={loginInputRef}
+                      style={[
+                        styles.input,
+                        {
+                          color: colors.textPrimary,
+                          textAlign: 'left',
+                          flex: loginInput.length > 0 ? 0 : 1,
+                          width: loginInput.length > 0 ? Math.max(16, loginInput.length * 9.5 + 4) : undefined,
+                          paddingRight: 0,
+                          marginRight: 0,
+                        },
+                      ]}
+                      placeholder={t.nationalIdPlaceholder}
+                      placeholderTextColor="#94a3b8"
+                      value={loginInput}
+                      onChangeText={(val) => setLoginInput(val.replace(/[^0-9]/g, ''))}
+                      keyboardType="number-pad"
+                      autoCapitalize="none"
+                    />
+                    {loginInput.length > 0 && (
+                      <Text style={{ fontSize: 14, color: colors.textSecondary, fontWeight: '400', lineHeight: 18 }}>
+                        @aams-logistics.com
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
               </View>
 
               {/* Password Input */}
