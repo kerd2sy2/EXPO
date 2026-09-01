@@ -371,6 +371,7 @@ export default function DelegateApp() {
   // Login Form State
   const loginInputRef = useRef<TextInput>(null);
   const [loginInput, setLoginInput] = useState('');
+  const [idTextWidth, setIdTextWidth] = useState(0);
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -851,6 +852,17 @@ export default function DelegateApp() {
                     <Feather name="user" size={18} color={colors.textSecondary} />
                   </View>
                   <View style={{ flex: 1, height: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }}>
+                    {/* Hidden text measurer for exact pixel-perfect width */}
+                    <Text
+                      style={{ position: 'absolute', opacity: 0, fontSize: 14, includeFontPadding: false, zIndex: -10 }}
+                      onTextLayout={(e) => {
+                        const w = e.nativeEvent.lines[0]?.width || 0;
+                        if (w > 0) setIdTextWidth(Math.ceil(w));
+                      }}
+                    >
+                      {loginInput || ''}
+                    </Text>
+
                     <TextInput
                       ref={loginInputRef}
                       style={[
@@ -861,17 +873,21 @@ export default function DelegateApp() {
                           textAlignVertical: 'center',
                           includeFontPadding: false,
                           paddingVertical: 0,
+                          paddingHorizontal: 0,
+                          marginHorizontal: 0,
                           fontSize: 14,
                           flex: loginInput.length > 0 ? 0 : 1,
-                          width: loginInput.length > 0 ? Math.max(16, loginInput.length * 9.5 + 4) : undefined,
-                          paddingRight: 0,
-                          marginRight: 0,
+                          width: loginInput.length > 0 ? (idTextWidth > 0 ? idTextWidth : loginInput.length * 8.5) : undefined,
                         },
                       ]}
                       placeholder={t.nationalIdPlaceholder}
                       placeholderTextColor="#94a3b8"
                       value={loginInput}
-                      onChangeText={(val) => setLoginInput(val.replace(/[^0-9]/g, '').slice(0, 10))}
+                      onChangeText={(val) => {
+                        const clean = val.replace(/[^0-9]/g, '').slice(0, 10);
+                        if (!clean) setIdTextWidth(0);
+                        setLoginInput(clean);
+                      }}
                       maxLength={10}
                       keyboardType="number-pad"
                       autoCapitalize="none"
@@ -884,6 +900,8 @@ export default function DelegateApp() {
                           fontWeight: '400',
                           textAlignVertical: 'center',
                           includeFontPadding: false,
+                          paddingLeft: 0,
+                          marginLeft: 0,
                         }}
                       >
                         @aams-logistics.com
