@@ -1017,96 +1017,127 @@ export default function DelegateApp() {
         {/* ----------------- TAB 1: HOME DASHBOARD (الرئيسية) ----------------- */}
         {currentTab === 'home' && (
           <View style={styles.tabContainer}>
-            {/* Target & Salary Hero Card (بطاقة التارجت ومتوقع الراتب) */}
+            {/* Ultra-Modern Target & Salary Performance Widget */}
             <View
               style={[
-                styles.ordersHeroCard,
+                styles.targetCardContainer,
                 {
-                  backgroundColor: isDarkMode ? '#18120c' : '#ea580c',
-                  borderColor: isDarkMode ? '#ea580c' : '#c2410c',
+                  backgroundColor: colors.card,
+                  borderColor: isDarkMode ? '#232738' : '#e2e8f0',
                 },
               ]}
             >
-              {/* Row 1: Approved Orders vs Target */}
-              <View style={[styles.ordersHeroTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.ordersHeroLabel, { color: isDarkMode ? '#fed7aa' : '#ffedd5', textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.monthlyTarget} (460 {t.ordersUnit})
-                  </Text>
-                  <View style={[styles.ordersHeroNumbersRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Text style={[styles.ordersHeroBigNumber, { color: isDarkMode ? '#fb923c' : '#ffffff' }]}>
-                      {totalApprovedOrdersCount}
-                    </Text>
-                    <Text style={[styles.ordersHeroTargetTotal, { color: isDarkMode ? '#fed7aa' : '#ffedd5' }]}>
-                      / {MONTHLY_TARGET} {t.ordersUnit}
-                    </Text>
-                  </View>
-                </View>
-                <View style={[styles.targetPctBadge, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.3)' : 'rgba(255, 255, 255, 0.25)' }]}>
-                  <Text style={[styles.targetPctText, { color: isDarkMode ? '#fb923c' : '#ffffff' }]}>
-                    {targetProgressPct}%
-                  </Text>
-                </View>
-              </View>
-
-              {/* Progress Bar */}
-              <View style={styles.targetProgressTrack}>
+              {/* Header / Tier Badge Row */}
+              <View style={[styles.targetCardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View
                   style={[
-                    styles.targetProgressBar,
+                    styles.targetTierPill,
                     {
-                      width: `${targetProgressPct}%`,
-                      backgroundColor: isTargetAchieved ? '#22c55e' : (isDarkMode ? '#ea580c' : '#ffffff'),
-                    },
-                  ]}
-                />
-              </View>
-
-              <View style={[styles.ordersHeroDivider, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.25)' : 'rgba(255, 255, 255, 0.2)' }]} />
-
-              {/* Row 2: Expected Salary & Rate Tier */}
-              <View style={[styles.ordersHeroBottomRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.ordersHeroStatLabel, { color: isDarkMode ? '#fed7aa' : '#ffedd5' }]}>
-                    {t.expectedSalary}
-                  </Text>
-                  <Text style={[styles.salaryBigValue, { color: isDarkMode ? '#34d399' : '#ffffff' }]}>
-                    {expectedSalary.toLocaleString()} <Text style={styles.salaryCurrency}>{t.sar}</Text>
-                  </Text>
-                </View>
-
-                <View style={[styles.ordersHeroStatDivider, { backgroundColor: isDarkMode ? 'rgba(234, 88, 12, 0.25)' : 'rgba(255, 255, 255, 0.2)' }]} />
-
-                <View style={[styles.ordersHeroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.ordersHeroStatLabel, { color: isDarkMode ? '#fed7aa' : '#ffedd5' }]}>
-                    {t.ratePerOrder}
-                  </Text>
-                  <Text style={[styles.ordersHeroStatValue, { color: isTargetAchieved ? '#34d399' : (isDarkMode ? '#fb923c' : '#ffffff') }]}>
-                    {currentRatePerOrder} {t.sar} / {t.ordersUnit}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Target Status / Notice Footer */}
-              <View style={[styles.targetStatusBadge, { backgroundColor: isTargetAchieved ? (isDarkMode ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255, 255, 255, 0.2)') : (isDarkMode ? 'rgba(234, 88, 12, 0.15)' : 'rgba(0, 0, 0, 0.1)'), flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Ionicons
-                  name={isTargetAchieved ? 'trophy' : 'information-circle'}
-                  size={16}
-                  color={isTargetAchieved ? '#22c55e' : (isDarkMode ? '#fb923c' : '#ffedd5')}
-                />
-                <Text
-                  style={[
-                    styles.targetStatusText,
-                    {
-                      color: isTargetAchieved ? '#22c55e' : (isDarkMode ? '#fed7aa' : '#ffffff'),
-                      textAlign: isRTL ? 'right' : 'left',
+                      backgroundColor: isTargetAchieved
+                        ? (isDarkMode ? 'rgba(34, 197, 94, 0.15)' : '#ecfdf5')
+                        : (isDarkMode ? 'rgba(234, 88, 12, 0.15)' : '#fff7ed'),
+                      borderColor: isTargetAchieved
+                        ? (isDarkMode ? 'rgba(34, 197, 94, 0.3)' : '#bbf7d0')
+                        : (isDarkMode ? 'rgba(234, 88, 12, 0.3)' : '#fed7aa'),
                     },
                   ]}
                 >
-                  {isTargetAchieved
-                    ? t.targetAchievedBadge
-                    : t.targetRemainingNotice.replace('{n}', String(remainingOrdersToTarget))}
-                </Text>
+                  <Ionicons
+                    name={isTargetAchieved ? 'trophy' : 'flag'}
+                    size={14}
+                    color={isTargetAchieved ? '#22c55e' : colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.targetTierPillText,
+                      { color: isTargetAchieved ? '#22c55e' : (isDarkMode ? '#fb923c' : colors.primary) },
+                    ]}
+                  >
+                    {isTargetAchieved ? t.targetAchievedBadge : `${t.monthlyTarget} (460 ${t.ordersUnit})`}
+                  </Text>
+                </View>
+
+                <View style={[styles.rateBadge, { backgroundColor: isDarkMode ? '#191d29' : '#f8fafc', borderColor: colors.border }]}>
+                  <Text style={[styles.rateBadgeText, { color: colors.textSecondary }]}>
+                    {t.ratePerOrder}:{' '}
+                    <Text style={{ fontWeight: 'bold', color: isTargetAchieved ? '#22c55e' : (isDarkMode ? '#fb923c' : colors.primary) }}>
+                      {currentRatePerOrder} {t.sar}
+                    </Text>
+                  </Text>
+                </View>
+              </View>
+
+              {/* Main Dual KPI Metrics */}
+              <View style={[styles.targetMetricsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                {/* Metric 1: Completed Orders */}
+                <View style={[styles.metricCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>{t.approvedOrders}</Text>
+                  <View style={[styles.metricValueRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Text style={[styles.metricBigNumber, { color: colors.textPrimary }]}>
+                      {totalApprovedOrdersCount}
+                    </Text>
+                    <Text style={[styles.metricSubTarget, { color: colors.textSecondary }]}>
+                      / {MONTHLY_TARGET}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Vertical Divider */}
+                <View style={[styles.targetMetricDivider, { backgroundColor: colors.border }]} />
+
+                {/* Metric 2: Estimated Earnings */}
+                <View style={[styles.metricCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>{t.expectedSalary}</Text>
+                  <View style={[styles.metricValueRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Text
+                      style={[
+                        styles.metricBigNumber,
+                        { color: isTargetAchieved ? '#22c55e' : (isDarkMode ? '#fb923c' : colors.primary) },
+                      ]}
+                    >
+                      {expectedSalary.toLocaleString()}
+                    </Text>
+                    <Text style={[styles.metricCurrency, { color: colors.textSecondary }]}>
+                      {t.sar}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Progress Section */}
+              <View style={styles.progressSection}>
+                <View style={[styles.progressHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text
+                    style={[
+                      styles.progressNoticeText,
+                      { color: isTargetAchieved ? '#22c55e' : colors.textSecondary, textAlign: isRTL ? 'right' : 'left' },
+                    ]}
+                  >
+                    {isTargetAchieved
+                      ? t.targetAchievedBadge
+                      : t.targetRemainingNotice.replace('{n}', String(remainingOrdersToTarget))}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.progressPctText,
+                      { color: isTargetAchieved ? '#22c55e' : (isDarkMode ? '#fb923c' : colors.primary) },
+                    ]}
+                  >
+                    {targetProgressPct}%
+                  </Text>
+                </View>
+
+                <View style={[styles.progressBarTrack, { backgroundColor: isDarkMode ? '#1a1f2c' : '#f1f5f9' }]}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: `${Math.max(3, targetProgressPct)}%`,
+                        backgroundColor: isTargetAchieved ? '#22c55e' : '#ea580c',
+                      },
+                    ]}
+                  />
+                </View>
               </View>
             </View>
 
@@ -2052,104 +2083,105 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  // Target & Salary Hero Card (Home)
-  ordersHeroCard: {
-    borderRadius: 18,
-    borderWidth: 1.5,
-    padding: 18,
+  // Ultra-Modern Target Widget Styles
+  targetCardContainer: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
+    gap: 14,
   },
-  ordersHeroTop: {
+  targetCardHeader: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  targetTierPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  targetTierPillText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  rateBadge: {
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+  },
+  rateBadgeText: {
+    fontSize: 11,
+  },
+  targetMetricsRow: {
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    paddingVertical: 2,
   },
-  ordersHeroLabel: {
+  metricCol: {
+    flex: 1,
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  metricValueRow: {
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  metricBigNumber: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    letterSpacing: -0.5,
+  },
+  metricSubTarget: {
     fontSize: 13,
     fontWeight: '600',
-    marginBottom: 2,
   },
-  ordersHeroNumbersRow: {
-    alignItems: 'baseline',
+  metricCurrency: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  targetMetricDivider: {
+    width: 1,
+    height: 38,
+    marginHorizontal: 12,
+  },
+  progressSection: {
     gap: 6,
   },
-  ordersHeroBigNumber: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  ordersHeroTargetTotal: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  targetPctBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  targetPctText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  targetProgressTrack: {
-    height: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginTop: 6,
-  },
-  targetProgressBar: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  ordersHeroDivider: {
-    height: 1,
-    marginVertical: 12,
-  },
-  ordersHeroBottomRow: {
+  progressHeaderRow: {
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  ordersHeroStatItem: {
+  progressNoticeText: {
+    fontSize: 11,
+    fontWeight: '500',
     flex: 1,
   },
-  ordersHeroStatLabel: {
-    fontSize: 11,
-    marginBottom: 2,
-  },
-  salaryBigValue: {
-    fontSize: 22,
+  progressPctText: {
+    fontSize: 12,
     fontWeight: 'bold',
+    marginLeft: 6,
   },
-  salaryCurrency: {
-    fontSize: 13,
-    fontWeight: 'bold',
+  progressBarTrack: {
+    height: 7,
+    borderRadius: 4,
+    overflow: 'hidden',
   },
-  ordersHeroStatValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  ordersHeroStatDivider: {
-    width: 1,
-    height: 28,
-    marginHorizontal: 8,
-  },
-  targetStatusBadge: {
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  targetStatusText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    flex: 1,
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
   },
 
   // Stats Grid
