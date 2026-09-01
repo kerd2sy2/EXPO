@@ -1011,6 +1011,46 @@ export default function DelegateApp() {
         </View>
       )}
 
+      {/* Sticky Title Bar — Shift Tab */}
+      {currentTab === 'shift' && (
+        <View style={[styles.subPageHeader, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.subPageHeaderIcon, { backgroundColor: activeSession ? '#fee2e2' : colors.primaryLight }]}>
+            <Ionicons
+              name={activeSession ? 'stop-circle-outline' : 'play-circle-outline'}
+              size={22}
+              color={activeSession ? '#ef4444' : colors.primary}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+              {activeSession ? t.endShiftNow : t.tabShift}
+            </Text>
+            {activeSession && (
+              <Text style={[styles.subPageHeaderSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.durationLabel}: {elapsedTime}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Sticky Title Bar — History Tab */}
+      {currentTab === 'history' && (
+        <View style={[styles.subPageHeader, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.subPageHeaderIcon, { backgroundColor: colors.accentLight }]}>
+            <Ionicons name="receipt-outline" size={22} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+              {t.historyTitle}
+            </Text>
+            <Text style={[styles.subPageHeaderSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+              {historySessions.length} {t.totalShifts}
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Body Content with ScrollRef */}
       <ScrollView
         ref={mainScrollRef}
@@ -1537,15 +1577,6 @@ export default function DelegateApp() {
         {currentTab === 'history' && (
           <View style={styles.tabContainer}>
 
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.historyTitle}
-              </Text>
-              <Text style={[styles.sectionSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {historySessions.length} {t.totalShifts}
-              </Text>
-            </View>
-
             {historySessions.length === 0 ? (
               <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Ionicons name="document-text-outline" size={40} color={colors.textSecondary} />
@@ -2019,6 +2050,31 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     gap: 14,
+  },
+
+  // Sub-Page Sticky Header (Shift & History)
+  subPageHeader: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    gap: 12,
+    minHeight: 60,
+  },
+  subPageHeaderIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  subPageHeaderTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  subPageHeaderSub: {
+    fontSize: 12,
+    marginTop: 1,
   },
 
   // Back to home button at top of tabs
