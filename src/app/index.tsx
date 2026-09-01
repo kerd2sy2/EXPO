@@ -74,6 +74,9 @@ const translations = {
     ratePerOrder: 'سعر الطلب الحالي',
     targetAchievedBadge: 'تم كسر التارجت والبونص 🏆 (شريحة 6 ر.س/طلب)',
     targetRemainingNotice: 'متبقي {n} طلب للانتقال لشريحة 6 ر.س/طلب 🚀',
+    qrTitle: 'بطاقة المندوب الرقمية (QR Code)',
+    qrSub: 'أظهر هذا الرمز للمشرف أو الفرع للمسح والتحقق السريع',
+    close: 'إغلاق',
     quickAccess: 'الوصول السريع',
     quickShiftTitle: 'بدء أو إقفال شفت العمل',
     quickShiftSub: 'تسجيل قراءات العدادات والتقاط الصور',
@@ -170,6 +173,9 @@ const translations = {
     ratePerOrder: 'Order Rate',
     targetAchievedBadge: 'Target Achieved & Bonus Unlocked 🏆 (6 SAR/order)',
     targetRemainingNotice: '{n} orders left to reach 6 SAR/order tier 🚀',
+    qrTitle: 'Delegate Digital Badge (QR Code)',
+    qrSub: 'Present this code to supervisor or branch for scanning',
+    close: 'Close',
     quickAccess: 'Quick Access',
     quickShiftTitle: 'Start or End Shift',
     quickShiftSub: 'Record odometer readings & take photos',
@@ -266,6 +272,9 @@ const translations = {
     ratePerOrder: 'প্রতি অর্ডারের রেট',
     targetAchievedBadge: 'টার্গেট সম্পন্ন ও বোনাস অর্জিত 🏆 (৬ রিয়াল/অর্ডার)',
     targetRemainingNotice: '৬ রিয়াল স্তরে পৌঁছাতে বাকি {n} অর্ডার 🚀',
+    qrTitle: 'প্রতিনিধি ডিজিটাল আইডি (QR কোড)',
+    qrSub: 'যাচাইয়ের জন্য সুপারভাইজারকে এই কোডটি দেখান',
+    close: 'বন্ধ করুন',
     quickAccess: 'দ্রুত অ্যাক্সেস',
     quickShiftTitle: 'শিফট শুরু বা শেষ করুন',
     quickShiftSub: 'মিটার রিডিং রেকর্ড এবং ছবি তুলুন',
@@ -297,7 +306,7 @@ const translations = {
     confirmStartBtn: 'নিশ্চিত ও শুরু করুন 🚀',
     endShiftTitle: 'শিফট সমাপ্তি',
     endShiftSub: 'শেষের মিটার, ছবি এবং অর্ডারের সংখ্যা দিন',
-    endKmInputLabel: 'শেষের মিটার ریডিং (End KM)',
+    endKmInputLabel: 'শেষের মিটার রিডিং (End KM)',
     calculatedDistLabel: 'মোট অতিক্রান্ত দূরত্ব',
     endKmPhotoLabel: 'শেষের মিটারের ছবি (বাধ্যতামূলক)',
     ordersCountLabel: 'সম্পন্ন অর্ডারের সংখ্যা',
@@ -340,6 +349,7 @@ export default function DelegateApp() {
   // Language State (Default: Arabic 'ar')
   const [lang, setLang] = useState<Language>('ar');
   const [showLangModal, setShowLangModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
   const t = translations[lang];
   const isRTL = lang === 'ar';
 
@@ -398,25 +408,31 @@ export default function DelegateApp() {
         return true;
       }
 
-      // 2. If language modal is open, close it
+      // 2. If QR modal is open, close it
+      if (showQrModal) {
+        setShowQrModal(false);
+        return true;
+      }
+
+      // 3. If language modal is open, close it
       if (showLangModal) {
         setShowLangModal(false);
         return true;
       }
 
-      // 3. If in a sub-page (Shift, History, Profile), return back to Home
+      // 4. If in a sub-page (Shift, History, Profile), return back to Home
       if (currentTab !== 'home') {
         navigateToTab('home');
         return true; // prevent exit and go to home
       }
 
-      // 4. If already on Home (or login screen), allow default exit app behavior
+      // 5. If already on Home (or login screen), allow default exit app behavior
       return false;
     };
 
     const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backSubscription.remove();
-  }, [currentTab, previewPhoto, showLangModal]);
+  }, [currentTab, previewPhoto, showLangModal, showQrModal]);
 
   // Check initial login state
   useEffect(() => {
@@ -955,7 +971,7 @@ export default function DelegateApp() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Top Header Bar (Clean & Focused) */}
+      {/* Top Header Bar (Clean & Focused with QR Code on Opposite Side) */}
       <View style={[styles.headerBar, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <View style={[styles.headerRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           {/* Delegate Avatar / Personal Image */}
@@ -989,6 +1005,14 @@ export default function DelegateApp() {
             </View>
           </View>
         </View>
+
+        {/* QR Code Button on the Opposite Side */}
+        <TouchableOpacity
+          style={[styles.qrHeaderBtn, { backgroundColor: colors.accentLight, borderColor: colors.primary }]}
+          onPress={() => setShowQrModal(true)}
+        >
+          <Ionicons name="qr-code" size={20} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* Body Content with ScrollRef */}
@@ -1762,6 +1786,72 @@ export default function DelegateApp() {
       </ScrollView>
 
       {/* =========================================================================
+          DIGITAL ID QR CODE MODAL WITH CENTERED LOGO
+         ========================================================================= */}
+      {showQrModal && employee && (
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.qrModalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.qrModalTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.qrTitle}
+                </Text>
+                <Text style={[styles.qrModalSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.qrSub}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowQrModal(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* QR Code Container with Centered Brand Logo */}
+            <View style={styles.qrCodeWrapper}>
+              <Image
+                source={{
+                  uri: `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(
+                    JSON.stringify({
+                      id: employee.id,
+                      national_id: employee.national_id,
+                      name: employee.name,
+                      bike: employee.motorcycle_number,
+                      branch: employee.branch_name,
+                      key: employee.key_number,
+                    })
+                  )}&margin=6&ecc=H`,
+                }}
+                style={styles.qrCodeImage}
+                resizeMode="contain"
+              />
+              {/* Centered Company Logo Emblem */}
+              <View style={[styles.qrLogoCenterWrapper, { borderColor: colors.primary }]}>
+                <Image
+                  source={require('../../assets/images/logo.png')}
+                  style={styles.qrCenterLogo}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
+
+            {/* Delegate Info Pill in Modal */}
+            <View style={[styles.qrDelegateInfoBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+              <Text style={[styles.qrDelegateName, { color: colors.textPrimary }]}>{employee.name}</Text>
+              <Text style={[styles.qrDelegateMeta, { color: colors.textSecondary }]}>
+                {t.nationalId}: {employee.national_id} | {t.assignedBike}: {employee.motorcycle_number || '—'}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: colors.primary, width: '100%' }]}
+              onPress={() => setShowQrModal(false)}
+            >
+              <Text style={styles.primaryButtonText}>{t.close}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* =========================================================================
           LANGUAGE SELECTOR MODAL
          ========================================================================= */}
       {showLangModal && (
@@ -1979,6 +2069,14 @@ const styles = StyleSheet.create({
   pillBadgeText: {
     fontSize: 10,
     fontWeight: '600',
+  },
+  qrHeaderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Main Scroll & Tabs
@@ -2633,6 +2731,79 @@ const styles = StyleSheet.create({
   settingRowVal: {
     fontSize: 13,
     fontWeight: 'bold',
+  },
+
+  // QR Modal Styles
+  qrModalCard: {
+    width: '90%',
+    maxWidth: 380,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    padding: 20,
+    alignItems: 'center',
+    gap: 14,
+  },
+  qrModalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  qrModalSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  qrCodeWrapper: {
+    width: 240,
+    height: 240,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  qrCodeImage: {
+    width: 220,
+    height: 220,
+    borderRadius: 10,
+  },
+  qrLogoCenterWrapper: {
+    position: 'absolute',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#ffffff',
+    borderWidth: 2.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  qrCenterLogo: {
+    width: 38,
+    height: 38,
+  },
+  qrDelegateInfoBox: {
+    width: '100%',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  qrDelegateName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  qrDelegateMeta: {
+    fontSize: 12,
+    marginTop: 3,
   },
 
   // Language Modal
