@@ -129,7 +129,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <MaterialCommunityIcons name="calendar-check" size={22} color={colors.primary} />
           </View>
           <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-            {historySessions.filter((s) => Boolean(s.is_reviewed)).length}
+            {historySessions.filter((s) => s.status !== 'ACTIVE').length}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalShifts}</Text>
         </View>

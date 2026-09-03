@@ -773,8 +773,9 @@ export default function DelegateApp() {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
 
-  const currentMonthApprovedSessions = historySessions.filter((s) => {
-    if (!s.is_reviewed) return false;
+  // All completed sessions in current month (including pending review)
+  const currentMonthCompletedSessions = historySessions.filter((s) => {
+    if (s.status === 'ACTIVE') return false;
     if (!s.start_time) return true;
     try {
       const sDate = new Date(s.start_time);
@@ -784,11 +785,12 @@ export default function DelegateApp() {
     }
   });
 
-  const totalApprovedOrdersCount = currentMonthApprovedSessions.reduce(
+  // Total orders delivered this month (both approved and newly completed)
+  const totalApprovedOrdersCount = currentMonthCompletedSessions.reduce(
     (acc, s) => acc + (Number(s.orders_count) || 0),
     0
   );
-  const totalApprovedDistance = currentMonthApprovedSessions.reduce(
+  const totalApprovedDistance = currentMonthCompletedSessions.reduce(
     (acc, s) =>
       acc +
       (Number(s.distance) ||
@@ -797,11 +799,11 @@ export default function DelegateApp() {
           : 0)),
     0
   );
-  const totalApprovedFuel = currentMonthApprovedSessions.reduce(
+  const totalApprovedFuel = currentMonthCompletedSessions.reduce(
     (acc, s) => acc + (Number(s.fuel_cost) || 0),
     0
   );
-  const totalApprovedShifts = currentMonthApprovedSessions.length;
+  const totalApprovedShifts = currentMonthCompletedSessions.length;
 
   // Monthly Target Rule:
   // Target = 460 orders
