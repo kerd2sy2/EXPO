@@ -2,6 +2,7 @@
   "expo": {
     "name": "AAMS",
     "slug": "aams",
+    "owner": "aams1",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -55,7 +56,7 @@
       [
         "expo-updates",
         {
-          "username": "aamsmailnaco"
+          "username": "aams1"
         }
       ]
     ],

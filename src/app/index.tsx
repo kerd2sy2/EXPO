@@ -328,8 +328,11 @@ export default function DelegateApp() {
   const handleCheckForUpdates = async (interactive = false) => {
     if (__DEV__ || !Updates.isEnabled) {
       if (interactive) {
-        setUpdateState('UP_TO_DATE');
+        setUpdateState('CHECKING');
         setUpdateModalVisible(true);
+        setTimeout(() => {
+          setUpdateState('UP_TO_DATE');
+        }, 1200);
       }
       return;
     }
@@ -339,7 +342,13 @@ export default function DelegateApp() {
         setUpdateState('CHECKING');
         setUpdateModalVisible(true);
       }
+      const startTime = Date.now();
       const check = await Updates.checkForUpdateAsync();
+      const elapsed = Date.now() - startTime;
+      if (interactive && elapsed < 900) {
+        await new Promise((resolve) => setTimeout(resolve, 900 - elapsed));
+      }
+
       if (check.isAvailable) {
         setUpdateState('DOWNLOADING');
         setUpdateModalVisible(true);
@@ -1052,10 +1061,19 @@ export default function DelegateApp() {
               </View>
             </TouchableOpacity>
 
-            <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row', gap: 8 }]}>
+              <TouchableOpacity
+                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                onPress={() => handleCheckForUpdates(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="cloud-download-outline" size={20} color={colors.primary} />
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setShowQrModal(true)}
+                activeOpacity={0.7}
               >
                 <Ionicons name="qr-code-outline" size={20} color={colors.primary} />
               </TouchableOpacity>
