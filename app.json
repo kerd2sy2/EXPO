@@ -13,6 +13,13 @@
     },
     "android": {
       "package": "com.aams.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -33,6 +40,16 @@
           "backgroundColor": "#ffffff",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 120
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "يسمح هذا الإذن بتتبع الكيلومترات المقطوعة أثناء الشفت تلقائياً حتى عندما يكون التطبيق في الخلفية.",
+          "locationAlwaysPermission": "يسمح هذا الإذن بتتبع الكيلومترات المقطوعة أثناء الشفت تلقائياً.",
+          "locationWhenInUsePermission": "يسمح هذا الإذن بتتبع الكيلومترات المقطوعة أثناء الشفت.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ]
     ],

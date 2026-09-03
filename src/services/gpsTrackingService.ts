@@ -98,18 +98,18 @@ export async function startGpsTracking(sessionId: string): Promise<boolean> {
     // 1. Request Foreground Permissions
     const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
     if (fgStatus !== 'granted') {
-      console.warn('[GPS]: Foreground location permission not granted');
+      console.log('[GPS]: Foreground location permission not granted');
       return false;
     }
 
-    // 2. Request Background Permissions
+    // 2. Request Background Permissions (Allow all the time)
     try {
       const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
       if (bgStatus !== 'granted') {
-        console.warn('[GPS]: Background location permission not granted, will track in foreground only');
+        console.log('[GPS]: Background location permission optional / foreground active');
       }
     } catch (bgErr) {
-      console.warn('[GPS]: Background permission request skipped/failed:', bgErr);
+      console.log('[GPS]: Background permission request skipped:', bgErr);
     }
 
     // 3. Save active session ID
