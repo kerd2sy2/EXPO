@@ -6,11 +6,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Animated,
   Dimensions,
+  Keyboard,
+  KeyboardEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../../types/delegate';
@@ -47,9 +48,44 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const keyboardPadding = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onKeyboardShow = (e: KeyboardEvent) => {
+      setIsKeyboardVisible(true);
+      const h = e.endCoordinates.height;
+      Animated.timing(keyboardPadding, {
+        toValue: h,
+        duration: Platform.OS === 'ios' ? e.duration || 250 : 200,
+        useNativeDriver: false,
+      }).start();
+    };
+
+    const onKeyboardHide = (e?: KeyboardEvent) => {
+      setIsKeyboardVisible(false);
+      Animated.timing(keyboardPadding, {
+        toValue: 0,
+        duration: Platform.OS === 'ios' ? (e?.duration || 200) : 180,
+        useNativeDriver: false,
+      }).start();
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onKeyboardShow);
+    const hideSub = Keyboard.addListener(hideEvent, onKeyboardHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -95,6 +131,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   };
 
   const handleAnimatedClose = (callback?: () => void) => {
+    Keyboard.dismiss();
     Animated.parallel([
       Animated.timing(backdropAnim, {
         toValue: 0,
@@ -155,9 +192,13 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         onPress={() => !loading && handleAnimatedClose()}
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardAvoid}
+      <Animated.View
+        style={[
+          styles.sheetWrapper,
+          {
+            paddingBottom: keyboardPadding,
+          },
+        ]}
       >
         <Animated.View
           style={[
@@ -179,13 +220,9 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             />
           </View>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.scrollContent}
-          >
-            {/* Header with Icon */}
-            <View style={styles.headerRow}>
+          {/* Compact Header */}
+          <View style={[styles.headerRow, isKeyboardVisible && styles.headerRowCompact]}>
+            {!isKeyboardVisible && (
               <View
                 style={[
                   styles.iconBox,
@@ -196,16 +233,29 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                   },
                 ]}
               >
-                <Ionicons name="key" size={26} color={colors.primary} />
+                <Ionicons name="key" size={24} color={colors.primary} />
               </View>
+            )}
+            <View style={{ alignItems: 'center' }}>
               <Text style={[styles.title, { color: colors.textPrimary }]}>
                 {t.changePassword}
               </Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                {t.changePasswordSub}
-              </Text>
+              {!isKeyboardVisible && (
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                  {t.changePasswordSub}
+                </Text>
+              )}
             </View>
+          </View>
 
+          {/* Scrollable Inputs Area */}
+          <ScrollView
+            ref={scrollViewRef}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            style={styles.scrollArea}
+            contentContainerStyle={styles.scrollContent}
+          >
             {/* Error Box */}
             {!!errorMessage && (
               <View
@@ -392,56 +442,59 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 </TouchableOpacity>
               </View>
             </View>
-
-            {/* Action Buttons */}
-            <View
-              style={[
-                styles.actionsRow,
-                { flexDirection: isRTL ? 'row-reverse' : 'row' },
-              ]}
-            >
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-                onPress={handleSubmit}
-                disabled={loading}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <>
-                    <Ionicons
-                      name="save-outline"
-                      size={18}
-                      color="#ffffff"
-                      style={{ marginHorizontal: 4 }}
-                    />
-                    <Text style={styles.saveBtnText}>{t.savePasswordBtn}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.cancelBtn,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                  },
-                ]}
-                onPress={() => handleAnimatedClose()}
-                disabled={loading}
-              >
-                <Text
-                  style={[styles.cancelBtnText, { color: colors.textSecondary }]}
-                >
-                  {t.cancelBtn || 'إلغاء'}
-                </Text>
-              </TouchableOpacity>
-            </View>
           </ScrollView>
+
+          {/* Fixed Bottom Action Buttons - Directly Above Keyboard */}
+          <View
+            style={[
+              styles.actionsRow,
+              {
+                borderTopColor: colors.border,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+              onPress={handleSubmit}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={19}
+                    color="#ffffff"
+                    style={{ marginHorizontal: 4 }}
+                  />
+                  <Text style={styles.saveBtnText}>{t.savePasswordBtn}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.cancelBtn,
+                {
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => handleAnimatedClose()}
+              disabled={loading}
+            >
+              <Text
+                style={[styles.cancelBtnText, { color: colors.textSecondary }]}
+              >
+                {t.cancelBtn || 'إلغاء'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </Animated.View>
     </Animated.View>
   );
 };
@@ -457,8 +510,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     zIndex: 9998,
   },
-  keyboardAvoid: {
+  sheetWrapper: {
     width: '100%',
+    justifyContent: 'flex-end',
   },
   sheetCard: {
     width: '100%',
@@ -468,8 +522,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 22,
-    maxHeight: SCREEN_HEIGHT * 0.88,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    maxHeight: SCREEN_HEIGHT * 0.85,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.35,
@@ -479,47 +533,53 @@ const styles = StyleSheet.create({
   handleWrap: {
     width: '100%',
     alignItems: 'center',
-    paddingVertical: 6,
-    marginBottom: 6,
+    paddingVertical: 4,
+    marginBottom: 4,
   },
   handleBar: {
     width: 44,
     height: 5,
     borderRadius: 3,
   },
-  scrollContent: {
-    paddingBottom: 10,
-  },
   headerRow: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  iconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerRowCompact: {
     marginBottom: 8,
   },
+  iconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    marginBottom: 4,
+    marginBottom: 2,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     textAlign: 'center',
   },
+  scrollArea: {
+    maxHeight: SCREEN_HEIGHT * 0.45,
+  },
+  scrollContent: {
+    paddingBottom: 6,
+  },
   errorBox: {
-    padding: 10,
+    padding: 9,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   errorText: {
     flex: 1,
@@ -527,18 +587,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   fieldGroup: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    marginBottom: 5,
+    marginBottom: 4,
   },
   inputWrapper: {
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 12,
-    height: 48,
+    height: 46,
     alignItems: 'center',
     gap: 8,
   },
@@ -548,7 +608,9 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   actionsRow: {
-    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    marginTop: 4,
     gap: 10,
   },
   saveBtn: {
