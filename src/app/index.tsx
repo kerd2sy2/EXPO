@@ -1,714 +1,631 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  StyleSheet,
+  StatusBar,
+  ScrollView,
+  RefreshControl,
   View,
   Text,
-  TextInput,
   TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Alert,
-  StatusBar,
-  KeyboardAvoidingView,
-  Platform,
   Image,
-  Dimensions,
-  useColorScheme,
+  Animated,
   BackHandler,
+  useColorScheme,
+  StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as SplashScreen from 'expo-splash-screen';
-import { workApi, EmployeeProfile, WorkSession } from '../services/work';
-import { setAuthToken, getStoredToken } from '../services/api';
 
-const { width } = Dimensions.get('window');
+// Types & Constants
+import {
+  EmployeeProfile,
+  WorkSession,
+  SuccessModalData,
+  PreviewPhotoData,
+  TabType,
+  Language,
+  ThemeColors,
+} from '../types/delegate';
+import { translations } from '../constants/translations';
 
-type TabType = 'home' | 'shift' | 'history' | 'profile';
-type Language = 'ar' | 'en' | 'bn';
+// Services
+import { workApi } from '../services/work';
+import { setAuthToken, getCachedUser, saveCachedUser } from '../services/api';
+import {
+  startGpsTracking,
+  stopGpsTracking,
+  getGpsShiftDistance,
+  clearGpsShiftData,
+} from '../services/gpsTrackingService';
 
-const MONTHLY_TARGET = 460;
+// Screens
+import { LoginScreen } from '../screens/LoginScreen';
+import { HomeScreen } from '../screens/HomeScreen';
+import { ShiftScreen } from '../screens/ShiftScreen';
+import { HistoryScreen } from '../screens/HistoryScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 
-// Helper to resolve full image URLs for backend uploads / personal images
-export const getFullImageUrl = (imagePath?: string): string | null => {
-  if (!imagePath || !imagePath.trim()) return null;
-  const path = imagePath.trim();
-  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:image')) {
-    return path;
-  }
-  const cleanBase = 'https://aams-backend-fxy7.onrender.com';
-  return `${cleanBase}${path.startsWith('/') ? path : `/${path}`}`;
-};
-
-const translations = {
-  ar: {
-    appName: 'AAMS Logistics',
-    appSubtitle: 'بوابة المناديب الميدانية',
-    loginTitle: 'تسجيل الدخول',
-    loginSubtitle: 'أدخل رقم الهوية الوطنية لتسجيل الدخول ومباشرة دوامك',
-    nationalIdLabel: 'رقم الهوية أو البريد',
-    nationalIdPlaceholder: 'مثال: 2569600022',
-    passwordLabel: 'كلمة المرور',
-    passwordPlaceholder: 'أدخل كلمة المرور',
-    passwordHint: '',
-    loginBtn: 'دخول البوابة',
-    demoLoginBtn: '⚡ تجربة سريعة: دلوار اوسين شيبون (2569600022)',
-    readyToStart: 'جاهز لبدء الشفت 🚀',
-    shiftActive: 'شفت العمل قائم الآن 🟢',
-    startShiftNow: 'بدء دوام جديد الآن 🚀',
-    endShiftNow: 'إنهاء الشفت وتسجيل العداد 🏁',
-    shiftInProgressOn: 'الدوام جاري على دباب',
-    startKmLabel: 'عداد البداية',
-    endKmLabel: 'عداد النهاية',
-    durationLabel: 'مدة العمل',
-    notStartedToday: 'لم تسجل بدء العمل اليوم بعد',
-    assignedBike: 'الدباب المربوط',
-    branch: 'الفرع',
-    myAchievements: 'ملخص إنجازاتي',
-    totalShifts: 'الشفتات المسجلة',
-    totalDistance: 'إجمالي المسافة',
-    approvedOrders: 'الطلبات المنجزة',
-    monthlyTarget: 'الهدف الشهري (التارجت)',
-    expectedSalary: 'متوقع الراتب المكتسب',
-    ratePerOrder: 'سعر الطلب الحالي',
-    targetAchievedBadge: 'تم كسر التارجت والبونص 🏆 (شريحة 6 ر.س/طلب)',
-    targetRemainingNotice: 'متبقي {n} طلب للانتقال لشريحة 6 ر.س/طلب 🚀',
-    qrTitle: 'بطاقة المندوب الرقمية (QR Code)',
-    qrSub: 'أظهر هذا الرمز للمشرف أو الفرع للمسح والتحقق السريع',
-    close: 'إغلاق',
-    quickAccess: 'الوصول السريع',
-    quickShiftTitle: 'بدء أو إقفال شفت العمل',
-    quickShiftSub: 'تسجيل قراءات العدادات والتقاط الصور',
-    quickHistoryTitle: 'سجل الشفتات والتصديقات',
-    quickHistorySub: 'متابعة حالة اعتماد المشرف للطلبات',
-    quickProfileTitle: 'الملف الشخصي وإعدادات الحساب',
-    quickProfileSub: 'عرض بيانات المندوب والدباب ولغة التطبيق',
-    backToHome: 'العودة للرئيسية',
-    ordersUnit: 'طلب',
-    shiftsUnit: 'شفت',
-    shiftStatus: 'حالة الدوام',
-    startShiftTitle: 'بدء شفت عمل جديد',
-    startShiftSub: 'تأكد من رقم الدباب وقراءة عداد البداية والتقط صورة واضحة',
-    actualBikeNumber: 'رقم الدباب الفعلي الذي ستقوده',
-    actualBikePlaceholder: 'اكتب رقم الدباب...',
-    bikeMatchingSuccess: 'مطابق للدباب المربوط بك بالنظام ✅',
-    bikeMismatchWarning: '⚠️ تنبيه: الدباب مختلف عن المربوط بك — سيتم إرسال إشعار للمشرف!',
-    startKmInputLabel: 'قراءة عداد البداية (Start KM)',
-    startKmPlaceholder: 'مثال: 15400',
-    autoKmFetched: 'تم جلب عداد نهاية الشفت السابق لهذا الدباب تلقائياً',
-    startKmPhotoLabel: 'صورة عداد البداية (مطلوبة للتدقيق)',
-    captureCamera: 'فتح الكاميرا وتصوير العداد 📸',
-    odometerGuideTitle: 'وضع شاشة العداد داخل هذا الإطار',
-    odometerGuideSub: 'وجّه الكاميرا نحو شاشة العداد وتأكد من وضوح الأرقام',
-    photoCapturedSuccess: 'تم التقاط صورة العداد بنجاح',
-    retakePhoto: 'إعادة التصوير 🔄',
-    startNotesLabel: 'ملاحظات البداية (اختياري)',
-    startNotesPlaceholder: 'أي ملاحظات حول حالة الدباب قبل الانطلاق...',
-    confirmStartBtn: 'تأكيد وبدء الدوام الآن 🚀',
-    endShiftTitle: 'إنهاء شفت العمل',
-    endShiftSub: 'أدخل قراءة عداد النهاية وصورته وعدد الطلبات المنجزة',
-    endKmInputLabel: 'قراءة عداد النهاية (End KM)',
-    calculatedDistLabel: 'المسافة المقطوعة المحسوبة',
-    endKmPhotoLabel: 'صورة عداد النهاية (مطلوبة للإقفال)',
-    ordersCountLabel: 'عدد الطلبات المنجزة',
-    ordersCountPlaceholder: 'مثال: 15',
-    fuelCostLabel: 'تكلفة الوقود (ر.س)',
-    fuelCostPlaceholder: '0.00',
-    endNotesLabel: 'ملاحظات إنهاء الشفت (اختياري)',
-    endNotesPlaceholder: 'أي ملاحظات حول الطلبات أو الدباب...',
-    confirmEndBtn: 'إنهاء الشفت وإرسال البيانات 🏁',
-    historyTitle: 'سجل الشفتات والاعتمادات',
-    noHistory: 'لا توجد شفتات سابقة مسجلة',
-    reviewedBadge: 'مصادق عليه ✅',
-    pendingBadge: 'بانتظار المشرف ⏳',
-    editedBySupervisor: 'تم تدقيق وتعديل البيانات بواسطة المشرف',
-    profileTitle: 'الملف الشخصي',
-    jobRole: 'مندوب توصيل معتمد',
-    nationalId: 'رقم الهوية الوطنية',
-    keyNumber: 'رقم المفتاح',
-    appSettings: 'إعدادات التطبيق',
-    language: 'لغة التطبيق',
-    logout: 'تسجيل الخروج من الحساب',
-    tabHome: 'الرئيسية',
-    tabShift: 'الدوام',
-    tabHistory: 'سجل الشفتات',
-    tabProfile: 'حسابي',
-    km: 'كم',
-    sar: 'ر.س',
-    delegate: 'المندوب',
-    idAbbr: 'هوية',
-    keyAbbr: 'مفتاح',
-    phoneNumber: 'رقم الهاتف',
-    selectLang: 'اختر لغة التطبيق',
-  },
-  en: {
-    appName: 'AAMS Logistics',
-    appSubtitle: 'Field Delegate Portal',
-    loginTitle: 'Sign In',
-    loginSubtitle: 'Enter your National ID to sign in and start your shift',
-    nationalIdLabel: 'National ID or Email',
-    nationalIdPlaceholder: 'e.g. 2569600022',
-    passwordLabel: 'Password',
-    passwordPlaceholder: 'Enter your password',
-    passwordHint: '',
-    loginBtn: 'Sign In',
-    demoLoginBtn: '⚡ Quick Demo: Delwar Hossain (2569600022)',
-    readyToStart: 'Ready to start shift 🚀',
-    shiftActive: 'Shift in progress 🟢',
-    startShiftNow: 'Start New Shift Now 🚀',
-    endShiftNow: 'End Shift & Record Odometer 🏁',
-    shiftInProgressOn: 'Shift in progress on bike',
-    startKmLabel: 'Start KM',
-    endKmLabel: 'End KM',
-    durationLabel: 'Duration',
-    notStartedToday: 'Shift has not started yet today',
-    assignedBike: 'Assigned Bike',
-    branch: 'Branch',
-    myAchievements: 'My Performance Summary',
-    totalShifts: 'Total Shifts',
-    totalDistance: 'Total Distance',
-    approvedOrders: 'Completed Orders',
-    monthlyTarget: 'Monthly Target',
-    expectedSalary: 'Estimated Earnings',
-    ratePerOrder: 'Order Rate',
-    targetAchievedBadge: 'Target Achieved & Bonus Unlocked 🏆 (6 SAR/order)',
-    targetRemainingNotice: '{n} orders left to reach 6 SAR/order tier 🚀',
-    qrTitle: 'Delegate Digital Badge (QR Code)',
-    qrSub: 'Present this code to supervisor or branch for scanning',
-    close: 'Close',
-    quickAccess: 'Quick Access',
-    quickShiftTitle: 'Start or End Shift',
-    quickShiftSub: 'Record odometer readings & take photos',
-    quickHistoryTitle: 'Shift History & Approvals',
-    quickHistorySub: 'Track supervisor review and order approvals',
-    quickProfileTitle: 'Profile & Account Settings',
-    quickProfileSub: 'View delegate details, bike info, and app language',
-    backToHome: 'Back to Home',
-    ordersUnit: 'Orders',
-    shiftsUnit: 'Shifts',
-    shiftStatus: 'Shift Status',
-    startShiftTitle: 'Start New Shift',
-    startShiftSub: 'Verify bike plate, enter start KM, and take odometer photo',
-    actualBikeNumber: 'Actual Bike Plate you are riding',
-    actualBikePlaceholder: 'Enter bike plate...',
-    bikeMatchingSuccess: 'Matches assigned motorcycle in system ✅',
-    bikeMismatchWarning: '⚠️ Warning: Bike is different from assigned! Supervisor will be notified.',
-    startKmInputLabel: 'Start Odometer (Start KM)',
-    startKmPlaceholder: 'e.g. 15400',
-    autoKmFetched: 'Previous end odometer auto-filled for this bike',
-    startKmPhotoLabel: 'Start Odometer Photo (Required)',
-    captureCamera: 'Open Camera & Snap Odometer 📸',
-    odometerGuideTitle: 'Align Odometer Inside Box',
-    odometerGuideSub: 'Point camera at the odometer display clearly',
-    photoCapturedSuccess: 'Odometer photo captured successfully',
-    retakePhoto: 'Retake Photo 🔄',
-    startNotesLabel: 'Start Notes (Optional)',
-    startNotesPlaceholder: 'Any notes regarding bike condition...',
-    confirmStartBtn: 'Confirm & Start Shift 🚀',
-    endShiftTitle: 'End Work Shift',
-    endShiftSub: 'Enter end odometer, photo, and completed orders count',
-    endKmInputLabel: 'End Odometer (End KM)',
-    calculatedDistLabel: 'Calculated Distance',
-    endKmPhotoLabel: 'End Odometer Photo (Required)',
-    ordersCountLabel: 'Delivered Orders Count',
-    ordersCountPlaceholder: 'e.g. 15',
-    fuelCostLabel: 'Fuel Cost (SAR)',
-    fuelCostPlaceholder: '0.00',
-    endNotesLabel: 'End Shift Notes (Optional)',
-    endNotesPlaceholder: 'Any notes regarding shift or orders...',
-    confirmEndBtn: 'End Shift & Submit Data 🏁',
-    historyTitle: 'Shift History & Approvals',
-    noHistory: 'No previous shifts recorded',
-    reviewedBadge: 'Approved ✅',
-    pendingBadge: 'Pending Review ⏳',
-    editedBySupervisor: 'Values were audited & adjusted by supervisor',
-    profileTitle: 'My Profile',
-    jobRole: 'Certified Delivery Delegate',
-    nationalId: 'National ID',
-    keyNumber: 'Key Number',
-    appSettings: 'App Settings',
-    language: 'App Language',
-    logout: 'Log Out',
-    tabHome: 'Home',
-    tabShift: 'Shift',
-    tabHistory: 'History',
-    tabProfile: 'Profile',
-    km: 'KM',
-    sar: 'SAR',
-    delegate: 'Delegate',
-    idAbbr: 'ID',
-    keyAbbr: 'Key',
-    phoneNumber: 'Phone Number',
-    selectLang: 'Select Language',
-  },
-  bn: {
-    appName: 'AAMS লজিস্টিকস',
-    appSubtitle: 'ফিল্ড ডেলিভারি পোর্টাল',
-    loginTitle: 'লগইন করুন',
-    loginSubtitle: 'আপনার শিফট শুরু করতে জাতীয় পরিচয়পত্র নম্বর দিন',
-    nationalIdLabel: 'আইডি নম্বর বা ইমেইল',
-    nationalIdPlaceholder: 'যেমন: 2569600022',
-    passwordLabel: 'পাসওয়ার্ড (ঐচ্ছিক)',
-    passwordPlaceholder: 'আইডির শেষ ৬ ডিজিট ডিফল্ট',
-    passwordHint: '💡 ডিফল্ট পাসওয়ার্ড হল আপনার আইডি নম্বরের শেষ ৬ ডিজিট',
-    loginBtn: 'প্রবেশ করুন',
-    demoLoginBtn: '⚡ ডেমো লগইন: দেলোয়ার হোসেন (2569600022)',
-    readyToStart: 'শিফট শুরু করতে প্রস্তুত 🚀',
-    shiftActive: 'শিফট বর্তমানে চলছে 🟢',
-    startShiftNow: 'নতুন শিফট শুরু করুন 🚀',
-    endShiftNow: 'শিফট শেষ ও মিটার জমা দিন 🏁',
-    shiftInProgressOn: 'বাইকে কাজ চলছে',
-    startKmLabel: 'শুরুর মিটার',
-    endKmLabel: 'শেষের মিটার',
-    durationLabel: 'কাজের সময়',
-    notStartedToday: 'আজ এখনও শিফট শুরু করা হয়নি',
-    assignedBike: 'নির্ধারিত বাইক',
-    branch: 'শাখা',
-    myAchievements: 'আমার কাজের সারাংশ',
-    totalShifts: 'মোট শিফট',
-    totalDistance: 'মোট দূরত্ব',
-    approvedOrders: 'সম্পন্ন অর্ডার',
-    monthlyTarget: 'মাসিক টার্গেট',
-    expectedSalary: 'আনুমানিক মোট আয়',
-    ratePerOrder: 'প্রতি অর্ডারের রেট',
-    targetAchievedBadge: 'টার্গেট সম্পন্ন ও বোনাস অর্জিত 🏆 (৬ রিয়াল/অর্ডার)',
-    targetRemainingNotice: '৬ রিয়াল স্তরে পৌঁছাতে বাকি {n} অর্ডার 🚀',
-    qrTitle: 'প্রতিনিধি ডিজিটাল আইডি (QR কোড)',
-    qrSub: 'যাচাইয়ের জন্য সুপারভাইজারকে এই কোডটি দেখান',
-    close: 'বন্ধ করুন',
-    quickAccess: 'দ্রুত অ্যাক্সেস',
-    quickShiftTitle: 'শিফট শুরু বা শেষ করুন',
-    quickShiftSub: 'মিটার রিডিং রেকর্ড এবং ছবি তুলুন',
-    quickHistoryTitle: 'শিফট ইতিহাস ও অনুমোদন',
-    quickHistorySub: 'সুপারভাইজার অনুমোদন ট্র্যাক করুন',
-    quickProfileTitle: 'প্রোফাইল ও অ্যাকাউন্ট সেটিংস',
-    quickProfileSub: 'প্রতিনিধির তথ্য, বাইক এবং অ্যাপের ভাষা',
-    backToHome: 'হোমে ফিরে যান',
-    ordersUnit: 'অর্ডার',
-    shiftsUnit: 'শিফট',
-    shiftStatus: 'শিফট স্ট্যাটাস',
-    startShiftTitle: 'নতুন শিফট শুরু',
-    startShiftSub: 'বাইকের নম্বর এবং শুরুর মিটার নিশ্চিত করে ছবি তুলুন',
-    actualBikeNumber: 'আপনি যে বাইকটি চালাচ্ছেন তার নম্বর',
-    actualBikePlaceholder: 'বাইক নম্বর লিখুন...',
-    bikeMatchingSuccess: 'সিস্টেমে নির্ধারিত বাইকের সাথে মিলেছে ✅',
-    bikeMismatchWarning: '⚠️ সতর্কতা: নির্ধারিত বাইকের সাথে মিলেনি! সুপারভাইজারকে জানানো হবে।',
-    startKmInputLabel: 'শুরুর মিটার রিডিং (Start KM)',
-    startKmPlaceholder: 'যেমন: 15400',
-    autoKmFetched: 'এই বাইকের পূর্ববর্তী শেষ মিটার স্বয়ংক্রিয়ভাবে যুক্ত হয়েছে',
-    startKmPhotoLabel: 'শুরুর মিটারের ছবি (বাধ্যতামূলক)',
-    captureCamera: 'ক্যামেরা খুলে মিটারের ছবি তুলুন 📸',
-    odometerGuideTitle: 'মিটারে ক্যামেরা সঠিকভাবে ফোকাস করুন',
-    odometerGuideSub: 'মিটারের সংখ্যাগুলো যেন পরিষ্কার দেখা যায়',
-    photoCapturedSuccess: 'মিটারে ছবি সফলভাবে তোলা হয়েছে',
-    retakePhoto: 'আবার ছবি তুলুন 🔄',
-    startNotesLabel: 'শুরুর মন্তব্য (ঐচ্ছিক)',
-    startNotesPlaceholder: 'বাইক সম্পর্কিত কোনো মন্তব্য...',
-    confirmStartBtn: 'নিশ্চিত ও শুরু করুন 🚀',
-    endShiftTitle: 'শিফট সমাপ্তি',
-    endShiftSub: 'শেষের মিটার, ছবি এবং অর্ডারের সংখ্যা দিন',
-    endKmInputLabel: 'শেষের মিটার রিডিং (End KM)',
-    calculatedDistLabel: 'মোট অতিক্রান্ত দূরত্ব',
-    endKmPhotoLabel: 'শেষের মিটারের ছবি (বাধ্যতামূলক)',
-    ordersCountLabel: 'সম্পন্ন অর্ডারের সংখ্যা',
-    ordersCountPlaceholder: 'যেমন: 15',
-    fuelCostLabel: 'জ্বালানি খরচ (SAR)',
-    fuelCostPlaceholder: '0.00',
-    endNotesLabel: 'সমাপ্তির মন্তব্য (ঐচ্ছিক)',
-    endNotesPlaceholder: 'অর্ডার বা বাইক সম্পর্কে মন্তব্য...',
-    confirmEndBtn: 'শিফট শেষ ও জমা দিন 🏁',
-    historyTitle: 'শিফট ইতিহাস ও অনুমোদন',
-    noHistory: 'কোনো পূর্ববর্তী শিফট পাওয়া যায়নি',
-    reviewedBadge: 'অনুমোদিত ✅',
-    pendingBadge: 'অপেক্ষমাণ ⏳',
-    editedBySupervisor: 'সুপারভাইজার দ্বারা সংশোধিত হয়েছে',
-    profileTitle: 'প্রোফাইল',
-    jobRole: 'অনুমোদিত ডেলিভারি প্রতিনিধি',
-    nationalId: 'জাতীয় পরিচয়পত্র',
-    keyNumber: 'চাবি নম্বর',
-    appSettings: 'অ্যাপ সেটিংস',
-    language: 'ভাষা পরিবর্তন',
-    logout: 'লগআউট',
-    tabHome: 'হোম',
-    tabShift: 'শিফট',
-    tabHistory: 'ইতিহাস',
-    tabProfile: 'প্রোফাইল',
-    km: 'কিমি',
-    sar: 'রিয়াল',
-    delegate: 'প্রতিনিধি',
-    idAbbr: 'আইডি',
-    keyAbbr: 'চাবি',
-    phoneNumber: 'ফোন নম্বর',
-    selectLang: 'ভাষা নির্বাচন করুন',
-  }
-};
+// Modals
+import { SuccessShiftModal } from '../components/modals/SuccessShiftModal';
+import { LanguageModal } from '../components/modals/LanguageModal';
+import { QrCodeModal } from '../components/modals/QrCodeModal';
+import { ImagePreviewModal } from '../components/modals/ImagePreviewModal';
 
 export default function DelegateApp() {
-  // System Theme Hook (Automatic Phone Default)
   const systemColorScheme = useColorScheme();
   const isDarkMode = systemColorScheme === 'dark';
 
-  // Language State (Default: Arabic 'ar')
+  // Navigation & Language
+  const [currentTab, setCurrentTab] = useState<TabType>('home');
   const [lang, setLang] = useState<Language>('ar');
-  const [showLangModal, setShowLangModal] = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
   const t = translations[lang];
   const isRTL = lang === 'ar';
 
-  // Scroll View Ref for scrolling to top on navigation
-  const mainScrollRef = useRef<ScrollView>(null);
-
-  // Auth & Session State
-  const [token, setToken] = useState<string | null>(null);
+  // Authentication State
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
-  const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
-  const [historySessions, setHistorySessions] = useState<WorkSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [currentTab, setCurrentTab] = useState<TabType>('home');
-
-  // Login Form State
-  const loginInputRef = useRef<TextInput>(null);
-  const [loginInput, setLoginInput] = useState('');
-  const [idTextWidth, setIdTextWidth] = useState(0);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
 
-  // Start Shift Form State
+  // Work Session State
+  const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
+  const [historySessions, setHistorySessions] = useState<WorkSession[]>([]);
+
+  // Shift Inputs
   const [enteredMotorcycle, setEnteredMotorcycle] = useState('');
   const [startKm, setStartKm] = useState('');
-  const [autoFilledKm, setAutoFilledKm] = useState<number | null>(null);
   const [startKmImage, setStartKmImage] = useState<string | null>(null);
   const [startNotes, setStartNotes] = useState('');
+  const [autoKmFetched, setAutoKmFetched] = useState(false);
 
-  // End Shift Form State
   const [endKm, setEndKm] = useState('');
   const [endKmImage, setEndKmImage] = useState<string | null>(null);
   const [ordersCount, setOrdersCount] = useState('');
   const [fuelCost, setFuelCost] = useState('');
   const [endNotes, setEndNotes] = useState('');
 
-  // Elapsed Time State
+  // Modals & Popups
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [showLangModal, setShowLangModal] = useState(false);
+  const [previewPhoto, setPreviewPhoto] = useState<PreviewPhotoData | null>(null);
+  const [successModalData, setSuccessModalData] = useState<SuccessModalData | null>(null);
+
+  // Success Sheet Animations
+  const sheetTranslateY = useRef(new Animated.Value(600)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  // Active Timer & Live GPS Distance
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
+  const [gpsDistance, setGpsDistance] = useState<number>(0);
 
-  // Preview Modal State for Photos in History
-  const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string } | null>(null);
+  // Theme Colors
+  const colors: ThemeColors = isDarkMode
+    ? {
+        bg: '#0a0d14',
+        card: '#121624',
+        cardHeader: '#1a2035',
+        textPrimary: '#f8fafc',
+        textSecondary: '#94a3b8',
+        border: '#1e293b',
+        primary: '#ea580c',
+        primaryLight: 'rgba(234, 88, 12, 0.15)',
+        primaryText: '#fb923c',
+        accent: '#38bdf8',
+        accentLight: 'rgba(56, 189, 248, 0.15)',
+        inputBg: '#0f172a',
+        inputBorder: '#334155',
+        warningBg: 'rgba(234, 179, 8, 0.15)',
+        warningBorder: '#eab308',
+        warningText: '#fef08a',
+        errorBg: 'rgba(239, 68, 68, 0.15)',
+        errorText: '#fca5a5',
+      }
+    : {
+        bg: '#f8fafc',
+        card: '#ffffff',
+        cardHeader: '#f1f5f9',
+        textPrimary: '#0f172a',
+        textSecondary: '#64748b',
+        border: '#e2e8f0',
+        primary: '#ea580c',
+        primaryLight: '#fff7ed',
+        primaryText: '#ea580c',
+        accent: '#0284c7',
+        accentLight: '#f0f9ff',
+        inputBg: '#ffffff',
+        inputBorder: '#cbd5e1',
+        warningBg: '#fef9c3',
+        warningBorder: '#facc15',
+        warningText: '#854d0e',
+        errorBg: '#fee2e2',
+        errorText: '#b91c1c',
+      };
 
-  // Navigate to tab and scroll to top
-  const navigateToTab = (tab: TabType) => {
-    setCurrentTab(tab);
-    setTimeout(() => {
-      mainScrollRef.current?.scrollTo({ y: 0, animated: true });
-    }, 50);
-  };
+  // Check Active Session & Employee on Mount
+  useEffect(() => {
+    checkSession();
+  }, []);
 
-  // Handle Hardware Back Button (Go to Home from subpages, exit app if on Home)
+  // Hardware Back Button (Android)
   useEffect(() => {
     const onBackPress = () => {
-      // 1. If photo preview lightbox is open, close it
       if (previewPhoto) {
         setPreviewPhoto(null);
         return true;
       }
-
-      // 2. If QR modal is open, close it
       if (showQrModal) {
         setShowQrModal(false);
         return true;
       }
-
-      // 3. If language modal is open, close it
       if (showLangModal) {
         setShowLangModal(false);
         return true;
       }
-
-      // 4. If in a sub-page (Shift, History, Profile), return back to Home
-      if (currentTab !== 'home') {
-        navigateToTab('home');
-        return true; // prevent exit and go to home
+      if (successModalData) {
+        closeSuccessModal();
+        return true;
       }
-
-      // 5. If already on Home (or login screen), allow default exit app behavior
+      if (currentTab !== 'home') {
+        setCurrentTab('home');
+        return true; // Go back to home page without exiting
+      }
+      // On home page, return false to exit the app
       return false;
     };
 
-    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => backSubscription.remove();
-  }, [currentTab, previewPhoto, showLangModal, showQrModal]);
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backHandler.remove();
+  }, [currentTab, previewPhoto, showQrModal, showLangModal, successModalData]);
 
-  // Check initial login state
+  // Update Elapsed Time Interval
   useEffect(() => {
-    checkSession().finally(() => {
-      SplashScreen.hideAsync().catch(() => {});
-    });
-  }, []);
+    let interval: any = null;
+    if (activeSession && activeSession.start_time) {
+      const updateTimer = () => {
+        const start = new Date(activeSession.start_time).getTime();
+        const now = new Date().getTime();
+        const diff = Math.max(0, now - start);
 
-  // Fetch history when employee changes or tab changes
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        setElapsedTime(
+          `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+        );
+      };
+      updateTimer();
+      interval = setInterval(updateTimer, 1000);
+    } else {
+      setElapsedTime('00:00:00');
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeSession]);
+
+  // Live GPS Distance Tracking for Active Session
   useEffect(() => {
-    if (employee?.id) {
-      loadHistory();
-    }
-  }, [employee?.id, currentTab, activeSession]);
+    let gpsInterval: any = null;
+    if (activeSession && activeSession.id) {
+      startGpsTracking(activeSession.id);
 
-  const loadHistory = async () => {
-    if (!employee?.id) return;
-    try {
-      const list = await workApi.getMySessions(employee.id, 20);
-      setHistorySessions(list);
-    } catch {
-      // ignore
-    }
-  };
+      const updateGpsDist = async () => {
+        const recordedDist = await getGpsShiftDistance(activeSession.id);
+        setGpsDistance(recordedDist);
+      };
 
-  // Automatically fetch last ending odometer when motorcycle is set or changed
-  useEffect(() => {
-    if (!employee || activeSession) return;
-    const bike = enteredMotorcycle.trim();
-    if (!bike) {
-      setAutoFilledKm(null);
-      return;
+      updateGpsDist();
+      gpsInterval = setInterval(updateGpsDist, 4000);
+    } else {
+      setGpsDistance(0);
     }
-
-    let isMounted = true;
-    workApi.getLastKM(employee.id, bike).then((kmData) => {
-      if (isMounted && kmData && kmData.last_end_km > 0) {
-        setStartKm(String(kmData.last_end_km));
-        setAutoFilledKm(kmData.last_end_km);
-      } else if (isMounted) {
-        setAutoFilledKm(null);
-      }
-    }).catch(() => {
-      if (isMounted) setAutoFilledKm(null);
-    });
 
     return () => {
-      isMounted = false;
+      if (gpsInterval) clearInterval(gpsInterval);
     };
-  }, [enteredMotorcycle, employee?.id, activeSession]);
+  }, [activeSession]);
+
+  // Auto-fetch Last End KM when bike changes
+  useEffect(() => {
+    const fetchLastKm = async () => {
+      const bike = enteredMotorcycle.trim();
+      if (!bike || activeSession || !employee) return;
+      try {
+        const res = await workApi.getLastKM(employee.id, bike);
+        if (res && res.last_end_km > 0) {
+          setStartKm(String(res.last_end_km));
+          setAutoKmFetched(true);
+        }
+      } catch (err) {
+        console.log('No prior KM found for bike:', bike);
+      }
+    };
+    fetchLastKm();
+  }, [enteredMotorcycle, activeSession, employee]);
 
   const checkSession = async () => {
     setLoading(true);
-    const existingToken = getStoredToken();
-    if (existingToken) {
-      setToken(existingToken);
-      try {
-        const me = await workApi.getMe();
-        if (me?.employee || me?.admin) {
-          const emp = me.employee || {
-            id: me.admin.id,
-            name: me.admin.name,
-            national_id: me.admin.national_id || '',
-            motorcycle_number: me.admin.motorcycle_number || '',
-            key_number: me.admin.key_number || '',
-            branch_name: me.admin.branch?.name || '',
-            personal_image: me.admin.personal_image || '',
-          };
-          setEmployee(emp);
-          setEnteredMotorcycle(emp.motorcycle_number || '');
-          const session = await workApi.getActiveSession(emp.id);
-          setActiveSession(session);
+    try {
+      // 1. Instant Cached User Restore
+      const cached = await getCachedUser();
+      if (cached && cached.id) {
+        setEmployee(cached);
+        if (cached.motorcycle_number) {
+          setEnteredMotorcycle(cached.motorcycle_number);
         }
-      } catch {
-        handleLogout();
+        // Background fetch active session and history immediately
+        fetchActiveSession(cached.id);
+        fetchHistory(cached.id);
       }
+
+      // 2. Validate & Refresh Profile from Server without losing delegate fields
+      const user = await workApi.getMe();
+      if (user && user.id) {
+        const merged: EmployeeProfile = {
+          ...(cached || {}),
+          ...user,
+          motorcycle_number: user.motorcycle_number || cached?.motorcycle_number || '',
+          key_number: user.key_number || cached?.key_number || '',
+          national_id: user.national_id || cached?.national_id || '',
+          personal_image: user.personal_image || cached?.personal_image || '',
+          national_id_image: user.national_id_image || cached?.national_id_image || '',
+          driving_license_image: user.driving_license_image || cached?.driving_license_image || '',
+          passport_image: user.passport_image || cached?.passport_image || '',
+          vehicle_registration_image: user.vehicle_registration_image || cached?.vehicle_registration_image || '',
+          employee_number: user.employee_number || cached?.employee_number || '',
+          phone: user.phone || cached?.phone || '',
+          branch_name: user.branch_name || cached?.branch_name || '',
+        } as EmployeeProfile;
+
+        setEmployee(merged);
+        if (merged.motorcycle_number) {
+          setEnteredMotorcycle(merged.motorcycle_number);
+        }
+        await Promise.all([
+          fetchActiveSession(merged.id),
+          fetchHistory(merged.id),
+        ]);
+      } else if (!cached) {
+        setEmployee(null);
+      }
+    } catch (err) {
+      console.log('Session check notice:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // Timer for active shift
-  useEffect(() => {
-    if (!activeSession?.start_time) return;
+  const fetchActiveSession = async (employeeId: string) => {
+    try {
+      const active = await workApi.getActiveSession(employeeId);
+      if (active && active.status === 'ACTIVE') {
+        setActiveSession(active as WorkSession);
+        setEndKm('');
+        setOrdersCount(active.orders_count ? String(active.orders_count) : '');
+      } else {
+        setActiveSession(null);
+      }
+    } catch (err) {
+      console.log('Error fetching active session:', err);
+      setActiveSession(null);
+    }
+  };
 
-    const updateTimer = () => {
-      const start = new Date(activeSession.start_time).getTime();
-      const now = new Date().getTime();
-      const diffSecs = Math.max(0, Math.floor((now - start) / 1000));
+  const fetchHistory = async (employeeId: string) => {
+    try {
+      const history = await workApi.getMySessions(employeeId);
+      if (Array.isArray(history)) {
+        setHistorySessions(history as WorkSession[]);
+      }
+    } catch (err) {
+      console.log('Error fetching shift history:', err);
+    }
+  };
 
-      const hrs = Math.floor(diffSecs / 3600);
-      const mins = Math.floor((diffSecs % 3600) / 60);
-      const secs = diffSecs % 60;
+  const [refreshing, setRefreshing] = useState(false);
 
-      const pad = (n: number) => n.toString().padStart(2, '0');
-      setElapsedTime(`${pad(hrs)}:${pad(mins)}:${pad(secs)}`);
-    };
+  // Pull-to-refresh across all screens
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (employee && employee.id) {
+        await Promise.all([
+          workApi.getMe().then((u) => {
+            if (u) {
+              setEmployee((prev) => ({
+                ...(prev || {}),
+                ...u,
+                motorcycle_number: u.motorcycle_number || prev?.motorcycle_number || '',
+                key_number: u.key_number || prev?.key_number || '',
+                national_id: u.national_id || prev?.national_id || '',
+                personal_image: u.personal_image || prev?.personal_image || '',
+                national_id_image: u.national_id_image || prev?.national_id_image || '',
+                driving_license_image: u.driving_license_image || prev?.driving_license_image || '',
+                passport_image: u.passport_image || prev?.passport_image || '',
+                vehicle_registration_image: u.vehicle_registration_image || prev?.vehicle_registration_image || '',
+                employee_number: u.employee_number || prev?.employee_number || '',
+                phone: u.phone || prev?.phone || '',
+                branch_name: u.branch_name || prev?.branch_name || '',
+              } as EmployeeProfile));
+            }
+          }),
+          fetchActiveSession(employee.id),
+          fetchHistory(employee.id),
+        ]);
+      } else {
+        await checkSession();
+      }
+    } catch (err) {
+      console.log('Refresh error:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [activeSession]);
+  // Open Success Bottom Sheet
+  const openSuccessModal = (data: SuccessModalData) => {
+    setSuccessModalData(data);
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.spring(sheetTranslateY, {
+        toValue: 0,
+        bounciness: 4,
+        speed: 12,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
-  const handleLogin = async (overrideLogin?: string, overridePass?: string) => {
-    let inputVal = (overrideLogin || loginInput).trim();
-    const passVal = overridePass || passwordInput;
+  // Close Success Bottom Sheet
+  const closeSuccessModal = (callback?: () => void) => {
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetTranslateY, {
+        toValue: 600,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setSuccessModalData(null);
+      if (callback) callback();
+    });
+  };
 
+  // Login Handler
+  const handleLogin = async (rawNatId?: string, rawPass?: string) => {
+    const inputVal = (rawNatId || '').trim();
     if (!inputVal) {
-      setLoginError(t.nationalIdPlaceholder);
+      setLoginError(t.nationalIdLabel + ' ' + (lang === 'ar' ? 'مطلوب' : 'is required'));
       return;
     }
 
-    if (!inputVal.includes('@')) {
-      inputVal = `${inputVal}@aams-logistics.com`;
-    }
+    const login = inputVal;
+    const password = (rawPass || '').trim() || inputVal.slice(-6);
 
     setSubmitting(true);
     setLoginError('');
-
     try {
-      const res = await workApi.login(inputVal, passVal.trim() || undefined);
-      setToken(res.access_token);
-
-      const empData: EmployeeProfile = res.employee || {
-        id: res.admin?.id || '',
-        name: res.admin?.name || '',
-        national_id: inputVal.split('@')[0],
-        motorcycle_number: '',
-        key_number: '',
-        employee_number: '',
-        job_role: 'DRIVER',
-        personal_image: '',
-      };
-
-      setEmployee(empData);
-      setEnteredMotorcycle(empData.motorcycle_number || '');
-
-      const session = await workApi.getActiveSession(empData.id);
-      setActiveSession(session);
-      navigateToTab('home');
+      const res = await workApi.login(login, password);
+      if (res && res.employee) {
+        setEmployee(res.employee);
+        if (res.employee.motorcycle_number) {
+          setEnteredMotorcycle(res.employee.motorcycle_number);
+        }
+        await Promise.all([
+          fetchActiveSession(res.employee.id),
+          fetchHistory(res.employee.id),
+        ]);
+        setCurrentTab('home');
+      } else {
+        setLoginError(t.passwordHint || 'بيانات الدخول غير صحيحة');
+      }
     } catch (err: any) {
-      setLoginError(err.message || 'فشل تسجيل الدخول، تأكد من صحة البيانات');
+      console.error('Login error:', err);
+      setLoginError(err?.message || 'تعذر تسجيل الدخول، تأكد من صحة البيانات');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const fillDelwarDemo = () => {
-    setLoginInput('2569600022');
-    setPasswordInput('600022');
-    handleLogin('2569600022', '600022');
+  // Logout Handler
+  const handleLogout = async () => {
+    Alert.alert(
+      t.logout,
+      lang === 'ar' ? 'هل أنت متأكد من رغبتك في تسجيل الخروج؟' : 'Are you sure you want to log out?',
+      [
+        { text: t.close, style: 'cancel' },
+        {
+          text: t.logout,
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await setAuthToken(null);
+            } catch (e) {
+              console.log('Logout error', e);
+            }
+            setEmployee(null);
+            setActiveSession(null);
+            setHistorySessions([]);
+            setCurrentTab('home');
+          },
+        },
+      ]
+    );
   };
 
-  const handleLogout = () => {
-    setAuthToken(null);
-    setToken(null);
-    setEmployee(null);
-    setActiveSession(null);
-    setLoginInput('');
-    setPasswordInput('');
-    setLoginError('');
-    navigateToTab('home');
-  };
-
-  // Direct camera capture without cropping (live field verification)
-  const takeOdometerPhoto = async (target: 'start' | 'end') => {
+  // Camera Capture for Odometer
+  const takeOdometerPhoto = async (type: 'start' | 'end') => {
     try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert('الإذن مطلوب', 'يرجى السماح للتطبيق باستخدام الكاميرا لتصوير العداد مباشرة');
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          lang === 'ar' ? 'إذن الكاميرا مطلوب' : 'Camera Permission Required',
+          lang === 'ar' ? 'يرجى السماح للتطبيق باستخدام الكاميرا لتصوير العداد' : 'Please allow camera access to take odometer photos'
+        );
         return;
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false, // لا يوجد قص — موافق مباشرة
-        quality: 0.8,
+        allowsEditing: false,
+        quality: 0.35,
         base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        const base64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-        if (target === 'start') {
-          setStartKmImage(base64Data);
+        const base64Uri = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+
+        if (type === 'start') {
+          setStartKmImage(base64Uri);
         } else {
-          setEndKmImage(base64Data);
+          setEndKmImage(base64Uri);
         }
       }
-    } catch (err: any) {
-      Alert.alert('خطأ', 'تعذر فتح الكاميرا: ' + (err.message || ''));
+    } catch (err) {
+      console.error('Camera capture error:', err);
+      Alert.alert(
+        lang === 'ar' ? 'خطأ في الكاميرا' : 'Camera Error',
+        lang === 'ar' ? 'تعذر فتح الكاميرا، يرجى المحاولة مرة أخرى' : 'Could not launch camera'
+      );
     }
   };
 
+  // Start Shift Handler
   const handleStartShift = async () => {
     if (!employee) return;
 
     if (!enteredMotorcycle.trim()) {
-      Alert.alert('تنبيه', t.actualBikePlaceholder);
+      Alert.alert(t.actualBikeNumber, t.actualBikePlaceholder);
       return;
     }
 
-    const kmNum = parseFloat(startKm);
-    if (isNaN(kmNum) || kmNum <= 0) {
-      Alert.alert('تنبيه', t.startKmPlaceholder);
+    const startVal = Number(startKm);
+    if (!startKm || isNaN(startVal) || startVal <= 0) {
+      Alert.alert(t.startKmInputLabel, t.startKmPlaceholder);
       return;
     }
 
     if (!startKmImage) {
-      Alert.alert('📸', t.startKmPhotoLabel);
+      Alert.alert(t.startKmPhotoLabel, t.odometerGuideSub);
       return;
     }
 
     setSubmitting(true);
     try {
-      const session = await workApi.startShift({
+      const savedMoto = enteredMotorcycle.trim();
+      const savedStartKm = startVal;
+      const savedPhoto = startKmImage;
+      const savedNotes = startNotes;
+
+      const newSession = await workApi.startShift({
         employee_id: employee.id,
-        motorcycle_number: enteredMotorcycle.trim(),
-        start_km: kmNum,
-        start_km_image: startKmImage,
-        notes: startNotes.trim() || undefined,
+        motorcycle_number: savedMoto,
+        start_km: savedStartKm,
+        start_km_image: savedPhoto,
+        notes: savedNotes,
       });
 
-      setActiveSession(session);
+      setActiveSession(newSession);
       setStartKm('');
       setStartKmImage(null);
       setStartNotes('');
-      navigateToTab('home');
-      Alert.alert('OK 🚀', t.shiftActive);
-      loadHistory();
+      setAutoKmFetched(false);
+
+      if (newSession && newSession.id) {
+        startGpsTracking(newSession.id);
+      }
+
+      await fetchHistory(employee.id);
+
+      openSuccessModal({
+        type: 'start',
+        motorcycleNumber: savedMoto,
+        startKm: savedStartKm,
+        startTime: newSession?.start_time || new Date().toISOString(),
+        imageUri: savedPhoto,
+        notes: savedNotes,
+      });
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Error starting shift');
+      console.error('Start shift error:', err);
+      Alert.alert(
+        lang === 'ar' ? 'خطأ' : 'Error',
+        err?.message || (lang === 'ar' ? 'تعذر بدء الشفت، يرجى المحاولة ثانية' : 'Failed to start shift')
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
+  // End Shift Handler
   const handleEndShift = async () => {
     if (!employee || !activeSession) return;
 
-    const endKmNum = parseFloat(endKm);
-    if (isNaN(endKmNum) || endKmNum <= activeSession.start_km) {
+    const endVal = Number(endKm);
+    const startVal = Number(activeSession.start_km || 0);
+
+    if (!endKm || isNaN(endVal) || endVal <= 0) {
+      Alert.alert(t.endKmInputLabel, `${t.startKmLabel}: ${startVal}`);
+      return;
+    }
+
+    if (endVal < startVal) {
       Alert.alert(
-        'Odometer Error',
-        `End KM (${endKmNum || 0}) must be greater than Start KM (${activeSession.start_km})`
+        lang === 'ar' ? 'تنبيه في قراءة العداد' : 'Odometer Error',
+        lang === 'ar'
+          ? `عداد النهاية (${endVal}) لا يمكن أن يكون أقل من عداد البداية (${startVal})`
+          : `End KM (${endVal}) cannot be less than Start KM (${startVal})`
       );
       return;
     }
 
     if (!endKmImage) {
-      Alert.alert('📸', t.endKmPhotoLabel);
+      Alert.alert(t.endKmPhotoLabel, t.odometerGuideSub);
       return;
     }
 
-    const orders = parseInt(ordersCount, 10);
-    if (isNaN(orders) || orders < 0) {
-      Alert.alert('تنبيه', t.ordersCountPlaceholder);
-      return;
-    }
-
-    const fuel = parseFloat(fuelCost) || 0;
+    const countVal = Number(ordersCount) || 0;
+    const fuelVal = Number(fuelCost) || 0;
+    const distanceVal = endVal - startVal;
 
     setSubmitting(true);
     try {
+      const savedEndKm = endVal;
+      const savedDistance = distanceVal;
+      const savedOrders = countVal;
+      const savedFuel = fuelVal;
+      const savedPhoto = endKmImage;
+      const savedNotes = endNotes;
+      const savedMoto = activeSession.motorcycle_number || employee.motorcycle_number;
+      const savedStartKm = activeSession.start_km;
+      const savedStartTime = activeSession.start_time;
+
       await workApi.endShift({
         employee_id: employee.id,
-        end_km: endKmNum,
-        end_km_image: endKmImage,
-        orders_count: orders,
-        fuel_cost: fuel,
-        notes: endNotes.trim() || undefined,
+        end_km: savedEndKm,
+        orders_count: savedOrders,
+        fuel_cost: savedFuel,
+        end_km_image: savedPhoto,
+        notes: savedNotes,
       });
+
+      if (activeSession && activeSession.id) {
+        await stopGpsTracking(activeSession.id);
+        await clearGpsShiftData(activeSession.id);
+      }
+      setGpsDistance(0);
 
       setActiveSession(null);
       setEndKm('');
@@ -716,1224 +633,341 @@ export default function DelegateApp() {
       setOrdersCount('');
       setFuelCost('');
       setEndNotes('');
-      navigateToTab('home');
-      Alert.alert('🏁', t.endShiftTitle);
-      loadHistory();
+
+      await fetchHistory(employee.id);
+
+      openSuccessModal({
+        type: 'end',
+        motorcycleNumber: savedMoto,
+        startKm: savedStartKm,
+        endKm: savedEndKm,
+        distance: savedDistance,
+        ordersCount: savedOrders,
+        fuelCost: savedFuel,
+        startTime: savedStartTime,
+        endTime: new Date().toISOString(),
+        imageUri: savedPhoto,
+        notes: savedNotes,
+      });
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Error ending shift');
+      console.error('End shift error:', err);
+      Alert.alert(
+        lang === 'ar' ? 'خطأ' : 'Error',
+        err?.message || (lang === 'ar' ? 'تعذر إنهاء الشفت، يرجى المحاولة ثانية' : 'Failed to end shift')
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Check if entered motorcycle matches assigned
-  const isMotorcycleMatching = useMemo(() => {
-    if (!employee?.motorcycle_number || !enteredMotorcycle.trim()) return true;
-    return employee.motorcycle_number.trim().toLowerCase() === enteredMotorcycle.trim().toLowerCase();
-  }, [employee?.motorcycle_number, enteredMotorcycle]);
-
-  // Distance calculation helper
-  const calculatedDistance = useMemo(() => {
-    const end = parseFloat(endKm);
-    const start = activeSession?.start_km || 0;
-    if (isNaN(end) || end <= start) return 0;
-    return (end - start).toFixed(1);
-  }, [endKm, activeSession?.start_km]);
-
-  // Delegate Personal Photo URL
-  const empPhotoUrl = useMemo(() => {
-    return getFullImageUrl(employee?.personal_image);
-  }, [employee?.personal_image]);
-
-  // Total completed approved orders
-  const totalApprovedOrdersCount = useMemo(() => {
-    return historySessions
-      .filter((s) => s.is_reviewed)
-      .reduce((sum, s) => sum + (s.orders_count || 0), 0);
-  }, [historySessions]);
-
-  // Target & Salary Metrics (Target = 460 orders: < 460 => 5 SAR, >= 460 => 6 SAR)
-  const isTargetAchieved = totalApprovedOrdersCount >= MONTHLY_TARGET;
-  const currentRatePerOrder = isTargetAchieved ? 6 : 5;
-  const expectedSalary = totalApprovedOrdersCount * currentRatePerOrder;
-  const targetProgressPct = Math.min(100, Math.round((totalApprovedOrdersCount / MONTHLY_TARGET) * 100));
-  const remainingOrdersToTarget = Math.max(0, MONTHLY_TARGET - totalApprovedOrdersCount);
-
-  // Theme Colors (Brand Orange & Black)
-  const colors = {
-    bg: isDarkMode ? '#090a0f' : '#f8f9fa',
-    card: isDarkMode ? '#12141c' : '#ffffff',
-    cardHeader: isDarkMode ? '#191c26' : '#f4f4f5',
-    textPrimary: isDarkMode ? '#ffffff' : '#0f172a',
-    textSecondary: isDarkMode ? '#9ca3af' : '#64748b',
-    border: isDarkMode ? '#232738' : '#e2e8f0',
-    primary: '#ea580c', // Pure Brand Orange
-    primaryLight: isDarkMode ? 'rgba(234, 88, 12, 0.16)' : '#fff7ed',
-    primaryText: isDarkMode ? '#fb923c' : '#c2410c',
-    accent: '#f97316',
-    accentLight: isDarkMode ? 'rgba(249, 115, 22, 0.12)' : '#ffedd5',
-    inputBg: isDarkMode ? '#0d0f15' : '#f8fafc',
-    inputBorder: isDarkMode ? '#2a3044' : '#cbd5e1',
-    warningBg: isDarkMode ? '#381e05' : '#fffbeb',
-    warningBorder: isDarkMode ? '#78350f' : '#fde68a',
-    warningText: isDarkMode ? '#fbbf24' : '#b45309',
-    errorBg: isDarkMode ? '#3b0d0c' : '#fef2f2',
-    errorText: isDarkMode ? '#f87171' : '#dc2626',
+  // Format Helper Functions
+  const formatTimeStr = (isoString?: string) => {
+    if (!isoString) return '';
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleTimeString(lang === 'ar' ? 'ar-SA' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (e) {
+      return isoString;
+    }
   };
 
+  const formatDateStr = (isoString?: string) => {
+    if (!isoString) return '';
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch (e) {
+      return isoString;
+    }
+  };
+
+  // Performance & Target Calculations - strictly filter only supervisor-approved sessions
+  const approvedSessions = historySessions.filter((s) => Boolean(s.is_reviewed));
+
+  const totalApprovedOrdersCount = approvedSessions.reduce(
+    (acc, s) => acc + (Number(s.orders_count) || 0),
+    0
+  );
+  const totalApprovedDistance = approvedSessions.reduce(
+    (acc, s) =>
+      acc +
+      (Number(s.distance) ||
+        (s.end_km && s.start_km && Number(s.end_km) >= Number(s.start_km)
+          ? Number(s.end_km) - Number(s.start_km)
+          : 0)),
+    0
+  );
+  const totalApprovedFuel = approvedSessions.reduce(
+    (acc, s) => acc + (Number(s.fuel_cost) || 0),
+    0
+  );
+  const totalApprovedShifts = approvedSessions.length;
+  const monthlyTarget = 400;
+  const isTargetAchieved = totalApprovedOrdersCount >= monthlyTarget;
+  const currentRatePerOrder = isTargetAchieved ? 6 : 5;
+  const expectedSalary = totalApprovedOrdersCount * currentRatePerOrder;
+  const targetProgressPct = Math.min(100, Math.round((totalApprovedOrdersCount / monthlyTarget) * 100));
+  const remainingOrdersToTarget = Math.max(0, monthlyTarget - totalApprovedOrdersCount);
+  const calculatedDistance =
+    endKm && activeSession?.start_km && Number(endKm) >= Number(activeSession.start_km)
+      ? Number(endKm) - Number(activeSession.start_km)
+      : 0;
+
+  const empPhotoUrl = employee?.personal_image
+    ? (employee.personal_image.startsWith('http') || employee.personal_image.startsWith('data:')
+        ? employee.personal_image
+        : `https://aams-backend-fxy7.onrender.com/uploads/${employee.personal_image.replace(/^\/+/, '')}`)
+    : null;
+
+  // Loading Screen
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.bg }]}>
+      <View style={[styles.loadingScreen, { backgroundColor: colors.bg }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
       </View>
     );
   }
 
-  // =========================================================================
-  // 1. LOGIN SCREEN
-  // =========================================================================
-  if (!token || !employee) {
+  // Not Logged In -> Login Screen
+  if (!employee) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
-        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <ScrollView contentContainerStyle={styles.loginScrollContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.loginWrapper}>
-              {/* Official Horizontal Brand Lockup (Logo on the Right) */}
-              <View style={[styles.brandHorizontalLockup, { flexDirection: 'row-reverse' }]}>
-              <Image
-                source={require('../../assets/images/logo.png')}
-                style={styles.brandLogoMark}
-                resizeMode="contain"
-              />
-              <View style={[styles.brandTextCol, { alignItems: 'flex-end' }]}>
-                <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
-                  AAMS
-                </Text>
-                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#94a3b8' : '#475569' }]}>
-                  LOGISTICS
-                </Text>
-              </View>
-            </View>
-
-            {/* Login Card */}
-            <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.loginTitle}
-              </Text>
-              <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.loginSubtitle}
-              </Text>
-
-              {loginError ? (
-                <View style={[styles.errorBanner, { backgroundColor: colors.errorBg }]}>
-                  <Ionicons name="alert-circle" size={18} color={colors.errorText} />
-                  <Text style={[styles.errorBannerText, { color: colors.errorText, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {loginError}
-                  </Text>
-                </View>
-              ) : null}
-
-              {/* National ID Input with natural continuous domain */}
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.nationalIdLabel}
-                </Text>
-                <TouchableOpacity
-                  activeOpacity={1}
-                  onPress={() => loginInputRef.current?.focus()}
-                  style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                >
-                  <View style={styles.inputIcon}>
-                    <Feather name="user" size={18} color={colors.textSecondary} />
-                  </View>
-                  <View style={{ flex: 1, height: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' }}>
-                    {/* Hidden text measurer for exact pixel-perfect width */}
-                    <Text
-                      style={{ position: 'absolute', opacity: 0, fontSize: 14, includeFontPadding: false, zIndex: -10 }}
-                      onTextLayout={(e) => {
-                        const w = e.nativeEvent.lines[0]?.width || 0;
-                        if (w > 0) setIdTextWidth(Math.ceil(w));
-                      }}
-                    >
-                      {loginInput || ''}
-                    </Text>
-
-                    <TextInput
-                      ref={loginInputRef}
-                      style={[
-                        styles.input,
-                        {
-                          color: colors.textPrimary,
-                          textAlign: 'left',
-                          textAlignVertical: 'center',
-                          includeFontPadding: false,
-                          paddingVertical: 0,
-                          paddingHorizontal: 0,
-                          marginHorizontal: 0,
-                          fontSize: 14,
-                          flex: loginInput.length > 0 ? 0 : 1,
-                          width: loginInput.length > 0 ? (idTextWidth > 0 ? idTextWidth : loginInput.length * 8.5) : undefined,
-                        },
-                      ]}
-                      placeholder={t.nationalIdPlaceholder}
-                      placeholderTextColor="#94a3b8"
-                      value={loginInput}
-                      onChangeText={(val) => {
-                        const clean = val.replace(/[^0-9]/g, '').slice(0, 10);
-                        if (!clean) setIdTextWidth(0);
-                        setLoginInput(clean);
-                      }}
-                      maxLength={10}
-                      keyboardType="number-pad"
-                      autoCapitalize="none"
-                    />
-                    {loginInput.length > 0 && (
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          color: colors.textSecondary,
-                          fontWeight: '400',
-                          textAlignVertical: 'center',
-                          includeFontPadding: false,
-                          paddingLeft: 0,
-                          marginLeft: 0,
-                        }}
-                      >
-                        @aams-logistics.com
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* Password Input */}
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.passwordLabel}
-                </Text>
-                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.inputIcon}>
-                    <Feather name={showPassword ? 'eye' : 'eye-off'} size={18} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                  <TextInput
-                    style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                    placeholder={t.passwordPlaceholder}
-                    placeholderTextColor="#94a3b8"
-                    value={passwordInput}
-                    onChangeText={(val) => setPasswordInput(val.replace(/[^0-9]/g, ''))}
-                    keyboardType="number-pad"
-                    autoCapitalize="none"
-                    secureTextEntry={!showPassword}
-                  />
-                </View>
-              </View>
-
-              {/* Login Button */}
-              <TouchableOpacity
-                style={[styles.primaryButton, { backgroundColor: colors.primary, marginTop: 8 }]}
-                onPress={() => handleLogin()}
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Ionicons name="log-in-outline" size={20} color="#ffffff" />
-                    <Text style={styles.primaryButtonText}>{t.loginBtn}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* ⚡ Quick Demo Test Button */}
-              <TouchableOpacity
-                style={[styles.demoButton, { borderColor: colors.primary }]}
-                onPress={fillDelwarDemo}
-                disabled={submitting}
-              >
-                <View style={styles.demoButtonInner}>
-                  <View style={[styles.demoButtonIconWrap, { backgroundColor: colors.primary }]}>
-                    <Ionicons name="flash" size={16} color="#ffffff" />
-                  </View>
-                  <Text style={[styles.demoButtonText, { color: colors.textPrimary }]}>
-                    {t.demoLoginBtn}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-
-        {/* Language Modal */}
-        {showLangModal && (
-          <View style={styles.modalBackdrop}>
-            <View style={[styles.langModalCard, { backgroundColor: colors.card }]}>
-              <Text style={[styles.langModalTitle, { color: colors.textPrimary }]}>{t.selectLang}</Text>
-
-              <TouchableOpacity
-                style={[styles.langOptionRow, lang === 'ar' && { backgroundColor: colors.primaryLight }]}
-                onPress={() => {
-                  setLang('ar');
-                  setShowLangModal(false);
-                }}
-              >
-                <Text style={styles.langFlag}>🇸🇦</Text>
-                <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>العربية (Arabic)</Text>
-                {lang === 'ar' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.langOptionRow, lang === 'en' && { backgroundColor: colors.primaryLight }]}
-                onPress={() => {
-                  setLang('en');
-                  setShowLangModal(false);
-                }}
-              >
-                <Text style={styles.langFlag}>🇺🇸</Text>
-                <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>English</Text>
-                {lang === 'en' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.langOptionRow, lang === 'bn' && { backgroundColor: colors.primaryLight }]}
-                onPress={() => {
-                  setLang('bn');
-                  setShowLangModal(false);
-                }}
-              >
-                <Text style={styles.langFlag}>🇧🇩</Text>
-                <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>বাংলা (Bengali)</Text>
-                {lang === 'bn' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.cancelModalBtn, { backgroundColor: colors.inputBg }]}
-                onPress={() => setShowLangModal(false)}
-              >
-                <Text style={[styles.cancelModalText, { color: colors.textSecondary }]}>إلغاء / Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-      </SafeAreaView>
+      <LoginScreen
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        t={t}
+        lang={lang}
+        onSetLang={setLang}
+        onLogin={handleLogin}
+        loginError={loginError}
+        submitting={submitting}
+      />
     );
   }
 
-  // =========================================================================
-  // 2. MAIN LOGGED-IN PORTAL
-  // =========================================================================
+  // Logged In Portal
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Top Header Bar — only on Home tab */}
-      {currentTab === 'home' && (
-        <View style={[styles.headerBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity
-            style={[styles.headerRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-            onPress={() => navigateToTab('profile')}
-            activeOpacity={0.75}
-          >
-            {/* Delegate Avatar / Personal Image */}
-            {empPhotoUrl ? (
-              <Image source={{ uri: empPhotoUrl }} style={styles.avatarImg} />
-            ) : (
-              <View style={[styles.avatarCircle, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.avatarText, { color: colors.primaryText }]}>
-                  {employee.name ? employee.name.charAt(0) : 'D'}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.headerInfo}>
-              <Text style={[styles.delegateName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
-                {employee.name || t.delegate}
-              </Text>
-              <View style={[styles.headerBadgesRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.pillBadge, { backgroundColor: colors.accentLight }]}>
-                  <Text style={[styles.pillBadgeText, { color: colors.accent }]}>
-                    {t.idAbbr}: {employee.national_id}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* QR Code Button on the Opposite Side */}
-          <TouchableOpacity
-            style={[styles.qrHeaderBtn, { backgroundColor: colors.accentLight, borderColor: colors.primary }]}
-            onPress={() => setShowQrModal(true)}
-          >
-            <Ionicons name="qr-code" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Sticky Title Bar — Shift Tab */}
-      {currentTab === 'shift' && (
-        <View style={[styles.subPageHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.subPageHeaderIcon, { backgroundColor: activeSession ? '#fee2e2' : colors.primaryLight }]}>
-            <Ionicons
-              name={activeSession ? 'stop-circle-outline' : 'play-circle-outline'}
-              size={22}
-              color={activeSession ? '#ef4444' : colors.primary}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {activeSession ? t.endShiftNow : t.tabShift}
-            </Text>
-            {activeSession && (
-              <Text style={[styles.subPageHeaderSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.durationLabel}: {elapsedTime}
-              </Text>
-            )}
-          </View>
-        </View>
-      )}
-
-      {/* Sticky Title Bar — History Tab */}
-      {currentTab === 'history' && (
-        <View style={[styles.subPageHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.subPageHeaderIcon, { backgroundColor: colors.accentLight }]}>
-            <Ionicons name="receipt-outline" size={22} color={colors.accent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.historyTitle}
-            </Text>
-            <Text style={[styles.subPageHeaderSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {historySessions.length} {t.totalShifts}
-            </Text>
-          </View>
-        </View>
-      )}
-
-      {/* Body Content with ScrollRef */}
-      <ScrollView
-        ref={mainScrollRef}
-        contentContainerStyle={styles.mainScrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ----------------- TAB 1: HOME DASHBOARD (الرئيسية) ----------------- */}
-        {currentTab === 'home' && (
-          <View style={styles.tabContainer}>
-            {/* Clean, Human-Designed Monthly Target & Earnings Card */}
-            <View style={[styles.targetCardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {/* Header: Title + Orders Completed / Target Ratio */}
-              <View style={[styles.targetCardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.targetTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Ionicons name="flag-outline" size={17} color={colors.primary} />
-                  <Text style={[styles.targetCardTitle, { color: colors.textPrimary }]}>
-                    {t.monthlyTarget}
-                  </Text>
-                </View>
-                <Text style={[styles.targetRatioText, { color: colors.textSecondary }]}>
-                  <Text style={[styles.targetRatioBold, { color: colors.textPrimary }]}>{totalApprovedOrdersCount}</Text> / {MONTHLY_TARGET} {t.ordersUnit}
-                </Text>
-              </View>
-
-              {/* Smooth Progress Bar */}
-              <View style={styles.targetProgressContainer}>
-                <View style={[styles.progressBarTrack, { backgroundColor: isDarkMode ? '#1f2433' : '#f1f5f9' }]}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      {
-                        width: `${Math.max(2, targetProgressPct)}%`,
-                        backgroundColor: isTargetAchieved ? '#22c55e' : colors.primary,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-
-              {/* Footer: Target Notice & Percentage */}
-              <View style={[styles.targetFooterRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Text
-                  style={[
-                    styles.targetFooterNotice,
-                    { color: isTargetAchieved ? '#22c55e' : colors.textSecondary, textAlign: isRTL ? 'right' : 'left' },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {isTargetAchieved
-                    ? t.targetAchievedBadge
-                    : t.targetRemainingNotice.replace('{n}', String(remainingOrdersToTarget))}
-                </Text>
-                <Text style={[styles.targetFooterPct, { color: isTargetAchieved ? '#22c55e' : colors.primary }]}>
-                  {targetProgressPct}%
-                </Text>
-              </View>
-            </View>
-
-            {/* Quick KPI Stats */}
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.myAchievements}
-              </Text>
-            </View>
-
-            <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              {/* Row 1: Bike & Key */}
-              <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-                  <MaterialCommunityIcons name="bike" size={22} color={colors.primary} />
-                </View>
-                <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                  {employee.motorcycle_number || '—'}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.assignedBike}</Text>
-              </View>
-
-              <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: colors.accentLight }]}>
-                  <MaterialCommunityIcons name="key-variant" size={22} color={colors.accent} />
-                </View>
-                <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                  {employee.key_number || '—'}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
-              </View>
-
-              {/* Row 2: Shifts & Expected Salary */}
-              <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-                  <MaterialCommunityIcons name="calendar-check" size={22} color={colors.primary} />
-                </View>
-                <Text style={[styles.statNumber, { color: colors.textPrimary }]}>{historySessions.length}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalShifts}</Text>
-              </View>
-
-              <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.statIconCircle, { backgroundColor: isTargetAchieved ? 'rgba(34,197,94,0.12)' : colors.primaryLight }]}>
-                  <Ionicons name="wallet-outline" size={22} color={isTargetAchieved ? '#22c55e' : colors.primary} />
-                </View>
-                <Text style={[styles.statNumber, { color: isTargetAchieved ? '#22c55e' : colors.textPrimary }]}>
-                  {expectedSalary.toLocaleString()}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.expectedSalary}</Text>
-              </View>
-            </View>
-
-            {/* Quick Navigation Cards */}
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.quickAccess}
-              </Text>
-            </View>
-
-            {/* 1. Shift Quick Access */}
+      {/* Dynamic Header (Seamless & Transparent) */}
+      <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        {currentTab === 'home' ? (
+          /* Home Header: Delegate Profile & Quick QR Trigger */
+          <>
             <TouchableOpacity
-              style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={() => navigateToTab('shift')}
+              style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              onPress={() => setCurrentTab('profile')}
             >
-              <View style={[styles.quickCardIconCircle, { backgroundColor: activeSession ? '#fee2e2' : colors.primaryLight }]}>
-                <Ionicons
-                  name={activeSession ? 'stop-circle-outline' : 'play-circle-outline'}
-                  size={24}
-                  color={activeSession ? '#ef4444' : colors.primary}
-                />
-              </View>
-              <View style={styles.quickCardTextCol}>
-                <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {activeSession ? t.endShiftNow : t.quickShiftTitle}
-                </Text>
-                <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {activeSession ? `${t.durationLabel}: ${elapsedTime}` : t.quickShiftSub}
-                </Text>
-              </View>
-              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-
-            {/* 2. History Quick Access */}
-            <TouchableOpacity
-              style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={() => navigateToTab('history')}
-            >
-              <View style={[styles.quickCardIconCircle, { backgroundColor: colors.accentLight }]}>
-                <Ionicons name="receipt-outline" size={24} color={colors.accent} />
-              </View>
-              <View style={styles.quickCardTextCol}>
-                <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.quickHistoryTitle}
-                </Text>
-                <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.quickHistorySub}
-                </Text>
-              </View>
-              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ----------------- TAB 2: SHIFT ACTIONS (الدوام) ----------------- */}
-        {currentTab === 'shift' && (
-          <View style={styles.tabContainer}>
-
-            {!activeSession ? (
-              /* START SHIFT FORM */
-              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <View style={[styles.cardHeaderIcon, { backgroundColor: colors.primaryLight }]}>
-                    <Ionicons name="play" size={20} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.cardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      {t.startShiftTitle}
-                    </Text>
-                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      {t.startShiftSub}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Motorcycle Field */}
-                <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.actualBikeNumber} <Text style={{ color: '#ef4444' }}>*</Text>
-                  </Text>
-                  <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-                    <MaterialCommunityIcons name="numeric" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                      placeholder={t.actualBikePlaceholder}
-                      placeholderTextColor="#94a3b8"
-                      value={enteredMotorcycle}
-                      onChangeText={setEnteredMotorcycle}
-                    />
-                  </View>
-
-                  {/* Matching Indicator */}
-                  {enteredMotorcycle.trim() ? (
-                    isMotorcycleMatching ? (
-                      <View style={[styles.matchBadgeSuccess, { backgroundColor: colors.primaryLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-                        <Text style={[styles.matchTextSuccess, { color: colors.primaryText }]}>
-                          {t.bikeMatchingSuccess}
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.matchBadgeWarning, { backgroundColor: colors.warningBg, borderColor: colors.warningBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Ionicons name="warning" size={16} color={colors.warningText} />
-                        <Text style={[styles.matchTextWarning, { color: colors.warningText, textAlign: isRTL ? 'right' : 'left' }]}>
-                          {t.bikeMismatchWarning}
-                        </Text>
-                      </View>
-                    )
-                  ) : null}
-                </View>
-
-                {/* Starting Odometer Input */}
-                <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.startKmInputLabel} <Text style={{ color: '#ef4444' }}>*</Text>
-                  </Text>
-                  <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-                    <MaterialCommunityIcons name="gauge" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                      placeholder={t.startKmPlaceholder}
-                      placeholderTextColor="#94a3b8"
-                      value={startKm}
-                      onChangeText={(val) => {
-                        setStartKm(val);
-                        setAutoFilledKm(null);
-                      }}
-                      keyboardType="numeric"
-                    />
-                  </View>
-                  {autoFilledKm !== null && (
-                    <View style={[styles.matchBadgeSuccess, { backgroundColor: colors.primaryLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Ionicons name="sparkles" size={14} color={colors.primary} />
-                      <Text style={[styles.matchTextSuccess, { color: colors.primaryText }]}>
-                        {t.autoKmFetched} ({autoFilledKm} {t.km}) 🛵
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Start Odometer Live Camera Target Guide Box */}
-                <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.startKmPhotoLabel} <Text style={{ color: '#ef4444' }}>*</Text>
-                  </Text>
-
-                  {startKmImage ? (
-                    <View style={[styles.imagePreviewContainer, { borderColor: colors.border }]}>
-                      <Image source={{ uri: startKmImage }} style={styles.imagePreview} />
-                      <View style={[styles.imageOverlayBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
-                        <Text style={styles.imageOverlayText}>{t.photoCapturedSuccess}</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.retakeButton}
-                        onPress={() => takeOdometerPhoto('start')}
-                      >
-                        <Ionicons name="camera-reverse" size={16} color="#ffffff" />
-                        <Text style={styles.retakeButtonText}>{t.retakePhoto}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <View style={[styles.odometerGuideBox, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}>
-                      {/* Viewfinder corner brackets */}
-                      <View style={[styles.cornerBracket, styles.cornerTopLeft, { borderColor: colors.primary }]} />
-                      <View style={[styles.cornerBracket, styles.cornerTopRight, { borderColor: colors.primary }]} />
-                      <View style={[styles.cornerBracket, styles.cornerBottomLeft, { borderColor: colors.primary }]} />
-                      <View style={[styles.cornerBracket, styles.cornerBottomRight, { borderColor: colors.primary }]} />
-
-                      <MaterialCommunityIcons name="gauge" size={38} color={colors.primary} style={{ marginBottom: 6 }} />
-                      <Text style={[styles.odometerGuideText, { color: colors.textPrimary }]}>
-                        {t.odometerGuideTitle}
-                      </Text>
-                      <Text style={[styles.odometerGuideSub, { color: colors.textSecondary }]}>
-                        {t.odometerGuideSub}
-                      </Text>
-
-                      <TouchableOpacity
-                        style={[styles.cameraCaptureBtn, { backgroundColor: colors.primary }]}
-                        onPress={() => takeOdometerPhoto('start')}
-                      >
-                        <Ionicons name="camera" size={20} color="#ffffff" />
-                        <Text style={styles.cameraCaptureBtnText}>{t.captureCamera}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-
-                {/* Start Notes */}
-                <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.startNotesLabel}
-                  </Text>
-                  <TextInput
-                    style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                    placeholder={t.startNotesPlaceholder}
-                    placeholderTextColor="#94a3b8"
-                    value={startNotes}
-                    onChangeText={setStartNotes}
-                    multiline
-                    numberOfLines={2}
-                  />
-                </View>
-
-                {/* Submit Start */}
-                <TouchableOpacity
-                  style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-                  onPress={handleStartShift}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Ionicons name="play-circle-outline" size={22} color="#ffffff" />
-                      <Text style={styles.primaryButtonText}>{t.confirmStartBtn}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : (
-              /* END SHIFT FORM */
-              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <View style={[styles.cardHeaderIcon, { backgroundColor: '#fee2e2' }]}>
-                    <Ionicons name="stop" size={20} color="#ef4444" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.cardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      {t.endShiftTitle}
-                    </Text>
-                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      {t.endShiftSub}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Active Session Info Box */}
-                <View style={[styles.activeShiftSummaryBox, { backgroundColor: colors.bg, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <View style={styles.summaryItem}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t.startKmLabel}</Text>
-                    <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>{activeSession.start_km} {t.km}</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-                  <View style={styles.summaryItem}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t.assignedBike}</Text>
-                    <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>{activeSession.motorcycle_number}</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-                  <View style={styles.summaryItem}>
-                    <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t.durationLabel}</Text>
-                    <Text style={[styles.summaryVal, { color: colors.primary }]}>{elapsedTime}</Text>
-                  </View>
-                </View>
-
-                {/* Ending Odometer Input */}
-                <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.endKmInputLabel} <Text style={{ color: '#ef4444' }}>*</Text>
-                  </Text>
-                  <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-                    <MaterialCommunityIcons name="gauge" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                      placeholder={`> ${activeSession.start_km}`}
-                      placeholderTextColor="#94a3b8"
-                      value={endKm}
-                      onChangeText={setEndKm}
-                      keyboardType="numeric"
-                    />
-                  </View>
-
-                  {Number(calculatedDistance) > 0 && (
-                    <View style={[styles.matchBadgeSuccess, { backgroundColor: colors.accentLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Ionicons name="speedometer" size={14} color={colors.accent} />
-                      <Text style={[styles.matchTextSuccess, { color: colors.accent }]}>
-                        {t.calculatedDistLabel}: {calculatedDistance} {t.km} 🛵
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* End Odometer Live Camera Target Guide Box */}
-                <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.endKmPhotoLabel} <Text style={{ color: '#ef4444' }}>*</Text>
-                  </Text>
-
-                  {endKmImage ? (
-                    <View style={[styles.imagePreviewContainer, { borderColor: colors.border }]}>
-                      <Image source={{ uri: endKmImage }} style={styles.imagePreview} />
-                      <View style={[styles.imageOverlayBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
-                        <Text style={styles.imageOverlayText}>{t.photoCapturedSuccess}</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.retakeButton}
-                        onPress={() => takeOdometerPhoto('end')}
-                      >
-                        <Ionicons name="camera-reverse" size={16} color="#ffffff" />
-                        <Text style={styles.retakeButtonText}>{t.retakePhoto}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <View style={[styles.odometerGuideBox, { backgroundColor: colors.inputBg, borderColor: '#ef4444' }]}>
-                      {/* Viewfinder corner brackets */}
-                      <View style={[styles.cornerBracket, styles.cornerTopLeft, { borderColor: '#ef4444' }]} />
-                      <View style={[styles.cornerBracket, styles.cornerTopRight, { borderColor: '#ef4444' }]} />
-                      <View style={[styles.cornerBracket, styles.cornerBottomLeft, { borderColor: '#ef4444' }]} />
-                      <View style={[styles.cornerBracket, styles.cornerBottomRight, { borderColor: '#ef4444' }]} />
-
-                      <MaterialCommunityIcons name="gauge" size={38} color="#ef4444" style={{ marginBottom: 6 }} />
-                      <Text style={[styles.odometerGuideText, { color: colors.textPrimary }]}>
-                        {t.odometerGuideTitle}
-                      </Text>
-                      <Text style={[styles.odometerGuideSub, { color: colors.textSecondary }]}>
-                        {t.odometerGuideSub}
-                      </Text>
-
-                      <TouchableOpacity
-                        style={[styles.cameraCaptureBtn, { backgroundColor: '#dc2626' }]}
-                        onPress={() => takeOdometerPhoto('end')}
-                      >
-                        <Ionicons name="camera" size={20} color="#ffffff" />
-                        <Text style={styles.cameraCaptureBtnText}>{t.captureCamera}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-
-                {/* Orders Count & Fuel Cost Grid */}
-                <View style={[styles.twoColRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <View style={[styles.formGroup, { flex: 1 }]}>
-                    <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      {t.ordersCountLabel} <Text style={{ color: '#ef4444' }}>*</Text>
-                    </Text>
-                    <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-                      <Feather name="package" size={18} color={colors.textSecondary} style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                        placeholder={t.ordersCountPlaceholder}
-                        placeholderTextColor="#94a3b8"
-                        value={ordersCount}
-                        onChangeText={setOrdersCount}
-                        keyboardType="numeric"
-                      />
-                    </View>
-                  </View>
-
-                  <View style={[styles.formGroup, { flex: 1 }]}>
-                    <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      {t.fuelCostLabel}
-                    </Text>
-                    <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-                      <MaterialCommunityIcons name="gas-station" size={18} color={colors.textSecondary} style={styles.inputIcon} />
-                      <TextInput
-                        style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                        placeholder={t.fuelCostPlaceholder}
-                        placeholderTextColor="#94a3b8"
-                        value={fuelCost}
-                        onChangeText={setFuelCost}
-                        keyboardType="numeric"
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                {/* End Notes */}
-                <View style={styles.formGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {t.endNotesLabel}
-                  </Text>
-                  <TextInput
-                    style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                    placeholder={t.endNotesPlaceholder}
-                    placeholderTextColor="#94a3b8"
-                    value={endNotes}
-                    onChangeText={setEndNotes}
-                    multiline
-                    numberOfLines={2}
-                  />
-                </View>
-
-                {/* Submit End */}
-                <TouchableOpacity
-                  style={[styles.primaryButton, { backgroundColor: '#dc2626' }]}
-                  onPress={handleEndShift}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Ionicons name="checkmark-done-circle-outline" size={22} color="#ffffff" />
-                      <Text style={styles.primaryButtonText}>{t.confirmEndBtn}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* ----------------- TAB 3: MY SHIFTS HISTORY (سجل الشفتات) ----------------- */}
-        {currentTab === 'history' && (
-          <View style={styles.tabContainer}>
-
-            {historySessions.length === 0 ? (
-              <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Ionicons name="document-text-outline" size={40} color={colors.textSecondary} />
-                <Text style={[styles.emptyBoxText, { color: colors.textSecondary }]}>{t.noHistory}</Text>
-              </View>
-            ) : (
-              historySessions.map((s) => (
-                <View key={s.id} style={[styles.historyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={[styles.historyCardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View>
-                      <Text style={[styles.historyDate, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                        {new Date(s.start_time).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US')}{' '}
-                        {new Date(s.start_time).toLocaleTimeString(lang === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
-                      <Text style={[styles.historyBike, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                        {t.assignedBike}: {s.motorcycle_number || '—'}
-                      </Text>
-                    </View>
-
-                    {s.is_reviewed ? (
-                      <View style={[styles.badgeReviewed, { backgroundColor: colors.primaryLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
-                        <Text style={[styles.badgeReviewedText, { color: colors.primaryText }]}>{t.reviewedBadge}</Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.badgePending, { backgroundColor: colors.warningBg, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Ionicons name="time" size={14} color={colors.warningText} />
-                        <Text style={[styles.badgePendingText, { color: colors.warningText }]}>{t.pendingBadge}</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Stats Row */}
-                  <View style={[styles.historyStatsRow, { backgroundColor: colors.bg, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={styles.historyStatCol}>
-                      <Text style={[styles.historyStatVal, { color: colors.primary }]}>{s.distance ? s.distance.toFixed(1) : 0} {t.km}</Text>
-                      <Text style={[styles.historyStatLbl, { color: colors.textSecondary }]}>{t.totalDistance}</Text>
-                    </View>
-                    <View style={styles.historyStatCol}>
-                      <Text style={[styles.historyStatVal, { color: colors.textPrimary }]}>{s.orders_count || 0}</Text>
-                      <Text style={[styles.historyStatLbl, { color: colors.textSecondary }]}>{t.approvedOrders}</Text>
-                    </View>
-                    <View style={styles.historyStatCol}>
-                      <Text style={[styles.historyStatVal, { color: colors.textPrimary }]}>{s.fuel_cost || 0} {t.sar}</Text>
-                      <Text style={[styles.historyStatLbl, { color: colors.textSecondary }]}>{t.fuelCostLabel}</Text>
-                    </View>
-                  </View>
-
-                  {/* Photos Row */}
-                  <View style={[styles.historyPhotosRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    {s.start_km_image ? (
-                      <TouchableOpacity
-                        style={[styles.historyPhotoThumb, { borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                        onPress={() => setPreviewPhoto({ url: s.start_km_image!, title: `${t.startKmLabel} (${s.start_km} ${t.km})` })}
-                      >
-                        <Image source={{ uri: s.start_km_image }} style={styles.thumbImg} />
-                        <Text style={[styles.thumbLbl, { color: colors.textSecondary }]}>{t.startKmLabel}: {s.start_km}</Text>
-                      </TouchableOpacity>
-                    ) : null}
-
-                    {s.end_km_image ? (
-                      <TouchableOpacity
-                        style={[styles.historyPhotoThumb, { borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                        onPress={() => setPreviewPhoto({ url: s.end_km_image!, title: `${t.endKmLabel} (${s.end_km} ${t.km})` })}
-                      >
-                        <Image source={{ uri: s.end_km_image }} style={styles.thumbImg} />
-                        <Text style={[styles.thumbLbl, { color: colors.textSecondary }]}>{t.endKmLabel}: {s.end_km}</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-
-                  {/* Supervisor Edit Notice */}
-                  {s.is_edited_by_supervisor && (
-                    <View style={[styles.editedNoticeBox, { backgroundColor: colors.accentLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Feather name="edit-2" size={12} color={colors.accent} />
-                      <Text style={[styles.editedNoticeText, { color: colors.accent }]}>
-                        {t.editedBySupervisor} ({s.edited_by_name || 'Supervisor'})
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              ))
-            )}
-          </View>
-        )}
-
-        {/* ----------------- TAB 4: PROFILE (الملف الشخصي) ----------------- */}
-        {currentTab === 'profile' && (
-          <View style={styles.tabContainer}>
-
-            {/* Avatar + Name Card */}
-            <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {/* Avatar */}
-              <View style={styles.profileAvatarWrap}>
+              <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
                 {empPhotoUrl ? (
-                  <Image source={{ uri: empPhotoUrl }} style={styles.profileAvatarImg} />
+                  <Image source={{ uri: empPhotoUrl }} style={styles.headerAvatarImg} />
                 ) : (
-                  <View style={[styles.profileAvatarCircle, { backgroundColor: colors.primaryLight }]}>
-                    <Text style={[styles.profileAvatarText, { color: colors.primaryText }]}>
-                      {employee.name ? employee.name.charAt(0).toUpperCase() : 'D'}
-                    </Text>
-                  </View>
+                  <Ionicons name="person" size={18} color={colors.primary} />
                 )}
-                <View style={[styles.profileAvatarBadge, { backgroundColor: colors.primary }]}>
-                  <Ionicons name="person" size={10} color="#fff" />
-                </View>
               </View>
-
-              <Text style={[styles.profileName, { color: colors.textPrimary }]}>{employee.name}</Text>
-              <Text style={[styles.profileJob, { color: colors.textSecondary }]}>{t.jobRole}</Text>
-            </View>
-
-            {/* Info Rows Card */}
-            <View style={[styles.profileInfoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {/* National ID */}
-              <View style={[styles.profileInfoRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.profileInfoIconWrap, { backgroundColor: isDarkMode ? '#1e2233' : '#f8fafc' }]}>
-                  <Feather name="credit-card" size={16} color={colors.primary} />
-                </View>
-                <View style={[styles.profileInfoTexts, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.nationalId}</Text>
-                  <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.national_id}</Text>
-                </View>
-              </View>
-
-              {/* Key Number */}
-              <View style={[styles.profileInfoRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.profileInfoIconWrap, { backgroundColor: isDarkMode ? '#1e2233' : '#f8fafc' }]}>
-                  <Ionicons name="key-outline" size={16} color={colors.primary} />
-                </View>
-                <View style={[styles.profileInfoTexts, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
-                  <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.key_number || '—'}</Text>
-                </View>
-              </View>
-
-              {/* Phone */}
-              <View style={[styles.profileInfoRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.profileInfoIconWrap, { backgroundColor: isDarkMode ? '#1e2233' : '#f8fafc' }]}>
-                  <Feather name="phone" size={16} color={colors.primary} />
-                </View>
-                <View style={[styles.profileInfoTexts, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.phoneNumber || 'رقم الهاتف'}</Text>
-                  <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.phone || '—'}</Text>
-                </View>
-              </View>
-
-              {/* Branch */}
-              <View style={[styles.profileInfoRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.profileInfoIconWrap, { backgroundColor: isDarkMode ? '#1e2233' : '#f8fafc' }]}>
-                  <Ionicons name="business-outline" size={16} color={colors.primary} />
-                </View>
-                <View style={[styles.profileInfoTexts, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.profileInfoLabel, { color: colors.textSecondary }]}>{t.branch}</Text>
-                  <Text style={[styles.profileInfoValue, { color: colors.textPrimary }]}>{employee.branch_name || '—'}</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Language & Settings Box */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.appSettings}
-              </Text>
-
-              <TouchableOpacity
-                style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                onPress={() => setShowLangModal(true)}
-              >
-                <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Ionicons name="globe-outline" size={20} color={colors.primary} />
-                  <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                    {t.language}
-                  </Text>
-                </View>
-                <Text style={[styles.settingRowVal, { color: colors.primary }]}>
-                  {lang === 'ar' ? 'العربية' : lang === 'en' ? 'English' : 'বাংলা'}
+              <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                <Text style={[styles.headerUserName, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {employee.name}
                 </Text>
-              </TouchableOpacity>
+                <Text style={[styles.headerUserRole, { color: colors.textSecondary }]}>
+                  {employee.motorcycle_number ? `${employee.motorcycle_number}` : t.jobRole}
+                </Text>
+              </View>
+            </TouchableOpacity>
 
+            <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity
-                style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                onPress={handleLogout}
+                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                onPress={() => setShowQrModal(true)}
               >
-                <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-                  <Text style={[styles.settingRowText, { color: '#ef4444' }]}>{t.logout}</Text>
-                </View>
-                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color="#ef4444" />
+                <Ionicons name="qr-code-outline" size={18} color={colors.primary} />
               </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          /* Sub-Page Header: Back Button + Start-Aligned Title with Orange Underline */
+          <View style={[styles.subPageHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <TouchableOpacity
+              style={styles.headerBackBtn}
+              onPress={() => setCurrentTab('home')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons
+                name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                size={24}
+                color={colors.textPrimary}
+              />
+            </TouchableOpacity>
+
+            <View style={[styles.subPageTitleContainer, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {currentTab === 'shift'
+                  ? (activeSession ? t.endShiftTitle : t.startShiftTitle)
+                  : currentTab === 'history'
+                  ? t.historyTitle
+                  : t.profileTitle}
+              </Text>
+              <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
             </View>
           </View>
+        )}
+      </View>
+
+      {/* Main Content Body */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.mainScrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {currentTab === 'home' && (
+          <HomeScreen
+            employee={employee}
+            activeSession={activeSession}
+            historySessions={historySessions}
+            totalApprovedOrdersCount={totalApprovedOrdersCount}
+            monthlyTarget={monthlyTarget}
+            isTargetAchieved={isTargetAchieved}
+            expectedSalary={expectedSalary}
+            targetProgressPct={targetProgressPct}
+            remainingOrdersToTarget={remainingOrdersToTarget}
+            elapsedTime={elapsedTime}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            t={t}
+            onNavigateToTab={setCurrentTab}
+          />
+        )}
+
+        {currentTab === 'shift' && (
+          <ShiftScreen
+            employee={employee}
+            activeSession={activeSession}
+            enteredMotorcycle={enteredMotorcycle}
+            setEnteredMotorcycle={setEnteredMotorcycle}
+            startKm={startKm}
+            setStartKm={setStartKm}
+            autoKmFetched={autoKmFetched}
+            startKmImage={startKmImage}
+            startNotes={startNotes}
+            setStartNotes={setStartNotes}
+            endKm={endKm}
+            setEndKm={setEndKm}
+            endKmImage={endKmImage}
+            ordersCount={ordersCount}
+            setOrdersCount={setOrdersCount}
+            fuelCost={fuelCost}
+            setFuelCost={setFuelCost}
+            endNotes={endNotes}
+            setEndNotes={setEndNotes}
+            calculatedDistance={calculatedDistance}
+            elapsedTime={elapsedTime}
+            gpsDistance={gpsDistance}
+            submitting={submitting}
+            onTakeOdometerPhoto={takeOdometerPhoto}
+            onStartShift={handleStartShift}
+            onEndShift={handleEndShift}
+            onPreviewPhoto={setPreviewPhoto}
+            formatTimeStr={formatTimeStr}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            t={t}
+          />
+        )}
+
+        {currentTab === 'history' && (
+          <HistoryScreen
+            historySessions={historySessions}
+            onPreviewPhoto={setPreviewPhoto}
+            formatDateStr={formatDateStr}
+            formatTimeStr={formatTimeStr}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            t={t}
+          />
+        )}
+
+        {currentTab === 'profile' && (
+          <ProfileScreen
+            employee={employee}
+            empPhotoUrl={empPhotoUrl}
+            lang={lang}
+            onOpenQrModal={() => setShowQrModal(true)}
+            onOpenLangModal={() => setShowLangModal(true)}
+            onLogout={handleLogout}
+            onPreviewPhoto={setPreviewPhoto}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            t={t}
+          />
         )}
       </ScrollView>
 
-      {/* =========================================================================
-          FULLSCREEN QR CODE SCREEN (ONLY QR CODE & CLOSE BUTTON)
-         ========================================================================= */}
-      {showQrModal && employee && (
-        <View style={[styles.qrFullScreenModal, { backgroundColor: colors.bg }]}>
-          {/* Center: QR Code with zero background container, and large centered logo with square white background */}
-          <View style={styles.qrFullScreenCenter}>
-            <View style={styles.qrCodeWrapperNoBg}>
-              <Image
-                source={{
-                  uri: `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(
-                    employee.id
-                  )}&margin=2&ecc=H`,
-                }}
-                style={styles.qrCodeImageLarge}
-                resizeMode="contain"
-              />
-              {/* Centered Large Logo with Square White Background */}
-              <View style={styles.qrSquareWhiteBacking}>
-                <Image
-                  source={require('../../assets/images/logo.png')}
-                  style={styles.qrLargeLogo}
-                  resizeMode="contain"
-                />
-              </View>
-            </View>
-          </View>
+      {/* Fullscreen QR Modal */}
+      <QrCodeModal
+        visible={showQrModal}
+        employee={employee}
+        colors={colors}
+        isRTL={isRTL}
+        t={t}
+        onClose={() => setShowQrModal(false)}
+      />
 
-          {/* Bottom Prominent Close Button */}
-          <View style={styles.qrBottomActionArea}>
-            <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: colors.primary, width: '100%' }]}
-              onPress={() => setShowQrModal(false)}
-            >
-              <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Ionicons name="close-circle-outline" size={22} color="#ffffff" />
-                <Text style={styles.primaryButtonText}>{t.close}</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+      {/* Language Selector Modal */}
+      <LanguageModal
+        visible={showLangModal}
+        currentLang={lang}
+        colors={colors}
+        t={t}
+        onSelectLang={(newLang) => {
+          setLang(newLang);
+          setShowLangModal(false);
+        }}
+        onClose={() => setShowLangModal(false)}
+      />
 
-      {/* =========================================================================
-          LANGUAGE SELECTOR MODAL
-         ========================================================================= */}
-      {showLangModal && (
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.langModalCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.langModalTitle, { color: colors.textPrimary }]}>{t.selectLang}</Text>
+      {/* Photo Preview Lightbox Modal */}
+      <ImagePreviewModal
+        previewPhoto={previewPhoto}
+        colors={colors}
+        isRTL={isRTL}
+        onClose={() => setPreviewPhoto(null)}
+      />
 
-            <TouchableOpacity
-              style={[styles.langOptionRow, lang === 'ar' && { backgroundColor: colors.primaryLight }]}
-              onPress={() => {
-                setLang('ar');
-                setShowLangModal(false);
-              }}
-            >
-              <Text style={styles.langFlag}>🇸🇦</Text>
-              <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>العربية (Arabic)</Text>
-              {lang === 'ar' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.langOptionRow, lang === 'en' && { backgroundColor: colors.primaryLight }]}
-              onPress={() => {
-                setLang('en');
-                setShowLangModal(false);
-              }}
-            >
-              <Text style={styles.langFlag}>🇺🇸</Text>
-              <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>English</Text>
-              {lang === 'en' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.langOptionRow, lang === 'bn' && { backgroundColor: colors.primaryLight }]}
-              onPress={() => {
-                setLang('bn');
-                setShowLangModal(false);
-              }}
-            >
-              <Text style={styles.langFlag}>🇧🇩</Text>
-              <Text style={[styles.langOptionText, { color: colors.textPrimary }]}>বাংলা (Bengali)</Text>
-              {lang === 'bn' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.cancelModalBtn, { backgroundColor: colors.inputBg }]}
-              onPress={() => setShowLangModal(false)}
-            >
-              <Text style={[styles.cancelModalText, { color: colors.textSecondary }]}>إلغاء / Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* =========================================================================
-          IMAGE PREVIEW LIGHTBOX MODAL
-         ========================================================================= */}
-      {previewPhoto && (
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {previewPhoto.title}
-              </Text>
-              <TouchableOpacity onPress={() => setPreviewPhoto(null)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={24} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <Image source={{ uri: previewPhoto.url }} style={styles.modalImg} resizeMode="contain" />
-          </View>
-        </View>
+      {/* Simple Start & End Shift Success Bottom Sheet Modal */}
+      {successModalData && (
+        <SuccessShiftModal
+          data={successModalData}
+          employee={employee}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          t={t}
+          backdropOpacity={backdropOpacity}
+          sheetTranslateY={sheetTranslateY}
+          formatTimeStr={formatTimeStr}
+          onClose={closeSuccessModal}
+          onNavigateToTab={setCurrentTab}
+          onPreviewPhoto={setPreviewPhoto}
+        />
       )}
     </SafeAreaView>
   );
@@ -1943,1009 +977,89 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  keyboardView: {
-    flex: 1,
-  },
-  centerContainer: {
+  loadingScreen: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-
-  // Login Screen Styles
-  loginScrollContent: {
-    flexGrow: 1,
-    padding: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 30,
-  },
-  loginWrapper: {
-    width: '100%',
-    maxWidth: 400,
-  },
-  brandHorizontalLockup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 28,
-  },
-  brandLogoMark: {
-    width: 44,
-    height: 44,
-  },
-  brandTextCol: {
-    justifyContent: 'center',
-  },
-  brandMainTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 2,
-    lineHeight: 26,
-  },
-  brandSubTitle: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 2.5,
-    marginTop: -2,
-  },
-  loginCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  loginCardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  loginCardSubtitle: {
-    fontSize: 13,
-    marginBottom: 20,
-    lineHeight: 18,
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
-  },
-  errorBannerText: {
-    fontSize: 13,
-    fontWeight: '500',
-    flex: 1,
-  },
-
-  // Header Bar (Taller & More Spacious)
-  headerBar: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  appHeader: {
+    height: 60,
+    borderBottomWidth: 0,
+    backgroundColor: 'transparent',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    minHeight: 72,
-  },
-  headerRight: {
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  avatarImg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: '#ea580c',
-  },
-  avatarCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  delegateName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  headerBadgesRow: {
-    gap: 6,
-    marginTop: 2,
-  },
-  pillBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 1.5,
-    borderRadius: 10,
-  },
-  pillBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  qrHeaderBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Main Scroll & Tabs
-  mainScrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  tabContainer: {
-    gap: 14,
-  },
-
-  // Sub-Page Sticky Header (Shift & History)
-  subPageHeader: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    minHeight: 60,
-  },
-  subPageHeaderIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  subPageHeaderTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  subPageHeaderSub: {
-    fontSize: 12,
-    marginTop: 1,
-  },
-
-  // Back to home button at top of tabs
-  backToHomeBtn: {
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
-    marginBottom: 4,
-  },
-  backToHomeText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-
-  // Clean, Natural Target Widget Styles
-  targetCardContainer: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-    gap: 10,
-  },
-  targetCardHeader: {
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  targetTitleGroup: {
+  headerUserInfo: {
     alignItems: 'center',
-    gap: 6,
-  },
-  targetCardTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  targetRatioText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  targetRatioBold: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  targetEarningsHero: {
-    marginTop: 2,
-    marginBottom: 2,
-  },
-  targetEarningsLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  targetEarningsRow: {
-    alignItems: 'baseline',
-    gap: 6,
-  },
-  targetEarningsValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    letterSpacing: -0.5,
-  },
-  targetEarningsCurrency: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  targetProgressContainer: {
-    width: '100%',
-  },
-  progressBarTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  targetFooterRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  targetFooterNotice: {
-    fontSize: 11,
-    fontWeight: '500',
+    gap: 10,
     flex: 1,
   },
-  targetFooterPct: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-
-  // Stats Grid
-  sectionHeader: {
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  sectionSub: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  statsGrid: {
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  statBox: {
-    width: (width - 42) / 2,
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  statIconCircle: {
+  headerAvatar: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  statNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-
-  // Quick Cards
-  quickCardRow: {
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 12,
-  },
-  quickCardIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickCardTextCol: {
-    flex: 1,
-  },
-  quickCardTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  quickCardSub: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-
-  // Cards
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardHeaderRow: {
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-  cardHeaderIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  cardSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-
-  // Forms
-  formGroup: {
-    marginBottom: 12,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 48,
-  },
-  inputIcon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    height: '100%',
-  },
-  domainSuffixText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  textArea: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    height: 65,
-  },
-  hintText: {
-    fontSize: 11,
-    marginTop: 4,
-  },
-  matchBadgeSuccess: {
-    alignItems: 'center',
-    gap: 6,
-    padding: 8,
-    borderRadius: 8,
-    marginTop: 6,
-  },
-  matchTextSuccess: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  matchBadgeWarning: {
-    alignItems: 'center',
-    gap: 6,
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 6,
-  },
-  matchTextWarning: {
-    fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
-  },
-
-  // Odometer Live Viewfinder Frame Guide Box
-  odometerGuideBox: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderRadius: 16,
-    padding: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  cornerBracket: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-  },
-  cornerTopLeft: {
-    top: 8,
-    left: 8,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderTopLeftRadius: 6,
-  },
-  cornerTopRight: {
-    top: 8,
-    right: 8,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderTopRightRadius: 6,
-  },
-  cornerBottomLeft: {
-    bottom: 8,
-    left: 8,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderBottomLeftRadius: 6,
-  },
-  cornerBottomRight: {
-    bottom: 8,
-    right: 8,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderBottomRightRadius: 6,
-  },
-  odometerGuideText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  odometerGuideSub: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  cameraCaptureBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cameraCaptureBtnText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-
-  // Image Preview & Retake
-  imagePreviewContainer: {
-    borderRadius: 14,
-    borderWidth: 1,
-    overflow: 'hidden',
-    height: 180,
-    position: 'relative',
-  },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-  },
-  imageOverlayBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  imageOverlayText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  retakeButton: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  retakeButtonText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-
-  twoColRow: {
-    gap: 10,
-  },
-
-  // Active shift summary box inside end shift
-  activeShiftSummaryBox: {
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  summaryItem: {
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 11,
-  },
-  summaryVal: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  summaryDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#cbd5e1',
-  },
-
-  // Primary Button
-  primaryButton: {
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  buttonContentRow: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-
-  // Quick Demo Button
-  demoButton: {
-    borderRadius: 14,
     borderWidth: 1.5,
-    marginTop: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
     overflow: 'hidden',
   },
-  demoButtonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    gap: 12,
+  headerAvatarImg: {
+    width: '100%',
+    height: '100%',
   },
-  demoButtonIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  demoButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
+  headerUserText: {
     flex: 1,
   },
-
-  // History Screen Styles
-  historyCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 10,
-  },
-  historyCardTop: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  historyDate: {
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  historyBike: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  badgeReviewed: {
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  badgeReviewedText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  badgePending: {
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  badgePendingText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  historyStatsRow: {
-    justifyContent: 'space-around',
-    padding: 8,
-    borderRadius: 8,
-  },
-  historyStatCol: {
-    alignItems: 'center',
-  },
-  historyStatVal: {
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  historyStatLbl: {
-    fontSize: 10,
-    marginTop: 1,
-  },
-  historyPhotosRow: {
-    gap: 8,
-    marginTop: 10,
-  },
-  historyPhotoThumb: {
-    alignItems: 'center',
-    gap: 6,
-    padding: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    flex: 1,
-  },
-  thumbImg: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
-  },
-  thumbLbl: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  editedNoticeBox: {
-    alignItems: 'center',
-    gap: 4,
-    padding: 6,
-    borderRadius: 6,
-    marginTop: 8,
-  },
-  editedNoticeText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  emptyBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  emptyBoxText: {
-    marginTop: 8,
+  headerUserName: {
     fontSize: 14,
+    fontWeight: '800',
   },
-
-  // Profile Screen Styles
-  profileCard: {
+  headerUserRole: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  headerActions: {
     alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 18,
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 4,
+    gap: 8,
   },
-  profileAvatarWrap: {
-    position: 'relative',
-    marginBottom: 10,
-  },
-  profileAvatarImg: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 3,
-    borderColor: '#ea580c',
-  },
-  profileAvatarCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileAvatarText: {
-    fontSize: 30,
-    fontWeight: 'bold',
-  },
-  profileAvatarBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  profileJob: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  profileInfoCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  profileInfoRow: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 12,
-    borderBottomWidth: 1,
-  },
-  profileInfoIconWrap: {
+  headerActionBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileInfoTexts: {
-    flex: 1,
-    gap: 1,
-  },
-  profileInfoLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  profileInfoValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  profileDivider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 14,
-  },
-  profileInfoList: {
-    width: '100%',
-    gap: 10,
-  },
-  settingRow: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  settingRowRight: {
-    alignItems: 'center',
-    gap: 10,
-  },
-  settingRowText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  settingRowVal: {
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-
-  // QR Modal Styles
-  // Fullscreen QR Modal Styles
-  qrFullScreenModal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 9999,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 16 : 50,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
-  },
-  qrTopCloseBtn: {
-    alignSelf: 'flex-end',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    borderRadius: 18,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  qrFullScreenCenter: {
+  subPageHeaderRow: {
     flex: 1,
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerBackBtn: {
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    width: '100%',
-  },
-  qrCodeWrapperNoBg: {
-    width: 280,
-    height: 280,
     backgroundColor: 'transparent',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
+    borderWidth: 0,
   },
-  qrCodeImageLarge: {
-    width: 280,
-    height: 280,
-  },
-  qrSquareWhiteBacking: {
-    position: 'absolute',
-    width: 68,
-    height: 68,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 6,
-  },
-  qrLargeLogo: {
-    width: 58,
-    height: 58,
-  },
-  qrBottomActionArea: {
-    width: '100%',
-  },
-
-  // Language Modal
-  langModalCard: {
-    width: '90%',
-    borderRadius: 18,
-    padding: 20,
-    gap: 12,
-  },
-  langModalTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  langOptionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 12,
-  },
-  langFlag: {
-    fontSize: 22,
-  },
-  langOptionText: {
-    fontSize: 15,
-    fontWeight: '600',
+  subPageTitleContainer: {
     flex: 1,
-  },
-  cancelModalBtn: {
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  cancelModalText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-
-  // Photo Preview Modal
-  modalBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    zIndex: 999,
   },
-  modalCard: {
-    width: '100%',
-    maxHeight: '80%',
-    borderRadius: 16,
-    overflow: 'hidden',
-    padding: 16,
+  subPageHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
   },
-  modalHeader: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  titleUnderlineBar: {
+    width: 34,
+    height: 3,
+    borderRadius: 2,
+    marginTop: 3,
   },
-  modalTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    flex: 1,
-  },
-  modalCloseBtn: {
-    padding: 4,
-  },
-  modalImg: {
-    width: '100%',
-    height: 350,
-    borderRadius: 10,
+  mainScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
   },
 });

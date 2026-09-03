@@ -1,18 +1,20 @@
 {
   "expo": {
-    "name": "front-end",
-    "slug": "front-end",
+    "name": "AAMS",
+    "slug": "aams",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "aams",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.aams.app"
     },
     "android": {
+      "package": "com.aams.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -28,12 +30,17 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#ffffff",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 120
         }
       ]
     ],
+    "extra": {
+      "eas": {
+        "projectId": "352e8773-7aaa-4a12-b906-01fe05420113"
+      }
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

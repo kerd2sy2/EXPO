@@ -1,4 +1,4 @@
-import { apiRequest, setAuthToken } from './api';
+import { apiRequest, setAuthToken, saveCachedUser, getCachedUser } from './api';
 
 export interface EmployeeProfile {
   id: string;
@@ -9,6 +9,10 @@ export interface EmployeeProfile {
   employee_number: string;
   job_role: string;
   personal_image?: string;
+  national_id_image?: string;
+  driving_license_image?: string;
+  passport_image?: string;
+  vehicle_registration_image?: string;
   application_id?: string;
   application_type?: string;
   shift?: string;
@@ -75,26 +79,67 @@ export const workApi = {
     });
 
     if (data.access_token) {
-      setAuthToken(data.access_token);
+      await setAuthToken(data.access_token);
+      if (data.employee) {
+        await saveCachedUser(data.employee);
+      }
     }
     return data;
   },
 
   // Get current user / delegate profile
-  getMe: async (): Promise<any> => {
-    return apiRequest('/me');
+  getMe: async (): Promise<EmployeeProfile | null> => {
+    try {
+      const cached = await getCachedUser();
+      const meResp = await apiRequest('/me');
+      if (meResp && meResp.id) {
+        let fullEmployee: any = cached ? { ...cached } : {};
+        try {
+          const empDetail = await apiRequest<EmployeeProfile>(`/employees/${meResp.id}`);
+          if (empDetail && empDetail.id) {
+            fullEmployee = { ...fullEmployee, ...empDetail };
+          }
+        } catch {
+          fullEmployee = { ...fullEmployee, ...meResp };
+        }
+
+        if (cached) {
+          fullEmployee = {
+            ...cached,
+            ...fullEmployee,
+            motorcycle_number: fullEmployee.motorcycle_number || cached.motorcycle_number,
+            key_number: fullEmployee.key_number || cached.key_number,
+            national_id: fullEmployee.national_id || cached.national_id,
+            personal_image: fullEmployee.personal_image || cached.personal_image,
+            national_id_image: fullEmployee.national_id_image || cached.national_id_image,
+            driving_license_image: fullEmployee.driving_license_image || cached.driving_license_image,
+            passport_image: fullEmployee.passport_image || cached.passport_image,
+            vehicle_registration_image: fullEmployee.vehicle_registration_image || cached.vehicle_registration_image,
+            employee_number: fullEmployee.employee_number || cached.employee_number,
+            phone: fullEmployee.phone || cached.phone,
+            branch_name: fullEmployee.branch_name || cached.branch_name,
+          };
+        }
+
+        await saveCachedUser(fullEmployee);
+        return fullEmployee as EmployeeProfile;
+      }
+      return cached;
+    } catch (e) {
+      return await getCachedUser();
+    }
   },
 
   // Check active shift for employee
   getActiveSession: async (employeeId: string): Promise<WorkSession | null> => {
     try {
-      const data = await apiRequest<{ data: WorkSession[] }>(`/reports?employee_id=${employeeId}&limit=1`);
-      const list = data?.data || [];
-      if (list.length > 0 && list[0].status === 'ACTIVE') {
-        return list[0];
+      const data = await apiRequest<WorkSession>(`/work/active?employee_id=${employeeId}`);
+      if (data && data.id && data.status === 'ACTIVE') {
+        return data;
       }
       return null;
     } catch {
+      // Fallback if not found or 404
       return null;
     }
   },
