@@ -688,14 +688,27 @@ export default function DelegateApp() {
     }
   };
 
-  // Performance & Target Calculations - strictly filter only supervisor-approved sessions
-  const approvedSessions = historySessions.filter((s) => Boolean(s.is_reviewed));
+  // Performance & Monthly Target Calculations (Current Calendar Month: Day 1 to End of Month)
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
 
-  const totalApprovedOrdersCount = approvedSessions.reduce(
+  const currentMonthApprovedSessions = historySessions.filter((s) => {
+    if (!s.is_reviewed) return false;
+    if (!s.start_time) return true;
+    try {
+      const sDate = new Date(s.start_time);
+      return sDate.getFullYear() === currentYear && sDate.getMonth() === currentMonth;
+    } catch (e) {
+      return true;
+    }
+  });
+
+  const totalApprovedOrdersCount = currentMonthApprovedSessions.reduce(
     (acc, s) => acc + (Number(s.orders_count) || 0),
     0
   );
-  const totalApprovedDistance = approvedSessions.reduce(
+  const totalApprovedDistance = currentMonthApprovedSessions.reduce(
     (acc, s) =>
       acc +
       (Number(s.distance) ||
@@ -704,12 +717,17 @@ export default function DelegateApp() {
           : 0)),
     0
   );
-  const totalApprovedFuel = approvedSessions.reduce(
+  const totalApprovedFuel = currentMonthApprovedSessions.reduce(
     (acc, s) => acc + (Number(s.fuel_cost) || 0),
     0
   );
-  const totalApprovedShifts = approvedSessions.length;
-  const monthlyTarget = 400;
+  const totalApprovedShifts = currentMonthApprovedSessions.length;
+
+  // Monthly Target Rule:
+  // Target = 460 orders
+  // 1 to 459 orders -> 5 SAR / order
+  // 460 or more orders -> 6 SAR / order
+  const monthlyTarget = 460;
   const isTargetAchieved = totalApprovedOrdersCount >= monthlyTarget;
   const currentRatePerOrder = isTargetAchieved ? 6 : 5;
   const expectedSalary = totalApprovedOrdersCount * currentRatePerOrder;
