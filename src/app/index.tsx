@@ -775,7 +775,7 @@ export default function DelegateApp() {
                 )}
               </View>
               <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                <Text style={[styles.headerUserName, { color: colors.textPrimary }]} numberOfLines={1}>
+                <Text style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {employee.name}
                 </Text>
                 <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -783,11 +783,6 @@ export default function DelegateApp() {
                   <Text style={[styles.headerUserNationalId, { color: colors.textSecondary }]}>
                     {employee.national_id || '—'}
                   </Text>
-                  {employee.motorcycle_number && (
-                    <Text style={[styles.headerBikeText, { color: colors.textSecondary }]}>
-                      • {employee.motorcycle_number}
-                    </Text>
-                  )}
                 </View>
               </View>
             </TouchableOpacity>
@@ -1035,10 +1030,6 @@ const styles = StyleSheet.create({
   headerUserNationalId: {
     fontSize: 12,
     fontWeight: '600',
-  },
-  headerBikeText: {
-    fontSize: 12,
-    fontWeight: '500',
   },
   headerActions: {
     alignItems: 'center',
