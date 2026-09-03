@@ -54,9 +54,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       >
         <ScrollView contentContainerStyle={styles.loginScrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.loginWrapper}>
-            {/* Horizontal Brand Lockup: Logo Next to Brand Name (Tap to switch language) */}
+            {/* Horizontal Brand Lockup: Logo on other side (Tap to switch language) */}
             <TouchableOpacity
-              style={[styles.brandHorizontalLockup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              style={[styles.brandHorizontalLockup, { flexDirection: isRTL ? 'row' : 'row-reverse' }]}
               onPress={() => setShowLangModal(true)}
               activeOpacity={0.75}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -66,7 +66,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 style={styles.brandLogoMark}
                 resizeMode="contain"
               />
-              <View style={[styles.brandTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <View style={[styles.brandTextCol, { alignItems: isRTL ? 'flex-start' : 'flex-end' }]}>
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
                   AAMS
                 </Text>
