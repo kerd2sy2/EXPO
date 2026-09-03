@@ -268,22 +268,6 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             END SHIFT FORM (Active Shift in Progress)
            ========================================================================= */
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {/* Active Shift Header Banner */}
-          <View style={[styles.activeBanner, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}>
-            <View style={styles.activeBannerDot} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.activeBannerTitle, { color: '#991b1b', textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.shiftActive}
-              </Text>
-              <Text style={[styles.activeBannerSub, { color: '#b91c1c', textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.shiftInProgressOn} {activeSession.motorcycle_number || employee?.motorcycle_number || '—'}
-              </Text>
-            </View>
-            <View style={styles.activeTimerBadge}>
-              <Text style={styles.activeTimerText}>{elapsedTime}</Text>
-            </View>
-          </View>
-
           {/* Active Details Summary Grid */}
           <View style={[styles.activeInfoGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={[styles.activeInfoBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
