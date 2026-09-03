@@ -85,7 +85,6 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   const startKmNum = Number(activeSession?.start_km) || 0;
   const ordersInputRef = React.useRef<TextInput>(null);
   const fuelInputRef = React.useRef<TextInput>(null);
-  const notesInputRef = React.useRef<TextInput>(null);
 
   // Calculate elapsed hours from start_time
   const elapsedHours = React.useMemo(() => {
@@ -420,32 +419,11 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 value={fuelCost}
                 onChangeText={setFuelCost}
                 keyboardType="numeric"
-                returnKeyType="next"
-                blurOnSubmit={false}
-                onSubmitEditing={() => notesInputRef.current?.focus()}
+                returnKeyType="done"
+                blurOnSubmit={true}
                 onFocus={() => onScrollToInput?.(160)}
               />
               <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.sar}</Text>
-            </View>
-          </View>
-
-          {/* End Notes */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.endNotesLabel}
-            </Text>
-            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, height: 68, alignItems: 'flex-start', paddingTop: 8 }]}>
-              <TextInput
-                ref={notesInputRef}
-                style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={t.endNotesPlaceholder}
-                placeholderTextColor="#94a3b8"
-                value={endNotes}
-                onChangeText={setEndNotes}
-                multiline
-                returnKeyType="done"
-                onFocus={() => onScrollToInput?.(220)}
-              />
             </View>
           </View>
 
