@@ -343,9 +343,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {documents.length > 0 ? (
           <>
             <Text style={[styles.swipeInstruction, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {isRTL
-                ? 'اسحب الورقة يميناً أو يساراً للتقليب، واضغط عليها للمعاينة'
-                : 'Swipe card left or right to flip cards, tap to preview full image'}
+              {t.docsCardSub}
             </Text>
 
             {/* 3D Stack Deck Area */}
@@ -360,28 +358,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   const isFrontCard = idx === currentIndex;
                   const depthIndex = idx - currentIndex;
 
-                  // Render top 3 cards for crisp stack look
-                  if (depthIndex > 2) return null;
-
                   if (isFrontCard) {
                     return (
                       <Animated.View
                         key={doc.id}
+                        {...panResponder.panHandlers}
                         style={[
                           styles.flyingCard,
                           cardStyle,
                           {
-                            backgroundColor: colors.inputBg,
+                            backgroundColor: colors.card,
                             borderColor: doc.accentColor,
-                            zIndex: 100,
+                            zIndex: 20,
                           },
                         ]}
-                        {...(documents.length > 1 ? panResponder.panHandlers : {})}
                       >
                         {/* Top Accent Strip */}
                         <View style={[styles.cardAccentBar, { backgroundColor: doc.accentColor }]} />
 
-                        {/* Card Header */}
+                        {/* Card Header inside */}
                         <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                           <View style={[styles.cardIconBadge, { backgroundColor: doc.badgeColor }]}>
                             {doc.iconFamily === 'ion' ? (
@@ -402,22 +397,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                             </Text>
                           </View>
 
-                          <View
-                            style={[
-                              styles.statusPill,
-                              {
-                                backgroundColor: 'rgba(34, 197, 94, 0.12)',
-                                borderColor: '#22c55e',
-                              },
-                            ]}
-                          >
+                          <View style={[styles.statusPill, { backgroundColor: 'rgba(34, 197, 94, 0.12)', borderColor: '#22c55e' }]}>
+                            <Ionicons name="checkmark-circle" size={13} color="#22c55e" />
                             <Text
                               style={[
                                 styles.statusPillText,
                                 { color: '#22c55e' },
                               ]}
                             >
-                              {isRTL ? 'جاهزة' : 'Ready'}
+                              {t.docReadyBadge || 'جاهزة'}
                             </Text>
                           </View>
                         </View>
@@ -499,7 +487,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <View style={[styles.titleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <MaterialCommunityIcons name="shield-check" size={20} color="#10b981" />
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              {isRTL ? 'الأجهزة الموثقة' : 'Trusted Devices'}
+              {t.trustedDevices || 'الأجهزة الموثقة'}
             </Text>
           </View>
           <View style={[styles.counterBadge, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.25)' }]}>
@@ -557,14 +545,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       <View style={styles.currentDeviceBadge}>
                         <Ionicons name="checkmark-circle" size={13} color="#10b981" />
                         <Text style={styles.currentDeviceBadgeText}>
-                          {isRTL ? 'هذا الجهاز الحالي' : 'Current Device'}
+                          {t.currentDeviceBadge || 'هذا الجهاز الحالي'}
                         </Text>
                       </View>
                     )}
                   </View>
                   <Text style={[styles.deviceOsText, { color: colors.textSecondary }]}>
                     {device.os ? `${device.os} • ` : ''}
-                    {isRTL ? 'موثق عبر المشرف' : 'Supervisor Verified'}
+                    {t.trustedDeviceStatus || 'موثق عبر المشرف'}
                   </Text>
                 </View>
 
@@ -584,7 +572,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <View style={[styles.cardEmptyPlaceholder, { borderColor: colors.border, height: 90, marginTop: 4 }]}>
             <MaterialCommunityIcons name="shield-off-outline" size={26} color={colors.textSecondary} />
             <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
-              {isRTL ? 'لا توجد أجهزة موثقة مسجلة' : 'No trusted devices recorded'}
+              {t.noTrustedDevices || 'لا توجد أجهزة موثقة مسجلة'}
             </Text>
           </View>
         )}
@@ -620,10 +608,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Ionicons name="finger-print" size={20} color={colors.primary} />
               <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
                 <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                  {isRTL ? 'تسجيل الدخول بالبصمة' : 'Biometric Login'}
+                  {t.biometricLogin || 'تسجيل الدخول بالبصمة'}
                 </Text>
                 <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                  {isRTL ? 'بصمة الإصبع أو الوجه' : 'Fingerprint / Face ID'}
+                  {t.biometricLoginSub || 'بصمة الإصبع أو الوجه'}
                 </Text>
               </View>
             </View>

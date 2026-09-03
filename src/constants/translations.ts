@@ -121,6 +121,40 @@ export const translations = {
     drivingLicensePhoto: 'صورة رخصة القيادة',
     vehicleRegistrationPhoto: 'صورة رخصة السير (الاستمارة)',
     noDocumentPhoto: 'لم يتم رفع المستند بعد',
+
+    // Trusted Devices
+    trustedDevices: 'الأجهزة الموثقة',
+    trustedDevicesSub: 'الأجهزة المصرح لها بالدخول لحسابك',
+    currentDeviceBadge: 'هذا الجهاز الحالي (نشط) ✅',
+    trustedDeviceStatus: 'موثق عبر المشرف',
+    revokeDeviceTitle: 'إزالة توثيق الجهاز',
+    revokeDeviceMsg: 'هل أنت متأكد من رغبتك في حذف توثيق ({name})؟ سيتطلب تسجيل الدخول القادم رمز تحقق OTP جديد من المشرف.',
+    revokeDeviceBtn: 'إزالة التوثيق',
+    cancelBtn: 'إلغاء',
+    noTrustedDevices: 'لا توجد أجهزة موثقة مسجلة',
+
+    // Biometrics
+    biometricLogin: 'تسجيل الدخول بالبصمة',
+    biometricLoginSub: 'بصمة الإصبع أو الوجه',
+    biometricQuickDesc: 'تسجيل سريع باستخدام بصمة الإصبع أو الوجه',
+    biometricConfirmTitle: 'تأكيد البصمة لتفعيل الدخول السريع',
+    biometricEnabledTitle: 'تم التفعيل بنجاح',
+    biometricEnabledMsg: 'تم تفعيل الدخول بالبصمة بنجاح لهذا الجهاز.',
+    biometricSetupTitle: 'تفعيل البصمة',
+    biometricSetupMsg: 'يرجى تسجيل الدخول برقم الهوية وكلمة المرور لمرة واحدة لربط بصمتك بالحساب.',
+    okBtn: 'حسناً',
+
+    // Documents
+    docsCardTitle: 'الملفات والوثائق الرسمية',
+    docsCardSub: 'اسحب البطاقات لليمين أو اليسار للتنقل بين الوثائق',
+    docReadyBadge: 'جاهزة ومكتملة',
+    docMissingBadge: 'غير مرفوعة',
+    tapToPreviewDoc: 'اضغط لعرض الوثيقة مكبرة',
+    documentsCount: '{n} وثائق رسمية',
+
+    // Odometer suggestions & shifts
+    suggestedKm: 'المقترح',
+    autoOdometerNotice: 'تم إدراج قراءة العداد السابقة تلقائياً',
   },
   en: {
     appName: 'AAMS Logistics',
@@ -244,6 +278,40 @@ export const translations = {
     drivingLicensePhoto: 'Driving License Photo',
     vehicleRegistrationPhoto: 'Vehicle Registration Photo',
     noDocumentPhoto: 'No document photo uploaded',
+
+    // Trusted Devices
+    trustedDevices: 'Trusted Devices',
+    trustedDevicesSub: 'Devices authorized to access your account',
+    currentDeviceBadge: 'This Current Device (Active) ✅',
+    trustedDeviceStatus: 'Supervisor Verified',
+    revokeDeviceTitle: 'Remove Trusted Device',
+    revokeDeviceMsg: 'Are you sure you want to revoke trust for ({name})? Next login will require a new supervisor OTP.',
+    revokeDeviceBtn: 'Revoke',
+    cancelBtn: 'Cancel',
+    noTrustedDevices: 'No trusted devices recorded',
+
+    // Biometrics
+    biometricLogin: 'Biometric Login',
+    biometricLoginSub: 'Fingerprint / Face ID',
+    biometricQuickDesc: 'Quick login using Fingerprint / Face ID',
+    biometricConfirmTitle: 'Confirm Biometrics to Enable',
+    biometricEnabledTitle: 'Enabled Successfully',
+    biometricEnabledMsg: 'Biometric login has been activated on this device.',
+    biometricSetupTitle: 'Biometrics Setup',
+    biometricSetupMsg: 'Please log in with your ID and password once to link your biometric credentials.',
+    okBtn: 'OK',
+
+    // Documents
+    docsCardTitle: 'Official Documents & ID',
+    docsCardSub: 'Swipe cards left or right to browse all documents',
+    docReadyBadge: 'Ready & Uploaded',
+    docMissingBadge: 'Not Uploaded',
+    tapToPreviewDoc: 'Tap to preview enlarged document',
+    documentsCount: '{n} Official Documents',
+
+    // Odometer suggestions & shifts
+    suggestedKm: 'Suggested',
+    autoOdometerNotice: 'Previous odometer reading auto-filled',
   },
   bn: {
     appName: 'AAMS লজিস্টিকস',
@@ -274,8 +342,8 @@ export const translations = {
     monthlyTarget: 'মাসিক টার্গেট',
     expectedSalary: 'আনুমানিক মোট আয়',
     ratePerOrder: 'প্রতি অর্ডারের রেট',
-    targetAchievedBadge: 'টার্গেট সম্পন্ন ও বোনাস অর্জিত (৬ রিয়াল/অর্ডার)',
-    targetRemainingNotice: '৬ রিয়াল স্তরে পৌঁছাতে বাকি {n} অর্ডার',
+    targetAchievedBadge: 'টার্গেট সম্পন্ন ও বোনাস অর্জিত (৬ রিয়াল/অর্ডার)',
+    targetRemainingNotice: '৬ রিয়াল স্তরে পৌঁছাতে বাকি {n} অর্ডার',
     qrTitle: 'প্রতিনিধি ডিজিটাল আইডি (QR কোড)',
     qrSub: 'যাচাইয়ের জন্য সুপারভাইজারকে এই কোডটি দেখান',
     close: 'বন্ধ করুন',
@@ -309,7 +377,7 @@ export const translations = {
     startNotesPlaceholder: 'বাইক সম্পর্কিত কোনো মন্তব্য...',
     confirmStartBtn: 'নিশ্চিত ও শুরু করুন',
     endShiftTitle: 'শিফট সমাপ্তি',
-    endShiftSub: 'শেষের মিটার, ছবি এবং অর্ডারের সংখ্যা দিন',
+    endShiftSub: 'শেষের মিটার, ছবি এবং অর্ডারের संख्या দিন',
     endKmInputLabel: 'শেষের মিটার রিডিং (End KM)',
     calculatedDistLabel: 'মোট অতিক্রান্ত দূরত্ব',
     endKmPhotoLabel: 'শেষের মিটারের ছবি (বাধ্যতামূলক)',
@@ -361,11 +429,45 @@ export const translations = {
     viewHistoryBtn: 'শিফটের ইতিহাস দেখুন',
     closeModal: 'বন্ধ করুন',
     bikePlate: 'বাইক নম্বর',
-    officialDocuments: 'অফিসিয়াল ডকুমেন্টস',
+    officialDocuments: 'অফিসিয়াল ডকুমেন্টস ও ফাইল',
     idAndIqamaPhoto: 'জাতীয় পরিচয়পত্র / ইকামার ছবি',
     passportPhoto: 'পাসপোর্টের ছবি',
     drivingLicensePhoto: 'ড্রাইভিং লাইসেন্সের ছবি',
     vehicleRegistrationPhoto: 'গাড়ির রেজিস্ট্রেশনের ছবি',
     noDocumentPhoto: 'কোন ডকুমেন্ট আপলোড করা হয়নি',
+
+    // Trusted Devices
+    trustedDevices: 'অনুমোদিত ডিভাইসসমূহ',
+    trustedDevicesSub: 'আপনার অ্যাকাউন্টে প্রবেশের অনুমোদিত ফোনসমূহ',
+    currentDeviceBadge: 'এই বর্তমান ডিভাইস (সক্রিয়) ✅',
+    trustedDeviceStatus: 'সুপারভাইজার দ্বারা অনুমোদিত',
+    revokeDeviceTitle: 'ডিভাইসের অনুমোদন বাতিল করুন',
+    revokeDeviceMsg: 'আপনি কি নিশ্চিত যে ({name}) ডিভাইসের অনুমোদন বাতিল করতে চান? পরবর্তী লগইনে সুপারভাইজারের OTP প্রয়োজন হবে।',
+    revokeDeviceBtn: 'বাতিল করুন',
+    cancelBtn: 'ফিরে যান',
+    noTrustedDevices: 'কোনো অনুমোদিত ডিভাইস পাওয়া যায়নি',
+
+    // Biometrics
+    biometricLogin: 'বায়োমেট্রিক লগইন (আঙুলের ছাপ)',
+    biometricLoginSub: 'আঙুলের ছাপ অথবা ফেস আনলক',
+    biometricQuickDesc: 'আঙুলের ছাপ বা মুখাবয়ব দিয়ে দ্রুত লগইন',
+    biometricConfirmTitle: 'বায়োমেট্রিক সক্রিয় করতে নিশ্চিত করুন',
+    biometricEnabledTitle: 'সফলভাবে সক্রিয় হয়েছে',
+    biometricEnabledMsg: 'এই ডিভাইসে বায়োমেট্রিক লগইন সফলভাবে সক্রিয় করা হয়েছে।',
+    biometricSetupTitle: 'বায়োমেট্রিক সেটআপ',
+    biometricSetupMsg: 'বায়োমেট্রিক যুক্ত করতে প্রথমে আপনার আইডি ও পাসওয়ার্ড দিয়ে একবার লগইন করুন।',
+    okBtn: 'ঠিক আছে',
+
+    // Documents
+    docsCardTitle: 'অফিসিয়াল ডকুমেন্টস ও ফাইল',
+    docsCardSub: 'সব ডকুমেন্ট দেখতে কার্ডটি ডানে বা বামে সোয়াইপ করুন',
+    docReadyBadge: 'সংযুক্ত ও প্রস্তুত',
+    docMissingBadge: 'আপলোড করা হয়নি',
+    tapToPreviewDoc: 'বড় করে দেখতে স্পর্শ করুন',
+    documentsCount: '{n}টি অফিসিয়াল ডকুমেন্ট',
+
+    // Odometer suggestions & shifts
+    suggestedKm: 'প্রস্তাবিত',
+    autoOdometerNotice: 'পূর্ববর্তী মিটারের রিডিং স্বয়ংক্রিয়ভাবে যোগ করা হয়েছে',
   },
 };

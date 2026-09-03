@@ -325,7 +325,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                       { color: gpsDistance > 0 ? (isDarkMode ? '#34d399' : '#047857') : colors.primary },
                     ]}
                   >
-                    {isRTL ? 'المقترح' : 'Suggest'}
+                    {t.suggestedKm || (isRTL ? 'المقترح' : 'Suggest')}
                   </Text>
                 </TouchableOpacity>
               )}
