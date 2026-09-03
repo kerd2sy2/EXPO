@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import * as Device from 'expo-device';
 
 // Hosted Backend API URL (Render)
 export const API_BASE_URL =
@@ -116,6 +117,36 @@ export async function apiRequest<T = any>(
 const DEVICE_UUID_KEY = 'aams_device_uuid';
 const TRUSTED_DEVICE_PREFIX = 'aams_trusted_device_';
 
+export const getDeviceDisplayName = (): string => {
+  const model = Device.modelName;
+  const brand = Device.brand ? Device.brand.charAt(0).toUpperCase() + Device.brand.slice(1) : '';
+  const manufacturer = Device.manufacturer ? Device.manufacturer.charAt(0).toUpperCase() + Device.manufacturer.slice(1) : '';
+  const devName = Device.deviceName;
+
+  if (model) {
+    if (brand && !model.toLowerCase().includes(brand.toLowerCase())) {
+      return `${brand} ${model}`;
+    }
+    return model;
+  }
+  if (devName && !devName.toLowerCase().includes('phone') && !devName.toLowerCase().includes('android')) {
+    return devName;
+  }
+  if (manufacturer && brand && manufacturer.toLowerCase() !== brand.toLowerCase()) {
+    return `${manufacturer} ${brand}`;
+  }
+  if (brand || manufacturer) {
+    return `${brand || manufacturer} Device`;
+  }
+  return Platform.OS === 'ios' ? 'Apple iPhone' : 'Android Device';
+};
+
+export const getDeviceOsDisplay = (): string => {
+  const os = Device.osName || (Platform.OS === 'ios' ? 'iOS' : 'Android');
+  const ver = Device.osVersion || Platform.Version || '';
+  return `${os} ${ver}`.trim();
+};
+
 export const getOrCreateDeviceUUID = async (): Promise<string> => {
   try {
     let uuid = await AsyncStorage.getItem(DEVICE_UUID_KEY);
@@ -151,11 +182,12 @@ export const requestOtpApi = async (
   deviceInfo?: string
 ): Promise<{ success: boolean; message: string; national_id: string; employee_name: string; expires_at: string }> => {
   const deviceUuid = await getOrCreateDeviceUUID();
+  const info = deviceInfo || `${getDeviceDisplayName()} (${getDeviceOsDisplay()})`;
   return apiRequest('/auth/request-otp', {
     method: 'POST',
     body: JSON.stringify({
       national_id: nationalId,
-      device_info: deviceInfo || 'تطبيق المندوب - AAMS App',
+      device_info: info,
       device_uuid: deviceUuid,
     }),
   });
@@ -196,17 +228,24 @@ export const getTrustedDevicesList = async (nationalId: string): Promise<Trusted
     let rawList = await AsyncStorage.getItem(`aams_device_list_${nationalId}`);
     let list: TrustedDeviceItem[] = rawList ? JSON.parse(rawList) : [];
 
+    const realName = getDeviceDisplayName();
+    const realOs = getDeviceOsDisplay();
+
     if (isTrusted) {
-      const hasCurrent = list.some((d) => d.uuid === uuid);
-      if (!hasCurrent) {
+      const existingIdx = list.findIndex((d) => d.uuid === uuid);
+      if (existingIdx === -1) {
         const currentItem: TrustedDeviceItem = {
           uuid,
-          name: Platform.OS === 'ios' ? 'Apple iPhone' : 'هاتف أندرويد (Android Phone)',
-          os: `${Platform.OS.toUpperCase()} ${Platform.Version || ''}`.trim(),
+          name: realName,
+          os: realOs,
           trustedAt: new Date().toISOString(),
           isCurrent: true,
         };
         list.unshift(currentItem);
+        await AsyncStorage.setItem(`aams_device_list_${nationalId}`, JSON.stringify(list));
+      } else {
+        list[existingIdx].name = realName;
+        list[existingIdx].os = realOs;
         await AsyncStorage.setItem(`aams_device_list_${nationalId}`, JSON.stringify(list));
       }
     }
@@ -236,5 +275,6 @@ export const revokeTrustedDevice = async (nationalId: string, uuid: string): Pro
     console.log('Error revoking device:', e);
   }
 };
+
 
 
