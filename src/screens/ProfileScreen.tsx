@@ -15,6 +15,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { EmployeeProfile, Language, ThemeColors, PreviewPhotoData } from '../types/delegate';
+import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import {
   getTrustedDevicesList,
   revokeTrustedDevice,
@@ -57,6 +58,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   // Trusted Devices State & Management
   const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceItem[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
 
   const loadDevices = async () => {
     if (employee?.national_id) {
@@ -77,28 +79,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   }, [employee?.national_id]);
 
   const confirmRevokeDevice = (device: TrustedDeviceItem) => {
-    Alert.alert(
-      isRTL ? 'إزالة توثيق الجهاز' : 'Remove Trusted Device',
-      isRTL
+    setAlertConfig({
+      type: 'confirm',
+      title: isRTL ? 'إزالة توثيق الجهاز' : 'Remove Trusted Device',
+      message: isRTL
         ? `هل أنت متأكد من رغبتك في حذف توثيق (${device.name})؟\nسيتطلب تسجيل الدخول القادم رمز تحقق OTP جديد من المشرف.`
         : `Are you sure you want to revoke trust for (${device.name})?\nNext login will require a new supervisor OTP.`,
-      [
-        {
-          text: isRTL ? 'إلغاء' : 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: isRTL ? 'إزالة التوثيق' : 'Revoke',
-          style: 'destructive',
-          onPress: async () => {
-            if (employee?.national_id) {
-              await revokeTrustedDevice(employee.national_id, device.uuid);
-              await loadDevices();
-            }
-          },
-        },
-      ]
-    );
+      primaryButtonText: isRTL ? 'إزالة التوثيق' : 'Revoke',
+      secondaryButtonText: isRTL ? 'إلغاء' : 'Cancel',
+      onPrimaryPress: async () => {
+        if (employee?.national_id) {
+          await revokeTrustedDevice(employee.national_id, device.uuid);
+          await loadDevices();
+        }
+      },
+    });
   };
 
   // Biometric Management in Profile
@@ -137,12 +132,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           }
           await setBiometricEnabled(true);
           setBiometricsOn(true);
-          Alert.alert(
-            isRTL ? 'تم التفعيل بنجاح' : 'Enabled Successfully',
-            isRTL
+          setAlertConfig({
+            type: 'info',
+            title: isRTL ? 'تم التفعيل بنجاح' : 'Enabled Successfully',
+            message: isRTL
               ? 'تم تفعيل الدخول بالبصمة بنجاح لهذا الجهاز.'
-              : 'Biometric login has been activated on this device.'
-          );
+              : 'Biometric login has been activated on this device.',
+            primaryButtonText: isRTL ? 'حسناً' : 'OK',
+          });
         }
       } catch (e) {
         console.log('Biometric activation error:', e);
@@ -650,6 +647,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color="#ef4444" />
         </TouchableOpacity>
       </View>
+
+      <ActionAlertBottomSheet
+        config={alertConfig}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onClose={() => setAlertConfig(null)}
+      />
     </View>
   );
 };

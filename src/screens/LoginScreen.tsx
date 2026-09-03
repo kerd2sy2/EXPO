@@ -19,6 +19,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors, Language } from '../types/delegate';
 import { LanguageModal } from '../components/modals/LanguageModal';
 import { OtpVerificationModal } from '../components/modals/OtpVerificationModal';
+import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import { isDeviceTrustedForNationalId, getSavedCredentialsForBiometrics } from '../services/api';
 
 interface LoginScreenProps {
@@ -51,6 +52,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
 
   // Biometric / Fingerprint State
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
@@ -85,12 +87,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         if (saved && saved.user) {
           await onOtpSuccess(saved.user);
         } else {
-          Alert.alert(
-            isRTL ? 'البصمة مفعلة' : 'Biometrics Active',
-            isRTL
+          setAlertConfig({
+            type: 'info',
+            title: isRTL ? 'تفعيل البصمة' : 'Biometrics Setup',
+            message: isRTL
               ? 'يرجى تسجيل الدخول برقم الهوية وكلمة المرور لمرة واحدة لربط بصمتك بالحساب.'
-              : 'Please log in with your ID and password once to link your biometric credentials.'
-          );
+              : 'Please log in with your ID and password once to link your biometric credentials.',
+            primaryButtonText: isRTL ? 'حسناً' : 'OK',
+          });
         }
       }
     } catch (err) {
@@ -321,6 +325,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         isRTL={isRTL}
         t={t}
         initialNationalId={loginInput}
+      />
+
+      <ActionAlertBottomSheet
+        config={alertConfig}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onClose={() => setAlertConfig(null)}
       />
     </SafeAreaView>
   );
