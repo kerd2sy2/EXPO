@@ -214,10 +214,11 @@ export default function DelegateApp() {
     };
   }, [activeSession]);
 
-  // Live GPS Distance Tracking for Active Session
+  // Live GPS Distance Tracking for Active Session (Runs continuously ONLY when shift is active)
   useEffect(() => {
     let gpsInterval: any = null;
     if (activeSession && activeSession.id) {
+      // Shift is ACTIVE -> Run continuous background GPS tracking
       startGpsTracking(activeSession.id);
 
       const updateGpsDist = async () => {
@@ -226,9 +227,11 @@ export default function DelegateApp() {
       };
 
       updateGpsDist();
-      gpsInterval = setInterval(updateGpsDist, 4000);
+      gpsInterval = setInterval(updateGpsDist, 3000);
     } else {
+      // Shift is NOT active -> Completely stop background tracking and release background service
       setGpsDistance(0);
+      stopGpsTracking();
     }
 
     return () => {
