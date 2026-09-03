@@ -390,6 +390,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 onChangeText={setEndKm}
                 keyboardType="numeric"
                 returnKeyType="next"
+                blurOnSubmit={false}
                 onSubmitEditing={() => ordersInputRef.current?.focus()}
                 onFocus={() => onScrollToInput?.(160)}
               />
@@ -460,6 +461,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 onChangeText={setOrdersCount}
                 keyboardType="numeric"
                 returnKeyType="next"
+                blurOnSubmit={false}
                 onSubmitEditing={() => fuelInputRef.current?.focus()}
                 onFocus={() => onScrollToInput?.(320)}
               />
@@ -481,8 +483,9 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 placeholderTextColor="#94a3b8"
                 value={fuelCost}
                 onChangeText={setFuelCost}
-                keyboardType="decimal-pad"
+                keyboardType="numeric"
                 returnKeyType="next"
+                blurOnSubmit={false}
                 onSubmitEditing={() => notesInputRef.current?.focus()}
                 onFocus={() => onScrollToInput?.(420)}
               />
