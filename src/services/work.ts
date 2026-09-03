@@ -186,10 +186,12 @@ export const workApi = {
   },
 
   // Get delegate shift history
-  getMySessions: async (employeeId: string, limit = 20): Promise<WorkSession[]> => {
+  getMySessions: async (employeeId: string, limit = 50): Promise<WorkSession[]> => {
     try {
-      const data = await apiRequest<{ data: WorkSession[] }>(`/reports?employee_id=${employeeId}&limit=${limit}`);
-      return data?.data || [];
+      const data: any = await apiRequest(`/reports?employee_id=${employeeId}&limit=${limit}`);
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data?.data)) return data.data;
+      return [];
     } catch {
       return [];
     }
