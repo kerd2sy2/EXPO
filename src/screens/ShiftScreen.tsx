@@ -273,118 +273,24 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             END SHIFT FORM (Active Shift in Progress)
            ========================================================================= */
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {/* Live GPS Tracker Card (if GPS distance recorded) */}
-          {gpsDistance > 0 ? (
-            <View
-              style={[
-                styles.smartSuggestionBox,
-                {
-                  backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5',
-                  borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.4)' : '#10b981',
-                },
-              ]}
-            >
-              <View style={[styles.suggestionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View
-                  style={[
-                    styles.suggestionSparkleCircle,
-                    { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.22)' : '#d1fae5' },
-                  ]}
-                >
-                  <Ionicons name="navigate" size={16} color={isDarkMode ? '#34d399' : '#059669'} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      styles.suggestionHeaderTitle,
-                      { color: isDarkMode ? '#34d399' : '#065f46', textAlign: isRTL ? 'right' : 'left' },
-                    ]}
-                  >
-                    {isRTL ? 'تتبع الـ GPS المباشر للشفت' : 'Live GPS Shift Distance'}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.suggestionHeaderSub,
-                      { color: isDarkMode ? '#a7f3d0' : '#047857', textAlign: isRTL ? 'right' : 'left' },
-                    ]}
-                  >
-                    {isRTL
-                      ? `المسافة المسجلة: ${gpsDistance} كم  •  العداد الفعلي: ${gpsEndKm} كم`
-                      : `GPS Distance: ${gpsDistance} km  •  Estimated End: ${gpsEndKm} km`}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.applySuggestedBtn, { backgroundColor: '#059669' }]}
-                  onPress={() => setEndKm(String(gpsEndKm))}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="checkmark-done" size={14} color="#ffffff" />
-                  <Text style={styles.applySuggestedBtnText}>
-                    {isRTL ? 'تطبيق الـ GPS' : 'Apply GPS'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            startKmNum > 0 && (
-              <View
-                style={[
-                  styles.smartSuggestionBox,
-                  {
-                    backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.12)' : colors.inputBg,
-                    borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.4)' : colors.primary,
-                  },
-                ]}
-              >
-                <View style={[styles.suggestionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <View style={[styles.suggestionSparkleCircle, { backgroundColor: colors.primaryLight }]}>
-                    <Ionicons name="sparkles" size={16} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.suggestionHeaderTitle,
-                        { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
-                      ]}
-                    >
-                      {isRTL ? 'اقتراح المسافة المقطوعة والعداد' : 'Estimated Distance & End KM'}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.suggestionHeaderSub,
-                        { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' },
-                      ]}
-                    >
-                      {isRTL
-                        ? `مشى الدباب تقريباً: ~${estimatedKm} كم  •  العداد المقترح: ${suggestedEndKm} كم`
-                        : `Est. distance: ~${estimatedKm} km  •  Suggested End: ${suggestedEndKm} km`}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.applySuggestedBtn, { backgroundColor: colors.primary }]}
-                    onPress={() => setEndKm(String(suggestedEndKm))}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="flash" size={13} color="#ffffff" />
-                    <Text style={styles.applySuggestedBtnText}>
-                      {isRTL ? 'تطبيق المقترح' : 'Apply'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )
-          )}
-
-          {/* End KM Input */}
+          {/* End KM Input with Inline Smart Suggestion */}
           <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.endKmInputLabel}
-            </Text>
+            <View style={[styles.labelRow, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+              <Text style={[styles.label, { color: colors.textPrimary, marginBottom: 0 }]}>
+                {t.endKmInputLabel}
+              </Text>
+              {startKmNum > 0 && (
+                <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>
+                  {t.startKmLabel}: {startKmNum} {t.km}
+                </Text>
+              )}
+            </View>
+
             <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
               <TextInput
                 style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={`${suggestedEndKm}`}
+                placeholder={isRTL ? `المقترح: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}` : `Suggested: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}`}
                 placeholderTextColor="#94a3b8"
                 value={endKm}
                 onChangeText={setEndKm}
@@ -396,6 +302,50 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
               />
               <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.km}</Text>
             </View>
+
+            {/* Compact Suggested KM Inline Chip */}
+            {startKmNum > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.inlineSuggestionChip,
+                  {
+                    backgroundColor: gpsDistance > 0
+                      ? (isDarkMode ? 'rgba(16, 185, 129, 0.14)' : '#ecfdf5')
+                      : (isDarkMode ? 'rgba(249, 115, 22, 0.14)' : '#fff7ed'),
+                    borderColor: gpsDistance > 0
+                      ? (isDarkMode ? 'rgba(16, 185, 129, 0.4)' : '#10b981')
+                      : (isDarkMode ? 'rgba(249, 115, 22, 0.35)' : '#f97316'),
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+                onPress={() => setEndKm(String(gpsDistance > 0 ? gpsEndKm : suggestedEndKm))}
+                activeOpacity={0.75}
+              >
+                <Ionicons
+                  name={gpsDistance > 0 ? "navigate" : "sparkles"}
+                  size={14}
+                  color={gpsDistance > 0 ? '#10b981' : colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.inlineSuggestionText,
+                    { color: gpsDistance > 0 ? (isDarkMode ? '#34d399' : '#047857') : colors.textPrimary },
+                  ]}
+                >
+                  {gpsDistance > 0
+                    ? (isRTL ? `الـ GPS المقترح: ${gpsEndKm} كم (${gpsDistance} كم مسافة)` : `GPS suggested: ${gpsEndKm} km (${gpsDistance} km dist)`)
+                    : (isRTL ? `العداد المقترح: ${suggestedEndKm} كم (~${estimatedKm} كم مسافة)` : `Suggested KM: ${suggestedEndKm} km (~${estimatedKm} km)`)}
+                </Text>
+                <View
+                  style={[
+                    styles.inlineApplyBadge,
+                    { backgroundColor: gpsDistance > 0 ? '#10b981' : colors.primary },
+                  ]}
+                >
+                  <Text style={styles.inlineApplyBadgeText}>{isRTL ? 'تطبيق' : 'Apply'}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* End KM Photo Capture Box */}
@@ -571,6 +521,10 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     marginBottom: 16,
+  },
+  labelRow: {
+    alignItems: 'center',
+    marginBottom: 8,
   },
   label: {
     fontSize: 13,
@@ -760,43 +714,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  smartSuggestionBox: {
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    marginBottom: 16,
-    gap: 12,
-  },
-  suggestionHeaderRow: {
+  inlineSuggestionChip: {
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 8,
     justifyContent: 'space-between',
   },
-  suggestionSparkleCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  suggestionHeaderTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  suggestionHeaderSub: {
-    fontSize: 11,
+  inlineSuggestionText: {
+    flex: 1,
+    fontSize: 12,
     fontWeight: '600',
-    marginTop: 2,
   },
-  applySuggestedBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    gap: 4,
+  inlineApplyBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
   },
-  applySuggestedBtnText: {
+  inlineApplyBadgeText: {
     color: '#ffffff',
     fontSize: 11,
     fontWeight: '800',
