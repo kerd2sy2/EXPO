@@ -642,26 +642,54 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Check for Updates Row */}
+        {/* Prominent Check for Updates Row */}
         <TouchableOpacity
-          style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          style={[
+            styles.settingRow,
+            {
+              borderBottomColor: colors.border,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+              backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.08)' : 'rgba(59, 130, 246, 0.04)',
+              paddingVertical: 14,
+            },
+          ]}
           onPress={onCheckForUpdates}
-          activeOpacity={0.75}
+          activeOpacity={0.7}
         >
-          <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="cloud-download-outline" size={20} color={colors.primary} />
+          <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row', gap: 12 }]}>
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: colors.primaryLight,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="cloud-download" size={20} color={colors.primary} />
+            </View>
             <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-              <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                {isRTL ? 'تحديث التطبيق' : 'Check for Updates'}
+              <Text style={[styles.settingRowText, { color: colors.textPrimary, fontWeight: '700' }]}>
+                {isRTL ? 'التحقق من وجود تحديثات' : 'Check for Updates'}
               </Text>
-              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                {isRTL ? 'التحقق من التحديثات وتنزيلها هوائياً' : 'Check & apply latest OTA updates'}
+              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                {isRTL ? 'فحص وتنزيل أحدث إصدار هوائي فوري' : 'Check & download latest version'}
               </Text>
             </View>
           </View>
           <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}>v1.0.0</Text>
+            <View
+              style={{
+                backgroundColor: colors.primary,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 12,
+              }}
+            >
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#ffffff' }}>
+                {isRTL ? 'فحص الآن' : 'Check'}
+              </Text>
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
           </View>
