@@ -202,7 +202,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
       setTimeout(() => {
         onSuccessLogin(loginResp);
         onClose();
-      }, 800);
+      }, 300);
     } catch (err: any) {
       setErrorMessage(err.message || (isRTL ? 'رمز التحقق غير صحيح' : 'Invalid OTP code'));
       setOtpDigits(['', '', '', '']);

@@ -469,6 +469,25 @@ export default function DelegateApp() {
     }
   };
 
+  // Immediate Login via OTP Success
+  const handleOtpSuccess = async (loginResp?: any) => {
+    const emp = loginResp?.employee || loginResp;
+    if (emp && emp.id) {
+      setEmployee(emp);
+      if (emp.motorcycle_number) {
+        setEnteredMotorcycle(emp.motorcycle_number);
+      }
+      await Promise.all([
+        fetchActiveSession(emp.id),
+        fetchHistory(emp.id),
+      ]);
+      setCurrentTab('home');
+    } else {
+      await checkSession();
+      setCurrentTab('home');
+    }
+  };
+
   // Logout Handler
   const handleLogout = async () => {
     setAlertConfig({
@@ -822,6 +841,7 @@ export default function DelegateApp() {
         lang={lang}
         onSetLang={setLang}
         onLogin={handleLogin}
+        onOtpSuccess={handleOtpSuccess}
         loginError={loginError}
         submitting={submitting}
       />

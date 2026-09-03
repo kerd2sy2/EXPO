@@ -27,6 +27,7 @@ interface LoginScreenProps {
   lang: Language;
   onSetLang: (lang: Language) => void;
   onLogin: (natId?: string, pass?: string) => Promise<void>;
+  onOtpSuccess: (loginResp: any) => Promise<void>;
   loginError: string;
   submitting: boolean;
 }
@@ -39,6 +40,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   lang,
   onSetLang,
   onLogin,
+  onOtpSuccess,
   loginError,
   submitting,
 }) => {
@@ -227,9 +229,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       <OtpVerificationModal
         visible={showOtpModal}
         onClose={() => setShowOtpModal(false)}
-        onSuccessLogin={async () => {
+        onSuccessLogin={async (loginResp) => {
           setShowOtpModal(false);
-          await onLogin();
+          await onOtpSuccess(loginResp);
         }}
         colors={colors}
         isDarkMode={isDarkMode}
