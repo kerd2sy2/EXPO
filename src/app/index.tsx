@@ -12,6 +12,8 @@ import {
   Animated,
   BackHandler,
   useColorScheme,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -849,104 +851,111 @@ export default function DelegateApp() {
       </View>
 
       {/* Main Content Body */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.mainScrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {currentTab === 'home' && (
-          <HomeScreen
-            employee={employee}
-            activeSession={activeSession}
-            historySessions={historySessions}
-            totalApprovedOrdersCount={totalApprovedOrdersCount}
-            monthlyTarget={monthlyTarget}
-            isTargetAchieved={isTargetAchieved}
-            expectedSalary={expectedSalary}
-            targetProgressPct={targetProgressPct}
-            remainingOrdersToTarget={remainingOrdersToTarget}
-            elapsedTime={elapsedTime}
-            colors={colors}
-            isDarkMode={isDarkMode}
-            isRTL={isRTL}
-            t={t}
-            onNavigateToTab={setCurrentTab}
-          />
-        )}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={styles.mainScrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {currentTab === 'home' && (
+            <HomeScreen
+              employee={employee}
+              activeSession={activeSession}
+              historySessions={historySessions}
+              totalApprovedOrdersCount={totalApprovedOrdersCount}
+              monthlyTarget={monthlyTarget}
+              isTargetAchieved={isTargetAchieved}
+              expectedSalary={expectedSalary}
+              targetProgressPct={targetProgressPct}
+              remainingOrdersToTarget={remainingOrdersToTarget}
+              elapsedTime={elapsedTime}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              isRTL={isRTL}
+              t={t}
+              onNavigateToTab={setCurrentTab}
+            />
+          )}
 
-        {currentTab === 'shift' && (
-          <ShiftScreen
-            employee={employee}
-            activeSession={activeSession}
-            enteredMotorcycle={enteredMotorcycle}
-            setEnteredMotorcycle={setEnteredMotorcycle}
-            startKm={startKm}
-            setStartKm={setStartKm}
-            autoKmFetched={autoKmFetched}
-            startKmImage={startKmImage}
-            startNotes={startNotes}
-            setStartNotes={setStartNotes}
-            endKm={endKm}
-            setEndKm={setEndKm}
-            endKmImage={endKmImage}
-            ordersCount={ordersCount}
-            setOrdersCount={setOrdersCount}
-            fuelCost={fuelCost}
-            setFuelCost={setFuelCost}
-            endNotes={endNotes}
-            setEndNotes={setEndNotes}
-            calculatedDistance={calculatedDistance}
-            elapsedTime={elapsedTime}
-            gpsDistance={gpsDistance}
-            submitting={submitting}
-            onTakeOdometerPhoto={takeOdometerPhoto}
-            onStartShift={handleStartShift}
-            onEndShift={handleEndShift}
-            onPreviewPhoto={setPreviewPhoto}
-            formatTimeStr={formatTimeStr}
-            colors={colors}
-            isDarkMode={isDarkMode}
-            isRTL={isRTL}
-            t={t}
-          />
-        )}
+          {currentTab === 'shift' && (
+            <ShiftScreen
+              employee={employee}
+              activeSession={activeSession}
+              enteredMotorcycle={enteredMotorcycle}
+              setEnteredMotorcycle={setEnteredMotorcycle}
+              startKm={startKm}
+              setStartKm={setStartKm}
+              autoKmFetched={autoKmFetched}
+              startKmImage={startKmImage}
+              startNotes={startNotes}
+              setStartNotes={setStartNotes}
+              endKm={endKm}
+              setEndKm={setEndKm}
+              endKmImage={endKmImage}
+              ordersCount={ordersCount}
+              setOrdersCount={setOrdersCount}
+              fuelCost={fuelCost}
+              setFuelCost={setFuelCost}
+              endNotes={endNotes}
+              setEndNotes={setEndNotes}
+              calculatedDistance={calculatedDistance}
+              elapsedTime={elapsedTime}
+              gpsDistance={gpsDistance}
+              submitting={submitting}
+              onTakeOdometerPhoto={takeOdometerPhoto}
+              onStartShift={handleStartShift}
+              onEndShift={handleEndShift}
+              onPreviewPhoto={setPreviewPhoto}
+              formatTimeStr={formatTimeStr}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              isRTL={isRTL}
+              t={t}
+            />
+          )}
 
-        {currentTab === 'history' && (
-          <HistoryScreen
-            historySessions={historySessions}
-            onPreviewPhoto={setPreviewPhoto}
-            formatDateStr={formatDateStr}
-            formatTimeStr={formatTimeStr}
-            colors={colors}
-            isDarkMode={isDarkMode}
-            isRTL={isRTL}
-            t={t}
-          />
-        )}
+          {currentTab === 'history' && (
+            <HistoryScreen
+              historySessions={historySessions}
+              onPreviewPhoto={setPreviewPhoto}
+              formatDateStr={formatDateStr}
+              formatTimeStr={formatTimeStr}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              isRTL={isRTL}
+              t={t}
+            />
+          )}
 
-        {currentTab === 'profile' && (
-          <ProfileScreen
-            employee={employee}
-            empPhotoUrl={empPhotoUrl}
-            lang={lang}
-            onOpenQrModal={() => setShowQrModal(true)}
-            onOpenLangModal={() => setShowLangModal(true)}
-            onLogout={handleLogout}
-            onPreviewPhoto={setPreviewPhoto}
-            colors={colors}
-            isDarkMode={isDarkMode}
-            isRTL={isRTL}
-            t={t}
-          />
-        )}
-      </ScrollView>
+          {currentTab === 'profile' && (
+            <ProfileScreen
+              employee={employee}
+              empPhotoUrl={empPhotoUrl}
+              lang={lang}
+              onOpenQrModal={() => setShowQrModal(true)}
+              onOpenLangModal={() => setShowLangModal(true)}
+              onLogout={handleLogout}
+              onPreviewPhoto={setPreviewPhoto}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              isRTL={isRTL}
+              t={t}
+            />
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Fullscreen QR Modal */}
       <QrCodeModal
@@ -1095,6 +1104,6 @@ const styles = StyleSheet.create({
   },
   mainScrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: 220,
   },
 });
