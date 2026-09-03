@@ -13,6 +13,8 @@ import {
   BackHandler,
   useColorScheme,
   KeyboardAvoidingView,
+  Keyboard,
+  KeyboardEvent,
   Platform,
   StyleSheet,
 } from 'react-native';
@@ -101,6 +103,7 @@ export default function DelegateApp() {
   // Active Timer & Live GPS Distance
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
   const [gpsDistance, setGpsDistance] = useState<number>(0);
+  const [keyboardOffset, setKeyboardOffset] = useState<number>(0);
 
   // Theme Colors
   const colors: ThemeColors = isDarkMode
@@ -229,6 +232,26 @@ export default function DelegateApp() {
       if (gpsInterval) clearInterval(gpsInterval);
     };
   }, [activeSession]);
+
+  // Dynamic Keyboard Height Listener for Seamless Scroll Padding
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e: KeyboardEvent) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardOffset(e.endCoordinates.height);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardOffset(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Auto-fetch Last End KM when bike changes
   useEffect(() => {
@@ -859,7 +882,10 @@ export default function DelegateApp() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          contentContainerStyle={styles.mainScrollContent}
+          contentContainerStyle={[
+            styles.mainScrollContent,
+            { paddingBottom: 24 + (keyboardOffset > 0 ? keyboardOffset + 24 : 0) },
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -1104,6 +1130,6 @@ const styles = StyleSheet.create({
   },
   mainScrollContent: {
     flexGrow: 1,
-    paddingBottom: 220,
+    paddingBottom: 24,
   },
 });
