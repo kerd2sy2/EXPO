@@ -105,7 +105,6 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
 
   const gpsEndKm = startKmNum + Math.round(gpsDistance);
   const suggestedEndKm = startKmNum + estimatedKm;
-  const quickDistancePresets = [20, 35, 50, 75, 100, 130];
 
   return (
     <View style={styles.tabContainer}>
@@ -355,42 +354,6 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                     {isRTL ? 'تطبيق المقترح' : 'Apply'}
                   </Text>
                 </TouchableOpacity>
-              </View>
-
-              {/* Quick Preset Addition Chips */}
-              <View style={styles.quickAddSection}>
-                <Text style={[styles.quickAddTitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {isRTL ? 'أو اختر مسافة سريعة للإضافة على عداد البداية:' : 'Or choose quick distance addition:'}
-                </Text>
-                <View style={[styles.quickChipsFlexWrap, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  {quickDistancePresets.map((presetKm) => {
-                    const targetVal = startKmNum + presetKm;
-                    const isSelected = Number(endKm) === targetVal;
-                    return (
-                      <TouchableOpacity
-                        key={presetKm}
-                        style={[
-                          styles.presetChipBtn,
-                          {
-                            backgroundColor: isSelected ? colors.primary : colors.card,
-                            borderColor: isSelected ? colors.primary : colors.border,
-                          },
-                        ]}
-                        onPress={() => setEndKm(String(targetVal))}
-                        activeOpacity={0.7}
-                      >
-                        <Text
-                          style={[
-                            styles.presetChipBtnText,
-                            { color: isSelected ? '#ffffff' : colors.textPrimary },
-                          ]}
-                        >
-                          +{presetKm} {t.km}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
               </View>
             </View>
           )}
@@ -811,29 +774,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 11,
     fontWeight: '800',
-  },
-  quickAddSection: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(150, 150, 150, 0.25)',
-    paddingTop: 10,
-    gap: 8,
-  },
-  quickAddTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  quickChipsFlexWrap: {
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  presetChipBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 11,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  presetChipBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
   },
 });
