@@ -115,21 +115,26 @@ export async function startGpsTracking(sessionId: string): Promise<boolean> {
     // 3. Save active session ID
     await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION_ID, sessionId);
 
-    // 4. Initialize starting position
-    const currentLoc = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.High,
-    });
-    if (currentLoc?.coords) {
-      await AsyncStorage.setItem(
-        `${STORAGE_KEYS.LAST_COORD_PREFIX}${sessionId}`,
-        JSON.stringify({
-          lat: currentLoc.coords.latitude,
-          lon: currentLoc.coords.longitude,
-        })
-      );
+    // 4. Initialize starting position with timeout safety
+    try {
+      const locationPromise = Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced, // Use Balanced instead of High to avoid timeout crashes
+      });
+      // 5-second timeout to prevent hanging
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+      const currentLoc = await Promise.race([locationPromise, timeoutPromise]);
+      if (currentLoc && 'coords' in currentLoc && currentLoc.coords) {
+        await AsyncStorage.setItem(
+          `${STORAGE_KEYS.LAST_COORD_PREFIX}${sessionId}`,
+          JSON.stringify({
+            lat: currentLoc.coords.latitude,
+            lon: currentLoc.coords.longitude,
+          })
+        );
+      }
+    } catch (locErr) {
+      console.log('[GPS]: Could not get initial position, will use first background update:', locErr);
     }
-
-    // 5. Start Background Updates if supported
     const isTaskDefined = TaskManager.isTaskDefined(GPS_LOCATION_TASK_NAME);
     if (isTaskDefined) {
       const hasStarted = await Location.hasStartedLocationUpdatesAsync(GPS_LOCATION_TASK_NAME);
