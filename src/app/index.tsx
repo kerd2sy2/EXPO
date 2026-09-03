@@ -778,7 +778,8 @@ export default function DelegateApp() {
                 <Text
                   style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
                   numberOfLines={1}
-                  ellipsizeMode="tail"
+                  adjustsFontSizeToFit={true}
+                  minimumFontScale={0.75}
                 >
                   {employee.name}
                 </Text>
@@ -1023,7 +1024,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   headerUserName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
