@@ -134,14 +134,14 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
                 {/* 2. Orders Metric */}
                 <View style={[styles.statBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                  <View style={[styles.statIconBadge, { backgroundColor: colors.primaryLight }]}>
-                    <MaterialCommunityIcons name="package-variant-closed" size={14} color={colors.primary} />
+                  <View style={[styles.statIconBadge, { backgroundColor: isApproved ? colors.primaryLight : (isDarkMode ? '#2d2305' : '#fef3c7') }]}>
+                    <MaterialCommunityIcons name="package-variant-closed" size={14} color={isApproved ? colors.primary : '#d97706'} />
                   </View>
-                  <Text style={[styles.statValue, { color: colors.primary }]}>
+                  <Text style={[styles.statValue, { color: isApproved ? colors.primary : '#d97706' }]}>
                     {session.orders_count || 0} <Text style={[styles.statUnit, { color: colors.textSecondary }]}>{t.ordersUnit}</Text>
                   </Text>
-                  <Text style={[styles.statTitle, { color: colors.textSecondary }]}>
-                    {t.approvedOrders}
+                  <Text style={[styles.statTitle, { color: isApproved ? colors.textSecondary : '#d97706' }]}>
+                    {isApproved ? t.approvedOrders : (isRTL ? 'بانتظار الموافقة' : 'Pending Approval')}
                   </Text>
                 </View>
 

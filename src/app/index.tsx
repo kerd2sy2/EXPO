@@ -831,25 +831,29 @@ export default function DelegateApp() {
     }
   });
 
-  // Total orders delivered this month (both approved and newly completed)
-  const totalApprovedOrdersCount = currentMonthCompletedSessions.reduce(
-    (acc, s) => acc + (Number(s.orders_count) || 0),
-    0
-  );
-  const totalApprovedDistance = currentMonthCompletedSessions.reduce(
-    (acc, s) =>
-      acc +
-      (Number(s.distance) ||
-        (s.end_km && s.start_km && Number(s.end_km) >= Number(s.start_km)
-          ? Number(s.end_km) - Number(s.start_km)
-          : 0)),
-    0
-  );
-  const totalApprovedFuel = currentMonthCompletedSessions.reduce(
-    (acc, s) => acc + (Number(s.fuel_cost) || 0),
-    0
-  );
-  const totalApprovedShifts = currentMonthCompletedSessions.length;
+  // Total orders delivered this month:
+  // Only supervisor-approved sessions count toward official monthly target & salary calculation
+  const totalApprovedOrdersCount = currentMonthCompletedSessions
+    .filter((s) => Boolean(s.is_reviewed))
+    .reduce((acc, s) => acc + (Number(s.orders_count) || 0), 0);
+
+  const totalApprovedDistance = currentMonthCompletedSessions
+    .filter((s) => Boolean(s.is_reviewed))
+    .reduce(
+      (acc, s) =>
+        acc +
+        (Number(s.distance) ||
+          (s.end_km && s.start_km && Number(s.end_km) >= Number(s.start_km)
+            ? Number(s.end_km) - Number(s.start_km)
+            : 0)),
+      0
+    );
+
+  const totalApprovedFuel = currentMonthCompletedSessions
+    .filter((s) => Boolean(s.is_reviewed))
+    .reduce((acc, s) => acc + (Number(s.fuel_cost) || 0), 0);
+
+  const totalApprovedShifts = currentMonthCompletedSessions.filter((s) => Boolean(s.is_reviewed)).length;
 
   // Monthly Target Rule:
   // Target = 460 orders
