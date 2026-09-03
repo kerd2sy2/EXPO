@@ -18,6 +18,7 @@ export type AlertModalType =
   | 'warning'
   | 'error'
   | 'confirm'
+  | 'success'
   | 'info';
 
 export interface AlertModalConfig {
@@ -154,6 +155,12 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
       iconBg = isDarkMode ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2';
       primaryBtnColor = '#ef4444';
       defaultPrimaryText = isRTL ? 'إغلاق' : 'Close';
+      break;
+    case 'success':
+      iconComponent = <Ionicons name="checkmark-circle" size={32} color="#10b981" />;
+      iconBg = isDarkMode ? 'rgba(16, 185, 129, 0.18)' : '#ecfdf5';
+      primaryBtnColor = '#10b981';
+      defaultPrimaryText = isRTL ? 'حسناً' : 'OK';
       break;
     case 'confirm':
       iconComponent = <Ionicons name="help-circle" size={32} color="#f97316" />;

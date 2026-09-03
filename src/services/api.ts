@@ -274,6 +274,19 @@ export const verifyOtpApi = async (nationalId: string, otpCode: string): Promise
   return res;
 };
 
+export const changeMyPasswordApi = async (
+  oldPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> => {
+  return apiRequest('/employees/me/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      old_password: oldPassword.trim(),
+      new_password: newPassword.trim(),
+    }),
+  });
+};
+
 export interface TrustedDeviceItem {
   uuid: string;
   name: string;

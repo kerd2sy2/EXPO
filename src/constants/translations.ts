@@ -155,6 +155,19 @@ export const translations = {
     // Odometer suggestions & shifts
     suggestedKm: 'المقترح',
     autoOdometerNotice: 'تم إدراج قراءة العداد السابقة تلقائياً',
+
+    // Change Password
+    changePassword: 'تغيير كلمة المرور',
+    changePasswordSub: 'تحديث كلمة المرور الخاصة بحسابك',
+    currentPassword: 'كلمة المرور الحالية',
+    currentPasswordPlaceholder: 'أدخل كلمة المرور الحالية',
+    newPassword: 'كلمة المرور الجديدة',
+    newPasswordPlaceholder: 'أدخل كلمة المرور الجديدة',
+    confirmNewPassword: 'تأكيد كلمة المرور الجديدة',
+    confirmNewPasswordPlaceholder: 'أعد كتابة كلمة المرور الجديدة',
+    savePasswordBtn: 'حفظ وتحديث كلمة المرور',
+    passwordChangedSuccess: 'تم تغيير كلمة المرور بنجاح!',
+    passwordMismatchError: 'كلمات المرور الجديدة غير متطابقة',
   },
   en: {
     appName: 'AAMS Logistics',
@@ -312,6 +325,19 @@ export const translations = {
     // Odometer suggestions & shifts
     suggestedKm: 'Suggested',
     autoOdometerNotice: 'Previous odometer reading auto-filled',
+
+    // Change Password
+    changePassword: 'Change Password',
+    changePasswordSub: 'Update your account login password',
+    currentPassword: 'Current Password',
+    currentPasswordPlaceholder: 'Enter current password',
+    newPassword: 'New Password',
+    newPasswordPlaceholder: 'Enter new password',
+    confirmNewPassword: 'Confirm New Password',
+    confirmNewPasswordPlaceholder: 'Re-enter new password',
+    savePasswordBtn: 'Save New Password',
+    passwordChangedSuccess: 'Password changed successfully!',
+    passwordMismatchError: 'New passwords do not match',
   },
   bn: {
     appName: 'AAMS লজিস্টিকস',
@@ -469,5 +495,18 @@ export const translations = {
     // Odometer suggestions & shifts
     suggestedKm: 'প্রস্তাবিত',
     autoOdometerNotice: 'পূর্ববর্তী মিটারের রিডিং স্বয়ংক্রিয়ভাবে যোগ করা হয়েছে',
+
+    // Change Password
+    changePassword: 'পাসওয়ার্ড পরিবর্তন',
+    changePasswordSub: 'আপনার অ্যাকাউন্টের পাসওয়ার্ড পরিবর্তন করুন',
+    currentPassword: 'বর্তমান পাসওয়ার্ড',
+    currentPasswordPlaceholder: 'বর্তমান পাসওয়ার্ড লিখুন',
+    newPassword: 'নতুন পাসওয়ার্ড',
+    newPasswordPlaceholder: 'নতুন পাসওয়ার্ড লিখুন',
+    confirmNewPassword: 'নতুন পাসওয়ার্ড নিশ্চিত করুন',
+    confirmNewPasswordPlaceholder: 'নতুন পাসওয়ার্ড পুনরায় লিখুন',
+    savePasswordBtn: 'পাসওয়ার্ড পরিবর্তন সংরক্ষণ করুন',
+    passwordChangedSuccess: 'পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে!',
+    passwordMismatchError: 'নতুন পাসওয়ার্ড মিলছে না',
   },
 };

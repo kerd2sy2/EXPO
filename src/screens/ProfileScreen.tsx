@@ -16,6 +16,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { EmployeeProfile, Language, ThemeColors, PreviewPhotoData } from '../types/delegate';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
+import { ChangePasswordModal } from '../components/modals/ChangePasswordModal';
 import {
   getTrustedDevicesList,
   revokeTrustedDevice,
@@ -59,6 +60,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceItem[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const loadDevices = async () => {
     if (employee?.national_id) {
@@ -624,6 +626,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         )}
 
+        {/* Change Password Row */}
+        <TouchableOpacity
+          style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          onPress={() => setShowPasswordModal(true)}
+        >
+          <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Ionicons name="key-outline" size={20} color={colors.primary} />
+            <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+              {t.changePassword}
+            </Text>
+          </View>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
           onPress={onLogout}
@@ -635,6 +651,27 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color="#ef4444" />
         </TouchableOpacity>
       </View>
+
+      <ChangePasswordModal
+        visible={showPasswordModal}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        t={t}
+        onClose={() => setShowPasswordModal(false)}
+        onSuccess={() => {
+          setShowPasswordModal(false);
+          setAlertConfig({
+            type: 'success',
+            title: t.passwordChangedSuccess,
+            message: isRTL
+              ? 'تم تحديث كلمة المرور الخاصة بك بنجاح، يمكنك استخدامها في المرات القادمة.'
+              : 'Your account password has been updated successfully.',
+            primaryButtonText: t.okBtn || 'حسناً',
+            onPrimaryPress: () => setAlertConfig(null),
+          });
+        }}
+      />
 
       <ActionAlertBottomSheet
         config={alertConfig}
