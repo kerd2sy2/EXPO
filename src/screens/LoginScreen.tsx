@@ -207,20 +207,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </View>
                 )}
               </TouchableOpacity>
-
-              {/* Forgot Password / Supervisor OTP Link */}
-              <TouchableOpacity
-                style={styles.otpLinkBtn}
-                onPress={() => setShowOtpModal(true)}
-                activeOpacity={0.75}
-              >
-                <MaterialCommunityIcons name="shield-key-outline" size={18} color="#f97316" />
-                <Text style={[styles.otpLinkText, { color: isDarkMode ? '#fb923c' : '#ea580c' }]}>
-                  {isRTL
-                    ? 'نسيت كلمة المرور؟ أو توثيق الجهاز برمز المشرف (OTP)'
-                    : 'Forgot Password? Or verify device with Supervisor OTP'}
-                </Text>
-              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>

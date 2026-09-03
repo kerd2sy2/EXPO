@@ -260,8 +260,8 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
           <Text style={[styles.title, { color: colors.textPrimary }]}>
             {step === 'REQUEST'
               ? isRTL
-                ? 'توثيق الجهاز عبر المشرف (OTP)'
-                : 'Supervisor Device Verification'
+                ? 'توثيق الجهاز لأول مرة (OTP)'
+                : 'First-time Device Verification'
               : isRTL
               ? 'أدخل رمز التحقق (4 أرقام)'
               : 'Enter 4-Digit OTP'}
@@ -270,10 +270,10 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {step === 'REQUEST'
               ? isRTL
-                ? 'في حال نسيت كلمة المرور أو لتسجيل الدخول من جهاز جديد، سيصل رمز سري إلى لوحة تحكم مشرفك مباشرة.'
-                : 'Enter your National ID to generate a 4-digit code in your supervisor dashboard.'
+                ? 'لتسجيل الدخول من هذا الهاتف لأول مرة، سيتم إرسال رمز سري (4 أرقام) إلى لوحة تحكم المشرف لتوثيق جهازك.'
+                : 'To log in from this phone for the first time, a 4-digit code is sent to your supervisor dashboard.'
               : isRTL
-              ? `المندوب: ${employeeName || nationalId}\nاطلب الرمز المكون من 4 أرقام من المشرف وأدخله هنا لتوثيق جهازك.`
+              ? `المندوب: ${employeeName || nationalId}\nيرجى طلب الرمز (4 أرقام) من المشرف وإدخاله لتوثيق هذا الهاتف.`
               : `Ask your supervisor for the 4-digit code shown on their dashboard.`}
           </Text>
 
