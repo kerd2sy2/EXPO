@@ -34,6 +34,7 @@ interface ShiftScreenProps {
   calculatedDistance: number;
   elapsedTime: string;
   gpsDistance?: number;
+  onScrollToInput?: (yOffset: number) => void;
   submitting: boolean;
   onTakeOdometerPhoto: (type: 'start' | 'end') => Promise<void>;
   onStartShift: () => Promise<void>;
@@ -69,6 +70,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   calculatedDistance,
   elapsedTime,
   gpsDistance = 0,
+  onScrollToInput,
   submitting,
   onTakeOdometerPhoto,
   onStartShift,
@@ -81,6 +83,9 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   t,
 }) => {
   const startKmNum = Number(activeSession?.start_km) || 0;
+  const ordersInputRef = React.useRef<TextInput>(null);
+  const fuelInputRef = React.useRef<TextInput>(null);
+  const notesInputRef = React.useRef<TextInput>(null);
 
   // Calculate elapsed hours from start_time
   const elapsedHours = React.useMemo(() => {
@@ -384,6 +389,9 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 value={endKm}
                 onChangeText={setEndKm}
                 keyboardType="numeric"
+                returnKeyType="next"
+                onSubmitEditing={() => ordersInputRef.current?.focus()}
+                onFocus={() => onScrollToInput?.(160)}
               />
               <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.km}</Text>
             </View>
@@ -444,12 +452,16 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <MaterialCommunityIcons name="package-variant-closed" size={20} color={colors.primary} />
               <TextInput
+                ref={ordersInputRef}
                 style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
                 placeholder={t.ordersCountPlaceholder}
                 placeholderTextColor="#94a3b8"
                 value={ordersCount}
                 onChangeText={setOrdersCount}
                 keyboardType="numeric"
+                returnKeyType="next"
+                onSubmitEditing={() => fuelInputRef.current?.focus()}
+                onFocus={() => onScrollToInput?.(320)}
               />
               <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.ordersUnit}</Text>
             </View>
@@ -463,12 +475,16 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <MaterialCommunityIcons name="gas-station" size={20} color="#eab308" />
               <TextInput
+                ref={fuelInputRef}
                 style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
                 placeholder={t.fuelCostPlaceholder}
                 placeholderTextColor="#94a3b8"
                 value={fuelCost}
                 onChangeText={setFuelCost}
                 keyboardType="decimal-pad"
+                returnKeyType="next"
+                onSubmitEditing={() => notesInputRef.current?.focus()}
+                onFocus={() => onScrollToInput?.(420)}
               />
               <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.sar}</Text>
             </View>
@@ -481,12 +497,15 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             </Text>
             <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, height: 68, alignItems: 'flex-start', paddingTop: 8 }]}>
               <TextInput
+                ref={notesInputRef}
                 style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
                 placeholder={t.endNotesPlaceholder}
                 placeholderTextColor="#94a3b8"
                 value={endNotes}
                 onChangeText={setEndNotes}
                 multiline
+                returnKeyType="done"
+                onFocus={() => onScrollToInput?.(520)}
               />
             </View>
           </View>

@@ -99,6 +99,7 @@ export default function DelegateApp() {
   // Success Sheet Animations
   const sheetTranslateY = useRef(new Animated.Value(600)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const mainScrollRef = useRef<ScrollView>(null);
 
   // Active Timer & Live GPS Distance
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
@@ -879,6 +880,7 @@ export default function DelegateApp() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={mainScrollRef}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -939,6 +941,7 @@ export default function DelegateApp() {
               calculatedDistance={calculatedDistance}
               elapsedTime={elapsedTime}
               gpsDistance={gpsDistance}
+              onScrollToInput={(y) => mainScrollRef.current?.scrollTo({ y, animated: true })}
               submitting={submitting}
               onTakeOdometerPhoto={takeOdometerPhoto}
               onStartShift={handleStartShift}
