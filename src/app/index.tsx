@@ -56,6 +56,7 @@ import { SuccessShiftModal } from '../components/modals/SuccessShiftModal';
 import { LanguageModal } from '../components/modals/LanguageModal';
 import { QrCodeModal } from '../components/modals/QrCodeModal';
 import { ImagePreviewModal } from '../components/modals/ImagePreviewModal';
+import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 
 export default function DelegateApp() {
   const systemColorScheme = useColorScheme();
@@ -95,6 +96,7 @@ export default function DelegateApp() {
   const [showLangModal, setShowLangModal] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState<PreviewPhotoData | null>(null);
   const [successModalData, setSuccessModalData] = useState<SuccessModalData | null>(null);
+  const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
 
   // Success Sheet Animations
   const sheetTranslateY = useRef(new Animated.Value(600)).current;
@@ -466,28 +468,24 @@ export default function DelegateApp() {
 
   // Logout Handler
   const handleLogout = async () => {
-    Alert.alert(
-      t.logout,
-      lang === 'ar' ? 'هل أنت متأكد من رغبتك في تسجيل الخروج؟' : 'Are you sure you want to log out?',
-      [
-        { text: t.close, style: 'cancel' },
-        {
-          text: t.logout,
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await setAuthToken(null);
-            } catch (e) {
-              console.log('Logout error', e);
-            }
-            setEmployee(null);
-            setActiveSession(null);
-            setHistorySessions([]);
-            setCurrentTab('home');
-          },
-        },
-      ]
-    );
+    setAlertConfig({
+      type: 'confirm',
+      title: t.logout,
+      message: lang === 'ar' ? 'هل أنت متأكد من رغبتك في تسجيل الخروج من التطبيق؟' : 'Are you sure you want to log out from the app?',
+      primaryButtonText: t.logout,
+      secondaryButtonText: isRTL ? 'إلغاء' : 'Cancel',
+      onPrimaryPress: async () => {
+        try {
+          await setAuthToken(null);
+        } catch (e) {
+          console.log('Logout error', e);
+        }
+        setEmployee(null);
+        setActiveSession(null);
+        setHistorySessions([]);
+        setCurrentTab('home');
+      },
+    });
   };
 
   // Camera Capture for Odometer
@@ -495,10 +493,16 @@ export default function DelegateApp() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          lang === 'ar' ? 'إذن الكاميرا مطلوب' : 'Camera Permission Required',
-          lang === 'ar' ? 'يرجى السماح للتطبيق باستخدام الكاميرا لتصوير العداد' : 'Please allow camera access to take odometer photos'
-        );
+        setAlertConfig({
+          type: 'camera_permission',
+          title: lang === 'ar' ? 'إذن استخدام الكاميرا مطلوب' : 'Camera Access Required',
+          message:
+            lang === 'ar'
+              ? 'يرجى السماح للتطبيق باستخدام الكاميرا لالتقاط صورة واضحة لعداد الدراجة.'
+              : 'Please allow camera access to take odometer photos for your shift records.',
+          primaryButtonText: lang === 'ar' ? 'فتح إعدادات الهاتف' : 'Open Settings',
+          secondaryButtonText: isRTL ? 'لاحقاً' : 'Later',
+        });
         return;
       }
 
@@ -522,10 +526,11 @@ export default function DelegateApp() {
       }
     } catch (err) {
       console.error('Camera capture error:', err);
-      Alert.alert(
-        lang === 'ar' ? 'خطأ في الكاميرا' : 'Camera Error',
-        lang === 'ar' ? 'تعذر فتح الكاميرا، يرجى المحاولة مرة أخرى' : 'Could not launch camera'
-      );
+      setAlertConfig({
+        type: 'error',
+        title: lang === 'ar' ? 'خطأ في الكاميرا' : 'Camera Error',
+        message: lang === 'ar' ? 'تعذر فتح الكاميرا، يرجى المحاولة مرة أخرى' : 'Could not launch camera, please try again.',
+      });
     }
   };
 
@@ -534,18 +539,30 @@ export default function DelegateApp() {
     if (!employee) return;
 
     if (!enteredMotorcycle.trim()) {
-      Alert.alert(t.actualBikeNumber, t.actualBikePlaceholder);
+      setAlertConfig({
+        type: 'warning',
+        title: t.actualBikeNumber,
+        message: t.actualBikePlaceholder,
+      });
       return;
     }
 
     const startVal = Number(startKm);
     if (!startKm || isNaN(startVal) || startVal <= 0) {
-      Alert.alert(t.startKmInputLabel, t.startKmPlaceholder);
+      setAlertConfig({
+        type: 'warning',
+        title: t.startKmInputLabel,
+        message: t.startKmPlaceholder,
+      });
       return;
     }
 
     if (!startKmImage) {
-      Alert.alert(t.startKmPhotoLabel, t.odometerGuideSub);
+      setAlertConfig({
+        type: 'warning',
+        title: t.startKmPhotoLabel,
+        message: t.odometerGuideSub,
+      });
       return;
     }
 
@@ -586,10 +603,11 @@ export default function DelegateApp() {
       });
     } catch (err: any) {
       console.error('Start shift error:', err);
-      Alert.alert(
-        lang === 'ar' ? 'خطأ' : 'Error',
-        err?.message || (lang === 'ar' ? 'تعذر بدء الشفت، يرجى المحاولة ثانية' : 'Failed to start shift')
-      );
+      setAlertConfig({
+        type: 'error',
+        title: lang === 'ar' ? 'خطأ' : 'Error',
+        message: err?.message || (lang === 'ar' ? 'تعذر بدء الشفت، يرجى المحاولة ثانية' : 'Failed to start shift'),
+      });
     } finally {
       setSubmitting(false);
     }
@@ -603,22 +621,32 @@ export default function DelegateApp() {
     const startVal = Number(activeSession.start_km || 0);
 
     if (!endKm || isNaN(endVal) || endVal <= 0) {
-      Alert.alert(t.endKmInputLabel, `${t.startKmLabel}: ${startVal}`);
+      setAlertConfig({
+        type: 'warning',
+        title: t.endKmInputLabel,
+        message: `${t.startKmLabel}: ${startVal} ${t.km}`,
+      });
       return;
     }
 
     if (endVal < startVal) {
-      Alert.alert(
-        lang === 'ar' ? 'تنبيه في قراءة العداد' : 'Odometer Error',
-        lang === 'ar'
-          ? `عداد النهاية (${endVal}) لا يمكن أن يكون أقل من عداد البداية (${startVal})`
-          : `End KM (${endVal}) cannot be less than Start KM (${startVal})`
-      );
+      setAlertConfig({
+        type: 'warning',
+        title: lang === 'ar' ? 'تنبيه في قراءة العداد' : 'Odometer Error',
+        message:
+          lang === 'ar'
+            ? `عداد النهاية (${endVal}) لا يمكن أن يكون أقل من عداد البداية (${startVal})`
+            : `End KM (${endVal}) cannot be less than Start KM (${startVal})`,
+      });
       return;
     }
 
     if (!endKmImage) {
-      Alert.alert(t.endKmPhotoLabel, t.odometerGuideSub);
+      setAlertConfig({
+        type: 'warning',
+        title: t.endKmPhotoLabel,
+        message: t.odometerGuideSub,
+      });
       return;
     }
 
@@ -677,10 +705,11 @@ export default function DelegateApp() {
       });
     } catch (err: any) {
       console.error('End shift error:', err);
-      Alert.alert(
-        lang === 'ar' ? 'خطأ' : 'Error',
-        err?.message || (lang === 'ar' ? 'تعذر إنهاء الشفت، يرجى المحاولة ثانية' : 'Failed to end shift')
-      );
+      setAlertConfig({
+        type: 'error',
+        title: lang === 'ar' ? 'خطأ' : 'Error',
+        message: err?.message || (lang === 'ar' ? 'تعذر إنهاء الشفت، يرجى المحاولة ثانية' : 'Failed to end shift'),
+      });
     } finally {
       setSubmitting(false);
     }
@@ -1034,6 +1063,15 @@ export default function DelegateApp() {
           onPreviewPhoto={setPreviewPhoto}
         />
       )}
+
+      {/* Unified Action Alert & Permissions Bottom Sheet */}
+      <ActionAlertBottomSheet
+        config={alertConfig}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onClose={() => setAlertConfig(null)}
+      />
     </SafeAreaView>
   );
 }
