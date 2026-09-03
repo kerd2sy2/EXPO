@@ -290,7 +290,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
               <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
               <TextInput
                 style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={isRTL ? 'أدخل العداد' : 'Enter End KM'}
+                placeholder={isRTL ? `المقترح: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}` : `Suggested: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}`}
                 placeholderTextColor="#94a3b8"
                 value={endKm}
                 onChangeText={setEndKm}
@@ -298,7 +298,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 returnKeyType="next"
                 blurOnSubmit={false}
                 onSubmitEditing={() => ordersInputRef.current?.focus()}
-                onFocus={() => onScrollToInput?.(160)}
+                onFocus={() => onScrollToInput?.(40)}
               />
               {startKmNum > 0 && (
                 <TouchableOpacity
@@ -326,7 +326,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                       { color: gpsDistance > 0 ? (isDarkMode ? '#34d399' : '#047857') : colors.primary },
                     ]}
                   >
-                    {isRTL ? `المقترح: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}` : `Suggest: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}`}
+                    {isRTL ? 'المقترح' : 'Suggest'}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -399,7 +399,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 returnKeyType="next"
                 blurOnSubmit={false}
                 onSubmitEditing={() => fuelInputRef.current?.focus()}
-                onFocus={() => onScrollToInput?.(320)}
+                onFocus={() => onScrollToInput?.(100)}
               />
               <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.ordersUnit}</Text>
             </View>
@@ -423,7 +423,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 returnKeyType="next"
                 blurOnSubmit={false}
                 onSubmitEditing={() => notesInputRef.current?.focus()}
-                onFocus={() => onScrollToInput?.(420)}
+                onFocus={() => onScrollToInput?.(160)}
               />
               <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.sar}</Text>
             </View>
@@ -444,14 +444,14 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 onChangeText={setEndNotes}
                 multiline
                 returnKeyType="done"
-                onFocus={() => onScrollToInput?.(520)}
+                onFocus={() => onScrollToInput?.(220)}
               />
             </View>
           </View>
 
           {/* End Shift Button */}
           <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: '#ef4444', marginTop: 8 }]}
+            style={[styles.primaryButton, { backgroundColor: '#ef4444', marginTop: 12, marginBottom: 8 }]}
             onPress={onEndShift}
             disabled={submitting}
           >
