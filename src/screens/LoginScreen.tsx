@@ -54,22 +54,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       >
         <ScrollView contentContainerStyle={styles.loginScrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.loginWrapper}>
-            {/* Centered Brand Lockup: Logo First (Tap to switch language) -> Then Brand Name */}
-            <View style={styles.brandCenterLockup}>
-              <TouchableOpacity
-                style={styles.brandLogoTouch}
-                onPress={() => setShowLangModal(true)}
-                activeOpacity={0.75}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Image
-                  source={require('../../assets/images/logo.png')}
-                  style={styles.brandLogoMark}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-
-              <View style={styles.brandTextCol}>
+            {/* Horizontal Brand Lockup: Logo Next to Brand Name (Tap to switch language) */}
+            <TouchableOpacity
+              style={[styles.brandHorizontalLockup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              onPress={() => setShowLangModal(true)}
+              activeOpacity={0.75}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Image
+                source={require('../../assets/images/logo.png')}
+                style={styles.brandLogoMark}
+                resizeMode="contain"
+              />
+              <View style={[styles.brandTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
                   AAMS
                 </Text>
@@ -77,7 +74,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   LOGISTICS
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
             {/* Login Card */}
             <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -227,34 +224,29 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
   },
-  brandCenterLockup: {
+  brandHorizontalLockup: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    marginBottom: 28,
-  },
-  brandLogoTouch: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 14,
+    marginBottom: 26,
   },
   brandLogoMark: {
-    width: 76,
-    height: 76,
+    width: 62,
+    height: 62,
   },
   brandTextCol: {
-    alignItems: 'center',
     justifyContent: 'center',
   },
   brandMainTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '900',
     letterSpacing: 2,
   },
   brandSubTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     letterSpacing: 3,
-    marginTop: 2,
+    marginTop: -2,
   },
   loginCard: {
     borderRadius: 24,
