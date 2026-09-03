@@ -54,27 +54,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       >
         <ScrollView contentContainerStyle={styles.loginScrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.loginWrapper}>
-            {/* Language Switch Button Top */}
-            <View style={[styles.langSwitchWrap, { flexDirection: isRTL ? 'row' : 'row-reverse' }]}>
+            {/* Centered Brand Lockup: Logo First (Tap to switch language) -> Then Brand Name */}
+            <View style={styles.brandCenterLockup}>
               <TouchableOpacity
-                style={[styles.langBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                style={styles.brandLogoTouch}
                 onPress={() => setShowLangModal(true)}
+                activeOpacity={0.75}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <Ionicons name="globe-outline" size={16} color={colors.primary} />
-                <Text style={[styles.langBtnText, { color: colors.textPrimary }]}>
-                  {lang === 'ar' ? 'العربية' : lang === 'bn' ? 'বাংলা' : 'English'}
-                </Text>
+                <Image
+                  source={require('../../assets/images/logo.png')}
+                  style={styles.brandLogoMark}
+                  resizeMode="contain"
+                />
               </TouchableOpacity>
-            </View>
 
-            {/* Official Horizontal Brand Lockup */}
-            <View style={[styles.brandHorizontalLockup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Image
-                source={require('../../assets/images/logo.png')}
-                style={styles.brandLogoMark}
-                resizeMode="contain"
-              />
-              <View style={[styles.brandTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <View style={styles.brandTextCol}>
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
                   AAMS
                 </Text>
@@ -232,46 +227,34 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
   },
-  langSwitchWrap: {
-    width: '100%',
-    marginBottom: 16,
-  },
-  langBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  langBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  brandHorizontalLockup: {
+  brandCenterLockup: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
-    marginBottom: 24,
+    gap: 12,
+    marginBottom: 28,
+  },
+  brandLogoTouch: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   brandLogoMark: {
-    width: 64,
-    height: 64,
+    width: 76,
+    height: 76,
   },
   brandTextCol: {
+    alignItems: 'center',
     justifyContent: 'center',
   },
   brandMainTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '900',
     letterSpacing: 2,
   },
   brandSubTitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     letterSpacing: 3,
-    marginTop: -2,
+    marginTop: 2,
   },
   loginCard: {
     borderRadius: 24,
