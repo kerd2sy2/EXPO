@@ -17,6 +17,7 @@ import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemeColors, Language } from '../types/delegate';
 import { LanguageModal } from '../components/modals/LanguageModal';
 import { OtpVerificationModal } from '../components/modals/OtpVerificationModal';
+import { isDeviceTrustedForNationalId } from '../services/api';
 
 interface LoginScreenProps {
   colors: ThemeColors;
@@ -46,6 +47,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
+
+  const handleLoginPress = async () => {
+    const cleanId = loginInput.trim().replace(/[^0-9]/g, '');
+    if (!cleanId) {
+      onLogin('', '');
+      return;
+    }
+
+    const isTrusted = await isDeviceTrustedForNationalId(cleanId);
+    if (!isTrusted) {
+      // Device is untrusted / first-time login -> Require 4-digit Supervisor OTP
+      setShowOtpModal(true);
+      return;
+    }
+
+    // Device is verified -> Proceed with password login
+    onLogin(cleanId, passwordInput);
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
@@ -176,7 +195,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               {/* Login Button */}
               <TouchableOpacity
                 style={[styles.primaryButton, { backgroundColor: colors.primary, marginTop: 12 }]}
-                onPress={() => onLogin(loginInput, passwordInput)}
+                onPress={handleLoginPress}
                 disabled={submitting}
               >
                 {submitting ? (

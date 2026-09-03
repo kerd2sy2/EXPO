@@ -62,13 +62,11 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 
   useEffect(() => {
     if (visible) {
-      if (initialNationalId) {
-        setNationalId(initialNationalId);
-      }
+      const cleanInit = (initialNationalId || '').trim().replace(/[^0-9]/g, '');
+      setNationalId(cleanInit);
       setErrorMessage('');
       setSuccessMessage('');
       setOtpDigits(['', '', '', '']);
-      setStep('REQUEST');
 
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -83,6 +81,13 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
           useNativeDriver: true,
         }),
       ]).start();
+
+      if (cleanInit.length >= 5) {
+        // Automatically trigger OTP request to supervisor
+        handleRequestOtp(cleanInit);
+      } else {
+        setStep('REQUEST');
+      }
     } else {
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -110,13 +115,14 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
     };
   }, [resendCountdown]);
 
-  const handleRequestOtp = async () => {
-    const cleanId = nationalId.trim().replace(/[^0-9]/g, '');
+  const handleRequestOtp = async (idToUse?: string) => {
+    const cleanId = (idToUse || nationalId).trim().replace(/[^0-9]/g, '');
     if (cleanId.length < 5) {
       setErrorMessage(isRTL ? 'يرجى إدخال رقم الهوية الوطنية بشكل صحيح' : 'Please enter a valid National ID');
       return;
     }
 
+    setNationalId(cleanId);
     setLoading(true);
     setErrorMessage('');
     try {
@@ -126,7 +132,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
       setResendCountdown(45);
       setSuccessMessage(
         isRTL
-          ? 'تم توجيه رمز التحقق إلى لوحة تحكم المشرف'
+          ? 'تم توجيه رمز التحقق (4 أرقام) إلى لوحة تحكم المشرف'
           : 'OTP sent to supervisor dashboard'
       );
       setTimeout(() => {
@@ -134,6 +140,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
       }, 400);
     } catch (err: any) {
       setErrorMessage(err.message || (isRTL ? 'فشل في إرسال طلب الرمز' : 'Failed to request OTP'));
+      setStep('REQUEST');
     } finally {
       setLoading(false);
     }
@@ -315,7 +322,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 
               <TouchableOpacity
                 style={[styles.actionBtn, { backgroundColor: '#f97316' }]}
-                onPress={handleRequestOtp}
+                onPress={() => handleRequestOtp()}
                 disabled={loading}
               >
                 {loading ? (
@@ -376,7 +383,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                       : `Resend in (${resendCountdown}s)`}
                   </Text>
                 ) : (
-                  <TouchableOpacity onPress={handleRequestOtp} disabled={loading}>
+                  <TouchableOpacity onPress={() => handleRequestOtp()} disabled={loading}>
                     <Text style={{ fontSize: 13, fontWeight: '700', color: '#f97316' }}>
                       {isRTL ? 'إعادة إرسال رمز جديد للمشرف' : 'Resend new code to supervisor'}
                     </Text>
