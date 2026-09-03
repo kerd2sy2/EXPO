@@ -13,9 +13,10 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemeColors, Language } from '../types/delegate';
 import { LanguageModal } from '../components/modals/LanguageModal';
+import { OtpVerificationModal } from '../components/modals/OtpVerificationModal';
 
 interface LoginScreenProps {
   colors: ThemeColors;
@@ -44,6 +45,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
@@ -186,6 +188,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </View>
                 )}
               </TouchableOpacity>
+
+              {/* Forgot Password / Supervisor OTP Link */}
+              <TouchableOpacity
+                style={styles.otpLinkBtn}
+                onPress={() => setShowOtpModal(true)}
+                activeOpacity={0.75}
+              >
+                <MaterialCommunityIcons name="shield-key-outline" size={18} color="#f97316" />
+                <Text style={[styles.otpLinkText, { color: isDarkMode ? '#fb923c' : '#ea580c' }]}>
+                  {isRTL
+                    ? 'نسيت كلمة المرور؟ أو توثيق الجهاز برمز المشرف (OTP)'
+                    : 'Forgot Password? Or verify device with Supervisor OTP'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
@@ -201,6 +217,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           setShowLangModal(false);
         }}
         onClose={() => setShowLangModal(false)}
+      />
+
+      <OtpVerificationModal
+        visible={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+        onSuccessLogin={async () => {
+          setShowOtpModal(false);
+          await onLogin();
+        }}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        t={t}
+        initialNationalId={loginInput}
       />
     </SafeAreaView>
   );
@@ -325,5 +355,18 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '800',
+  },
+  otpLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 18,
+    paddingVertical: 8,
+  },
+  otpLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
 });

@@ -108,3 +108,75 @@ export async function apiRequest<T = any>(
 
   return data;
 }
+
+// ------------------------------------------------------------------
+// Trusted Device & OTP Verification API
+// ------------------------------------------------------------------
+const DEVICE_UUID_KEY = 'aams_device_uuid';
+const TRUSTED_DEVICE_PREFIX = 'aams_trusted_device_';
+
+export const getOrCreateDeviceUUID = async (): Promise<string> => {
+  try {
+    let uuid = await AsyncStorage.getItem(DEVICE_UUID_KEY);
+    if (!uuid) {
+      uuid = 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+      await AsyncStorage.setItem(DEVICE_UUID_KEY, uuid);
+    }
+    return uuid;
+  } catch {
+    return 'dev_' + Date.now();
+  }
+};
+
+export const setDeviceTrustedForNationalId = async (nationalId: string): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(`${TRUSTED_DEVICE_PREFIX}${nationalId}`, 'true');
+  } catch (e) {
+    console.log('Error setting trusted device:', e);
+  }
+};
+
+export const isDeviceTrustedForNationalId = async (nationalId: string): Promise<boolean> => {
+  try {
+    const val = await AsyncStorage.getItem(`${TRUSTED_DEVICE_PREFIX}${nationalId}`);
+    return val === 'true';
+  } catch {
+    return false;
+  }
+};
+
+export const requestOtpApi = async (
+  nationalId: string,
+  deviceInfo?: string
+): Promise<{ success: boolean; message: string; national_id: string; employee_name: string; expires_at: string }> => {
+  const deviceUuid = await getOrCreateDeviceUUID();
+  return apiRequest('/auth/request-otp', {
+    method: 'POST',
+    body: JSON.stringify({
+      national_id: nationalId,
+      device_info: deviceInfo || 'تطبيق المندوب - AAMS App',
+      device_uuid: deviceUuid,
+    }),
+  });
+};
+
+export const verifyOtpApi = async (nationalId: string, otpCode: string): Promise<any> => {
+  const deviceUuid = await getOrCreateDeviceUUID();
+  const res = await apiRequest('/auth/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify({
+      national_id: nationalId,
+      otp_code: otpCode,
+      device_uuid: deviceUuid,
+    }),
+  });
+  if (res?.access_token) {
+    await setAuthToken(res.access_token);
+    await setDeviceTrustedForNationalId(nationalId);
+    if (res.employee) {
+      await saveCachedUser(res.employee);
+    }
+  }
+  return res;
+};
+
