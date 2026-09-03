@@ -140,10 +140,11 @@ export async function startGpsTracking(sessionId: string): Promise<boolean> {
           distanceInterval: 15,
           deferredUpdatesInterval: 4000,
           showsBackgroundLocationIndicator: true,
+          pausesUpdatesAutomatically: false,
           foregroundService: {
-            notificationTitle: 'تتبع مسافة الدباب (AAMS)',
-            notificationBody: 'جاري تسجيل الكيلومترات المقطوعة عبر الـ GPS أثناء الشفت...',
-            notificationColor: '#2563eb',
+            notificationTitle: 'تطبيق مناديب AAMS (الشفت نشط)',
+            notificationBody: 'جاري تسجيل الكيلومترات المقطوعة وتتبع المسار تلقائياً...',
+            notificationColor: '#f97316',
           },
         });
       }
