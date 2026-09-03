@@ -441,13 +441,16 @@ export default function DelegateApp() {
       return;
     }
 
-    const login = inputVal;
-    const password = (rawPass || '').trim() || inputVal.slice(-6);
+    const password = (rawPass || '').trim();
+    if (!password) {
+      setLoginError(lang === 'ar' ? 'يرجى إدخال كلمة المرور' : 'Password is required');
+      return;
+    }
 
     setSubmitting(true);
     setLoginError('');
     try {
-      const res = await workApi.login(login, password);
+      const res = await workApi.login(inputVal, password);
       if (res && res.employee) {
         setEmployee(res.employee);
         if (res.employee.motorcycle_number) {

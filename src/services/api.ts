@@ -68,6 +68,66 @@ export const getCachedUser = async (): Promise<any | null> => {
   }
 };
 
+const LAST_SAVED_CREDENTIALS_KEY = 'aams_last_saved_credentials';
+const BIOMETRIC_ENABLED_KEY = 'aams_biometric_enabled';
+
+export const isBiometricEnabled = async (): Promise<boolean> => {
+  try {
+    const val = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
+    return val !== 'false';
+  } catch {
+    return false;
+  }
+};
+
+export const setBiometricEnabled = async (enabled: boolean): Promise<void> => {
+  try {
+    if (enabled) {
+      await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
+    } else {
+      await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'false');
+      await clearSavedBiometrics();
+    }
+  } catch (e) {
+    console.log('Error setting biometric status:', e);
+  }
+};
+
+export const saveLastCredentialsForBiometrics = async (
+  nationalId: string,
+  token: string,
+  user: any
+): Promise<void> => {
+  try {
+    const data = { nationalId, token, user, timestamp: Date.now() };
+    await AsyncStorage.setItem(LAST_SAVED_CREDENTIALS_KEY, JSON.stringify(data));
+    await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
+  } catch (e) {
+    console.log('Error saving biometric credentials:', e);
+  }
+};
+
+export const getSavedCredentialsForBiometrics = async (): Promise<{
+  nationalId: string;
+  token: string;
+  user: any;
+} | null> => {
+  try {
+    const enabled = await isBiometricEnabled();
+    if (!enabled) return null;
+    const raw = await AsyncStorage.getItem(LAST_SAVED_CREDENTIALS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const clearSavedBiometrics = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(LAST_SAVED_CREDENTIALS_KEY);
+  } catch {}
+};
+
 export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
@@ -208,6 +268,7 @@ export const verifyOtpApi = async (nationalId: string, otpCode: string): Promise
     await setDeviceTrustedForNationalId(nationalId);
     if (res.employee) {
       await saveCachedUser(res.employee);
+      await saveLastCredentialsForBiometrics(nationalId, res.access_token, res.employee);
     }
   }
   return res;

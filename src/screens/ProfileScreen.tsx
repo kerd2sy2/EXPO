@@ -10,10 +10,20 @@ import {
   PanResponder,
   ActivityIndicator,
   Alert,
+  Switch,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { EmployeeProfile, Language, ThemeColors, PreviewPhotoData } from '../types/delegate';
-import { getTrustedDevicesList, revokeTrustedDevice, TrustedDeviceItem } from '../services/api';
+import {
+  getTrustedDevicesList,
+  revokeTrustedDevice,
+  TrustedDeviceItem,
+  isBiometricEnabled,
+  setBiometricEnabled,
+  saveLastCredentialsForBiometrics,
+  getStoredToken,
+} from '../services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.22;
@@ -89,6 +99,58 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         },
       ]
     );
+  };
+
+  // Biometric Management in Profile
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+  const [biometricsOn, setBiometricsOn] = useState(false);
+
+  useEffect(() => {
+    const checkBio = async () => {
+      try {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (hasHardware && isEnrolled) {
+          setBiometricsAvailable(true);
+          const enabled = await isBiometricEnabled();
+          setBiometricsOn(enabled);
+        }
+      } catch (e) {
+        console.log('Biometric check error in Profile:', e);
+      }
+    };
+    checkBio();
+  }, []);
+
+  const handleToggleBiometrics = async (val: boolean) => {
+    if (val) {
+      try {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: isRTL ? 'تأكيد البصمة لتفعيل الدخول السريع' : 'Confirm Biometrics to Enable',
+          cancelLabel: isRTL ? 'إلغاء' : 'Cancel',
+          disableDeviceFallback: false,
+        });
+        if (result.success) {
+          const token = getStoredToken();
+          if (token && employee?.national_id) {
+            await saveLastCredentialsForBiometrics(employee.national_id, token, employee);
+          }
+          await setBiometricEnabled(true);
+          setBiometricsOn(true);
+          Alert.alert(
+            isRTL ? 'تم التفعيل بنجاح' : 'Enabled Successfully',
+            isRTL
+              ? 'تم تفعيل الدخول بالبصمة بنجاح لهذا الجهاز.'
+              : 'Biometric login has been activated on this device.'
+          );
+        }
+      } catch (e) {
+        console.log('Biometric activation error:', e);
+      }
+    } else {
+      await setBiometricEnabled(false);
+      setBiometricsOn(false);
+    }
   };
 
   // Format document URLs if stored as relative path
@@ -551,6 +613,31 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {lang === 'ar' ? 'العربية' : lang === 'en' ? 'English' : 'বাংলা'}
           </Text>
         </TouchableOpacity>
+
+        {/* Biometrics Toggle Row */}
+        {biometricsAvailable && (
+          <View
+            style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          >
+            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="finger-print" size={20} color={colors.primary} />
+              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+                  {isRTL ? 'تسجيل الدخول بالبصمة' : 'Biometric Login'}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                  {isRTL ? 'بصمة الإصبع أو الوجه' : 'Fingerprint / Face ID'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={biometricsOn}
+              onValueChange={handleToggleBiometrics}
+              trackColor={{ false: '#94a3b8', true: '#10b981' }}
+              thumbColor="#ffffff"
+            />
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}

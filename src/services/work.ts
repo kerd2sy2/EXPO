@@ -1,4 +1,4 @@
-import { apiRequest, setAuthToken, saveCachedUser, getCachedUser } from './api';
+import { apiRequest, setAuthToken, saveCachedUser, getCachedUser, saveLastCredentialsForBiometrics } from './api';
 
 export interface EmployeeProfile {
   id: string;
@@ -63,18 +63,16 @@ export interface LoginResult {
 export const workApi = {
   // Delegate Login
   login: async (login: string, password?: string): Promise<LoginResult> => {
-    // If no password provided and login is email/ID, default password is last 6 digits of ID
-    let finalPassword = password;
-    if (!finalPassword) {
-      const cleanId = login.includes('@') ? login.split('@')[0] : login;
-      finalPassword = cleanId.length >= 6 ? cleanId.slice(-6) : cleanId;
+    const cleanPass = (password || '').trim();
+    if (!cleanPass) {
+      throw new Error('يرجى إدخال كلمة المرور');
     }
 
     const data = await apiRequest<LoginResult>('/login', {
       method: 'POST',
       body: JSON.stringify({
         login: login.trim(),
-        password: finalPassword.trim(),
+        password: cleanPass,
       }),
     });
 
@@ -82,6 +80,7 @@ export const workApi = {
       await setAuthToken(data.access_token);
       if (data.employee) {
         await saveCachedUser(data.employee);
+        await saveLastCredentialsForBiometrics(login.trim(), data.access_token, data.employee);
       }
     }
     return data;

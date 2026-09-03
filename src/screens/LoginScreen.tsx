@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StatusBar,
   KeyboardAvoidingView,
@@ -11,13 +11,15 @@ import {
   Image,
   Platform,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors, Language } from '../types/delegate';
 import { LanguageModal } from '../components/modals/LanguageModal';
 import { OtpVerificationModal } from '../components/modals/OtpVerificationModal';
-import { isDeviceTrustedForNationalId } from '../services/api';
+import { isDeviceTrustedForNationalId, getSavedCredentialsForBiometrics } from '../services/api';
 
 interface LoginScreenProps {
   colors: ThemeColors;
@@ -50,10 +52,64 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [showLangModal, setShowLangModal] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
 
+  // Biometric / Fingerprint State
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+
+  useEffect(() => {
+    const checkBiometrics = async () => {
+      try {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (hasHardware && isEnrolled) {
+          setIsBiometricSupported(true);
+        }
+      } catch (e) {
+        console.log('Biometric support check notice:', e);
+      }
+    };
+    checkBiometrics();
+  }, []);
+
+  const handleBiometricAuth = async () => {
+    try {
+      setBiometricLoading(true);
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: isRTL ? 'تسجيل الدخول باستخدام البصمة' : 'Login with Biometrics',
+        cancelLabel: isRTL ? 'إلغاء' : 'Cancel',
+        disableDeviceFallback: false,
+      });
+
+      if (result.success) {
+        const saved = await getSavedCredentialsForBiometrics();
+        if (saved && saved.user) {
+          await onOtpSuccess(saved.user);
+        } else {
+          Alert.alert(
+            isRTL ? 'البصمة مفعلة' : 'Biometrics Active',
+            isRTL
+              ? 'يرجى تسجيل الدخول برقم الهوية وكلمة المرور لمرة واحدة لربط بصمتك بالحساب.'
+              : 'Please log in with your ID and password once to link your biometric credentials.'
+          );
+        }
+      }
+    } catch (err) {
+      console.log('Biometric auth error:', err);
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
   const handleLoginPress = async () => {
     const cleanId = loginInput.trim().replace(/[^0-9]/g, '');
+    const cleanPass = passwordInput.trim();
+
     if (!cleanId) {
       onLogin('', '');
+      return;
+    }
+    if (!cleanPass) {
+      onLogin(cleanId, '');
       return;
     }
 
@@ -65,7 +121,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
 
     // Device is verified -> Proceed with password login
-    onLogin(cleanId, passwordInput);
+    onLogin(cleanId, cleanPass);
   };
 
   return (
@@ -198,7 +254,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <TouchableOpacity
                 style={[styles.primaryButton, { backgroundColor: colors.primary, marginTop: 12 }]}
                 onPress={handleLoginPress}
-                disabled={submitting}
+                disabled={submitting || biometricLoading}
               >
                 {submitting ? (
                   <ActivityIndicator color="#ffffff" size="small" />
@@ -209,6 +265,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </View>
                 )}
               </TouchableOpacity>
+
+              {/* Biometric / Fingerprint Login Button */}
+              {isBiometricSupported ? (
+                <TouchableOpacity
+                  style={[
+                    styles.biometricBtn,
+                    {
+                      borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : '#e2e8f0',
+                      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc',
+                    },
+                  ]}
+                  onPress={handleBiometricAuth}
+                  disabled={biometricLoading || submitting}
+                  activeOpacity={0.8}
+                >
+                  {biometricLoading ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <Ionicons name="finger-print" size={22} color={colors.primary} />
+                      <Text style={[styles.biometricBtnText, { color: colors.textPrimary }]}>
+                        {isRTL ? 'تسجيل الدخول بالبصمة' : 'Login with Biometrics'}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ) : null}
             </View>
           </View>
         </ScrollView>
@@ -362,6 +445,18 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '800',
+  },
+  biometricBtn: {
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  biometricBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   otpLinkBtn: {
     flexDirection: 'row',
