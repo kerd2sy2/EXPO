@@ -19,6 +19,7 @@ interface ShiftScreenProps {
   startKm: string;
   setStartKm: (val: string) => void;
   autoKmFetched: boolean;
+  isOdometerBroken?: boolean;
   startKmImage: string | null;
   startNotes: string;
   setStartNotes: (val: string) => void;
@@ -55,6 +56,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   startKm,
   setStartKm,
   autoKmFetched,
+  isOdometerBroken = false,
   startKmImage,
   startNotes,
   setStartNotes,
@@ -162,77 +164,94 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             )}
           </View>
 
-          {/* Start KM Input */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.startKmLabel}
-            </Text>
-            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
-              <TextInput
-                style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={t.startKmPlaceholder}
-                placeholderTextColor="#94a3b8"
-                value={startKm}
-                onChangeText={setStartKm}
-                keyboardType="numeric"
-              />
-              <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.km}</Text>
+          {/* Start KM Input & Photo or Broken Odometer Notice */}
+          {isOdometerBroken ? (
+            <View style={[styles.bikeVerificationBox, { backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7', borderColor: '#f59e0b', padding: 14, borderRadius: 14, marginBottom: 14 }]}>
+              <Ionicons name="warning" size={22} color="#d97706" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: isDarkMode ? '#fbbf24' : '#92400e', fontSize: 13, fontWeight: 'bold', textAlign: isRTL ? 'right' : 'left' }}>
+                  {t.odometerBrokenNotice}
+                </Text>
+                <Text style={{ color: isDarkMode ? '#fde68a' : '#b45309', fontSize: 11, marginTop: 4, textAlign: isRTL ? 'right' : 'left' }}>
+                  {t.odometerExempt} ✅
+                </Text>
+              </View>
             </View>
-            {autoKmFetched && (
-              <View style={[styles.badgeHint, { backgroundColor: colors.primaryLight }]}>
-                <Ionicons name="information-circle" size={14} color={colors.primary} />
-                <Text style={[styles.badgeHintText, { color: colors.primary }]}>{t.autoKmFetched}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Start KM Photo Capture Box */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.startKmPhotoLabel}
-            </Text>
-            {startKmImage ? (
-              <View style={[styles.photoPreviewCard, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-                <TouchableOpacity
-                  onPress={() => onPreviewPhoto({ url: startKmImage, title: t.startKmPhotoLabel })}
-                  style={styles.photoPreviewTouch}
-                >
-                  <Image source={{ uri: startKmImage }} style={styles.photoThumbnail} resizeMode="cover" />
-                  <View style={styles.photoPreviewMeta}>
-                    <Text style={[styles.photoPreviewTitle, { color: colors.textPrimary }]}>
-                      {t.photoCapturedSuccess}
-                    </Text>
-                    <Text style={[styles.photoPreviewSub, { color: colors.primary }]}>
-                      {t.tapToViewPhoto}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.retakeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  onPress={() => onTakeOdometerPhoto('start')}
-                >
-                  <Ionicons name="camera-reverse-outline" size={16} color={colors.primary} />
-                  <Text style={[styles.retakeBtnText, { color: colors.primary }]}>{t.retakePhoto}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={[styles.cameraCaptureCard, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}
-                onPress={() => onTakeOdometerPhoto('start')}
-              >
-                <View style={[styles.cameraIconWrap, { backgroundColor: colors.primary }]}>
-                  <Ionicons name="camera" size={24} color="#ffffff" />
+          ) : (
+            <>
+              {/* Start KM Input */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.startKmLabel}
+                </Text>
+                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.startKmPlaceholder}
+                    placeholderTextColor="#94a3b8"
+                    value={startKm}
+                    onChangeText={setStartKm}
+                    keyboardType="numeric"
+                  />
+                  <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.km}</Text>
                 </View>
-                <Text style={[styles.cameraCardTitle, { color: colors.textPrimary }]}>
-                  {t.captureCamera}
+                {autoKmFetched && (
+                  <View style={[styles.badgeHint, { backgroundColor: colors.primaryLight }]}>
+                    <Ionicons name="information-circle" size={14} color={colors.primary} />
+                    <Text style={[styles.badgeHintText, { color: colors.primary }]}>{t.autoKmFetched}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Start KM Photo Capture Box */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.startKmPhotoLabel}
                 </Text>
-                <Text style={[styles.cameraCardSub, { color: colors.textSecondary }]}>
-                  {t.odometerGuideSub}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+                {startKmImage ? (
+                  <View style={[styles.photoPreviewCard, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+                    <TouchableOpacity
+                      onPress={() => onPreviewPhoto({ url: startKmImage, title: t.startKmPhotoLabel })}
+                      style={styles.photoPreviewTouch}
+                    >
+                      <Image source={{ uri: startKmImage }} style={styles.photoThumbnail} resizeMode="cover" />
+                      <View style={styles.photoPreviewMeta}>
+                        <Text style={[styles.photoPreviewTitle, { color: colors.textPrimary }]}>
+                          {t.photoCapturedSuccess}
+                        </Text>
+                        <Text style={[styles.photoPreviewSub, { color: colors.primary }]}>
+                          {t.tapToViewPhoto}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.retakeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => onTakeOdometerPhoto('start')}
+                    >
+                      <Ionicons name="camera-reverse-outline" size={16} color={colors.primary} />
+                      <Text style={[styles.retakeBtnText, { color: colors.primary }]}>{t.retakePhoto}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.cameraCaptureCard, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}
+                    onPress={() => onTakeOdometerPhoto('start')}
+                  >
+                    <View style={[styles.cameraIconWrap, { backgroundColor: colors.primary }]}>
+                      <Ionicons name="camera" size={24} color="#ffffff" />
+                    </View>
+                    <Text style={[styles.cameraCardTitle, { color: colors.textPrimary }]}>
+                      {t.captureCamera}
+                    </Text>
+                    <Text style={[styles.cameraCardSub, { color: colors.textSecondary }]}>
+                      {t.odometerGuideSub}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </>
+          )}
 
           {/* Start Notes */}
           <View style={styles.formGroup}>
@@ -272,113 +291,130 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             END SHIFT FORM (Active Shift in Progress)
            ========================================================================= */
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {/* End KM Input with Inline Smart Suggestion */}
-          <View style={styles.formGroup}>
-            <View style={[styles.labelRow, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-              <Text style={[styles.label, { color: colors.textPrimary, marginBottom: 0 }]}>
-                {t.endKmInputLabel}
-              </Text>
-              {startKmNum > 0 && (
-                <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>
-                  {t.startKmLabel}: {startKmNum} {t.km}
+          {/* End KM Input & Photo or Broken Odometer Notice */}
+          {isOdometerBroken || (startKmNum === 0 && !activeSession.start_km_image) ? (
+            <View style={[styles.bikeVerificationBox, { backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7', borderColor: '#f59e0b', padding: 14, borderRadius: 14, marginBottom: 14 }]}>
+              <Ionicons name="warning" size={22} color="#d97706" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: isDarkMode ? '#fbbf24' : '#92400e', fontSize: 13, fontWeight: 'bold', textAlign: isRTL ? 'right' : 'left' }}>
+                  {t.odometerBrokenNotice}
                 </Text>
-              )}
-            </View>
-
-            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
-              <TextInput
-                style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={isRTL ? `المقترح: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}` : `Suggested: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}`}
-                placeholderTextColor="#94a3b8"
-                value={endKm}
-                onChangeText={setEndKm}
-                keyboardType="numeric"
-                returnKeyType="next"
-                blurOnSubmit={false}
-                onSubmitEditing={() => ordersInputRef.current?.focus()}
-                onFocus={() => onScrollToInput?.(40)}
-              />
-              {startKmNum > 0 && (
-                <TouchableOpacity
-                  style={[
-                    styles.insideInputBtn,
-                    {
-                      backgroundColor: gpsDistance > 0
-                        ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5')
-                        : colors.primaryLight,
-                      borderColor: gpsDistance > 0 ? '#10b981' : colors.primary,
-                      flexDirection: isRTL ? 'row-reverse' : 'row',
-                    },
-                  ]}
-                  onPress={() => setEndKm(String(gpsDistance > 0 ? gpsEndKm : suggestedEndKm))}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name={gpsDistance > 0 ? 'navigate' : 'flash'}
-                    size={13}
-                    color={gpsDistance > 0 ? '#10b981' : colors.primary}
-                  />
-                  <Text
-                    style={[
-                      styles.insideInputBtnText,
-                      { color: gpsDistance > 0 ? (isDarkMode ? '#34d399' : '#047857') : colors.primary },
-                    ]}
-                  >
-                    {t.suggestedKm || (isRTL ? 'المقترح' : 'Suggest')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.km}</Text>
-            </View>
-          </View>
-
-          {/* End KM Photo Capture Box */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.endKmPhotoLabel}
-            </Text>
-            {endKmImage ? (
-              <View style={[styles.photoPreviewCard, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-                <TouchableOpacity
-                  onPress={() => onPreviewPhoto({ url: endKmImage, title: t.endKmPhotoLabel })}
-                  style={styles.photoPreviewTouch}
-                >
-                  <Image source={{ uri: endKmImage }} style={styles.photoThumbnail} resizeMode="cover" />
-                  <View style={styles.photoPreviewMeta}>
-                    <Text style={[styles.photoPreviewTitle, { color: colors.textPrimary }]}>
-                      {t.photoCapturedSuccess}
-                    </Text>
-                    <Text style={[styles.photoPreviewSub, { color: colors.primary }]}>
-                      {t.tapToViewPhoto}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.retakeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  onPress={() => onTakeOdometerPhoto('end')}
-                >
-                  <Ionicons name="camera-reverse-outline" size={16} color={colors.primary} />
-                  <Text style={[styles.retakeBtnText, { color: colors.primary }]}>{t.retakePhoto}</Text>
-                </TouchableOpacity>
+                <Text style={{ color: isDarkMode ? '#fde68a' : '#b45309', fontSize: 11, marginTop: 4, textAlign: isRTL ? 'right' : 'left' }}>
+                  {t.odometerExempt} ✅
+                </Text>
               </View>
-            ) : (
-              <TouchableOpacity
-                style={[styles.cameraCaptureCard, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}
-                onPress={() => onTakeOdometerPhoto('end')}
-              >
-                <View style={[styles.cameraIconWrap, { backgroundColor: colors.primary }]}>
-                  <Ionicons name="camera" size={24} color="#ffffff" />
+            </View>
+          ) : (
+            <>
+              {/* End KM Input with Inline Smart Suggestion */}
+              <View style={styles.formGroup}>
+                <View style={[styles.labelRow, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                  <Text style={[styles.label, { color: colors.textPrimary, marginBottom: 0 }]}>
+                    {t.endKmInputLabel}
+                  </Text>
+                  {startKmNum > 0 && (
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>
+                      {t.startKmLabel}: {startKmNum} {t.km}
+                    </Text>
+                  )}
                 </View>
-                <Text style={[styles.cameraCardTitle, { color: colors.textPrimary }]}>
-                  {t.captureCamera}
+
+                <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={isRTL ? `المقترح: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}` : `Suggested: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}`}
+                    placeholderTextColor="#94a3b8"
+                    value={endKm}
+                    onChangeText={setEndKm}
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => ordersInputRef.current?.focus()}
+                    onFocus={() => onScrollToInput?.(40)}
+                  />
+                  {startKmNum > 0 && (
+                    <TouchableOpacity
+                      style={[
+                        styles.insideInputBtn,
+                        {
+                          backgroundColor: gpsDistance > 0
+                            ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5')
+                            : colors.primaryLight,
+                          borderColor: gpsDistance > 0 ? '#10b981' : colors.primary,
+                          flexDirection: isRTL ? 'row-reverse' : 'row',
+                        },
+                      ]}
+                      onPress={() => setEndKm(String(gpsDistance > 0 ? gpsEndKm : suggestedEndKm))}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={gpsDistance > 0 ? 'navigate' : 'flash'}
+                        size={13}
+                        color={gpsDistance > 0 ? '#10b981' : colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.insideInputBtnText,
+                          { color: gpsDistance > 0 ? (isDarkMode ? '#34d399' : '#047857') : colors.primary },
+                        ]}
+                      >
+                        {t.suggestedKm || (isRTL ? 'المقترح' : 'Suggest')}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.km}</Text>
+                </View>
+              </View>
+
+              {/* End KM Photo Capture Box */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.endKmPhotoLabel}
                 </Text>
-                <Text style={[styles.cameraCardSub, { color: colors.textSecondary }]}>
-                  {t.odometerGuideSub}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+                {endKmImage ? (
+                  <View style={[styles.photoPreviewCard, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+                    <TouchableOpacity
+                      onPress={() => onPreviewPhoto({ url: endKmImage, title: t.endKmPhotoLabel })}
+                      style={styles.photoPreviewTouch}
+                    >
+                      <Image source={{ uri: endKmImage }} style={styles.photoThumbnail} resizeMode="cover" />
+                      <View style={styles.photoPreviewMeta}>
+                        <Text style={[styles.photoPreviewTitle, { color: colors.textPrimary }]}>
+                          {t.photoCapturedSuccess}
+                        </Text>
+                        <Text style={[styles.photoPreviewSub, { color: colors.primary }]}>
+                          {t.tapToViewPhoto}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.retakeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => onTakeOdometerPhoto('end')}
+                    >
+                      <Ionicons name="camera-reverse-outline" size={16} color={colors.primary} />
+                      <Text style={[styles.retakeBtnText, { color: colors.primary }]}>{t.retakePhoto}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.cameraCaptureCard, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}
+                    onPress={() => onTakeOdometerPhoto('end')}
+                  >
+                    <View style={[styles.cameraIconWrap, { backgroundColor: colors.primary }]}>
+                      <Ionicons name="camera" size={24} color="#ffffff" />
+                    </View>
+                    <Text style={[styles.cameraCardTitle, { color: colors.textPrimary }]}>
+                      {t.captureCamera}
+                    </Text>
+                    <Text style={[styles.cameraCardSub, { color: colors.textSecondary }]}>
+                      {t.odometerGuideSub}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </>
+          )}
 
           {/* Orders Count Input */}
           <View style={styles.formGroup}>

@@ -84,6 +84,7 @@ export default function DelegateApp() {
   const [startKmImage, setStartKmImage] = useState<string | null>(null);
   const [startNotes, setStartNotes] = useState('');
   const [autoKmFetched, setAutoKmFetched] = useState(false);
+  const [isOdometerBroken, setIsOdometerBroken] = useState(false);
 
   const [endKm, setEndKm] = useState('');
   const [endKmImage, setEndKmImage] = useState<string | null>(null);
@@ -266,16 +267,49 @@ export default function DelegateApp() {
       if (!bike || activeSession || !employee) return;
       try {
         const res = await workApi.getLastKM(employee.id, bike);
-        if (res && res.last_end_km > 0) {
-          setStartKm(String(res.last_end_km));
-          setAutoKmFetched(true);
+        if (res?.is_odometer_broken) {
+          setIsOdometerBroken(true);
+          setStartKm('0');
+          setAutoKmFetched(false);
+        } else {
+          setIsOdometerBroken(false);
+          if (res && res.last_end_km > 0) {
+            setStartKm(String(res.last_end_km));
+            setAutoKmFetched(true);
+          } else {
+            setStartKm('');
+            setAutoKmFetched(false);
+          }
         }
       } catch (err) {
+        setIsOdometerBroken(false);
         console.log('No prior KM found for bike:', bike);
       }
     };
     fetchLastKm();
   }, [enteredMotorcycle, activeSession, employee]);
+
+  // Check broken odometer for active session
+  useEffect(() => {
+    if (activeSession && employee) {
+      const bike = activeSession.motorcycle_number || employee.motorcycle_number;
+      if (bike) {
+        workApi.getLastKM(employee.id, bike).then((res) => {
+          if (res?.is_odometer_broken || (activeSession.start_km === 0 && !activeSession.start_km_image)) {
+            setIsOdometerBroken(true);
+          } else {
+            setIsOdometerBroken(false);
+          }
+        }).catch(() => {
+          if (activeSession.start_km === 0 && !activeSession.start_km_image) {
+            setIsOdometerBroken(true);
+          }
+        });
+      } else if (activeSession.start_km === 0 && !activeSession.start_km_image) {
+        setIsOdometerBroken(true);
+      }
+    }
+  }, [activeSession, employee]);
 
   const checkSession = async () => {
     setLoading(true);
@@ -572,37 +606,44 @@ export default function DelegateApp() {
       return;
     }
 
-    const startVal = Number(startKm);
-    if (!startKm || isNaN(startVal) || startVal <= 0) {
-      setAlertConfig({
-        type: 'warning',
-        title: t.startKmInputLabel,
-        message: t.startKmPlaceholder,
-      });
-      return;
-    }
+    let startVal = Number(startKm);
+    let photoUri = startKmImage;
 
-    if (!startKmImage) {
-      setAlertConfig({
-        type: 'warning',
-        title: t.startKmPhotoLabel,
-        message: t.odometerGuideSub,
-      });
-      return;
+    if (!isOdometerBroken) {
+      if (!startKm || isNaN(startVal) || startVal <= 0) {
+        setAlertConfig({
+          type: 'warning',
+          title: t.startKmInputLabel,
+          message: t.startKmPlaceholder,
+        });
+        return;
+      }
+
+      if (!startKmImage) {
+        setAlertConfig({
+          type: 'warning',
+          title: t.startKmPhotoLabel,
+          message: t.odometerGuideSub,
+        });
+        return;
+      }
+    } else {
+      startVal = 0;
+      photoUri = '';
     }
 
     setSubmitting(true);
     try {
       const savedMoto = enteredMotorcycle.trim();
       const savedStartKm = startVal;
-      const savedPhoto = startKmImage;
+      const savedPhoto = photoUri;
       const savedNotes = startNotes;
 
       const newSession = await workApi.startShift({
         employee_id: employee.id,
         motorcycle_number: savedMoto,
         start_km: savedStartKm,
-        start_km_image: savedPhoto,
+        start_km_image: savedPhoto || undefined,
         notes: savedNotes,
       });
 
@@ -623,7 +664,7 @@ export default function DelegateApp() {
         motorcycleNumber: savedMoto,
         startKm: savedStartKm,
         startTime: newSession?.start_time || new Date().toISOString(),
-        imageUri: savedPhoto,
+        imageUri: savedPhoto || undefined,
         notes: savedNotes,
       });
     } catch (err: any) {
@@ -642,42 +683,47 @@ export default function DelegateApp() {
   const handleEndShift = async () => {
     if (!employee || !activeSession) return;
 
-    const endVal = Number(endKm);
+    let endVal = Number(endKm);
     const startVal = Number(activeSession.start_km || 0);
+    const isExemptOdometer = isOdometerBroken || (startVal === 0 && !activeSession.start_km_image);
 
-    if (!endKm || isNaN(endVal) || endVal <= 0) {
-      setAlertConfig({
-        type: 'warning',
-        title: t.endKmInputLabel,
-        message: `${t.startKmLabel}: ${startVal} ${t.km}`,
-      });
-      return;
-    }
+    if (!isExemptOdometer) {
+      if (!endKm || isNaN(endVal) || endVal <= 0) {
+        setAlertConfig({
+          type: 'warning',
+          title: t.endKmInputLabel,
+          message: `${t.startKmLabel}: ${startVal} ${t.km}`,
+        });
+        return;
+      }
 
-    if (endVal < startVal) {
-      setAlertConfig({
-        type: 'warning',
-        title: lang === 'ar' ? 'تنبيه في قراءة العداد' : 'Odometer Error',
-        message:
-          lang === 'ar'
-            ? `عداد النهاية (${endVal}) لا يمكن أن يكون أقل من عداد البداية (${startVal})`
-            : `End KM (${endVal}) cannot be less than Start KM (${startVal})`,
-      });
-      return;
-    }
+      if (endVal < startVal) {
+        setAlertConfig({
+          type: 'warning',
+          title: lang === 'ar' ? 'تنبيه في قراءة العداد' : 'Odometer Error',
+          message:
+            lang === 'ar'
+              ? `عداد النهاية (${endVal}) لا يمكن أن يكون أقل من عداد البداية (${startVal})`
+              : `End KM (${endVal}) cannot be less than Start KM (${startVal})`,
+        });
+        return;
+      }
 
-    if (!endKmImage) {
-      setAlertConfig({
-        type: 'warning',
-        title: t.endKmPhotoLabel,
-        message: t.odometerGuideSub,
-      });
-      return;
+      if (!endKmImage) {
+        setAlertConfig({
+          type: 'warning',
+          title: t.endKmPhotoLabel,
+          message: t.odometerGuideSub,
+        });
+        return;
+      }
+    } else {
+      endVal = 0;
     }
 
     const countVal = Number(ordersCount) || 0;
     const fuelVal = Number(fuelCost) || 0;
-    const distanceVal = endVal - startVal;
+    const distanceVal = isExemptOdometer ? 0 : Math.max(0, endVal - startVal);
 
     setSubmitting(true);
     try {
@@ -685,7 +731,7 @@ export default function DelegateApp() {
       const savedDistance = distanceVal;
       const savedOrders = countVal;
       const savedFuel = fuelVal;
-      const savedPhoto = endKmImage;
+      const savedPhoto = isExemptOdometer ? undefined : (endKmImage || undefined);
       const savedNotes = endNotes;
       const savedMoto = activeSession.motorcycle_number || employee.motorcycle_number;
       const savedStartKm = activeSession.start_km;
@@ -983,6 +1029,7 @@ export default function DelegateApp() {
               startKm={startKm}
               setStartKm={setStartKm}
               autoKmFetched={autoKmFetched}
+              isOdometerBroken={isOdometerBroken}
               startKmImage={startKmImage}
               startNotes={startNotes}
               setStartNotes={setStartNotes}

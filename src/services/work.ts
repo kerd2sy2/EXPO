@@ -173,12 +173,12 @@ export const workApi = {
   },
 
   // Get last ending odometer (last_km)
-  getLastKM: async (employeeId: string, motorcycleNumber?: string): Promise<{ last_end_km: number; last_start_km: number } | null> => {
+  getLastKM: async (employeeId: string, motorcycleNumber?: string): Promise<{ last_end_km: number; last_start_km: number; is_odometer_broken?: boolean } | null> => {
     try {
       const url = motorcycleNumber
         ? `/work/last-km?employee_id=${employeeId}&motorcycle_number=${encodeURIComponent(motorcycleNumber)}`
         : `/work/last-km?employee_id=${employeeId}`;
-      const data = await apiRequest<{ last_end_km: number; last_start_km: number }>(url);
+      const data = await apiRequest<{ last_end_km: number; last_start_km: number; is_odometer_broken?: boolean }>(url);
       return data;
     } catch {
       return null;
