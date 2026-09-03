@@ -775,7 +775,11 @@ export default function DelegateApp() {
                 )}
               </View>
               <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                <Text style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                <Text
+                  style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {employee.name}
                 </Text>
                 <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
