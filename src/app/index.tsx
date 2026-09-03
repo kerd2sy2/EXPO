@@ -36,7 +36,13 @@ import { translations } from '../constants/translations';
 
 // Services
 import { workApi } from '../services/work';
-import { setAuthToken, getCachedUser, saveCachedUser } from '../services/api';
+import {
+  setAuthToken,
+  getStoredToken,
+  getCachedUser,
+  saveCachedUser,
+  saveLastCredentialsForBiometrics,
+} from '../services/api';
 import {
   startGpsTracking,
   stopGpsTracking,
@@ -491,6 +497,26 @@ export default function DelegateApp() {
           setEnteredMotorcycle(res.employee.motorcycle_number);
         }
         await Promise.all([
+          workApi
+            .getMe()
+            .then((fresh) => {
+              if (fresh && fresh.id) {
+                setEmployee((prev) => ({
+                  ...(prev || {}),
+                  ...fresh,
+                  personal_image: fresh.personal_image || prev?.personal_image || '',
+                  motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
+                  key_number: fresh.key_number || prev?.key_number || '',
+                  national_id: fresh.national_id || prev?.national_id || '',
+                  phone: fresh.phone || prev?.phone || '',
+                  branch_name: fresh.branch_name || prev?.branch_name || '',
+                } as EmployeeProfile));
+                if (res.access_token && fresh.national_id) {
+                  saveLastCredentialsForBiometrics(fresh.national_id, res.access_token, fresh);
+                }
+              }
+            })
+            .catch((e) => console.log('Notice refreshing profile on Login:', e)),
           fetchActiveSession(res.employee.id),
           fetchHistory(res.employee.id),
         ]);
@@ -506,8 +532,11 @@ export default function DelegateApp() {
     }
   };
 
-  // Immediate Login via OTP Success
+  // Immediate Login via OTP Success or Biometrics
   const handleOtpSuccess = async (loginResp?: any) => {
+    if (loginResp?.access_token) {
+      await setAuthToken(loginResp.access_token);
+    }
     const emp = loginResp?.employee || loginResp;
     if (emp && emp.id) {
       setEmployee(emp);
@@ -515,6 +544,27 @@ export default function DelegateApp() {
         setEnteredMotorcycle(emp.motorcycle_number);
       }
       await Promise.all([
+        workApi
+          .getMe()
+          .then((fresh) => {
+            if (fresh && fresh.id) {
+              setEmployee((prev) => ({
+                ...(prev || {}),
+                ...fresh,
+                personal_image: fresh.personal_image || prev?.personal_image || '',
+                motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
+                key_number: fresh.key_number || prev?.key_number || '',
+                national_id: fresh.national_id || prev?.national_id || '',
+                phone: fresh.phone || prev?.phone || '',
+                branch_name: fresh.branch_name || prev?.branch_name || '',
+              } as EmployeeProfile));
+              const curTok = loginResp?.access_token || getStoredToken();
+              if (curTok && fresh.national_id) {
+                saveLastCredentialsForBiometrics(fresh.national_id, curTok, fresh);
+              }
+            }
+          })
+          .catch((e) => console.log('Notice refreshing profile on OTP/Bio:', e)),
         fetchActiveSession(emp.id),
         fetchHistory(emp.id),
       ]);

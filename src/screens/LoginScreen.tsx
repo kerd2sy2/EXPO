@@ -20,7 +20,12 @@ import { ThemeColors, Language } from '../types/delegate';
 import { LanguageModal } from '../components/modals/LanguageModal';
 import { OtpVerificationModal } from '../components/modals/OtpVerificationModal';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
-import { isDeviceTrustedForNationalId, getSavedCredentialsForBiometrics } from '../services/api';
+import {
+  isDeviceTrustedForNationalId,
+  getSavedCredentialsForBiometrics,
+  setAuthToken,
+  saveCachedUser,
+} from '../services/api';
 
 interface LoginScreenProps {
   colors: ThemeColors;
@@ -85,7 +90,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       if (result.success) {
         const saved = await getSavedCredentialsForBiometrics();
         if (saved && saved.user) {
-          await onOtpSuccess(saved.user);
+          if (saved.token) {
+            await setAuthToken(saved.token);
+          }
+          await saveCachedUser(saved.user);
+          await onOtpSuccess({
+            access_token: saved.token,
+            employee: saved.user,
+          });
         } else {
           setAlertConfig({
             type: 'info',

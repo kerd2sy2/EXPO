@@ -66,7 +66,7 @@
       "url": "https://u.expo.dev/352e8773-7aaa-4a12-b906-01fe05420113",
       "enabled": true,
       "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "ON_ERROR_RECOVERY"
+      "checkAutomatically": "ON_LOAD"
     },
     "extra": {
       "eas": {
