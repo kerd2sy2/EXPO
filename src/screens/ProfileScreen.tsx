@@ -36,6 +36,7 @@ interface ProfileScreenProps {
   lang: Language;
   onOpenQrModal: () => void;
   onOpenLangModal: () => void;
+  onCheckForUpdates: () => void;
   onLogout: () => void;
   onPreviewPhoto: (photo: PreviewPhotoData) => void;
   colors: ThemeColors;
@@ -49,6 +50,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   empPhotoUrl,
   lang,
   onOpenLangModal,
+  onCheckForUpdates,
   onLogout,
   onPreviewPhoto,
   colors,
@@ -638,6 +640,31 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </Text>
           </View>
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
+
+        {/* Check for Updates Row */}
+        <TouchableOpacity
+          style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          onPress={onCheckForUpdates}
+          activeOpacity={0.75}
+        >
+          <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Ionicons name="cloud-download-outline" size={20} color={colors.primary} />
+            <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+              <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+                {isRTL ? 'تحديث التطبيق' : 'Check for Updates'}
+              </Text>
+              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                {isRTL ? 'التحقق من التحديثات وتنزيلها هوائياً' : 'Check & apply latest OTA updates'}
+              </Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}>v1.0.0</Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity

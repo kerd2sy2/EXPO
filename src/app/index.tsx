@@ -63,6 +63,8 @@ import { LanguageModal } from '../components/modals/LanguageModal';
 import { QrCodeModal } from '../components/modals/QrCodeModal';
 import { ImagePreviewModal } from '../components/modals/ImagePreviewModal';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
+import { AppUpdateBottomSheet, UpdateModalState } from '../components/modals/AppUpdateBottomSheet';
+import * as Updates from 'expo-updates';
 
 export default function DelegateApp() {
   const systemColorScheme = useColorScheme();
@@ -114,6 +116,11 @@ export default function DelegateApp() {
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
   const [gpsDistance, setGpsDistance] = useState<number>(0);
   const [keyboardOffset, setKeyboardOffset] = useState<number>(0);
+
+  // OTA Updates State (Bottom Sheet Modal)
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
+  const [updateState, setUpdateState] = useState<UpdateModalState>('CHECKING');
+  const [updateError, setUpdateError] = useState<string>('');
 
   // Theme Colors
   const colors: ThemeColors = isDarkMode
@@ -316,6 +323,58 @@ export default function DelegateApp() {
       }
     }
   }, [activeSession, employee]);
+
+  // OTA Updates Handler (Background check on launch + Interactive manual check)
+  const handleCheckForUpdates = async (interactive = false) => {
+    if (__DEV__ || !Updates.isEnabled) {
+      if (interactive) {
+        setUpdateState('UP_TO_DATE');
+        setUpdateModalVisible(true);
+      }
+      return;
+    }
+
+    try {
+      if (interactive) {
+        setUpdateState('CHECKING');
+        setUpdateModalVisible(true);
+      }
+      const check = await Updates.checkForUpdateAsync();
+      if (check.isAvailable) {
+        setUpdateState('DOWNLOADING');
+        setUpdateModalVisible(true);
+        await Updates.fetchUpdateAsync();
+        setUpdateState('READY');
+      } else if (interactive) {
+        setUpdateState('UP_TO_DATE');
+        setUpdateModalVisible(true);
+      }
+    } catch (err: any) {
+      console.log('Update check error:', err);
+      if (interactive) {
+        setUpdateState('ERROR');
+        setUpdateError(err?.message || (isRTL ? 'تعذر الاتصال بخوادم التحديث' : 'Update server unavailable'));
+        setUpdateModalVisible(true);
+      }
+    }
+  };
+
+  const handleApplyUpdate = async () => {
+    try {
+      await Updates.reloadAsync();
+    } catch (e) {
+      console.log('Update reload error:', e);
+      setUpdateModalVisible(false);
+    }
+  };
+
+  // Background check for update 3 seconds after app starts
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleCheckForUpdates(false);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const checkSession = async () => {
     setLoading(true);
@@ -1133,6 +1192,7 @@ export default function DelegateApp() {
               lang={lang}
               onOpenQrModal={() => setShowQrModal(true)}
               onOpenLangModal={() => setShowLangModal(true)}
+              onCheckForUpdates={() => handleCheckForUpdates(true)}
               onLogout={handleLogout}
               onPreviewPhoto={setPreviewPhoto}
               colors={colors}
@@ -1200,6 +1260,19 @@ export default function DelegateApp() {
         isDarkMode={isDarkMode}
         isRTL={isRTL}
         onClose={() => setAlertConfig(null)}
+      />
+
+      {/* Modern OTA App Update Bottom Sheet */}
+      <AppUpdateBottomSheet
+        visible={updateModalVisible}
+        state={updateState}
+        errorMessage={updateError}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onApplyUpdate={handleApplyUpdate}
+        onCheckAgain={() => handleCheckForUpdates(true)}
+        onClose={() => setUpdateModalVisible(false)}
       />
     </SafeAreaView>
   );
