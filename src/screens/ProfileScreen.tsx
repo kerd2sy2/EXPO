@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,12 @@ import {
   Dimensions,
   Animated,
   PanResponder,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmployeeProfile, Language, ThemeColors, PreviewPhotoData } from '../types/delegate';
+import { getTrustedDevicesList, revokeTrustedDevice, TrustedDeviceItem } from '../services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.22;
@@ -41,6 +44,53 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   isRTL,
   t,
 }) => {
+  // Trusted Devices State & Management
+  const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceItem[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+
+  const loadDevices = async () => {
+    if (employee?.national_id) {
+      setLoadingDevices(true);
+      try {
+        const devs = await getTrustedDevicesList(employee.national_id);
+        setTrustedDevices(devs);
+      } catch (e) {
+        console.log('Error loading trusted devices:', e);
+      } finally {
+        setLoadingDevices(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadDevices();
+  }, [employee?.national_id]);
+
+  const confirmRevokeDevice = (device: TrustedDeviceItem) => {
+    Alert.alert(
+      isRTL ? 'إزالة توثيق الجهاز' : 'Remove Trusted Device',
+      isRTL
+        ? `هل أنت متأكد من رغبتك في حذف توثيق (${device.name})؟\nسيتطلب تسجيل الدخول القادم رمز تحقق OTP جديد من المشرف.`
+        : `Are you sure you want to revoke trust for (${device.name})?\nNext login will require a new supervisor OTP.`,
+      [
+        {
+          text: isRTL ? 'إلغاء' : 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: isRTL ? 'إزالة التوثيق' : 'Revoke',
+          style: 'destructive',
+          onPress: async () => {
+            if (employee?.national_id) {
+              await revokeTrustedDevice(employee.national_id, device.uuid);
+              await loadDevices();
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Format document URLs if stored as relative path
   const formatDocUrl = (url?: string) => {
     if (!url) return null;
@@ -384,6 +434,103 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         )}
       </View>
 
+      {/* Trusted Devices Box */}
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.sectionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row', marginBottom: 12 }]}>
+          <View style={[styles.titleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <MaterialCommunityIcons name="shield-check" size={20} color="#10b981" />
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              {isRTL ? 'الأجهزة الموثقة' : 'Trusted Devices'}
+            </Text>
+          </View>
+          <View style={[styles.counterBadge, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.25)' }]}>
+            <Text style={[styles.counterBadgeText, { color: '#10b981' }]}>
+              {trustedDevices.length}
+            </Text>
+          </View>
+        </View>
+
+        {loadingDevices ? (
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 16 }} />
+        ) : trustedDevices.length > 0 ? (
+          <View style={styles.devicesList}>
+            {trustedDevices.map((device, idx) => (
+              <View
+                key={device.uuid || idx}
+                style={[
+                  styles.deviceRow,
+                  {
+                    backgroundColor: device.isCurrent
+                      ? (isDarkMode ? 'rgba(16, 185, 129, 0.08)' : '#f0fdf4')
+                      : (isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc'),
+                    borderColor: device.isCurrent
+                      ? (isDarkMode ? 'rgba(16, 185, 129, 0.3)' : '#bbf7d0')
+                      : colors.border,
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+              >
+                {/* Device Icon */}
+                <View
+                  style={[
+                    styles.deviceIconBox,
+                    {
+                      backgroundColor: device.isCurrent
+                        ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7')
+                        : (isDarkMode ? 'rgba(255, 255, 255, 0.06)' : '#e2e8f0'),
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="phone-portrait-outline"
+                    size={22}
+                    color={device.isCurrent ? '#10b981' : colors.textSecondary}
+                  />
+                </View>
+
+                {/* Device Info */}
+                <View style={[styles.deviceInfoCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <View style={[styles.deviceNameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Text style={[styles.deviceNameText, { color: colors.textPrimary }]} numberOfLines={1}>
+                      {device.name}
+                    </Text>
+                    {device.isCurrent && (
+                      <View style={styles.currentDeviceBadge}>
+                        <Ionicons name="checkmark-circle" size={13} color="#10b981" />
+                        <Text style={styles.currentDeviceBadgeText}>
+                          {isRTL ? 'هذا الجهاز الحالي' : 'Current Device'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.deviceOsText, { color: colors.textSecondary }]}>
+                    {device.os ? `${device.os} • ` : ''}
+                    {isRTL ? 'موثق عبر المشرف' : 'Supervisor Verified'}
+                  </Text>
+                </View>
+
+                {/* Delete / Revoke Action */}
+                <TouchableOpacity
+                  style={[styles.deviceDeleteBtn, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fee2e2' }]}
+                  onPress={() => confirmRevokeDevice(device)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={17} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={[styles.cardEmptyPlaceholder, { borderColor: colors.border, height: 90, marginTop: 4 }]}>
+            <MaterialCommunityIcons name="shield-off-outline" size={26} color={colors.textSecondary} />
+            <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+              {isRTL ? 'لا توجد أجهزة موثقة مسجلة' : 'No trusted devices recorded'}
+            </Text>
+          </View>
+        )}
+      </View>
+
       {/* Language & Settings Box */}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }]}>
@@ -607,5 +754,61 @@ const styles = StyleSheet.create({
   settingRowVal: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  devicesList: {
+    gap: 10,
+    marginTop: 4,
+  },
+  deviceRow: {
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 12,
+  },
+  deviceIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deviceInfoCol: {
+    flex: 1,
+    gap: 4,
+  },
+  deviceNameRow: {
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  deviceNameText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  currentDeviceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  currentDeviceBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  deviceOsText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  deviceDeleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // Hosted Backend API URL (Render)
 export const API_BASE_URL =
@@ -179,4 +180,61 @@ export const verifyOtpApi = async (nationalId: string, otpCode: string): Promise
   }
   return res;
 };
+
+export interface TrustedDeviceItem {
+  uuid: string;
+  name: string;
+  os: string;
+  trustedAt: string;
+  isCurrent: boolean;
+}
+
+export const getTrustedDevicesList = async (nationalId: string): Promise<TrustedDeviceItem[]> => {
+  try {
+    const isTrusted = await isDeviceTrustedForNationalId(nationalId);
+    const uuid = await getOrCreateDeviceUUID();
+    let rawList = await AsyncStorage.getItem(`aams_device_list_${nationalId}`);
+    let list: TrustedDeviceItem[] = rawList ? JSON.parse(rawList) : [];
+
+    if (isTrusted) {
+      const hasCurrent = list.some((d) => d.uuid === uuid);
+      if (!hasCurrent) {
+        const currentItem: TrustedDeviceItem = {
+          uuid,
+          name: Platform.OS === 'ios' ? 'Apple iPhone' : 'هاتف أندرويد (Android Phone)',
+          os: `${Platform.OS.toUpperCase()} ${Platform.Version || ''}`.trim(),
+          trustedAt: new Date().toISOString(),
+          isCurrent: true,
+        };
+        list.unshift(currentItem);
+        await AsyncStorage.setItem(`aams_device_list_${nationalId}`, JSON.stringify(list));
+      }
+    }
+
+    return list.map((d) => ({
+      ...d,
+      isCurrent: d.uuid === uuid,
+    }));
+  } catch {
+    return [];
+  }
+};
+
+export const revokeTrustedDevice = async (nationalId: string, uuid: string): Promise<void> => {
+  try {
+    const currentUuid = await getOrCreateDeviceUUID();
+    if (uuid === currentUuid) {
+      await AsyncStorage.removeItem(`${TRUSTED_DEVICE_PREFIX}${nationalId}`);
+    }
+    let rawList = await AsyncStorage.getItem(`aams_device_list_${nationalId}`);
+    if (rawList) {
+      let list: TrustedDeviceItem[] = JSON.parse(rawList);
+      list = list.filter((d) => d.uuid !== uuid);
+      await AsyncStorage.setItem(`aams_device_list_${nationalId}`, JSON.stringify(list));
+    }
+  } catch (e) {
+    console.log('Error revoking device:', e);
+  }
+};
+
 
