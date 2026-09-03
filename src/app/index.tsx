@@ -765,21 +765,30 @@ export default function DelegateApp() {
             <TouchableOpacity
               style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
               onPress={() => setCurrentTab('profile')}
+              activeOpacity={0.8}
             >
               <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
                 {empPhotoUrl ? (
                   <Image source={{ uri: empPhotoUrl }} style={styles.headerAvatarImg} />
                 ) : (
-                  <Ionicons name="person" size={18} color={colors.primary} />
+                  <Ionicons name="person" size={24} color={colors.primary} />
                 )}
               </View>
               <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                 <Text style={[styles.headerUserName, { color: colors.textPrimary }]} numberOfLines={1}>
                   {employee.name}
                 </Text>
-                <Text style={[styles.headerUserRole, { color: colors.textSecondary }]}>
-                  {employee.motorcycle_number ? `${employee.motorcycle_number}` : t.jobRole}
-                </Text>
+                <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="card-outline" size={13} color={colors.primary} />
+                  <Text style={[styles.headerUserNationalId, { color: colors.textSecondary }]}>
+                    {employee.national_id || '—'}
+                  </Text>
+                  {employee.motorcycle_number && (
+                    <Text style={[styles.headerBikeText, { color: colors.textSecondary }]}>
+                      • {employee.motorcycle_number}
+                    </Text>
+                  )}
+                </View>
               </View>
             </TouchableOpacity>
 
@@ -788,7 +797,7 @@ export default function DelegateApp() {
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setShowQrModal(true)}
               >
-                <Ionicons name="qr-code-outline" size={18} color={colors.primary} />
+                <Ionicons name="qr-code-outline" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </>
@@ -983,23 +992,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   appHeader: {
-    height: 60,
+    minHeight: 72,
     borderBottomWidth: 0,
     backgroundColor: 'transparent',
     paddingHorizontal: 16,
+    paddingVertical: 8,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   headerUserInfo: {
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     flex: 1,
   },
   headerAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1.5,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -1010,13 +1020,24 @@ const styles = StyleSheet.create({
   },
   headerUserText: {
     flex: 1,
+    justifyContent: 'center',
+    gap: 4,
   },
   headerUserName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '800',
+    letterSpacing: -0.2,
   },
-  headerUserRole: {
-    fontSize: 11,
+  headerIdBadgeRow: {
+    alignItems: 'center',
+    gap: 5,
+  },
+  headerUserNationalId: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  headerBikeText: {
+    fontSize: 12,
     fontWeight: '500',
   },
   headerActions: {
@@ -1024,9 +1045,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
