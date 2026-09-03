@@ -269,7 +269,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
            ========================================================================= */
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {/* Live GPS Tracker Card (if GPS distance recorded) */}
-          {gpsDistance > 0 && (
+          {gpsDistance > 0 ? (
             <View style={[styles.smartSuggestionBox, { backgroundColor: '#ecfdf5', borderColor: '#10b981' }]}>
               <View style={[styles.suggestionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={[styles.suggestionSparkleCircle, { backgroundColor: '#d1fae5' }]}>
@@ -281,7 +281,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                   </Text>
                   <Text style={[styles.suggestionHeaderSub, { color: '#047857', textAlign: isRTL ? 'right' : 'left' }]}>
                     {isRTL
-                      ? `المسافة الفعلية المسجلة: ${gpsDistance} كم  •  العداد الفعلي: ${gpsEndKm} كم`
+                      ? `المسافة المسجلة: ${gpsDistance} كم  •  العداد الفعلي: ${gpsEndKm} كم`
                       : `GPS Distance: ${gpsDistance} km  •  Estimated End: ${gpsEndKm} km`}
                   </Text>
                 </View>
@@ -297,138 +297,139 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 </TouchableOpacity>
               </View>
             </View>
-          )}
-
-          {/* Smart Distance & End KM Suggestion Card */}
-          {startKmNum > 0 && (
-            <View style={[styles.smartSuggestionBox, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}>
-              <View style={[styles.suggestionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.suggestionSparkleCircle, { backgroundColor: colors.primaryLight }]}>
-                  <Ionicons name="sparkles" size={16} color={colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.suggestionHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {isRTL ? 'اقتراح المسافة المقطوعة والعداد' : 'Estimated Distance & End KM'}
-                  </Text>
-                  <Text style={[styles.suggestionHeaderSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {isRTL
-                      ? `مشى الدباب تقريباً: ~${estimatedKm} كم  •  العداد المقترح: ${suggestedEndKm} كم`
-                      : `Est. distance: ~${estimatedKm} km  •  Suggested End: ${suggestedEndKm} km`}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.applySuggestedBtn, { backgroundColor: colors.primary }]}
-                  onPress={() => setEndKm(String(suggestedEndKm))}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="flash" size={13} color="#ffffff" />
-                  <Text style={styles.applySuggestedBtnText}>
-                    {isRTL ? 'تطبيق المقترح' : 'Apply'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* Row 1: End KM Input & Compact Photo Button (Side-by-Side) */}
-          <View style={[styles.twoColRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            {/* End KM Input */}
-            <View style={[styles.formGroup, { flex: 1.15 }]}>
-              <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.endKmInputLabel}
-              </Text>
-              <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Ionicons name="speedometer-outline" size={18} color={colors.primary} />
-                <TextInput
-                  style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                  placeholder={`${suggestedEndKm}`}
-                  placeholderTextColor="#94a3b8"
-                  value={endKm}
-                  onChangeText={setEndKm}
-                  keyboardType="numeric"
-                />
-                <Text style={{ color: colors.textSecondary, fontWeight: '700', fontSize: 12 }}>{t.km}</Text>
-              </View>
-            </View>
-
-            {/* End KM Photo (Small Compact Card) */}
-            <View style={[styles.formGroup, { flex: 1 }]}>
-              <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.endKmPhotoLabel}
-              </Text>
-              {endKmImage ? (
-                <View style={[styles.compactPhotoCard, { backgroundColor: colors.inputBg, borderColor: '#16a34a', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          ) : (
+            startKmNum > 0 && (
+              <View style={[styles.smartSuggestionBox, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}>
+                <View style={[styles.suggestionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={[styles.suggestionSparkleCircle, { backgroundColor: colors.primaryLight }]}>
+                    <Ionicons name="sparkles" size={16} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.suggestionHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {isRTL ? 'اقتراح المسافة المقطوعة والعداد' : 'Estimated Distance & End KM'}
+                    </Text>
+                    <Text style={[styles.suggestionHeaderSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {isRTL
+                        ? `مشى الدباب تقريباً: ~${estimatedKm} كم  •  العداد المقترح: ${suggestedEndKm} كم`
+                        : `Est. distance: ~${estimatedKm} km  •  Suggested End: ${suggestedEndKm} km`}
+                    </Text>
+                  </View>
                   <TouchableOpacity
-                    onPress={() => onPreviewPhoto({ url: endKmImage, title: t.endKmPhotoLabel })}
-                    style={[styles.compactPhotoTouch, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                    style={[styles.applySuggestedBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => setEndKm(String(suggestedEndKm))}
+                    activeOpacity={0.8}
                   >
-                    <Image source={{ uri: endKmImage }} style={styles.compactPhotoThumbnail} resizeMode="cover" />
-                    <View style={{ flex: 1, paddingHorizontal: 4 }}>
-                      <Text style={[styles.compactPhotoDoneText, { color: '#16a34a' }]} numberOfLines={1}>
-                        {isRTL ? 'تم التقاطها ✓' : 'Done ✓'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.compactRetakeBtn, { backgroundColor: colors.card }]}
-                    onPress={() => onTakeOdometerPhoto('end')}
-                  >
-                    <Ionicons name="camera-reverse" size={15} color={colors.primary} />
+                    <Ionicons name="flash" size={13} color="#ffffff" />
+                    <Text style={styles.applySuggestedBtnText}>
+                      {isRTL ? 'تطبيق المقترح' : 'Apply'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.compactCameraBtn, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                  onPress={() => onTakeOdometerPhoto('end')}
-                  activeOpacity={0.75}
-                >
-                  <Ionicons name="camera" size={18} color={colors.primary} />
-                  <Text style={[styles.compactCameraBtnText, { color: colors.textPrimary }]} numberOfLines={1}>
-                    {isRTL ? 'تصوير العداد' : 'Take Photo'}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              </View>
+            )
+          )}
+
+          {/* End KM Input */}
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+              {t.endKmInputLabel}
+            </Text>
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder={`${suggestedEndKm}`}
+                placeholderTextColor="#94a3b8"
+                value={endKm}
+                onChangeText={setEndKm}
+                keyboardType="numeric"
+              />
+              <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.km}</Text>
             </View>
           </View>
 
-          {/* Row 2: Orders Count & Fuel Cost (Side-by-Side) */}
-          <View style={[styles.twoColRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            {/* Orders Count Input */}
-            <View style={[styles.formGroup, { flex: 1 }]}>
-              <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.ordersCountLabel}
-              </Text>
-              <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <MaterialCommunityIcons name="package-variant-closed" size={18} color={colors.primary} />
-                <TextInput
-                  style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                  placeholder={t.ordersCountPlaceholder}
-                  placeholderTextColor="#94a3b8"
-                  value={ordersCount}
-                  onChangeText={setOrdersCount}
-                  keyboardType="numeric"
-                />
-                <Text style={{ color: colors.textSecondary, fontWeight: '700', fontSize: 12 }}>{t.ordersUnit}</Text>
+          {/* End KM Photo Capture Box */}
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+              {t.endKmPhotoLabel}
+            </Text>
+            {endKmImage ? (
+              <View style={[styles.photoPreviewCard, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+                <TouchableOpacity
+                  onPress={() => onPreviewPhoto({ url: endKmImage, title: t.endKmPhotoLabel })}
+                  style={styles.photoPreviewTouch}
+                >
+                  <Image source={{ uri: endKmImage }} style={styles.photoThumbnail} resizeMode="cover" />
+                  <View style={styles.photoPreviewMeta}>
+                    <Text style={[styles.photoPreviewTitle, { color: colors.textPrimary }]}>
+                      {t.photoCapturedSuccess}
+                    </Text>
+                    <Text style={[styles.photoPreviewSub, { color: colors.primary }]}>
+                      {t.tapToViewPhoto}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.retakeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => onTakeOdometerPhoto('end')}
+                >
+                  <Ionicons name="camera-reverse-outline" size={16} color={colors.primary} />
+                  <Text style={[styles.retakeBtnText, { color: colors.primary }]}>{t.retakePhoto}</Text>
+                </TouchableOpacity>
               </View>
-            </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.cameraCaptureCard, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}
+                onPress={() => onTakeOdometerPhoto('end')}
+              >
+                <View style={[styles.cameraIconWrap, { backgroundColor: colors.primary }]}>
+                  <Ionicons name="camera" size={24} color="#ffffff" />
+                </View>
+                <Text style={[styles.cameraCardTitle, { color: colors.textPrimary }]}>
+                  {t.captureCamera}
+                </Text>
+                <Text style={[styles.cameraCardSub, { color: colors.textSecondary }]}>
+                  {t.odometerGuideSub}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-            {/* Fuel Cost Input */}
-            <View style={[styles.formGroup, { flex: 1 }]}>
-              <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.fuelCostLabel}
-              </Text>
-              <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <MaterialCommunityIcons name="gas-station" size={18} color="#eab308" />
-                <TextInput
-                  style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                  placeholder={t.fuelCostPlaceholder}
-                  placeholderTextColor="#94a3b8"
-                  value={fuelCost}
-                  onChangeText={setFuelCost}
-                  keyboardType="decimal-pad"
-                />
-                <Text style={{ color: colors.textSecondary, fontWeight: '700', fontSize: 12 }}>{t.sar}</Text>
-              </View>
+          {/* Orders Count Input */}
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+              {t.ordersCountLabel}
+            </Text>
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <MaterialCommunityIcons name="package-variant-closed" size={20} color={colors.primary} />
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder={t.ordersCountPlaceholder}
+                placeholderTextColor="#94a3b8"
+                value={ordersCount}
+                onChangeText={setOrdersCount}
+                keyboardType="numeric"
+              />
+              <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.ordersUnit}</Text>
+            </View>
+          </View>
+
+          {/* Fuel Cost Input */}
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+              {t.fuelCostLabel}
+            </Text>
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <MaterialCommunityIcons name="gas-station" size={20} color="#eab308" />
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder={t.fuelCostPlaceholder}
+                placeholderTextColor="#94a3b8"
+                value={fuelCost}
+                onChangeText={setFuelCost}
+                keyboardType="decimal-pad"
+              />
+              <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>{t.sar}</Text>
             </View>
           </View>
 
@@ -736,52 +737,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 11,
     fontWeight: '800',
-  },
-  twoColRow: {
-    gap: 12,
-  },
-  compactCameraBtn: {
-    height: 50,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    gap: 6,
-  },
-  compactCameraBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  compactPhotoCard: {
-    height: 50,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    gap: 6,
-  },
-  compactPhotoTouch: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  compactPhotoThumbnail: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-  },
-  compactPhotoDoneText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  compactRetakeBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });
