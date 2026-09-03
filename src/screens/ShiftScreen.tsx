@@ -270,16 +270,39 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {/* Live GPS Tracker Card (if GPS distance recorded) */}
           {gpsDistance > 0 ? (
-            <View style={[styles.smartSuggestionBox, { backgroundColor: '#ecfdf5', borderColor: '#10b981' }]}>
+            <View
+              style={[
+                styles.smartSuggestionBox,
+                {
+                  backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5',
+                  borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.4)' : '#10b981',
+                },
+              ]}
+            >
               <View style={[styles.suggestionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.suggestionSparkleCircle, { backgroundColor: '#d1fae5' }]}>
-                  <Ionicons name="navigate" size={16} color="#059669" />
+                <View
+                  style={[
+                    styles.suggestionSparkleCircle,
+                    { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.22)' : '#d1fae5' },
+                  ]}
+                >
+                  <Ionicons name="navigate" size={16} color={isDarkMode ? '#34d399' : '#059669'} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.suggestionHeaderTitle, { color: '#065f46', textAlign: isRTL ? 'right' : 'left' }]}>
+                  <Text
+                    style={[
+                      styles.suggestionHeaderTitle,
+                      { color: isDarkMode ? '#34d399' : '#065f46', textAlign: isRTL ? 'right' : 'left' },
+                    ]}
+                  >
                     {isRTL ? 'تتبع الـ GPS المباشر للشفت' : 'Live GPS Shift Distance'}
                   </Text>
-                  <Text style={[styles.suggestionHeaderSub, { color: '#047857', textAlign: isRTL ? 'right' : 'left' }]}>
+                  <Text
+                    style={[
+                      styles.suggestionHeaderSub,
+                      { color: isDarkMode ? '#a7f3d0' : '#047857', textAlign: isRTL ? 'right' : 'left' },
+                    ]}
+                  >
                     {isRTL
                       ? `المسافة المسجلة: ${gpsDistance} كم  •  العداد الفعلي: ${gpsEndKm} كم`
                       : `GPS Distance: ${gpsDistance} km  •  Estimated End: ${gpsEndKm} km`}
@@ -299,16 +322,34 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             </View>
           ) : (
             startKmNum > 0 && (
-              <View style={[styles.smartSuggestionBox, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}>
+              <View
+                style={[
+                  styles.smartSuggestionBox,
+                  {
+                    backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.12)' : colors.inputBg,
+                    borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.4)' : colors.primary,
+                  },
+                ]}
+              >
                 <View style={[styles.suggestionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <View style={[styles.suggestionSparkleCircle, { backgroundColor: colors.primaryLight }]}>
                     <Ionicons name="sparkles" size={16} color={colors.primary} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.suggestionHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    <Text
+                      style={[
+                        styles.suggestionHeaderTitle,
+                        { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                      ]}
+                    >
                       {isRTL ? 'اقتراح المسافة المقطوعة والعداد' : 'Estimated Distance & End KM'}
                     </Text>
-                    <Text style={[styles.suggestionHeaderSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    <Text
+                      style={[
+                        styles.suggestionHeaderSub,
+                        { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' },
+                      ]}
+                    >
                       {isRTL
                         ? `مشى الدباب تقريباً: ~${estimatedKm} كم  •  العداد المقترح: ${suggestedEndKm} كم`
                         : `Est. distance: ~${estimatedKm} km  •  Suggested End: ${suggestedEndKm} km`}

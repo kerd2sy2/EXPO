@@ -103,21 +103,21 @@ export default function DelegateApp() {
   // Theme Colors
   const colors: ThemeColors = isDarkMode
     ? {
-        bg: '#0a0d14',
-        card: '#121624',
-        cardHeader: '#1a2035',
-        textPrimary: '#f8fafc',
-        textSecondary: '#94a3b8',
-        border: '#1e293b',
-        primary: '#ea580c',
-        primaryLight: 'rgba(234, 88, 12, 0.15)',
+        bg: '#000000',
+        card: '#16161a',
+        cardHeader: '#202026',
+        textPrimary: '#ffffff',
+        textSecondary: '#9ca3af',
+        border: '#27272e',
+        primary: '#f97316',
+        primaryLight: 'rgba(249, 115, 22, 0.16)',
         primaryText: '#fb923c',
         accent: '#38bdf8',
-        accentLight: 'rgba(56, 189, 248, 0.15)',
-        inputBg: '#0f172a',
-        inputBorder: '#334155',
+        accentLight: 'rgba(56, 189, 248, 0.16)',
+        inputBg: '#1c1c22',
+        inputBorder: '#2e2e38',
         warningBg: 'rgba(234, 179, 8, 0.15)',
-        warningBorder: '#eab308',
+        warningBorder: 'rgba(234, 179, 8, 0.3)',
         warningText: '#fef08a',
         errorBg: 'rgba(239, 68, 68, 0.15)',
         errorText: '#fca5a5',
@@ -140,7 +140,7 @@ export default function DelegateApp() {
         warningBorder: '#facc15',
         warningText: '#854d0e',
         errorBg: '#fee2e2',
-        errorText: '#b91c1c',
+        errorText: '#ef4444',
       };
 
   // Check Active Session & Employee on Mount

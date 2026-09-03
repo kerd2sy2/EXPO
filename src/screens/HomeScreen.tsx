@@ -157,7 +157,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
         onPress={() => onNavigateToTab('shift')}
       >
-        <View style={[styles.quickCardIconCircle, { backgroundColor: activeSession ? '#fee2e2' : colors.primaryLight }]}>
+        <View
+          style={[
+            styles.quickCardIconCircle,
+            {
+              backgroundColor: activeSession
+                ? isDarkMode
+                  ? 'rgba(239, 68, 68, 0.18)'
+                  : '#fee2e2'
+                : colors.primaryLight,
+            },
+          ]}
+        >
           <Ionicons
             name={activeSession ? 'stop-circle-outline' : 'play-circle-outline'}
             size={24}
