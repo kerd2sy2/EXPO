@@ -9,6 +9,7 @@ import {
   Dimensions,
   SafeAreaView,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PreviewPhotoData, ThemeColors } from '../../types/delegate';
@@ -30,6 +31,9 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
 }) => {
   if (!previewPhoto) return null;
 
+  // Ensure any attached employee name or hyphen is removed from header
+  const cleanTitle = previewPhoto.title ? previewPhoto.title.split(' - ')[0].trim() : '';
+
   return (
     <Modal
       visible={!!previewPhoto}
@@ -38,15 +42,15 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
       statusBarTranslucent={true}
       onRequestClose={onClose}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
       <SafeAreaView style={styles.fullScreenContainer}>
-        {/* Top Floating App Bar */}
+        {/* Floating Top App Bar (Does not occupy layout space, allowing full vertical image expansion) */}
         <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={[styles.headerTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={styles.headerIconCircle}>
               <Ionicons name="document-text" size={18} color="#ffffff" />
             </View>
-            <View style={{ flex: 1 }}>
+            {cleanTitle ? (
               <Text
                 style={[
                   styles.topBarTitle,
@@ -54,17 +58,9 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
                 ]}
                 numberOfLines={1}
               >
-                {previewPhoto.title}
+                {cleanTitle}
               </Text>
-              <Text
-                style={[
-                  styles.topBarSubtitle,
-                  { textAlign: isRTL ? 'right' : 'left' },
-                ]}
-              >
-                {isRTL ? 'معاينة أفقية كاملة للوثيقة الرسمية' : 'Full Document View'}
-              </Text>
-            </View>
+            ) : null}
           </View>
 
           {/* Close Button */}
@@ -72,33 +68,19 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
             onPress={onClose}
             style={styles.closeIconButton}
             activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Ionicons name="close" size={24} color="#ffffff" />
           </TouchableOpacity>
         </View>
 
-        {/* Main Document Viewer (Fills the entire 4 quarters of screen) */}
+        {/* Full-bleed Vertical Document Viewer Area */}
         <View style={styles.documentViewerArea}>
           <Image
             source={{ uri: previewPhoto.url }}
             style={styles.fullDocumentImage}
             resizeMode="contain"
           />
-        </View>
-
-        {/* Bottom Floating Bar */}
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.bottomCloseButton}
-            onPress={onClose}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="checkmark-circle-outline" size={18} color="#ffffff" />
-            <Text style={styles.bottomCloseButtonText}>
-              {isRTL ? 'إغلاق المعاينة' : 'Close Preview'}
-            </Text>
-          </TouchableOpacity>
         </View>
       </SafeAreaView>
     </Modal>
@@ -108,51 +90,50 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
 const styles = StyleSheet.create({
   fullScreenContainer: {
     flex: 1,
-    backgroundColor: '#07090e',
-    justifyContent: 'space-between',
+    backgroundColor: '#000000',
+    position: 'relative',
   },
   topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
     paddingHorizontal: 16,
-    paddingTop: 44,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 12 : 50,
     paddingBottom: 14,
-    backgroundColor: 'rgba(15, 20, 30, 0.94)',
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.12)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'space-between',
     alignItems: 'center',
-    zIndex: 50,
   },
   headerTitleGroup: {
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     flex: 1,
   },
   headerIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.25)',
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(59, 130, 246, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.5)',
+    borderColor: 'rgba(59, 130, 246, 0.6)',
   },
   topBarTitle: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '800',
-  },
-  topBarSubtitle: {
-    color: 'rgba(255, 255, 255, 0.65)',
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2,
+    fontWeight: '700',
+    flex: 1,
   },
   closeIconButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
@@ -163,33 +144,10 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
+    backgroundColor: '#000000',
   },
   fullDocumentImage: {
-    width: SCREEN_WIDTH - 16,
-    height: SCREEN_HEIGHT * 0.72,
-  },
-  bottomBar: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 24,
-    backgroundColor: 'rgba(15, 20, 30, 0.94)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  bottomCloseButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 13,
-    borderRadius: 16,
-    backgroundColor: '#2563eb',
-    gap: 8,
-  },
-  bottomCloseButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
   },
 });

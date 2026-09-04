@@ -315,7 +315,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (doc.url) {
       onPreviewPhoto({
         url: doc.url,
-        title: `${doc.title} - ${employee.name}`,
+        title: doc.title,
       });
     }
   };
