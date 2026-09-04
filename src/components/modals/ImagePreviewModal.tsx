@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
-  Text,
   TouchableOpacity,
   Image,
   StyleSheet,
@@ -31,8 +30,17 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
 }) => {
   if (!previewPhoto) return null;
 
-  // Ensure any attached employee name or hyphen is removed from header
-  const cleanTitle = previewPhoto.title ? previewPhoto.title.split(' - ')[0].trim() : '';
+  const [rotation, setRotation] = useState<number>(previewPhoto?.rotate ? 90 : 0);
+
+  useEffect(() => {
+    setRotation(previewPhoto?.rotate ? 90 : 0);
+  }, [previewPhoto]);
+
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
+  };
+
+  const isRotated = rotation % 180 !== 0;
 
   return (
     <Modal
@@ -44,29 +52,22 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
     >
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
       <SafeAreaView style={styles.fullScreenContainer}>
-        {/* Floating Top App Bar (Does not occupy layout space, allowing full vertical image expansion) */}
-        <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.headerTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={styles.headerIconCircle}>
-              <Ionicons name="document-text" size={18} color="#ffffff" />
-            </View>
-            {cleanTitle ? (
-              <Text
-                style={[
-                  styles.topBarTitle,
-                  { textAlign: isRTL ? 'right' : 'left' },
-                ]}
-                numberOfLines={1}
-              >
-                {cleanTitle}
-              </Text>
-            ) : null}
-          </View>
+        {/* Floating Top Controls */}
+        <View style={[styles.floatingControls, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          {/* Rotate Button */}
+          <TouchableOpacity
+            onPress={handleRotate}
+            style={styles.floatingActionBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="refresh" size={22} color="#ffffff" />
+          </TouchableOpacity>
 
           {/* Close Button */}
           <TouchableOpacity
             onPress={onClose}
-            style={styles.closeIconButton}
+            style={styles.floatingActionBtn}
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
@@ -78,7 +79,21 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
         <View style={styles.documentViewerArea}>
           <Image
             source={{ uri: previewPhoto.url }}
-            style={styles.fullDocumentImage}
+            style={[
+              styles.fullDocumentImage,
+              isRotated
+                ? {
+                    width: SCREEN_HEIGHT,
+                    height: SCREEN_WIDTH,
+                  }
+                : {
+                    width: SCREEN_WIDTH,
+                    height: SCREEN_HEIGHT,
+                  },
+              {
+                transform: [{ rotate: `${rotation}deg` }],
+              },
+            ]}
             resizeMode="contain"
           />
         </View>
@@ -93,50 +108,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     position: 'relative',
   },
-  topBar: {
+  floatingControls: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 50,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 12 : 50,
-    paddingBottom: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'space-between',
     alignItems: 'center',
+    pointerEvents: 'box-none',
   },
-  headerTitleGroup: {
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  headerIconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: 'rgba(59, 130, 246, 0.3)',
+  floatingActionBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.6)',
-  },
-  topBarTitle: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-    flex: 1,
-  },
-  closeIconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   documentViewerArea: {
     flex: 1,

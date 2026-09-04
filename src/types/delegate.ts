@@ -60,6 +60,7 @@ export interface SuccessModalData {
 export interface PreviewPhotoData {
   url: string;
   title: string;
+  rotate?: boolean;
 }
 
 export type TabType = 'home' | 'shift' | 'history' | 'profile';

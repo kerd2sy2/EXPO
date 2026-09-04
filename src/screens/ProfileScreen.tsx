@@ -316,6 +316,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       onPreviewPhoto({
         url: doc.url,
         title: doc.title,
+        rotate: true,
       });
     }
   };
@@ -427,13 +428,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           cardStyle,
                           {
                             backgroundColor: colors.card,
-                            borderColor: item.doc.accentColor,
                             zIndex: 20,
                           },
                         ]}
                       >
-                        <View style={[styles.cardAccentBar, { backgroundColor: item.doc.accentColor }]} />
-
                         <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                           <View style={[styles.cardIconBadge, { backgroundColor: item.doc.badgeColor }]}>
                             {item.doc.iconFamily === 'ion' ? (
@@ -465,10 +463,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                             style={styles.cardDirectImage}
                             resizeMode="cover"
                           />
-                          <View style={styles.imageZoomHintBadge}>
-                            <Ionicons name="expand-outline" size={15} color="#ffffff" />
-                            <Text style={styles.imageZoomHintText}>{isRTL ? 'معاينة بالحجم الكامل' : 'Full Screen'}</Text>
-                          </View>
                         </TouchableOpacity>
                       </Animated.View>
                     );
@@ -486,7 +480,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         styles.backgroundDeckCard,
                         {
                           backgroundColor: colors.card,
-                          borderColor: item.doc.accentColor + '60',
                           transform: [{ translateY }, { scale }],
                           opacity,
                           zIndex: 10 - item.depthIndex,
@@ -845,7 +838,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 245,
     borderRadius: 20,
-    borderWidth: 1.5,
+    borderWidth: 0,
     padding: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
