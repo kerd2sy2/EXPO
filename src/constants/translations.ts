@@ -125,7 +125,7 @@ export const translations = {
     // Trusted Devices
     trustedDevices: 'الأجهزة الموثقة',
     trustedDevicesSub: 'الأجهزة المصرح لها بالدخول لحسابك',
-    currentDeviceBadge: 'هذا الجهاز الحالي (نشط) ✅',
+    currentDeviceBadge: 'هذا الجهاز الحالي',
     trustedDeviceStatus: 'موثق عبر المشرف',
     revokeDeviceTitle: 'إزالة توثيق الجهاز',
     revokeDeviceMsg: 'هل أنت متأكد من رغبتك في حذف توثيق ({name})؟ سيتطلب تسجيل الدخول القادم رمز تحقق OTP جديد من المشرف.',
@@ -297,7 +297,7 @@ export const translations = {
     // Trusted Devices
     trustedDevices: 'Trusted Devices',
     trustedDevicesSub: 'Devices authorized to access your account',
-    currentDeviceBadge: 'This Current Device (Active) ✅',
+    currentDeviceBadge: 'Current Device',
     trustedDeviceStatus: 'Supervisor Verified',
     revokeDeviceTitle: 'Remove Trusted Device',
     revokeDeviceMsg: 'Are you sure you want to revoke trust for ({name})? Next login will require a new supervisor OTP.',
@@ -469,7 +469,7 @@ export const translations = {
     // Trusted Devices
     trustedDevices: 'অনুমোদিত ডিভাইসসমূহ',
     trustedDevicesSub: 'আপনার অ্যাকাউন্টে প্রবেশের অনুমোদিত ফোনসমূহ',
-    currentDeviceBadge: 'এই বর্তমান ডিভাইস (সক্রিয়) ✅',
+    currentDeviceBadge: 'এই বর্তমান ডিভাইস',
     trustedDeviceStatus: 'সুপারভাইজার দ্বারা অনুমোদিত',
     revokeDeviceTitle: 'ডিভাইসের অনুমোদন বাতিল করুন',
     revokeDeviceMsg: 'আপনি কি নিশ্চিত যে ({name}) ডিভাইসের অনুমোদন বাতিল করতে চান? পরবর্তী লগইনে সুপারভাইজারের OTP প্রয়োজন হবে।',

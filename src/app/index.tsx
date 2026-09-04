@@ -122,6 +122,7 @@ export default function DelegateApp() {
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
   const [gpsDistance, setGpsDistance] = useState<number>(0);
   const [keyboardOffset, setKeyboardOffset] = useState<number>(0);
+  const [mainScrollEnabled, setMainScrollEnabled] = useState(true);
 
   // OTA Updates State (Bottom Sheet Modal)
   const [updateModalVisible, setUpdateModalVisible] = useState(false);
@@ -1149,6 +1150,7 @@ export default function DelegateApp() {
       >
         <ScrollView
           ref={mainScrollRef}
+          scrollEnabled={mainScrollEnabled}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -1248,6 +1250,7 @@ export default function DelegateApp() {
               onOpenLangModal={() => setShowLangModal(true)}
               onCheckForUpdates={() => handleCheckForUpdates(true)}
               onOpenDiagnostics={() => setShowDiagnosticsModal(true)}
+              setParentScrollEnabled={setMainScrollEnabled}
               onLogout={handleLogout}
               onPreviewPhoto={setPreviewPhoto}
               colors={colors}
