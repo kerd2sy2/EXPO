@@ -572,13 +572,13 @@ const styles = StyleSheet.create({
   },
   saudiBadge: {
     alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 0,
+    paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    gap: 5,
     marginRight: 6,
-    height: 36,
     flexShrink: 0,
   },
   flagEmoji: {

@@ -392,21 +392,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </View>
 
             {hasPhone ? (
-              <View
-                style={[
-                  styles.phoneLockedBadge,
-                  {
-                    backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.12)' : '#f0fdf4',
-                    borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.25)' : '#bbf7d0',
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
-                  },
-                ]}
-              >
-                <Ionicons name="lock-closed" size={12} color="#10b981" />
-                <Text style={[styles.phoneValueLocked, { color: colors.textPrimary }]}>
-                  {rawPhone}
-                </Text>
-              </View>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
+                {rawPhone}
+              </Text>
             ) : (
               <TouchableOpacity
                 style={[

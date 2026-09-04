@@ -1139,7 +1139,7 @@ export default function DelegateApp() {
                 onPress={() => setShowQrModal(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="qr-code-outline" size={20} color={colors.primary} />
+                <Ionicons name="qr-code-outline" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </>
@@ -1407,9 +1407,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1442,9 +1442,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerActionBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
