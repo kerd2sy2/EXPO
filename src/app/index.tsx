@@ -518,6 +518,33 @@ export default function DelegateApp() {
     }
   };
 
+  // Auto-fetch fresh profile data when user opens Profile tab without requiring manual pull-to-refresh
+  useEffect(() => {
+    if (currentTab === 'profile' && employee?.id) {
+      workApi.getMe().then((u) => {
+        if (u && u.id) {
+          setEmployee((prev) => ({
+            ...(prev || {}),
+            ...u,
+            motorcycle_number: u.motorcycle_number || prev?.motorcycle_number || '',
+            key_number: u.key_number || prev?.key_number || '',
+            national_id: u.national_id || prev?.national_id || '',
+            personal_image: u.personal_image || prev?.personal_image || '',
+            national_id_image: u.national_id_image || prev?.national_id_image || '',
+            driving_license_image: u.driving_license_image || prev?.driving_license_image || '',
+            passport_image: u.passport_image || prev?.passport_image || '',
+            vehicle_registration_image: u.vehicle_registration_image || prev?.vehicle_registration_image || '',
+            employee_number: u.employee_number || prev?.employee_number || '',
+            phone: u.phone || prev?.phone || '',
+            branch_name: u.branch_name || prev?.branch_name || '',
+          } as EmployeeProfile));
+        }
+      }).catch((err) => {
+        console.log('Silent profile sync error:', err);
+      });
+    }
+  }, [currentTab]);
+
   // Open Success Bottom Sheet
   const openSuccessModal = (data: SuccessModalData) => {
     setSuccessModalData(data);
@@ -1076,15 +1103,7 @@ export default function DelegateApp() {
               </View>
             </TouchableOpacity>
 
-            <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row', gap: 8 }]}>
-              <TouchableOpacity
-                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-                onPress={() => handleCheckForUpdates(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="cloud-download-outline" size={20} color={colors.primary} />
-              </TouchableOpacity>
-
+            <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setShowQrModal(true)}
@@ -1138,12 +1157,14 @@ export default function DelegateApp() {
             { paddingBottom: 24 + (keyboardOffset > 0 ? keyboardOffset + 24 : 0) },
           ]}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
+            currentTab !== 'profile' ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            ) : undefined
           }
         >
           {currentTab === 'home' && (

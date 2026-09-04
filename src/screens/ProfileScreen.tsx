@@ -6,11 +6,12 @@ import {
   Image,
   StyleSheet,
   Dimensions,
-  Animated,
-  PanResponder,
   ActivityIndicator,
   Alert,
   Switch,
+  ScrollView,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -28,7 +29,7 @@ import {
 } from '../services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.22;
+const DOC_CARD_WIDTH = SCREEN_WIDTH - 68;
 
 interface ProfileScreenProps {
   employee: EmployeeProfile;
@@ -222,62 +223,23 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   // Only keep documents that have an uploaded photo / URL
   const documents = allDocuments.filter((doc) => Boolean(doc.url));
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const position = useRef(new Animated.ValueXY()).current;
+  const [activeDocIndex, setActiveDocIndex] = useState(0);
+  const docScrollRef = useRef<ScrollView>(null);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gesture) => {
-        return Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy);
-      },
-      onPanResponderMove: (_, gesture) => {
-        position.setValue({ x: gesture.dx, y: gesture.dy * 0.25 });
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD) {
-          forceSwipe('right');
-        } else if (gesture.dx < -SWIPE_THRESHOLD) {
-          forceSwipe('left');
-        } else {
-          resetPosition();
-        }
-      },
-    })
-  ).current;
-
-  const forceSwipe = (direction: 'right' | 'left') => {
-    const x = direction === 'right' ? SCREEN_WIDTH + 80 : -SCREEN_WIDTH - 80;
-    Animated.timing(position, {
-      toValue: { x, y: 20 },
-      duration: 220,
-      useNativeDriver: false,
-    }).start(() => onSwipeComplete());
-  };
-
-  const onSwipeComplete = () => {
-    position.setValue({ x: 0, y: 0 });
-    if (documents.length > 0) {
-      setCurrentIndex((prev) => (prev + 1) % documents.length);
+  const onDocScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const slide = Math.round(offsetX / (DOC_CARD_WIDTH > 0 ? DOC_CARD_WIDTH : 1));
+    if (slide >= 0 && slide < documents.length && slide !== activeDocIndex) {
+      setActiveDocIndex(slide);
     }
   };
 
-  const resetPosition = () => {
-    Animated.spring(position, {
-      toValue: { x: 0, y: 0 },
-      friction: 5,
-      tension: 40,
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const rotate = position.x.interpolate({
-    inputRange: [-SCREEN_WIDTH * 1.5, 0, SCREEN_WIDTH * 1.5],
-    outputRange: ['-22deg', '0deg', '22deg'],
-  });
-
-  const cardStyle = {
-    transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }],
+  const scrollToDoc = (index: number) => {
+    docScrollRef.current?.scrollTo({
+      x: index * DOC_CARD_WIDTH,
+      animated: true,
+    });
+    setActiveDocIndex(index);
   };
 
   const handleCardPress = (doc: (typeof allDocuments)[0]) => {
@@ -328,7 +290,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </View>
       </View>
 
-      {/* Official Documents Section (3D Swipe Paper Stack Deck) */}
+      {/* Official Documents Section (Native Smooth Horizontal Carousel) */}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {/* Header */}
         <View style={[styles.sectionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -341,141 +303,141 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
           <View style={[styles.counterBadge, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
             <Text style={[styles.counterBadgeText, { color: colors.primaryText }]}>
-              {documents.length > 0 ? `${Math.min(currentIndex + 1, documents.length)} / ${documents.length}` : '0 / 0'}
+              {documents.length > 0 ? `${activeDocIndex + 1} / ${documents.length}` : '0 / 0'}
             </Text>
           </View>
         </View>
 
         {documents.length > 0 ? (
           <>
-            <Text style={[styles.swipeInstruction, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.docsCardSub}
-            </Text>
-
-            {/* 3D Stack Deck Area */}
-            <View style={styles.deckContainer}>
-              {/* Render cards from back to front */}
-              {documents
-                .map((doc, idx) => {
-                  if (idx < currentIndex) {
-                    return null;
-                  }
-
-                  const isFrontCard = idx === currentIndex;
-                  const depthIndex = idx - currentIndex;
-
-                  if (isFrontCard) {
-                    return (
-                      <Animated.View
-                        key={doc.id}
-                        {...panResponder.panHandlers}
-                        style={[
-                          styles.flyingCard,
-                          cardStyle,
-                          {
-                            backgroundColor: colors.card,
-                            borderColor: doc.accentColor,
-                            zIndex: 20,
-                          },
-                        ]}
-                      >
-                        {/* Top Accent Strip */}
-                        <View style={[styles.cardAccentBar, { backgroundColor: doc.accentColor }]} />
-
-                        {/* Card Header inside */}
-                        <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                          <View style={[styles.cardIconBadge, { backgroundColor: doc.badgeColor }]}>
-                            {doc.iconFamily === 'ion' ? (
-                              <Ionicons name={doc.icon as any} size={20} color={doc.accentColor} />
-                            ) : (
-                              <MaterialCommunityIcons name={doc.icon as any} size={20} color={doc.accentColor} />
-                            )}
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text
-                              style={[
-                                styles.cardDocTitle,
-                                { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {doc.title}
-                            </Text>
-                          </View>
-
-                          <View style={[styles.statusPill, { backgroundColor: 'rgba(34, 197, 94, 0.12)', borderColor: '#22c55e' }]}>
-                            <Ionicons name="checkmark-circle" size={13} color="#22c55e" />
-                            <Text
-                              style={[
-                                styles.statusPillText,
-                                { color: '#22c55e' },
-                              ]}
-                            >
-                              {t.docReadyBadge || 'جاهزة'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Direct Image Display without inner box wrapper */}
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          onPress={() => handleCardPress(doc)}
-                          style={styles.cardDirectImageTouch}
-                        >
-                          <Image
-                            source={{ uri: doc.url! }}
-                            style={styles.cardDirectImage}
-                            resizeMode="cover"
-                          />
-                        </TouchableOpacity>
-                      </Animated.View>
-                    );
-                  }
-
-                  // Background stacked cards (peek underneath)
-                  const scale = 1 - depthIndex * 0.05;
-                  const translateY = depthIndex * 14;
-                  const opacity = 1 - depthIndex * 0.25;
-
-                  return (
-                    <View
-                      key={doc.id}
+            {/* Quick document pill tabs */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              nestedScrollEnabled={true}
+              contentContainerStyle={[
+                styles.docTabsContainer,
+                { flexDirection: isRTL ? 'row-reverse' : 'row' },
+              ]}
+            >
+              {documents.map((doc, idx) => {
+                const isActive = idx === activeDocIndex;
+                return (
+                  <TouchableOpacity
+                    key={doc.id}
+                    onPress={() => scrollToDoc(idx)}
+                    style={[
+                      styles.docTabPill,
+                      {
+                        backgroundColor: isActive
+                          ? (isDarkMode ? 'rgba(59, 130, 246, 0.2)' : colors.primaryLight)
+                          : (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
+                        borderColor: isActive ? doc.accentColor : 'transparent',
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text
                       style={[
-                        styles.flyingCard,
-                        styles.backgroundDeckCard,
+                        styles.docTabPillText,
                         {
-                          backgroundColor: colors.inputBg,
-                          borderColor: doc.accentColor + '55',
-                          transform: [{ scale }, { translateY }],
-                          opacity,
-                          zIndex: 10 - depthIndex,
+                          color: isActive ? doc.accentColor : colors.textSecondary,
+                          fontWeight: isActive ? '700' : '500',
                         },
                       ]}
                     >
-                      <View style={[styles.cardAccentBar, { backgroundColor: doc.accentColor }]} />
-                      <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <View style={[styles.cardIconBadge, { backgroundColor: doc.badgeColor }]}>
-                          {doc.iconFamily === 'ion' ? (
-                            <Ionicons name={doc.icon as any} size={18} color={doc.accentColor} />
-                          ) : (
-                            <MaterialCommunityIcons name={doc.icon as any} size={18} color={doc.accentColor} />
-                          )}
-                        </View>
-                        <Text
-                          style={[
-                            styles.cardDocTitle,
-                            { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {doc.title}
-                        </Text>
-                      </View>
+                      {doc.shortTitle}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Native Horizontal Document Carousel */}
+            <ScrollView
+              ref={docScrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              nestedScrollEnabled={true}
+              decelerationRate="fast"
+              snapToInterval={DOC_CARD_WIDTH}
+              snapToAlignment="center"
+              onMomentumScrollEnd={onDocScroll}
+              contentContainerStyle={styles.docScrollContainer}
+            >
+              {documents.map((doc) => (
+                <View
+                  key={doc.id}
+                  style={[
+                    styles.docSlideCard,
+                    {
+                      width: DOC_CARD_WIDTH,
+                      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                      borderColor: doc.accentColor,
+                    },
+                  ]}
+                >
+                  <View style={[styles.cardAccentBar, { backgroundColor: doc.accentColor }]} />
+
+                  <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={[styles.cardIconBadge, { backgroundColor: doc.badgeColor }]}>
+                      {doc.iconFamily === 'ion' ? (
+                        <Ionicons name={doc.icon as any} size={20} color={doc.accentColor} />
+                      ) : (
+                        <MaterialCommunityIcons name={doc.icon as any} size={20} color={doc.accentColor} />
+                      )}
                     </View>
-                  );
-                })
-                .reverse()}
-            </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.cardDocTitle,
+                          { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {doc.title}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => handleCardPress(doc)}
+                    style={styles.cardDirectImageTouch}
+                  >
+                    <Image
+                      source={{ uri: doc.url! }}
+                      style={styles.cardDirectImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.imageZoomHintBadge}>
+                      <Ionicons name="expand-outline" size={15} color="#ffffff" />
+                      <Text style={styles.imageZoomHintText}>{isRTL ? 'معاينة بالحجم الكامل' : 'Full Screen'}</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+
+            {/* Pagination Dots */}
+            {documents.length > 1 && (
+              <View style={[styles.paginationDotsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                {documents.map((_, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => scrollToDoc(i)}
+                    style={[
+                      styles.paginationDot,
+                      {
+                        backgroundColor: i === activeDocIndex ? colors.primary : (isDarkMode ? '#334155' : '#cbd5e1'),
+                        width: i === activeDocIndex ? 20 : 7,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
           </>
         ) : (
           <View style={[styles.cardEmptyPlaceholder, { borderColor: colors.border, height: 140, marginTop: 8 }]}>
@@ -644,111 +606,35 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Prominent Check for Updates Row */}
+        {/* Check for Updates Row */}
         <TouchableOpacity
-          style={[
-            styles.settingRow,
-            {
-              borderBottomColor: colors.border,
-              flexDirection: isRTL ? 'row-reverse' : 'row',
-              backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.08)' : 'rgba(59, 130, 246, 0.04)',
-              paddingVertical: 14,
-            },
-          ]}
+          style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
           onPress={onCheckForUpdates}
           activeOpacity={0.7}
         >
-          <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row', gap: 12 }]}>
-            <View
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                backgroundColor: colors.primaryLight,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="cloud-download" size={20} color={colors.primary} />
-            </View>
-            <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-              <Text style={[styles.settingRowText, { color: colors.textPrimary, fontWeight: '700' }]}>
-                {isRTL ? 'التحقق من وجود تحديثات' : 'Check for Updates'}
-              </Text>
-              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
-                {isRTL ? 'فحص وتنزيل أحدث إصدار هوائي فوري' : 'Check & download latest version'}
-              </Text>
-            </View>
+          <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Ionicons name="cloud-download-outline" size={20} color={colors.primary} />
+            <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+              {isRTL ? 'تحديث التطبيق' : 'Check for Updates'}
+            </Text>
           </View>
-          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
-            <View
-              style={{
-                backgroundColor: colors.primary,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 12,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '800', color: '#ffffff' }}>
-                {isRTL ? 'فحص الآن' : 'Check'}
-              </Text>
-            </View>
-            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
-          </View>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
         </TouchableOpacity>
 
         {/* Diagnostics & Error Logs Row */}
         {onOpenDiagnostics && (
           <TouchableOpacity
-            style={[
-              styles.settingRow,
-              {
-                borderBottomColor: colors.border,
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-                backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.04)',
-                paddingVertical: 14,
-              },
-            ]}
+            style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
             onPress={onOpenDiagnostics}
             activeOpacity={0.7}
           >
-            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row', gap: 12 }]}>
-              <View
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  backgroundColor: 'rgba(239, 68, 68, 0.16)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="bug" size={20} color="#ef4444" />
-              </View>
-              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                <Text style={[styles.settingRowText, { color: colors.textPrimary, fontWeight: '700' }]}>
-                  {isRTL ? 'سجل تشخيص وفحص الأخطاء' : 'Diagnostics & Error Logs'}
-                </Text>
-                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
-                  {isRTL ? 'فحص وتتبع أسباب إغلاق التطبيق والأعطال' : 'Trace crashes and view detailed debug logs'}
-                </Text>
-              </View>
+            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="bug-outline" size={20} color={colors.primary} />
+              <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+                {isRTL ? 'سجل تشخيص وفحص الأخطاء' : 'Diagnostics & Error Logs'}
+              </Text>
             </View>
-            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
-              <View
-                style={{
-                  backgroundColor: '#ef4444',
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 12,
-                }}
-              >
-                <Text style={{ fontSize: 11, fontWeight: '800', color: '#ffffff' }}>
-                  {isRTL ? 'فتح السجل' : 'Open'}
-                </Text>
-              </View>
-              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
-            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
 
@@ -876,36 +762,59 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-  swipeInstruction: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginBottom: 14,
-    marginTop: 2,
+  docTabsContainer: {
+    gap: 8,
+    paddingVertical: 8,
+    marginBottom: 6,
   },
-  deckContainer: {
-    height: 250,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-    position: 'relative',
+  docTabPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
   },
-  flyingCard: {
-    position: 'absolute',
-    width: '100%',
+  docTabPillText: {
+    fontSize: 12,
+  },
+  docScrollContainer: {
+    paddingVertical: 4,
+  },
+  docSlideCard: {
     height: 240,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1.5,
     padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 10,
     overflow: 'hidden',
+    position: 'relative',
+    marginRight: 0,
   },
-  backgroundDeckCard: {
-    pointerEvents: 'none',
+  imageZoomHintBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  imageZoomHintText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  paginationDotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  paginationDot: {
+    height: 6,
+    borderRadius: 3,
   },
   cardAccentBar: {
     position: 'absolute',
@@ -928,18 +837,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardDocTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-  },
-  statusPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  statusPillText: {
-    fontSize: 10,
-    fontWeight: '800',
   },
   cardDirectImageTouch: {
     flex: 1,
