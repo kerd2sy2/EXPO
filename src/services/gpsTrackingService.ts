@@ -16,6 +16,40 @@ let activeLocationSubscription: Location.LocationSubscription | null = null;
 let currentTrackingSessionId: string | null = null;
 let lastServerLocationSyncTime = 0;
 
+/**
+ * Checks current location permissions and prompts for background location permission if needed.
+ */
+export async function checkLocationPermissionStatus(): Promise<{
+  foregroundGranted: boolean;
+  backgroundGranted: boolean;
+}> {
+  try {
+    const fg = await Location.getForegroundPermissionsAsync().catch(() => null);
+    const bg = await Location.getBackgroundPermissionsAsync().catch(() => null);
+    return {
+      foregroundGranted: fg?.status === 'granted',
+      backgroundGranted: bg?.status === 'granted',
+    };
+  } catch {
+    return { foregroundGranted: false, backgroundGranted: false };
+  }
+}
+
+/**
+ * Requests background location permission directly
+ */
+export async function requestAllLocationPermissions(): Promise<boolean> {
+  try {
+    const fg = await Location.requestForegroundPermissionsAsync().catch(() => null);
+    if (fg?.status !== 'granted') return false;
+
+    const bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
+    return bg?.status === 'granted';
+  } catch {
+    return false;
+  }
+}
+
 async function maybeSyncLocationToServer(latitude: number, longitude: number, speed?: number | null, heading?: number | null) {
   const now = Date.now();
   if (now - lastServerLocationSyncTime >= 30000) {

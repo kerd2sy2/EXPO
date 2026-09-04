@@ -48,6 +48,8 @@ import {
   stopGpsTracking,
   getGpsShiftDistance,
   clearGpsShiftData,
+  checkLocationPermissionStatus,
+  requestAllLocationPermissions,
 } from '../services/gpsTrackingService';
 
 // Screens
@@ -809,6 +811,35 @@ export default function DelegateApp() {
       startVal = 0;
       photoUri = '';
     }
+
+    // التحقق من صلاحية الموقع في الخلفية (السماح طوال الوقت) قبل بدء الشفت
+    const permStatus = await checkLocationPermissionStatus();
+    if (!permStatus.backgroundGranted) {
+      setAlertConfig({
+        type: 'location_permission',
+        title: lang === 'ar' ? 'تفعيل تتبع الموقع طوال الوقت' : 'Background Location Permission',
+        message:
+          lang === 'ar'
+            ? 'لتتبع مسارك وحساب الكيلومترات بدقة على الخريطة أثناء إغلاق الشاشة أو استخدام تطبيقات أخرى، يرجى الضغط على "موافق" واختيار (السماح طوال الوقت - Allow all the time).'
+            : 'To track your route and calculate kilometers accurately while the screen is locked, please tap "Allow" and choose "Allow all the time".',
+        primaryButtonText: lang === 'ar' ? 'موافق وسماح' : 'Allow All Time',
+        secondaryButtonText: lang === 'ar' ? 'تخطي الآن' : 'Skip For Now',
+        onPrimaryPress: async () => {
+          await requestAllLocationPermissions().catch(() => {});
+          proceedStartShift(startVal, photoUri);
+        },
+        onSecondaryPress: () => {
+          proceedStartShift(startVal, photoUri);
+        },
+      });
+      return;
+    }
+
+    proceedStartShift(startVal, photoUri);
+  };
+
+  const proceedStartShift = async (startVal: number, photoUri: string) => {
+    if (!employee) return;
 
     setSubmitting(true);
     try {
