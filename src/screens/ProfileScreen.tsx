@@ -12,12 +12,14 @@ import {
   Alert,
   Switch,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { EmployeeProfile, Language, ThemeColors, PreviewPhotoData } from '../types/delegate';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import { ChangePasswordModal } from '../components/modals/ChangePasswordModal';
+import { AddPhoneBottomSheet } from '../components/modals/AddPhoneBottomSheet';
 import {
   getTrustedDevicesList,
   revokeTrustedDevice,
@@ -42,6 +44,7 @@ interface ProfileScreenProps {
   setParentScrollEnabled?: (enabled: boolean) => void;
   onLogout: () => void;
   onPreviewPhoto: (photo: PreviewPhotoData) => void;
+  onUpdateEmployee?: (updated: EmployeeProfile) => void;
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL: boolean;
@@ -58,11 +61,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   setParentScrollEnabled,
   onLogout,
   onPreviewPhoto,
+  onUpdateEmployee,
   colors,
   isDarkMode,
   isRTL,
   t,
 }) => {
+  const [currentEmp, setCurrentEmp] = useState<EmployeeProfile>(employee);
+  const [showAddPhoneModal, setShowAddPhoneModal] = useState(false);
+
+  useEffect(() => {
+    setCurrentEmp(employee);
+  }, [employee]);
+
   // Trusted Devices State & Management
   const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceItem[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
@@ -70,7 +81,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const loadDevices = async () => {
-    if (employee?.national_id) {
+    if (currentEmp?.national_id) {
       setLoadingDevices(true);
       try {
         const devs = await getTrustedDevicesList(employee.national_id);
@@ -166,17 +177,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     return `https://aams-backend-fxy7.onrender.com/uploads/${url.replace(/^\/+/, '')}`;
   };
 
-  const nationalIdPhotoUrl = formatDocUrl(employee.national_id_image);
-  const drivingLicensePhotoUrl = formatDocUrl(employee.driving_license_image);
-  const vehicleRegPhotoUrl = formatDocUrl(employee.vehicle_registration_image);
-  const passportPhotoUrl = formatDocUrl(employee.passport_image);
+  const nationalIdPhotoUrl = formatDocUrl(currentEmp.national_id_image);
+  const drivingLicensePhotoUrl = formatDocUrl(currentEmp.driving_license_image);
+  const vehicleRegPhotoUrl = formatDocUrl(currentEmp.vehicle_registration_image);
+  const passportPhotoUrl = formatDocUrl(currentEmp.passport_image);
 
-  const phoneValue =
-    employee.employee_number ||
-    employee.phone ||
-    (employee as any).phone_number ||
-    (employee as any).mobile ||
-    '—';
+  const rawPhone = (
+    currentEmp.phone ||
+    (currentEmp as any).phone_number ||
+    (currentEmp as any).mobile ||
+    ''
+  ).trim();
+  const hasPhone = Boolean(rawPhone && rawPhone !== '' && rawPhone !== '—');
 
   // 4 Documents Deck in exact order
   const allDocuments = [
@@ -356,28 +368,74 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Ionicons name="person" size={44} color={colors.primary} />
             )}
           </TouchableOpacity>
-          <Text style={[styles.profileName, { color: colors.textPrimary }]}>{employee.name}</Text>
+          <Text style={[styles.profileName, { color: colors.textPrimary }]}>{currentEmp.name}</Text>
         </View>
 
         {/* Info Rows */}
         <View style={[styles.profileInfoList, { borderTopColor: colors.border }]}>
           {/* National ID */}
           <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t.nationalId}</Text>
-            <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{employee.national_id || '—'}</Text>
+            <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="card-outline" size={15} color={colors.textSecondary} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t.nationalId}</Text>
+            </View>
+            <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{currentEmp.national_id || '—'}</Text>
           </View>
 
           {/* Phone Number */}
           <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t.phoneNumber}</Text>
-            <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{phoneValue}</Text>
+            <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="call-outline" size={15} color={colors.textSecondary} />
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                {t.phoneNumber || (isRTL ? 'رقم الهاتف' : 'Phone Number')}
+              </Text>
+            </View>
+
+            {hasPhone ? (
+              <View
+                style={[
+                  styles.phoneLockedBadge,
+                  {
+                    backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.12)' : '#f0fdf4',
+                    borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.25)' : '#bbf7d0',
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+              >
+                <Ionicons name="lock-closed" size={12} color="#10b981" />
+                <Text style={[styles.phoneValueLocked, { color: colors.textPrimary }]}>
+                  {rawPhone}
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.addPhoneBadgeBtn,
+                  {
+                    backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5',
+                    borderColor: '#10b981',
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+                onPress={() => setShowAddPhoneModal(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add-circle" size={16} color="#10b981" />
+                <Text style={styles.addPhoneBadgeText}>
+                  {isRTL ? 'إضافة رقم' : 'Add Phone'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Branch (if available) */}
-          {employee.branch_name && (
+          {currentEmp.branch_name && (
             <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t.branch}</Text>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{employee.branch_name}</Text>
+              <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Ionicons name="business-outline" size={15} color={colors.textSecondary} />
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t.branch}</Text>
+              </View>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{currentEmp.branch_name}</Text>
             </View>
           )}
         </View>
@@ -720,6 +778,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         }}
       />
 
+      <AddPhoneBottomSheet
+        visible={showAddPhoneModal}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        t={t}
+        onClose={() => setShowAddPhoneModal(false)}
+        onSuccess={(newPhone, updatedEmp) => {
+          setShowAddPhoneModal(false);
+          const updated: EmployeeProfile = updatedEmp || { ...currentEmp, phone: newPhone };
+          setCurrentEmp(updated);
+          onUpdateEmployee?.(updated);
+          setAlertConfig({
+            type: 'success',
+            title: isRTL ? 'تم حفظ رقم الهاتف بنجاح' : 'Phone Saved Successfully',
+            message: isRTL
+              ? `تم تسجيل وتثبيت رقم الهاتف (${newPhone}) في ملفك بنجاح.\nتم قفل الرقم ولن يمكن تعديله أو حذفه لاحقاً من قبل الموظف.`
+              : `Your phone number (${newPhone}) has been permanently saved and locked.`,
+            primaryButtonText: isRTL ? 'حسناً' : 'OK',
+            onPrimaryPress: () => setAlertConfig(null),
+          });
+        }}
+      />
+
       <ActionAlertBottomSheet
         config={alertConfig}
         colors={colors}
@@ -777,9 +859,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  infoLabelGroup: {
+    alignItems: 'center',
+    gap: 6,
+  },
   infoValue: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  phoneLockedBadge: {
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  phoneValueLocked: {
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    letterSpacing: 0.5,
+  },
+  addPhoneBadgeBtn: {
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1.2,
+  },
+  addPhoneBadgeText: {
+    color: '#10b981',
+    fontSize: 13,
+    fontWeight: '800',
   },
   card: {
     borderRadius: 20,

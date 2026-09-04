@@ -287,6 +287,17 @@ export const changeMyPasswordApi = async (
   });
 };
 
+export const setMyPhoneApi = async (
+  phone: string
+): Promise<{ success: boolean; message: string; phone: string; employee: any }> => {
+  return apiRequest('/employees/me/phone', {
+    method: 'POST',
+    body: JSON.stringify({
+      phone: phone.trim(),
+    }),
+  });
+};
+
 export interface TrustedDeviceItem {
   uuid: string;
   name: string;

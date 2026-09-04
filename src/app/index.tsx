@@ -1282,6 +1282,10 @@ export default function DelegateApp() {
               setParentScrollEnabled={setMainScrollEnabled}
               onLogout={handleLogout}
               onPreviewPhoto={setPreviewPhoto}
+              onUpdateEmployee={async (updated) => {
+                setEmployee(updated);
+                await saveCachedUser(updated);
+              }}
               colors={colors}
               isDarkMode={isDarkMode}
               isRTL={isRTL}
