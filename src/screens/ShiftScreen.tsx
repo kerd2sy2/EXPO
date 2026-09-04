@@ -210,27 +210,36 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                   {t.startKmPhotoLabel}
                 </Text>
                 {startKmImage ? (
-                  <View style={[styles.photoPreviewCard, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+                  <View style={[styles.directImagePreviewWrap, { borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}>
                     <TouchableOpacity
+                      activeOpacity={0.9}
                       onPress={() => onPreviewPhoto({ url: startKmImage, title: t.startKmPhotoLabel })}
-                      style={styles.photoPreviewTouch}
+                      style={styles.directImageTouch}
                     >
-                      <Image source={{ uri: startKmImage }} style={styles.photoThumbnail} resizeMode="cover" />
-                      <View style={styles.photoPreviewMeta}>
-                        <Text style={[styles.photoPreviewTitle, { color: colors.textPrimary }]}>
-                          {t.photoCapturedSuccess}
-                        </Text>
-                        <Text style={[styles.photoPreviewSub, { color: colors.primary }]}>
-                          {t.tapToViewPhoto}
-                        </Text>
+                      <Image
+                        source={{ uri: startKmImage }}
+                        style={styles.directImageDisplay}
+                        resizeMode="cover"
+                      />
+                      <View style={[styles.directImageZoomBadge, isRTL ? { left: 10 } : { right: 10 }]}>
+                        <Ionicons name="expand-outline" size={13} color="#ffffff" />
+                        <Text style={styles.directImageZoomText}>{isRTL ? 'معاينة بالحجم الكامل' : 'Full Screen'}</Text>
                       </View>
                     </TouchableOpacity>
+
                     <TouchableOpacity
-                      style={[styles.retakeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      style={[
+                        styles.directImageRetakeBtn,
+                        isRTL ? { right: 10 } : { left: 10 },
+                        { backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.92)' },
+                      ]}
                       onPress={() => onTakeOdometerPhoto('start')}
+                      activeOpacity={0.8}
                     >
                       <Ionicons name="camera-reverse-outline" size={16} color={colors.primary} />
-                      <Text style={[styles.retakeBtnText, { color: colors.primary }]}>{t.retakePhoto}</Text>
+                      <Text style={[styles.directImageRetakeText, { color: colors.primary }]}>
+                        {t.retakePhoto || (isRTL ? 'إعادة التقاط' : 'Retake')}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -373,27 +382,36 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                   {t.endKmPhotoLabel}
                 </Text>
                 {endKmImage ? (
-                  <View style={[styles.photoPreviewCard, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+                  <View style={[styles.directImagePreviewWrap, { borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}>
                     <TouchableOpacity
+                      activeOpacity={0.9}
                       onPress={() => onPreviewPhoto({ url: endKmImage, title: t.endKmPhotoLabel })}
-                      style={styles.photoPreviewTouch}
+                      style={styles.directImageTouch}
                     >
-                      <Image source={{ uri: endKmImage }} style={styles.photoThumbnail} resizeMode="cover" />
-                      <View style={styles.photoPreviewMeta}>
-                        <Text style={[styles.photoPreviewTitle, { color: colors.textPrimary }]}>
-                          {t.photoCapturedSuccess}
-                        </Text>
-                        <Text style={[styles.photoPreviewSub, { color: colors.primary }]}>
-                          {t.tapToViewPhoto}
-                        </Text>
+                      <Image
+                        source={{ uri: endKmImage }}
+                        style={styles.directImageDisplay}
+                        resizeMode="cover"
+                      />
+                      <View style={[styles.directImageZoomBadge, isRTL ? { left: 10 } : { right: 10 }]}>
+                        <Ionicons name="expand-outline" size={13} color="#ffffff" />
+                        <Text style={styles.directImageZoomText}>{isRTL ? 'معاينة بالحجم الكامل' : 'Full Screen'}</Text>
                       </View>
                     </TouchableOpacity>
+
                     <TouchableOpacity
-                      style={[styles.retakeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      style={[
+                        styles.directImageRetakeBtn,
+                        isRTL ? { right: 10 } : { left: 10 },
+                        { backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.92)' },
+                      ]}
                       onPress={() => onTakeOdometerPhoto('end')}
+                      activeOpacity={0.8}
                     >
                       <Ionicons name="camera-reverse-outline" size={16} color={colors.primary} />
-                      <Text style={[styles.retakeBtnText, { color: colors.primary }]}>{t.retakePhoto}</Text>
+                      <Text style={[styles.directImageRetakeText, { color: colors.primary }]}>
+                        {t.retakePhoto || (isRTL ? 'إعادة التقاط' : 'Retake')}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -571,49 +589,56 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  photoPreviewCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 10,
+  directImagePreviewWrap: {
+    width: '100%',
+    height: 190,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1.5,
+  },
+  directImageTouch: {
+    width: '100%',
+    height: '100%',
+  },
+  directImageDisplay: {
+    width: '100%',
+    height: '100%',
+  },
+  directImageZoomBadge: {
+    position: 'absolute',
+    bottom: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  photoPreviewTouch: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  photoThumbnail: {
-    width: 50,
-    height: 50,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 8,
   },
-  photoPreviewMeta: {
-    flex: 1,
-  },
-  photoPreviewTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  photoPreviewSub: {
+  directImageZoomText: {
+    color: '#ffffff',
     fontSize: 11,
     fontWeight: '600',
   },
-  retakeBtn: {
+  directImageRetakeBtn: {
+    position: 'absolute',
+    top: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 4,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  retakeBtnText: {
+  directImageRetakeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   cameraCaptureCard: {
     borderWidth: 1.5,
