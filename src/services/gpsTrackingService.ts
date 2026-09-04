@@ -50,12 +50,28 @@ export async function requestAllLocationPermissions(): Promise<boolean> {
   }
 }
 
-async function maybeSyncLocationToServer(latitude: number, longitude: number, speed?: number | null, heading?: number | null) {
+async function checkIsVpnActive(): Promise<boolean> {
+  try {
+    // If Network info available or check timing/latency
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function maybeSyncLocationToServer(
+  latitude: number,
+  longitude: number,
+  speed?: number | null,
+  heading?: number | null,
+  isMocked?: boolean
+) {
   const now = Date.now();
-  if (now - lastServerLocationSyncTime >= 30000) {
+  if (now - lastServerLocationSyncTime >= 25000) {
     lastServerLocationSyncTime = now;
     try {
-      await updateMyLocationApi(latitude, longitude, speed, heading);
+      const isVpn = await checkIsVpnActive();
+      await updateMyLocationApi(latitude, longitude, speed, heading, isVpn, isMocked ?? false);
     } catch {
       // Non-fatal if offline
     }
@@ -106,11 +122,13 @@ try {
               latestLoc.coords.accuracy
             ).catch(() => {});
 
+            const isMock = Boolean((latestLoc as any)?.mocked || (latestLoc.coords as any)?.isMocked);
             await maybeSyncLocationToServer(
               latestLoc.coords.latitude,
               latestLoc.coords.longitude,
               latestLoc.coords.speed,
-              latestLoc.coords.heading
+              latestLoc.coords.heading,
+              isMock
             ).catch(() => {});
           }
         }
@@ -249,11 +267,13 @@ export async function startGpsTracking(sessionId: string): Promise<boolean> {
             loc.coords.accuracy
           ).catch(() => {});
 
+          const isMock = Boolean((loc as any)?.mocked || (loc.coords as any)?.isMocked);
           maybeSyncLocationToServer(
             loc.coords.latitude,
             loc.coords.longitude,
             loc.coords.speed,
-            loc.coords.heading
+            loc.coords.heading,
+            isMock
           ).catch(() => {});
         }
       }

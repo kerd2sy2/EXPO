@@ -302,7 +302,9 @@ export const updateMyLocationApi = async (
   latitude: number,
   longitude: number,
   speed?: number | null,
-  heading?: number | null
+  heading?: number | null,
+  isVPN?: boolean,
+  isMockLocation?: boolean
 ): Promise<{ success: boolean; message: string }> => {
   return apiRequest('/employees/me/location', {
     method: 'POST',
@@ -311,6 +313,8 @@ export const updateMyLocationApi = async (
       longitude,
       speed: speed ?? undefined,
       heading: heading ?? undefined,
+      is_vpn: isVPN ?? false,
+      is_mock_location: isMockLocation ?? false,
     }),
   });
 };
