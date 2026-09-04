@@ -11,7 +11,8 @@ import {
   Animated,
   Dimensions,
   Keyboard,
-  KeyboardEvent,
+  Modal,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemeColors, EmployeeProfile } from '../../types/delegate';
@@ -71,40 +72,8 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const backdropAnim = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const keyboardPadding = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const onKeyboardShow = (e: KeyboardEvent) => {
-      const h = e.endCoordinates.height;
-      Animated.timing(keyboardPadding, {
-        toValue: Platform.OS === 'ios' ? h : 0,
-        duration: Platform.OS === 'ios' ? e.duration || 250 : 200,
-        useNativeDriver: false,
-      }).start();
-    };
-
-    const onKeyboardHide = (e?: KeyboardEvent) => {
-      Animated.timing(keyboardPadding, {
-        toValue: 0,
-        duration: Platform.OS === 'ios' ? e?.duration || 200 : 180,
-        useNativeDriver: false,
-      }).start();
-    };
-
-    const showSub = Keyboard.addListener(showEvent, onKeyboardShow);
-    const hideSub = Keyboard.addListener(hideEvent, onKeyboardHide);
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -112,55 +81,34 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
       setErrorMessage('');
       setLoading(false);
 
-      Animated.parallel([
-        Animated.timing(backdropAnim, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(sheetTranslateY, {
-          toValue: 0,
-          bounciness: 3,
-          speed: 14,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
+      Animated.spring(sheetTranslateY, {
+        toValue: 0,
+        bounciness: 3,
+        speed: 14,
+        useNativeDriver: true,
+      }).start(() => {
         setTimeout(() => {
           inputRef.current?.focus();
         }, 150);
       });
     } else {
       Keyboard.dismiss();
-      Animated.parallel([
-        Animated.timing(backdropAnim, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(sheetTranslateY, {
-          toValue: SCREEN_HEIGHT,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(sheetTranslateY, {
+        toValue: SCREEN_HEIGHT,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
     }
   }, [visible]);
 
   const handleClose = () => {
     if (loading) return;
     Keyboard.dismiss();
-    Animated.parallel([
-      Animated.timing(backdropAnim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-      Animated.timing(sheetTranslateY, {
-        toValue: SCREEN_HEIGHT,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
+    Animated.timing(sheetTranslateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
       onClose();
     });
   };
@@ -176,9 +124,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
   const handleSubmit = async () => {
     if (!phoneNumber.trim()) {
       setErrorMessage(
-        isRTL
-          ? 'اكتب رقم الهاتف أولاً للمتابعة'
-          : 'Please enter a phone number first'
+        isRTL ? 'اكتب رقم الهاتف أولاً للمتابعة' : 'Please enter a phone number first'
       );
       return;
     }
@@ -221,49 +167,37 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
     }
   };
 
-  if (!visible) return null;
-
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Backdrop */}
-      <Animated.View
-        style={[
-          styles.backdrop,
-          {
-            opacity: backdropAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 0.65],
-            }),
-          },
-        ]}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        {/* Backdrop */}
         <TouchableOpacity
-          style={StyleSheet.absoluteFill}
+          style={styles.backdrop}
           activeOpacity={1}
           onPress={handleClose}
         />
-      </Animated.View>
 
-      {/* Sheet Container */}
-      <Animated.View
-        style={[
-          styles.sheetWrapper,
-          {
-            transform: [{ translateY: sheetTranslateY }],
-            paddingBottom: keyboardPadding,
-          },
-        ]}
-      >
-        <View
+        {/* Sheet */}
+        <Animated.View
           style={[
             styles.sheetContent,
             {
               backgroundColor: colors.card,
               borderColor: colors.border,
+              transform: [{ translateY: sheetTranslateY }],
             },
           ]}
         >
-          {/* Grab Bar */}
+          {/* Drag Handle Bar */}
           <View style={styles.dragBarContainer}>
             <View
               style={[
@@ -335,9 +269,11 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
             bounces={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            {/* Input Label & Prompt */}
+            {/* Input Section */}
             <View style={styles.inputSection}>
+              {/* Label */}
               <View
                 style={[
                   styles.labelRow,
@@ -350,7 +286,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                 <Text style={[styles.requiredStar, { color: '#ef4444' }]}>*</Text>
               </View>
 
-              {/* Saudi Phone Input Box */}
+              {/* Phone Input Box */}
               <View
                 style={[
                   styles.phoneInputBox,
@@ -365,7 +301,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                   },
                 ]}
               >
-                {/* Saudi Flag & Prefix Badge */}
+                {/* Saudi Flag & Prefix */}
                 <View
                   style={[
                     styles.saudiBadge,
@@ -379,12 +315,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                   ]}
                 >
                   <Text style={styles.flagEmoji}>🇸🇦</Text>
-                  <Text
-                    style={[
-                      styles.countryCode,
-                      { color: colors.textPrimary },
-                    ]}
-                  >
+                  <Text style={[styles.countryCode, { color: colors.textPrimary }]}>
                     +966
                   </Text>
                 </View>
@@ -399,9 +330,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                       textAlign: isRTL ? 'right' : 'left',
                     },
                   ]}
-                  placeholder={
-                    isRTL ? 'اكتب رقم الهاتف (05XXXXXXXX)' : '05XXXXXXXX'
-                  }
+                  placeholder={isRTL ? 'اكتب رقم الهاتف (05XXXXXXXX)' : '05XXXXXXXX'}
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="phone-pad"
                   value={phoneNumber}
@@ -411,15 +340,11 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                   autoFocus={false}
                 />
 
-                {/* Clear / Valid Status Icon */}
+                {/* Status Icon */}
                 {phoneNumber.length > 0 && (
                   <View style={styles.inputActionBox}>
                     {isValid ? (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={20}
-                        color="#10b981"
-                      />
+                      <Ionicons name="checkmark-circle" size={20} color="#10b981" />
                     ) : (
                       <TouchableOpacity
                         onPress={() => handleTextChange('')}
@@ -436,7 +361,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                 )}
               </View>
 
-              {/* Format Hint / Live Status */}
+              {/* Hint */}
               <View
                 style={[
                   styles.hintRow,
@@ -449,12 +374,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                   color={isValid ? '#10b981' : colors.textSecondary}
                 />
                 <Text
-                  style={[
-                    styles.hintText,
-                    {
-                      color: isValid ? '#10b981' : colors.textSecondary,
-                    },
-                  ]}
+                  style={[styles.hintText, { color: isValid ? '#10b981' : colors.textSecondary }]}
                 >
                   {isValid
                     ? isRTL
@@ -466,7 +386,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                 </Text>
               </View>
 
-              {/* Error Message */}
+              {/* Error */}
               {errorMessage !== '' && (
                 <View
                   style={[
@@ -481,11 +401,13 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                   ]}
                 >
                   <Ionicons name="alert-circle" size={18} color="#ef4444" />
-                  <Text style={styles.errorText}>{errorMessage}</Text>
+                  <Text style={[styles.errorText, { textAlign: isRTL ? 'right' : 'left' }]}>
+                    {errorMessage}
+                  </Text>
                 </View>
               )}
 
-              {/* Crucial Immutability Warning Card */}
+              {/* Warning Card */}
               <View
                 style={[
                   styles.warningLockCard,
@@ -493,9 +415,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                     backgroundColor: isDarkMode
                       ? 'rgba(245, 158, 11, 0.1)'
                       : '#fffbeb',
-                    borderColor: isDarkMode
-                      ? 'rgba(245, 158, 11, 0.28)'
-                      : '#fde68a',
+                    borderColor: isDarkMode ? 'rgba(245, 158, 11, 0.28)' : '#fde68a',
                   },
                 ]}
               >
@@ -580,37 +500,30 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text
-                  style={[styles.cancelBtnText, { color: colors.textSecondary }]}
-                >
+                <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>
                   {isRTL ? 'إلغاء' : 'Cancel'}
                 </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </View>
-      </Animated.View>
-    </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   backdrop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#000000',
-    zIndex: 1000,
-  },
-  sheetWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1001,
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   sheetContent: {
     borderTopLeftRadius: 26,
@@ -618,7 +531,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    maxHeight: SCREEN_HEIGHT * 0.85,
+    maxHeight: SCREEN_HEIGHT * 0.88,
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 36 : 24,
