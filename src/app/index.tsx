@@ -819,6 +819,9 @@ export default function DelegateApp() {
 
       await fetchHistory(employee.id);
 
+      // الانتقال للرئيسية فوراً حتى لا تظهر صفحة إنهاء الشفت خلف المديولا
+      setCurrentTab('home');
+
       openSuccessModal({
         type: 'start',
         motorcycleNumber: savedMoto,
@@ -920,6 +923,9 @@ export default function DelegateApp() {
       setEndNotes('');
 
       await fetchHistory(employee.id);
+
+      // الانتقال لسجل الشفتات فوراً
+      setCurrentTab('history');
 
       openSuccessModal({
         type: 'end',
