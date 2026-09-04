@@ -13,6 +13,7 @@ import {
   Switch,
   ScrollView,
   Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -79,6 +80,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  // Phone Saved Success Bottom Sheet (Smooth, no dark screen)
+  const [showPhoneSuccessSheet, setShowPhoneSuccessSheet] = useState(false);
+  const successSheetTranslateY = useRef(new Animated.Value(350)).current;
+  const successSheetTimerRef = useRef<any>(null);
+
+  const triggerPhoneSavedSheet = () => {
+    setShowPhoneSuccessSheet(true);
+    Animated.spring(successSheetTranslateY, {
+      toValue: 0,
+      bounciness: 4,
+      speed: 14,
+      useNativeDriver: true,
+    }).start();
+
+    if (successSheetTimerRef.current) clearTimeout(successSheetTimerRef.current);
+    successSheetTimerRef.current = setTimeout(() => {
+      closePhoneSavedSheet();
+    }, 3500);
+  };
+
+  const closePhoneSavedSheet = () => {
+    if (successSheetTimerRef.current) clearTimeout(successSheetTimerRef.current);
+    Animated.timing(successSheetTranslateY, {
+      toValue: 350,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowPhoneSuccessSheet(false);
+    });
+  };
 
   const loadDevices = async () => {
     if (currentEmp?.national_id) {
@@ -778,17 +810,56 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           const updated: EmployeeProfile = updatedEmp || { ...currentEmp, phone: newPhone };
           setCurrentEmp(updated);
           onUpdateEmployee?.(updated);
-          setAlertConfig({
-            type: 'success',
-            title: isRTL ? 'تم حفظ رقم الهاتف بنجاح' : 'Phone Saved Successfully',
-            message: isRTL
-              ? `تم تسجيل وتثبيت رقم الهاتف (${newPhone}) في ملفك بنجاح.\nتم قفل الرقم ولن يمكن تعديله أو حذفه لاحقاً من قبل الموظف.`
-              : `Your phone number (${newPhone}) has been permanently saved and locked.`,
-            primaryButtonText: isRTL ? 'حسناً' : 'OK',
-            onPrimaryPress: () => setAlertConfig(null),
-          });
+          triggerPhoneSavedSheet();
         }}
       />
+
+      {/* Phone Saved Bottom Sheet Modal (Clean, smooth, no dark overlay) */}
+      <Modal
+        visible={showPhoneSuccessSheet}
+        transparent={true}
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closePhoneSavedSheet}
+      >
+        <View style={styles.phoneSuccessOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={closePhoneSavedSheet}
+          />
+          <Animated.View
+            style={[
+              styles.phoneSuccessCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                transform: [{ translateY: successSheetTranslateY }],
+              },
+            ]}
+          >
+            <View style={[styles.phoneSuccessDragBar, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }]} />
+            <View style={[styles.phoneSuccessIconCircle, { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5' }]}>
+              <Ionicons name="checkmark-circle" size={34} color="#10b981" />
+            </View>
+            <Text style={[styles.phoneSuccessTitle, { color: colors.textPrimary }]}>
+              {isRTL ? 'تم حفظ الرقم بنجاح' : 'Phone Saved Successfully'}
+            </Text>
+            <Text style={[styles.phoneSuccessSubtitle, { color: colors.textSecondary }]}>
+              {isRTL ? 'تم تثبيت وتحديث رقم هاتفك في الملف الشخصي' : 'Your phone number has been updated in your profile'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.phoneSuccessBtn, { backgroundColor: '#10b981' }]}
+              onPress={closePhoneSavedSheet}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.phoneSuccessBtnText}>
+                {isRTL ? 'حسناً' : 'OK'}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
 
       <ActionAlertBottomSheet
         config={alertConfig}
@@ -1107,5 +1178,64 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  phoneSuccessOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.12)',
+  },
+  phoneSuccessCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 22,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 16,
+  },
+  phoneSuccessDragBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 14,
+  },
+  phoneSuccessIconCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  phoneSuccessTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  phoneSuccessSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 12,
+  },
+  phoneSuccessBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  phoneSuccessBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

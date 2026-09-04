@@ -144,10 +144,17 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
     try {
       const res = await setMyPhoneApi(normalized);
       if (res && res.success) {
-        handleClose();
-        setTimeout(() => {
+        setLoading(false);
+        Keyboard.dismiss();
+        Animated.timing(sheetTranslateY, {
+          toValue: SCREEN_HEIGHT,
+          duration: 180,
+          useNativeDriver: true,
+        }).start(() => {
+          onClose();
           onSuccess(res.phone || normalized, res.employee);
-        }, 250);
+        });
+        return;
       } else {
         setErrorMessage(
           res?.message ||
