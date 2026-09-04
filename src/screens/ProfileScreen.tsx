@@ -320,18 +320,41 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   };
 
+  const tapCountRef = useRef(0);
+  const lastTapRef = useRef(0);
+
+  const handleAvatarTap = () => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 600) {
+      tapCountRef.current += 1;
+      if (tapCountRef.current >= 3) {
+        tapCountRef.current = 0;
+        if (onOpenDiagnostics) {
+          onOpenDiagnostics();
+        }
+      }
+    } else {
+      tapCountRef.current = 1;
+    }
+    lastTapRef.current = now;
+  };
+
   return (
     <View style={styles.tabContainer}>
       {/* Profile Header Card */}
       <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.profileAvatarSection}>
-          <View style={[styles.profileAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleAvatarTap}
+            style={[styles.profileAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+          >
             {empPhotoUrl ? (
               <Image source={{ uri: empPhotoUrl }} style={styles.profileAvatarImg} />
             ) : (
               <Ionicons name="person" size={44} color={colors.primary} />
             )}
-          </View>
+          </TouchableOpacity>
           <Text style={[styles.profileName, { color: colors.textPrimary }]}>{employee.name}</Text>
         </View>
 
@@ -379,53 +402,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         {documents.length > 0 ? (
           <>
-            {/* Quick document pill tabs */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={[
-                styles.docTabsContainer,
-                { flexDirection: isRTL ? 'row-reverse' : 'row' },
-              ]}
-            >
-              {documents.map((doc, idx) => {
-                const isActive = idx === currentIndex;
-                return (
-                  <TouchableOpacity
-                    key={doc.id}
-                    onPress={() => {
-                      if (idx !== currentIndex) {
-                        position.setValue({ x: 0, y: 0 });
-                        setCurrentIndex(idx);
-                      }
-                    }}
-                    style={[
-                      styles.docTabPill,
-                      {
-                        backgroundColor: isActive
-                          ? (isDarkMode ? 'rgba(59, 130, 246, 0.2)' : colors.primaryLight)
-                          : (isDarkMode ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9'),
-                        borderColor: isActive ? doc.accentColor : 'transparent',
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.docTabPillText,
-                        {
-                          color: isActive ? doc.accentColor : colors.textSecondary,
-                          fontWeight: isActive ? '700' : '500',
-                        },
-                      ]}
-                    >
-                      {doc.shortTitle}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
             {/* 3D Flying Stack Deck Area */}
             <View style={styles.deckContainer}>
               {(() => {
@@ -540,35 +516,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   );
                 });
               })()}
-            </View>
-
-            {/* Sub-instruction for swiping & flip navigation */}
-            <View style={[styles.deckFooterRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <TouchableOpacity
-                style={[styles.deckArrowBtn, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9' }]}
-                onPress={() => {
-                  position.setValue({ x: 0, y: 0 });
-                  setCurrentIndex((prev) => (prev - 1 + documents.length) % documents.length);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={16} color={colors.textPrimary} />
-              </TouchableOpacity>
-
-              <Text style={[styles.swipeInstruction, { color: colors.textSecondary }]}>
-                {isRTL ? 'اسحب الورقة يميناً أو يساراً للتطاير والتصفح' : 'Swipe card left or right to fly through docs'}
-              </Text>
-
-              <TouchableOpacity
-                style={[styles.deckArrowBtn, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9' }]}
-                onPress={() => {
-                  position.setValue({ x: 0, y: 0 });
-                  setCurrentIndex((prev) => (prev + 1) % documents.length);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name={isRTL ? 'arrow-back' : 'arrow-forward'} size={16} color={colors.textPrimary} />
-              </TouchableOpacity>
             </View>
           </>
         ) : (
@@ -746,23 +693,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
         </TouchableOpacity>
-
-        {/* Diagnostics & Error Logs Row */}
-        {onOpenDiagnostics && (
-          <TouchableOpacity
-            style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-            onPress={onOpenDiagnostics}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Ionicons name="bug-outline" size={20} color={colors.primary} />
-              <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                {isRTL ? 'سجل تشخيص وفحص الأخطاء' : 'Diagnostics & Error Logs'}
-              </Text>
-            </View>
-            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-        )}
 
         <TouchableOpacity
           style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
