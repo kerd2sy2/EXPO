@@ -43,6 +43,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   t,
   onNavigateToTab,
 }) => {
+  const isDifferentBike = Boolean(
+    activeSession &&
+    activeSession.motorcycle_number &&
+    (!employee.motorcycle_number ||
+      activeSession.motorcycle_number.trim().toUpperCase() !== employee.motorcycle_number.trim().toUpperCase())
+  );
+
   return (
     <View style={styles.tabContainer}>
       {/* Clean Monthly Target & Earnings Card */}
@@ -103,14 +110,67 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         {/* Row 1: Bike & Key */}
-        <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-            <MaterialCommunityIcons name="bike" size={22} color={colors.primary} />
+        <View
+          style={[
+            styles.statBox,
+            {
+              backgroundColor: colors.card,
+              borderColor: isDifferentBike ? '#f59e0b' : colors.border,
+              borderWidth: isDifferentBike ? 1.5 : 1,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.statIconCircle,
+              {
+                backgroundColor: isDifferentBike
+                  ? (isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7')
+                  : colors.primaryLight,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="bike"
+              size={22}
+              color={isDifferentBike ? '#d97706' : colors.primary}
+            />
           </View>
-          <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-            {employee.motorcycle_number || '—'}
+          <Text
+            style={[
+              styles.statNumber,
+              { color: isDifferentBike ? '#d97706' : colors.textPrimary },
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit={true}
+          >
+            {isDifferentBike
+              ? activeSession?.motorcycle_number
+              : (employee.motorcycle_number || '—')}
           </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.assignedBike}</Text>
+          <Text
+            style={[
+              styles.statLabel,
+              {
+                color: isDifferentBike ? '#d97706' : colors.textSecondary,
+                fontWeight: isDifferentBike ? '700' : '500',
+              },
+            ]}
+            numberOfLines={2}
+          >
+            {isDifferentBike ? (t.outOnDifferentBike || 'أنت طالع الآن بدباب') : t.assignedBike}
+          </Text>
+          {isDifferentBike && employee.motorcycle_number ? (
+            <Text
+              style={[
+                styles.originalBikeNotice,
+                { color: colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              ({t.assignedBike}: {employee.motorcycle_number})
+            </Text>
+          ) : null}
         </View>
 
         <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -283,6 +343,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 125,
   },
   statIconCircle: {
     width: 44,
@@ -300,6 +362,11 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     fontWeight: '500',
+    textAlign: 'center',
+  },
+  originalBikeNotice: {
+    fontSize: 10,
+    marginTop: 3,
     textAlign: 'center',
   },
   quickCardRow: {

@@ -551,6 +551,10 @@ export default function DelegateApp() {
   // Scroll to top whenever tab changes (e.g. returning to Home after start shift)
   useEffect(() => {
     mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    const timer = setTimeout(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, 60);
+    return () => clearTimeout(timer);
   }, [currentTab]);
 
   // Open Success Bottom Sheet
@@ -589,6 +593,9 @@ export default function DelegateApp() {
     ]).start(() => {
       setSuccessModalData(null);
       if (callback) callback();
+      setTimeout(() => {
+        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+      }, 60);
     });
   };
 
