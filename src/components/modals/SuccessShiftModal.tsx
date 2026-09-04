@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,88 @@ export const SuccessShiftModal: React.FC<SuccessShiftModalProps> = ({
   onNavigateToTab,
   onPreviewPhoto,
 }) => {
+  const isStart = data.type === 'start';
+
+  // Automatically transition to Home screen after showing the modal for starting shift
+  useEffect(() => {
+    if (isStart) {
+      const timer = setTimeout(() => {
+        onClose(() => {
+          onNavigateToTab('home');
+        });
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isStart]);
+
+  const handleStartDone = () => {
+    onClose(() => {
+      onNavigateToTab('home');
+    });
+  };
+
+  // Concise Start Shift Modal: "تم بدء الشفت بنجاح ولا أكثر ولا أقل ويتحول بعدها إلى الرئيسية"
+  if (isStart) {
+    return (
+      <Animated.View style={[styles.bottomModalBackdrop, { opacity: backdropOpacity }]}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={handleStartDone}
+        />
+        <Animated.View
+          style={[
+            styles.bottomSuccessModalCard,
+            styles.compactStartModalCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              transform: [{ translateY: sheetTranslateY }],
+            },
+          ]}
+        >
+          {/* Drag Handle Indicator */}
+          <View style={[styles.bottomDragIndicator, { backgroundColor: isDarkMode ? '#334155' : '#cbd5e1' }]} />
+
+          <View style={styles.compactStartContent}>
+            {/* Green Checkmark Circle */}
+            <View
+              style={[
+                styles.compactSuccessIconCircle,
+                {
+                  backgroundColor: isDarkMode
+                    ? 'rgba(16, 185, 129, 0.18)'
+                    : '#ecfdf5',
+                },
+              ]}
+            >
+              <Ionicons name="checkmark-circle" size={56} color="#10b981" />
+            </View>
+
+            {/* تم بدء الشفت بنجاح - لا أكثر ولا أقل */}
+            <Text style={[styles.compactStartTitle, { color: colors.textPrimary }]}>
+              {t.shiftStartedSuccessTitle || 'تم بدء الشفت بنجاح'}
+            </Text>
+
+            {/* زر الانتقال إلى الرئيسية */}
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={[styles.primaryButton, styles.compactHomeBtn, { backgroundColor: '#10b981' }]}
+              onPress={handleStartDone}
+            >
+              <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Ionicons name="home-outline" size={20} color="#ffffff" />
+                <Text style={styles.primaryButtonText}>
+                  {t.goToHomeBtn || 'الرئيسية'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </Animated.View>
+    );
+  }
+
   return (
     <Animated.View style={[styles.bottomModalBackdrop, { opacity: backdropOpacity }]}>
       <TouchableOpacity
@@ -496,5 +578,35 @@ const styles = StyleSheet.create({
   secondaryOutlineBtnText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  compactStartModalCard: {
+    paddingBottom: 36,
+    paddingTop: 8,
+  },
+  compactStartContent: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  compactSuccessIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  compactStartTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  compactHomeBtn: {
+    width: '100%',
+    height: 50,
+    borderRadius: 14,
+    shadowColor: '#10b981',
   },
 });
