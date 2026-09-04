@@ -548,17 +548,19 @@ export default function DelegateApp() {
 
   // Open Success Bottom Sheet
   const openSuccessModal = (data: SuccessModalData) => {
+    backdropOpacity.setValue(0);
+    sheetTranslateY.setValue(400);
     setSuccessModalData(data);
     Animated.parallel([
       Animated.timing(backdropOpacity, {
         toValue: 1,
-        duration: 250,
+        duration: 150,
         useNativeDriver: true,
       }),
       Animated.spring(sheetTranslateY, {
         toValue: 0,
-        bounciness: 4,
-        speed: 12,
+        bounciness: 2,
+        speed: 18,
         useNativeDriver: true,
       }),
     ]).start();
@@ -807,6 +809,18 @@ export default function DelegateApp() {
         notes: savedNotes,
       });
 
+      // 1. الانتقال فوراً للرئيسية وفتح المديولا في تلك اللحظة لمنع وميض شاشة إنهاء الشفت
+      setCurrentTab('home');
+      openSuccessModal({
+        type: 'start',
+        motorcycleNumber: savedMoto,
+        startKm: savedStartKm,
+        startTime: newSession?.start_time || new Date().toISOString(),
+        imageUri: savedPhoto || undefined,
+        notes: savedNotes,
+      });
+
+      // 2. تحديث الحالة في الخلفية
       setActiveSession(newSession);
       setStartKm('');
       setStartKmImage(null);
@@ -817,19 +831,7 @@ export default function DelegateApp() {
         startGpsTracking(newSession.id);
       }
 
-      await fetchHistory(employee.id);
-
-      // الانتقال للرئيسية فوراً حتى لا تظهر صفحة إنهاء الشفت خلف المديولا
-      setCurrentTab('home');
-
-      openSuccessModal({
-        type: 'start',
-        motorcycleNumber: savedMoto,
-        startKm: savedStartKm,
-        startTime: newSession?.start_time || new Date().toISOString(),
-        imageUri: savedPhoto || undefined,
-        notes: savedNotes,
-      });
+      fetchHistory(employee.id);
     } catch (err: any) {
       console.error('Start shift error:', err);
       setAlertConfig({
@@ -909,24 +911,8 @@ export default function DelegateApp() {
         notes: savedNotes,
       });
 
-      if (activeSession && activeSession.id) {
-        await stopGpsTracking(activeSession.id);
-        await clearGpsShiftData(activeSession.id);
-      }
-      setGpsDistance(0);
-
-      setActiveSession(null);
-      setEndKm('');
-      setEndKmImage(null);
-      setOrdersCount('');
-      setFuelCost('');
-      setEndNotes('');
-
-      await fetchHistory(employee.id);
-
-      // الانتقال لسجل الشفتات فوراً
+      // 1. الانتقال فوراً لسجل الشفتات وإظهار المديولا في تلك اللحظة بالضبط
       setCurrentTab('history');
-
       openSuccessModal({
         type: 'end',
         motorcycleNumber: savedMoto,
@@ -940,6 +926,22 @@ export default function DelegateApp() {
         imageUri: savedPhoto,
         notes: savedNotes,
       });
+
+      // 2. تنظيف الحالة بعد الانتقال حتى لا تظهر صفحة بدء الشفت للمستخدم
+      if (activeSession && activeSession.id) {
+        stopGpsTracking(activeSession.id);
+        clearGpsShiftData(activeSession.id);
+      }
+      setGpsDistance(0);
+
+      setActiveSession(null);
+      setEndKm('');
+      setEndKmImage(null);
+      setOrdersCount('');
+      setFuelCost('');
+      setEndNotes('');
+
+      fetchHistory(employee.id);
     } catch (err: any) {
       console.error('End shift error:', err);
       setAlertConfig({
