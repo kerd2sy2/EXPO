@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { updateMyLocationApi } from './api';
 
 export const GPS_LOCATION_TASK_NAME = 'AAMS_GPS_LOCATION_TASK';
 
@@ -13,6 +14,19 @@ const STORAGE_KEYS = {
 // In-memory active watcher subscription
 let activeLocationSubscription: Location.LocationSubscription | null = null;
 let currentTrackingSessionId: string | null = null;
+let lastServerLocationSyncTime = 0;
+
+async function maybeSyncLocationToServer(latitude: number, longitude: number, speed?: number | null, heading?: number | null) {
+  const now = Date.now();
+  if (now - lastServerLocationSyncTime >= 30000) {
+    lastServerLocationSyncTime = now;
+    try {
+      await updateMyLocationApi(latitude, longitude, speed, heading);
+    } catch {
+      // Non-fatal if offline
+    }
+  }
+}
 
 /**
  * Calculates distance between two GPS coordinates using the Haversine formula (in kilometers).
@@ -169,6 +183,13 @@ export async function startGpsTracking(sessionId: string): Promise<boolean> {
             loc.coords.latitude,
             loc.coords.longitude,
             loc.coords.accuracy
+          ).catch(() => {});
+
+          maybeSyncLocationToServer(
+            loc.coords.latitude,
+            loc.coords.longitude,
+            loc.coords.speed,
+            loc.coords.heading
           ).catch(() => {});
         }
       }

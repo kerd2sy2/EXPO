@@ -298,6 +298,23 @@ export const setMyPhoneApi = async (
   });
 };
 
+export const updateMyLocationApi = async (
+  latitude: number,
+  longitude: number,
+  speed?: number | null,
+  heading?: number | null
+): Promise<{ success: boolean; message: string }> => {
+  return apiRequest('/employees/me/location', {
+    method: 'POST',
+    body: JSON.stringify({
+      latitude,
+      longitude,
+      speed: speed ?? undefined,
+      heading: heading ?? undefined,
+    }),
+  });
+};
+
 export interface TrustedDeviceItem {
   uuid: string;
   name: string;
