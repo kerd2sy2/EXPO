@@ -64,7 +64,12 @@ import { QrCodeModal } from '../components/modals/QrCodeModal';
 import { ImagePreviewModal } from '../components/modals/ImagePreviewModal';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import { AppUpdateBottomSheet, UpdateModalState } from '../components/modals/AppUpdateBottomSheet';
+import { DiagnosticsModal } from '../components/modals/DiagnosticsModal';
+import { initGlobalErrorLogger } from '../services/errorLogger';
 import * as Updates from 'expo-updates';
+
+// Initialize global crash/error interception immediately on app boot
+initGlobalErrorLogger();
 
 export default function DelegateApp() {
   const systemColorScheme = useColorScheme();
@@ -106,6 +111,7 @@ export default function DelegateApp() {
   const [previewPhoto, setPreviewPhoto] = useState<PreviewPhotoData | null>(null);
   const [successModalData, setSuccessModalData] = useState<SuccessModalData | null>(null);
   const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
+  const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
 
   // Success Sheet Animations
   const sheetTranslateY = useRef(new Animated.Value(600)).current;
@@ -231,27 +237,32 @@ export default function DelegateApp() {
   // Live GPS Distance Tracking for Active Session (Runs continuously ONLY when shift is active)
   useEffect(() => {
     let gpsInterval: any = null;
-    if (activeSession && activeSession.id) {
-      // Shift is ACTIVE -> Run continuous background GPS tracking
-      startGpsTracking(activeSession.id);
+    const sessionId = activeSession?.id;
+
+    if (sessionId) {
+      // Shift is ACTIVE -> Run safe foreground GPS tracking
+      startGpsTracking(sessionId).catch(() => {});
 
       const updateGpsDist = async () => {
-        const recordedDist = await getGpsShiftDistance(activeSession.id);
-        setGpsDistance(recordedDist);
+        try {
+          const recordedDist = await getGpsShiftDistance(sessionId);
+          setGpsDistance(recordedDist);
+        } catch {}
       };
 
       updateGpsDist();
-      gpsInterval = setInterval(updateGpsDist, 3000);
+      gpsInterval = setInterval(updateGpsDist, 4000);
     } else {
-      // Shift is NOT active -> Completely stop background tracking and release background service
+      // Shift is NOT active -> Completely stop tracking
       setGpsDistance(0);
-      stopGpsTracking();
+      stopGpsTracking().catch(() => {});
     }
 
     return () => {
       if (gpsInterval) clearInterval(gpsInterval);
+      stopGpsTracking().catch(() => {});
     };
-  }, [activeSession]);
+  }, [activeSession?.id]);
 
   // Dynamic Keyboard Height Listener for Seamless Scroll Padding
   useEffect(() => {
@@ -343,13 +354,16 @@ export default function DelegateApp() {
         setUpdateModalVisible(true);
       }
       const startTime = Date.now();
-      const check = await Updates.checkForUpdateAsync();
+      const check = await Updates.checkForUpdateAsync().catch((e) => {
+        console.log('checkForUpdateAsync safe catch:', e);
+        return { isAvailable: false } as Updates.UpdateCheckResult;
+      });
       const elapsed = Date.now() - startTime;
       if (interactive && elapsed < 900) {
         await new Promise((resolve) => setTimeout(resolve, 900 - elapsed));
       }
 
-      if (check.isAvailable) {
+      if (check && check.isAvailable) {
         setUpdateState('DOWNLOADING');
         setUpdateModalVisible(true);
         await Updates.fetchUpdateAsync();
@@ -1034,6 +1048,7 @@ export default function DelegateApp() {
             <TouchableOpacity
               style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
               onPress={() => setCurrentTab('profile')}
+              onLongPress={() => setShowDiagnosticsModal(true)}
               activeOpacity={0.8}
             >
               <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
@@ -1211,6 +1226,7 @@ export default function DelegateApp() {
               onOpenQrModal={() => setShowQrModal(true)}
               onOpenLangModal={() => setShowLangModal(true)}
               onCheckForUpdates={() => handleCheckForUpdates(true)}
+              onOpenDiagnostics={() => setShowDiagnosticsModal(true)}
               onLogout={handleLogout}
               onPreviewPhoto={setPreviewPhoto}
               colors={colors}
@@ -1291,6 +1307,15 @@ export default function DelegateApp() {
         onApplyUpdate={handleApplyUpdate}
         onCheckAgain={() => handleCheckForUpdates(true)}
         onClose={() => setUpdateModalVisible(false)}
+      />
+
+      {/* Real-time Diagnostics & Crash Tracing Modal */}
+      <DiagnosticsModal
+        visible={showDiagnosticsModal}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onClose={() => setShowDiagnosticsModal(false)}
       />
     </SafeAreaView>
   );

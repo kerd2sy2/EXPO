@@ -16,10 +16,7 @@
       "package": "com.aams.app",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
+        "ACCESS_FINE_LOCATION"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
@@ -46,11 +43,9 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "يسمح هذا الإذن بتتبع الكيلومترات المقطوعة أثناء الشفت تلقائياً حتى عندما يكون التطبيق في الخلفية.",
-          "locationAlwaysPermission": "يسمح هذا الإذن بتتبع الكيلومترات المقطوعة أثناء الشفت تلقائياً.",
           "locationWhenInUsePermission": "يسمح هذا الإذن بتتبع الكيلومترات المقطوعة أثناء الشفت.",
-          "isAndroidBackgroundLocationEnabled": true,
-          "isAndroidForegroundServiceEnabled": true
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
         }
       ],
       [
@@ -67,7 +62,7 @@
       "url": "https://u.expo.dev/352e8773-7aaa-4a12-b906-01fe05420113",
       "enabled": true,
       "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "ON_LOAD"
+      "checkAutomatically": "ON_ERROR_RECOVERY"
     },
     "extra": {
       "eas": {

@@ -10,6 +10,10 @@ const STORAGE_KEYS = {
   LAST_COORD_PREFIX: '@aams_gps_last_coord_',
 };
 
+// In-memory active watcher subscription
+let activeLocationSubscription: Location.LocationSubscription | null = null;
+let currentTrackingSessionId: string | null = null;
+
 /**
  * Calculates distance between two GPS coordinates using the Haversine formula (in kilometers).
  */
@@ -19,6 +23,7 @@ export function calculateHaversineDistance(
   lat2: number,
   lon2: number
 ): number {
+  if (lat1 === lat2 && lon1 === lon2) return 0;
   const R = 6371; // Earth's radius in km
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -32,157 +37,176 @@ export function calculateHaversineDistance(
   return R * c;
 }
 
-// Background Location Task Definition
-TaskManager.defineTask(GPS_LOCATION_TASK_NAME, async ({ data, error }) => {
-  if (error) {
-    console.warn('[GPS Task Error]:', error.message);
-    return;
+// Fallback no-op task definition to safely absorb any legacy native triggers without crashing
+try {
+  if (!TaskManager.isTaskDefined(GPS_LOCATION_TASK_NAME)) {
+    TaskManager.defineTask(GPS_LOCATION_TASK_NAME, async () => {
+      // Legacy task absorption - intentionally no-op to prevent native crash
+    });
   }
-
-  if (data) {
-    const { locations } = data as { locations: Location.LocationObject[] };
-    if (!locations || locations.length === 0) return;
-
-    try {
-      const sessionId = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION_ID);
-      if (!sessionId) return;
-
-      const distKey = `${STORAGE_KEYS.DISTANCE_PREFIX}${sessionId}`;
-      const coordKey = `${STORAGE_KEYS.LAST_COORD_PREFIX}${sessionId}`;
-
-      let currentTotal = parseFloat((await AsyncStorage.getItem(distKey)) || '0') || 0;
-      const lastCoordStr = await AsyncStorage.getItem(coordKey);
-      let lastCoord: { lat: number; lon: number } | null = lastCoordStr
-        ? JSON.parse(lastCoordStr)
-        : null;
-
-      for (const loc of locations) {
-        const { latitude, longitude, accuracy } = loc.coords;
-
-        // Filter out highly inaccurate GPS noise (e.g. accuracy worse than 40 meters)
-        if (accuracy && accuracy > 40) continue;
-
-        if (lastCoord) {
-          const deltaKm = calculateHaversineDistance(
-            lastCoord.lat,
-            lastCoord.lon,
-            latitude,
-            longitude
-          );
-
-          // Only accumulate if moved at least 15 meters (0.015 km) and not an unrealistic teleport (> 2 km in seconds)
-          if (deltaKm >= 0.015 && deltaKm < 3.0) {
-            currentTotal += deltaKm;
-            lastCoord = { lat: latitude, lon: longitude };
-          }
-        } else {
-          lastCoord = { lat: latitude, lon: longitude };
-        }
-      }
-
-      await AsyncStorage.setItem(distKey, currentTotal.toFixed(3));
-      if (lastCoord) {
-        await AsyncStorage.setItem(coordKey, JSON.stringify(lastCoord));
-      }
-    } catch (e) {
-      console.warn('[GPS Task Storage Error]:', e);
-    }
-  }
-});
+} catch (e) {
+  // Ignore task registration error
+}
 
 /**
- * Starts automatic GPS tracking in foreground and background for the active shift session.
+ * Cleanly unregister any legacy native background tasks to stop crash loops
+ */
+async function cleanLegacyNativeTask() {
+  try {
+    const hasStarted = await Location.hasStartedLocationUpdatesAsync(GPS_LOCATION_TASK_NAME).catch(() => false);
+    if (hasStarted) {
+      await Location.stopLocationUpdatesAsync(GPS_LOCATION_TASK_NAME).catch(() => {});
+    }
+    if (TaskManager.isTaskDefined(GPS_LOCATION_TASK_NAME)) {
+      await TaskManager.unregisterTaskAsync(GPS_LOCATION_TASK_NAME).catch(() => {});
+    }
+  } catch (err) {
+    // Silently ignore cleanup errors
+  }
+}
+
+/**
+ * Process new GPS coordinate reading safely
+ */
+async function recordNewCoordinate(sessionId: string, latitude: number, longitude: number, accuracy?: number | null) {
+  if (!sessionId) return;
+  // Ignore coarse/inaccurate GPS readings (> 45 meters)
+  if (accuracy && accuracy > 45) return;
+
+  try {
+    const distKey = `${STORAGE_KEYS.DISTANCE_PREFIX}${sessionId}`;
+    const coordKey = `${STORAGE_KEYS.LAST_COORD_PREFIX}${sessionId}`;
+
+    let currentTotal = parseFloat((await AsyncStorage.getItem(distKey)) || '0') || 0;
+    const lastCoordStr = await AsyncStorage.getItem(coordKey);
+    let lastCoord: { lat: number; lon: number } | null = lastCoordStr
+      ? JSON.parse(lastCoordStr)
+      : null;
+
+    if (lastCoord && typeof lastCoord.lat === 'number' && typeof lastCoord.lon === 'number') {
+      const deltaKm = calculateHaversineDistance(
+        lastCoord.lat,
+        lastCoord.lon,
+        latitude,
+        longitude
+      );
+
+      // Only accumulate if moved at least 15 meters and not an unrealistic teleport (> 3 km in a few seconds)
+      if (deltaKm >= 0.015 && deltaKm < 3.0) {
+        currentTotal += deltaKm;
+        await AsyncStorage.setItem(distKey, currentTotal.toFixed(3));
+        await AsyncStorage.setItem(coordKey, JSON.stringify({ lat: latitude, lon: longitude }));
+      }
+    } else {
+      await AsyncStorage.setItem(coordKey, JSON.stringify({ lat: latitude, lon: longitude }));
+    }
+  } catch (e) {
+    // Non-fatal
+  }
+}
+
+/**
+ * Starts safe, crash-proof GPS tracking for the active shift session.
  */
 export async function startGpsTracking(sessionId: string): Promise<boolean> {
+  if (!sessionId) return false;
+
   try {
-    // 1. Request Foreground Permissions
-    const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
-    if (fgStatus !== 'granted') {
-      console.log('[GPS]: Foreground location permission not granted');
+    // If already tracking this exact session, avoid restarting listener
+    if (activeLocationSubscription && currentTrackingSessionId === sessionId) {
+      return true;
+    }
+
+    // 1. Unregister any legacy crash-inducing Android foreground tasks
+    await cleanLegacyNativeTask();
+
+    // 2. Request Foreground Permissions only (safe, never triggers Samsung deep sleep warning)
+    const { status } = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: 'denied' }));
+    if (status !== 'granted') {
       return false;
     }
 
-    // 2. Request Background Permissions (Allow all the time)
-    try {
-      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (bgStatus !== 'granted') {
-        console.log('[GPS]: Background location permission optional / foreground active');
-      }
-    } catch (bgErr) {
-      console.log('[GPS]: Background permission request skipped:', bgErr);
-    }
-
     // 3. Save active session ID
+    currentTrackingSessionId = sessionId;
     await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION_ID, sessionId);
 
-    // 4. Initialize starting position with timeout safety
+    // 4. Remove previous listener if active
+    if (activeLocationSubscription) {
+      try {
+        activeLocationSubscription.remove();
+      } catch {}
+      activeLocationSubscription = null;
+    }
+
+    // 5. Initial position check with quick timeout
     try {
       const locationPromise = Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced, // Use Balanced instead of High to avoid timeout crashes
+        accuracy: Location.Accuracy.Balanced,
       });
-      // 5-second timeout to prevent hanging
-      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
-      const currentLoc = await Promise.race([locationPromise, timeoutPromise]);
-      if (currentLoc && 'coords' in currentLoc && currentLoc.coords) {
-        await AsyncStorage.setItem(
-          `${STORAGE_KEYS.LAST_COORD_PREFIX}${sessionId}`,
-          JSON.stringify({
-            lat: currentLoc.coords.latitude,
-            lon: currentLoc.coords.longitude,
-          })
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+      const initialLoc = await Promise.race([locationPromise, timeoutPromise]);
+      if (initialLoc && 'coords' in initialLoc && initialLoc.coords) {
+        await recordNewCoordinate(
+          sessionId,
+          initialLoc.coords.latitude,
+          initialLoc.coords.longitude,
+          initialLoc.coords.accuracy
         );
       }
-    } catch (locErr) {
-      console.log('[GPS]: Could not get initial position, will use first background update:', locErr);
-    }
-    const isTaskDefined = TaskManager.isTaskDefined(GPS_LOCATION_TASK_NAME);
-    if (isTaskDefined) {
-      const hasStarted = await Location.hasStartedLocationUpdatesAsync(GPS_LOCATION_TASK_NAME);
-      if (!hasStarted) {
-        await Location.startLocationUpdatesAsync(GPS_LOCATION_TASK_NAME, {
-          accuracy: Location.Accuracy.Balanced,
-          timeInterval: 4000,
-          distanceInterval: 15,
-          deferredUpdatesInterval: 4000,
-          showsBackgroundLocationIndicator: true,
-          pausesUpdatesAutomatically: false,
-          foregroundService: {
-            notificationTitle: 'تطبيق مناديب AAMS (الشفت نشط)',
-            notificationBody: 'جاري تسجيل الكيلومترات المقطوعة وتتبع المسار تلقائياً...',
-            notificationColor: '#f97316',
-          },
-        });
+    } catch {}
+
+    // 6. Safe in-process location watcher (no foreground service, zero native crash risk)
+    activeLocationSubscription = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 4000,
+        distanceInterval: 15,
+      },
+      (loc) => {
+        if (loc?.coords) {
+          recordNewCoordinate(
+            sessionId,
+            loc.coords.latitude,
+            loc.coords.longitude,
+            loc.coords.accuracy
+          ).catch(() => {});
+        }
       }
-    }
+    );
 
     return true;
   } catch (err) {
-    console.warn('[GPS startTracking error]:', err);
+    console.log('[GPS startTracking safe warning]:', err);
     return false;
   }
 }
 
 /**
- * Stops GPS background tracking and cleans active tracking session.
+ * Stops GPS tracking and cleans active tracking session.
  */
 export async function stopGpsTracking(sessionId?: string): Promise<number> {
   try {
-    const hasStarted = await Location.hasStartedLocationUpdatesAsync(GPS_LOCATION_TASK_NAME);
-    if (hasStarted) {
-      await Location.stopLocationUpdatesAsync(GPS_LOCATION_TASK_NAME);
+    if (activeLocationSubscription) {
+      try {
+        activeLocationSubscription.remove();
+      } catch {}
+      activeLocationSubscription = null;
     }
 
-    const currentSessionId = sessionId || (await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION_ID));
+    const currentSessionId = sessionId || currentTrackingSessionId || (await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION_ID));
     let finalDist = 0;
 
     if (currentSessionId) {
       finalDist = await getGpsShiftDistance(currentSessionId);
     }
 
+    currentTrackingSessionId = null;
     await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION_ID);
+    await cleanLegacyNativeTask();
+
     return finalDist;
   } catch (err) {
-    console.warn('[GPS stopTracking error]:', err);
+    console.log('[GPS stopTracking safe warning]:', err);
     return 0;
   }
 }
@@ -192,6 +216,7 @@ export async function stopGpsTracking(sessionId?: string): Promise<number> {
  */
 export async function getGpsShiftDistance(sessionId: string): Promise<number> {
   try {
+    if (!sessionId) return 0;
     const distKey = `${STORAGE_KEYS.DISTANCE_PREFIX}${sessionId}`;
     const stored = await AsyncStorage.getItem(distKey);
     const parsed = parseFloat(stored || '0');
@@ -206,6 +231,7 @@ export async function getGpsShiftDistance(sessionId: string): Promise<number> {
  */
 export async function clearGpsShiftData(sessionId: string): Promise<void> {
   try {
+    if (!sessionId) return;
     await AsyncStorage.removeItem(`${STORAGE_KEYS.DISTANCE_PREFIX}${sessionId}`);
     await AsyncStorage.removeItem(`${STORAGE_KEYS.LAST_COORD_PREFIX}${sessionId}`);
   } catch (e) {}

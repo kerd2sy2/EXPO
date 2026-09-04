@@ -37,6 +37,7 @@ interface ProfileScreenProps {
   onOpenQrModal: () => void;
   onOpenLangModal: () => void;
   onCheckForUpdates: () => void;
+  onOpenDiagnostics?: () => void;
   onLogout: () => void;
   onPreviewPhoto: (photo: PreviewPhotoData) => void;
   colors: ThemeColors;
@@ -51,6 +52,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   lang,
   onOpenLangModal,
   onCheckForUpdates,
+  onOpenDiagnostics,
   onLogout,
   onPreviewPhoto,
   colors,
@@ -694,6 +696,61 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
           </View>
         </TouchableOpacity>
+
+        {/* Diagnostics & Error Logs Row */}
+        {onOpenDiagnostics && (
+          <TouchableOpacity
+            style={[
+              styles.settingRow,
+              {
+                borderBottomColor: colors.border,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+                backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.04)',
+                paddingVertical: 14,
+              },
+            ]}
+            onPress={onOpenDiagnostics}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row', gap: 12 }]}>
+              <View
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  backgroundColor: 'rgba(239, 68, 68, 0.16)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="bug" size={20} color="#ef4444" />
+              </View>
+              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                <Text style={[styles.settingRowText, { color: colors.textPrimary, fontWeight: '700' }]}>
+                  {isRTL ? 'سجل تشخيص وفحص الأخطاء' : 'Diagnostics & Error Logs'}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                  {isRTL ? 'فحص وتتبع أسباب إغلاق التطبيق والأعطال' : 'Trace crashes and view detailed debug logs'}
+                </Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+              <View
+                style={{
+                  backgroundColor: '#ef4444',
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#ffffff' }}>
+                  {isRTL ? 'فتح السجل' : 'Open'}
+                </Text>
+              </View>
+              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
+            </View>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
