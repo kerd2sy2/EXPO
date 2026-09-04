@@ -16,7 +16,10 @@
       "package": "com.aams.app",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
@@ -43,9 +46,10 @@
       [
         "expo-location",
         {
+          "locationAlwaysAndWhenInUsePermission": "يسمح هذا الإذن بتتبع موقع المندوب بدقة أثناء الشفت حتى عند قفل الشاشة أو استخدام تطبيقات أخرى.",
           "locationWhenInUsePermission": "يسمح هذا الإذن بتتبع الكيلومترات المقطوعة أثناء الشفت.",
-          "isAndroidBackgroundLocationEnabled": false,
-          "isAndroidForegroundServiceEnabled": false
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [

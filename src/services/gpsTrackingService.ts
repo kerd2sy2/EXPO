@@ -51,11 +51,36 @@ export function calculateHaversineDistance(
   return R * c;
 }
 
-// Fallback no-op task definition to safely absorb any legacy native triggers without crashing
+// 1. Register background location task with robust error isolation
 try {
   if (!TaskManager.isTaskDefined(GPS_LOCATION_TASK_NAME)) {
-    TaskManager.defineTask(GPS_LOCATION_TASK_NAME, async () => {
-      // Legacy task absorption - intentionally no-op to prevent native crash
+    TaskManager.defineTask(GPS_LOCATION_TASK_NAME, async ({ data, error }: any) => {
+      if (error) {
+        console.log('[GPS Task Error]:', error.message);
+        return;
+      }
+      if (data) {
+        const { locations } = data as { locations?: Location.LocationObject[] };
+        if (locations && locations.length > 0) {
+          const latestLoc = locations[locations.length - 1];
+          const activeId = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION_ID);
+          if (activeId && latestLoc?.coords) {
+            await recordNewCoordinate(
+              activeId,
+              latestLoc.coords.latitude,
+              latestLoc.coords.longitude,
+              latestLoc.coords.accuracy
+            ).catch(() => {});
+
+            await maybeSyncLocationToServer(
+              latestLoc.coords.latitude,
+              latestLoc.coords.longitude,
+              latestLoc.coords.speed,
+              latestLoc.coords.heading
+            ).catch(() => {});
+          }
+        }
+      }
     });
   }
 } catch (e) {
@@ -63,16 +88,13 @@ try {
 }
 
 /**
- * Cleanly unregister any legacy native background tasks to stop crash loops
+ * Cleanly unregister any native background tasks safely
  */
 async function cleanLegacyNativeTask() {
   try {
     const hasStarted = await Location.hasStartedLocationUpdatesAsync(GPS_LOCATION_TASK_NAME).catch(() => false);
     if (hasStarted) {
       await Location.stopLocationUpdatesAsync(GPS_LOCATION_TASK_NAME).catch(() => {});
-    }
-    if (TaskManager.isTaskDefined(GPS_LOCATION_TASK_NAME)) {
-      await TaskManager.unregisterTaskAsync(GPS_LOCATION_TASK_NAME).catch(() => {});
     }
   } catch (err) {
     // Silently ignore cleanup errors
@@ -120,31 +142,33 @@ async function recordNewCoordinate(sessionId: string, latitude: number, longitud
 }
 
 /**
- * Starts safe, crash-proof GPS tracking for the active shift session.
+ * Starts continuous GPS tracking for the active shift session (Foreground + Background when app is minimized/screen locked).
  */
 export async function startGpsTracking(sessionId: string): Promise<boolean> {
   if (!sessionId) return false;
 
   try {
-    // If already tracking this exact session, avoid restarting listener
-    if (activeLocationSubscription && currentTrackingSessionId === sessionId) {
+    // If already tracking this exact session, avoid duplicate start
+    if (currentTrackingSessionId === sessionId) {
       return true;
     }
 
-    // 1. Unregister any legacy crash-inducing Android foreground tasks
-    await cleanLegacyNativeTask();
-
-    // 2. Request Foreground Permissions only (safe, never triggers Samsung deep sleep warning)
-    const { status } = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: 'denied' }));
-    if (status !== 'granted') {
+    // 1. Request Foreground Permissions first
+    const { status: fgStatus } = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: 'denied' }));
+    if (fgStatus !== 'granted') {
       return false;
     }
+
+    // 2. Request Background Permissions (if supported and enabled)
+    try {
+      await Location.requestBackgroundPermissionsAsync().catch(() => {});
+    } catch {}
 
     // 3. Save active session ID
     currentTrackingSessionId = sessionId;
     await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION_ID, sessionId);
 
-    // 4. Remove previous listener if active
+    // 4. Remove previous foreground watcher if active
     if (activeLocationSubscription) {
       try {
         activeLocationSubscription.remove();
@@ -166,10 +190,16 @@ export async function startGpsTracking(sessionId: string): Promise<boolean> {
           initialLoc.coords.longitude,
           initialLoc.coords.accuracy
         );
+        await maybeSyncLocationToServer(
+          initialLoc.coords.latitude,
+          initialLoc.coords.longitude,
+          initialLoc.coords.speed,
+          initialLoc.coords.heading
+        );
       }
     } catch {}
 
-    // 6. Safe in-process location watcher (no foreground service, zero native crash risk)
+    // 6. In-process active watcher for fast updates while app is open
     activeLocationSubscription = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.Balanced,
@@ -195,6 +225,29 @@ export async function startGpsTracking(sessionId: string): Promise<boolean> {
       }
     );
 
+    // 7. Start Background Location updates with Foreground Service Notification (for screen lock / background)
+    try {
+      const isAlreadyRunning = await Location.hasStartedLocationUpdatesAsync(GPS_LOCATION_TASK_NAME).catch(() => false);
+      if (!isAlreadyRunning) {
+        await Location.startLocationUpdatesAsync(GPS_LOCATION_TASK_NAME, {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 15000, // Every 15 seconds
+          distanceInterval: 15, // Or 15 meters
+          deferredUpdatesInterval: 15000,
+          showsBackgroundLocationIndicator: true,
+          foregroundService: {
+            notificationTitle: 'تتبع الشفت نشط - AAMS',
+            notificationBody: 'جاري تسجيل مسار العمل وتحديث موقعك على الخريطة في الطائف.',
+            notificationColor: '#059669',
+          },
+        }).catch((bgErr) => {
+          console.log('[GPS Background Start warning - safe fallback]:', bgErr);
+        });
+      }
+    } catch (bgErr) {
+      console.log('[GPS Background Not Supported or Ignored]:', bgErr);
+    }
+
     return true;
   } catch (err) {
     console.log('[GPS startTracking safe warning]:', err);
@@ -214,6 +267,9 @@ export async function stopGpsTracking(sessionId?: string): Promise<number> {
       activeLocationSubscription = null;
     }
 
+    // Stop background location updates safely
+    await cleanLegacyNativeTask();
+
     const currentSessionId = sessionId || currentTrackingSessionId || (await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION_ID));
     let finalDist = 0;
 
@@ -223,7 +279,6 @@ export async function stopGpsTracking(sessionId?: string): Promise<number> {
 
     currentTrackingSessionId = null;
     await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION_ID);
-    await cleanLegacyNativeTask();
 
     return finalDist;
   } catch (err) {
