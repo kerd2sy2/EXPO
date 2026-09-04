@@ -95,12 +95,14 @@ export default function DelegateApp() {
   const [enteredMotorcycle, setEnteredMotorcycle] = useState('');
   const [startKm, setStartKm] = useState('');
   const [startKmImage, setStartKmImage] = useState<string | null>(null);
+  const startKmImageRef = useRef<string | null>(null);
   const [startNotes, setStartNotes] = useState('');
   const [autoKmFetched, setAutoKmFetched] = useState(false);
   const [isOdometerBroken, setIsOdometerBroken] = useState(false);
 
   const [endKm, setEndKm] = useState('');
   const [endKmImage, setEndKmImage] = useState<string | null>(null);
+  const endKmImageRef = useRef<string | null>(null);
   const [ordersCount, setOrdersCount] = useState('');
   const [fuelCost, setFuelCost] = useState('');
   const [endNotes, setEndNotes] = useState('');
@@ -740,8 +742,10 @@ export default function DelegateApp() {
           : asset.uri;
 
         if (type === 'start') {
+          startKmImageRef.current = base64Uri;
           setStartKmImage(base64Uri);
         } else {
+          endKmImageRef.current = base64Uri;
           setEndKmImage(base64Uri);
         }
       }
@@ -769,7 +773,7 @@ export default function DelegateApp() {
     }
 
     let startVal = Number(startKm);
-    let photoUri = startKmImage;
+    let photoUri = startKmImageRef.current || startKmImage;
 
     if (!isOdometerBroken) {
       if (!startKm || isNaN(startVal) || startVal <= 0) {
@@ -781,7 +785,7 @@ export default function DelegateApp() {
         return;
       }
 
-      if (!startKmImage) {
+      if (!photoUri) {
         setAlertConfig({
           type: 'warning',
           title: t.startKmPhotoLabel,
@@ -823,6 +827,7 @@ export default function DelegateApp() {
       // 2. تحديث الحالة في الخلفية
       setActiveSession(newSession);
       setStartKm('');
+      startKmImageRef.current = null;
       setStartKmImage(null);
       setStartNotes('');
       setAutoKmFetched(false);
@@ -852,6 +857,11 @@ export default function DelegateApp() {
     const startVal = Number(activeSession.start_km || 0);
     const isExemptOdometer = isOdometerBroken || (startVal === 0 && !activeSession.start_km_image);
 
+    const countVal = Number(ordersCount) || 0;
+    const fuelVal = Number(fuelCost) || 0;
+    const distanceVal = isExemptOdometer ? 0 : Math.max(0, endVal - startVal);
+    const photoUri = endKmImageRef.current || endKmImage;
+
     if (!isExemptOdometer) {
       if (!endKm || isNaN(endVal) || endVal <= 0) {
         setAlertConfig({
@@ -874,7 +884,7 @@ export default function DelegateApp() {
         return;
       }
 
-      if (!endKmImage) {
+      if (!photoUri) {
         setAlertConfig({
           type: 'warning',
           title: t.endKmPhotoLabel,
@@ -886,17 +896,13 @@ export default function DelegateApp() {
       endVal = 0;
     }
 
-    const countVal = Number(ordersCount) || 0;
-    const fuelVal = Number(fuelCost) || 0;
-    const distanceVal = isExemptOdometer ? 0 : Math.max(0, endVal - startVal);
-
     setSubmitting(true);
     try {
       const savedEndKm = endVal;
       const savedDistance = distanceVal;
       const savedOrders = countVal;
       const savedFuel = fuelVal;
-      const savedPhoto = isExemptOdometer ? undefined : (endKmImage || undefined);
+      const savedPhoto = isExemptOdometer ? undefined : (photoUri || undefined);
       const savedNotes = endNotes;
       const savedMoto = activeSession.motorcycle_number || employee.motorcycle_number;
       const savedStartKm = activeSession.start_km;
@@ -936,6 +942,7 @@ export default function DelegateApp() {
 
       setActiveSession(null);
       setEndKm('');
+      endKmImageRef.current = null;
       setEndKmImage(null);
       setOrdersCount('');
       setFuelCost('');
