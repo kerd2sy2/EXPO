@@ -1112,7 +1112,7 @@ export default function DelegateApp() {
                 {empPhotoUrl ? (
                   <Image source={{ uri: empPhotoUrl }} style={styles.headerAvatarImg} />
                 ) : (
-                  <Ionicons name="person" size={24} color={colors.primary} />
+                  <Ionicons name="person" size={28} color={colors.primary} />
                 )}
               </View>
               <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
@@ -1139,7 +1139,7 @@ export default function DelegateApp() {
                 onPress={() => setShowQrModal(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="qr-code-outline" size={24} color={colors.primary} />
+                <Ionicons name="qr-code-outline" size={26} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </>
@@ -1442,9 +1442,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerActionBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
