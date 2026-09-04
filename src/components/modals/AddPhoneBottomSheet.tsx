@@ -182,7 +182,8 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
     >
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
       >
         {/* Backdrop */}
         <TouchableOpacity
@@ -302,7 +303,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                       : isValid
                       ? '#10b981'
                       : colors.inputBorder,
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                    flexDirection: 'row',
                   },
                 ]}
               >
@@ -315,7 +316,6 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                         ? 'rgba(255, 255, 255, 0.06)'
                         : '#f8fafc',
                       borderColor: colors.border,
-                      flexDirection: isRTL ? 'row-reverse' : 'row',
                     },
                   ]}
                 >
@@ -331,7 +331,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                     styles.textInput,
                     {
                       color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
+                      textAlign: 'left',
                     },
                   ]}
                   placeholder={'05XXXXXXXX'}
