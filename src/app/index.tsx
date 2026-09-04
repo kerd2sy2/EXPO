@@ -1310,6 +1310,8 @@ export default function DelegateApp() {
         visible={showLangModal}
         currentLang={lang}
         colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
         t={t}
         onSelectLang={(newLang) => {
           setLang(newLang);
