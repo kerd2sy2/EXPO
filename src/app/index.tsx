@@ -548,6 +548,11 @@ export default function DelegateApp() {
     }
   }, [currentTab]);
 
+  // Scroll to top whenever tab changes (e.g. returning to Home after start shift)
+  useEffect(() => {
+    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [currentTab]);
+
   // Open Success Bottom Sheet
   const openSuccessModal = (data: SuccessModalData) => {
     backdropOpacity.setValue(0);
@@ -813,7 +818,8 @@ export default function DelegateApp() {
         notes: savedNotes,
       });
 
-      // 1. الانتقال فوراً للرئيسية وفتح المديولا في تلك اللحظة لمنع وميض شاشة إنهاء الشفت
+      // 1. الانتقال فوراً للرئيسية والتمرير لأعلى الصفحة وإظهار المديولا في تلك اللحظة
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       setCurrentTab('home');
       openSuccessModal({
         type: 'start',
@@ -917,7 +923,8 @@ export default function DelegateApp() {
         notes: savedNotes,
       });
 
-      // 1. الانتقال فوراً لسجل الشفتات وإظهار المديولا في تلك اللحظة بالضبط
+      // 1. الانتقال فوراً لسجل الشفتات والتمرير لأعلى الصفحة وإظهار المديولا في تلك اللحظة بالضبط
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       setCurrentTab('history');
       openSuccessModal({
         type: 'end',
@@ -1321,7 +1328,10 @@ export default function DelegateApp() {
           sheetTranslateY={sheetTranslateY}
           formatTimeStr={formatTimeStr}
           onClose={closeSuccessModal}
-          onNavigateToTab={setCurrentTab}
+          onNavigateToTab={(tab) => {
+            mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+            setCurrentTab(tab);
+          }}
           onPreviewPhoto={setPreviewPhoto}
         />
       )}
