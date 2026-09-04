@@ -156,7 +156,7 @@ export const translations = {
     // Odometer suggestions & shifts
     suggestedKm: 'المقترح',
     autoOdometerNotice: 'تم إدراج قراءة العداد السابقة تلقائياً',
-    odometerBrokenNotice: '⚠️ عداد هذه المركبة معطل ومسجل كـ (تالف) بالنظام — تم إعفاؤك من تصوير وإدخال قراءة العداد',
+    odometerBrokenNotice: 'عداد هذه المركبة معطل ومسجل كـ (تالف) بالنظام — تم إعفاؤك من تصوير وإدخال قراءة العداد',
     odometerExempt: 'تم الإعفاء من قراءة العداد (العداد معطل)',
 
     // Change Password
@@ -329,7 +329,7 @@ export const translations = {
     // Odometer suggestions & shifts
     suggestedKm: 'Suggested',
     autoOdometerNotice: 'Previous odometer reading auto-filled',
-    odometerBrokenNotice: "⚠️ This vehicle's odometer is marked as damaged/broken — you are exempt from entering KM or taking odometer photos",
+    odometerBrokenNotice: "This vehicle's odometer is marked as damaged/broken — you are exempt from entering KM or taking odometer photos",
     odometerExempt: 'Odometer exempt (Broken odometer)',
 
     // Change Password
@@ -502,7 +502,7 @@ export const translations = {
     // Odometer suggestions & shifts
     suggestedKm: 'প্রস্তাবিত',
     autoOdometerNotice: 'পূর্ববর্তী মিটারের রিডিং স্বয়ংক্রিয়ভাবে যোগ করা হয়েছে',
-    odometerBrokenNotice: '⚠️ এই গাড়ির ওডোমিটার নষ্ট হিসেবে নথিভুক্ত — কিমি প্রবেশ বা ওডোমিটারের ছবি তোলার প্রয়োজন নেই',
+    odometerBrokenNotice: 'এই গাড়ির ওডোমিটার নষ্ট হিসেবে নথিভুক্ত — কিমি প্রবেশ বা ওডোমিটারের ছবি তোলার প্রয়োজন নেই',
     odometerExempt: 'ওডোমিটার থেকে অব্যাহতি (নষ্ট ওডোমিটার)',
 
     // Change Password

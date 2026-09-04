@@ -382,7 +382,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                     <ActivityIndicator color="#ffffff" size="small" />
                   ) : (
                     <Text style={styles.actionBtnText}>
-                      {isRTL ? 'طلب رمز التحقق من المشرف 🚀' : 'Request OTP from Supervisor'}
+                      {isRTL ? 'طلب رمز التحقق من المشرف' : 'Request OTP from Supervisor'}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -443,7 +443,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                     <ActivityIndicator color="#ffffff" size="small" />
                   ) : (
                     <Text style={styles.actionBtnText}>
-                      {isRTL ? 'تأكيد الرمز وتوثيق الجهاز ✓' : 'Verify & Trust Device'}
+                      {isRTL ? 'تأكيد الرمز وتوثيق الجهاز' : 'Verify & Trust Device'}
                     </Text>
                   )}
                 </TouchableOpacity>

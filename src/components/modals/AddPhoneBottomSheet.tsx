@@ -306,7 +306,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                   },
                 ]}
               >
-                {/* Saudi Flag & Prefix */}
+                {/* Saudi Code Prefix */}
                 <View
                   style={[
                     styles.saudiBadge,
@@ -319,7 +319,6 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                     },
                   ]}
                 >
-                  <Text style={styles.flagEmoji}>🇸🇦</Text>
                   <Text style={[styles.countryCode, { color: colors.textPrimary }]}>
                     +966
                   </Text>

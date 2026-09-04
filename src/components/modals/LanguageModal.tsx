@@ -106,21 +106,18 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
   const languages = [
     {
       code: 'ar' as Language,
-      flag: '🇸🇦',
       badge: 'AR',
       name: 'العربية',
       subName: 'Arabic',
     },
     {
       code: 'en' as Language,
-      flag: '🇺🇸',
       badge: 'EN',
       name: 'English',
       subName: 'الإنجليزية',
     },
     {
       code: 'bn' as Language,
-      flag: '🇧🇩',
       badge: 'BN',
       name: 'বাংলা',
       subName: 'Bengali',
@@ -258,7 +255,7 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
                   onPress={() => handleSelect(langItem.code)}
                   activeOpacity={0.75}
                 >
-                  {/* Flag & Code Badge */}
+                  {/* Code Badge */}
                   <View
                     style={[
                       styles.flagBadgeBox,
@@ -276,7 +273,6 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
                       },
                     ]}
                   >
-                    <Text style={styles.flagEmoji}>{langItem.flag}</Text>
                     <Text
                       style={[
                         styles.langBadgeText,

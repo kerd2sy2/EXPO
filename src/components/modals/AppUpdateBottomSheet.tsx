@@ -193,10 +193,10 @@ export const AppUpdateBottomSheet: React.FC<AppUpdateBottomSheetProps> = ({
         {/* Texts */}
         <View style={styles.textContainer}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            {state === 'READY' && (isRTL ? 'تحديث جديد متوفر للتطبيق 🚀' : 'New Update Available 🚀')}
+            {state === 'READY' && (isRTL ? 'تحديث جديد متوفر للتطبيق' : 'New Update Available')}
             {state === 'DOWNLOADING' && (isRTL ? 'جاري تنزيل التحديث الهوائي...' : 'Downloading Update...')}
             {state === 'CHECKING' && (isRTL ? 'جاري التحقق من التحديثات...' : 'Checking for Updates...')}
-            {state === 'UP_TO_DATE' && (isRTL ? 'تطبيقك محدث بالكامل ✅' : 'Your App is Up-to-Date ✅')}
+            {state === 'UP_TO_DATE' && (isRTL ? 'تطبيقك محدث بالكامل' : 'Your App is Up-to-Date')}
             {state === 'ERROR' && (isRTL ? 'تعذر جلب التحديث' : 'Update Check Failed')}
           </Text>
 

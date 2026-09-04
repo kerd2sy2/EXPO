@@ -173,7 +173,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                   {t.odometerBrokenNotice}
                 </Text>
                 <Text style={{ color: isDarkMode ? '#fde68a' : '#b45309', fontSize: 11, marginTop: 4, textAlign: isRTL ? 'right' : 'left' }}>
-                  {t.odometerExempt} ✅
+                  {t.odometerExempt}
                 </Text>
               </View>
             </View>
@@ -309,7 +309,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                   {t.odometerBrokenNotice}
                 </Text>
                 <Text style={{ color: isDarkMode ? '#fde68a' : '#b45309', fontSize: 11, marginTop: 4, textAlign: isRTL ? 'right' : 'left' }}>
-                  {t.odometerExempt} ✅
+                  {t.odometerExempt}
                 </Text>
               </View>
             </View>
