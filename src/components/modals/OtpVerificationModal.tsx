@@ -10,9 +10,9 @@ import {
   Animated,
   Dimensions,
   TouchableWithoutFeedback,
-  KeyboardAvoidingView,
   Platform,
   Keyboard,
+  ScrollView,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemeColors, Language } from '../../types/delegate';
@@ -49,6 +49,28 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number>(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardOffset(e.endCoordinates.height);
+      setIsKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardOffset(0);
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const inputRefs = [
     useRef<TextInput>(null),
@@ -158,8 +180,13 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
       }
       setOtpDigits(newDigits);
       if (pasted.length === 4) {
+        setFocusedIndex(3);
         Keyboard.dismiss();
         triggerVerification(nationalId, newDigits.join(''));
+      } else {
+        const nextIdx = Math.min(pasted.length, 3);
+        setFocusedIndex(nextIdx);
+        inputRefs[nextIdx].current?.focus();
       }
       return;
     }
@@ -169,6 +196,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 
     // Auto-advance
     if (clean && index < 3) {
+      setFocusedIndex(index + 1);
       inputRefs[index + 1].current?.focus();
     }
 
@@ -183,8 +211,16 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
   };
 
   const handleKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === 'Backspace' && !otpDigits[index] && index > 0) {
-      inputRefs[index - 1].current?.focus();
+    if (e.nativeEvent.key === 'Backspace') {
+      if (!otpDigits[index] && index > 0) {
+        const newDigits = [...otpDigits];
+        newDigits[index - 1] = '';
+        setOtpDigits(newDigits);
+        setFocusedIndex(index - 1);
+        inputRefs[index - 1].current?.focus();
+      } else {
+        setFocusedIndex(index);
+      }
     }
   };
 
@@ -218,10 +254,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.overlay}
-      >
+      <View style={styles.overlay}>
         <TouchableWithoutFeedback onPress={onClose}>
           <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
         </TouchableWithoutFeedback>
@@ -233,6 +266,8 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
               backgroundColor: colors.card,
               borderColor: colors.border,
               transform: [{ translateY: slideAnim }],
+              marginBottom: keyboardOffset > 0 ? keyboardOffset : 0,
+              paddingBottom: keyboardOffset > 0 ? 12 : (Platform.OS === 'ios' ? 34 : 20),
             },
           ]}
         >
@@ -241,166 +276,210 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
             <View style={[styles.handle, { backgroundColor: isDarkMode ? '#475569' : '#cbd5e1' }]} />
           </View>
 
-          {/* Header Icon */}
-          <View style={styles.headerIconRow}>
-            <View
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={{ flexGrow: 1 }}
+          >
+            {/* Header Icon (Hidden when keyboard is active to maximize visible room) */}
+            {!isKeyboardVisible && (
+              <View style={styles.headerIconRow}>
+                <View
+                  style={[
+                    styles.iconBadge,
+                    {
+                      backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.15)' : '#fff7ed',
+                      borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.3)' : '#fed7aa',
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons name="shield-key-outline" size={32} color="#f97316" />
+                </View>
+              </View>
+            )}
+
+            {/* Title & Subtitle */}
+            <Text style={[styles.title, { color: colors.textPrimary, marginBottom: isKeyboardVisible ? 4 : 8 }]}>
+              {step === 'REQUEST'
+                ? isRTL
+                  ? 'توثيق الجهاز لأول مرة (OTP)'
+                  : 'First-time Device Verification'
+                : isRTL
+                ? 'أدخل رمز التحقق (4 أرقام)'
+                : 'Enter 4-Digit OTP'}
+            </Text>
+
+            <Text
               style={[
-                styles.iconBadge,
+                styles.subtitle,
                 {
-                  backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.15)' : '#fff7ed',
-                  borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.3)' : '#fed7aa',
+                  color: colors.textSecondary,
+                  marginBottom: isKeyboardVisible ? 8 : 16,
+                  fontSize: isKeyboardVisible ? 12 : 13,
                 },
               ]}
+              numberOfLines={isKeyboardVisible ? 2 : undefined}
             >
-              <MaterialCommunityIcons name="shield-key-outline" size={32} color="#f97316" />
-            </View>
-          </View>
-
-          {/* Title & Subtitle */}
-          <Text style={[styles.title, { color: colors.textPrimary }]}>
-            {step === 'REQUEST'
-              ? isRTL
-                ? 'توثيق الجهاز لأول مرة (OTP)'
-                : 'First-time Device Verification'
-              : isRTL
-              ? 'أدخل رمز التحقق (4 أرقام)'
-              : 'Enter 4-Digit OTP'}
-          </Text>
-
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {step === 'REQUEST'
-              ? isRTL
-                ? 'لتسجيل الدخول من هذا الهاتف لأول مرة، سيتم إرسال رمز سري (4 أرقام) إلى لوحة تحكم المشرف لتوثيق جهازك.'
-                : 'To log in from this phone for the first time, a 4-digit code is sent to your supervisor dashboard.'
-              : isRTL
-              ? `المندوب: ${employeeName || nationalId}\nيرجى طلب الرمز (4 أرقام) من المشرف وإدخاله لتوثيق هذا الهاتف.`
-              : `Ask your supervisor for the 4-digit code shown on their dashboard.`}
-          </Text>
-
-          {/* Feedback Messages */}
-          {errorMessage ? (
-            <View style={[styles.msgBanner, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2' }]}>
-              <Ionicons name="alert-circle" size={18} color="#ef4444" />
-              <Text style={[styles.msgText, { color: '#ef4444' }]}>{errorMessage}</Text>
-            </View>
-          ) : null}
-
-          {successMessage ? (
-            <View style={[styles.msgBanner, { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#d1fae5' }]}>
-              <Ionicons name="checkmark-circle" size={18} color="#10b981" />
-              <Text style={[styles.msgText, { color: '#10b981' }]}>{successMessage}</Text>
-            </View>
-          ) : null}
-
-          {/* STEP 1: Enter National ID */}
-          {step === 'REQUEST' ? (
-            <View style={styles.formSection}>
-              <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.nationalIdLabel}
-              </Text>
-              <View
-                style={[
-                  styles.inputWrap,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.inputBorder,
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
-                  },
-                ]}
-              >
-                <Feather name="user" size={18} color={colors.textSecondary} />
-                <TextInput
-                  style={[styles.textInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                  placeholder={t.nationalIdPlaceholder}
-                  placeholderTextColor="#94a3b8"
-                  value={nationalId}
-                  onChangeText={(val) => setNationalId(val.replace(/[^0-9]/g, '').slice(0, 10))}
-                  keyboardType="number-pad"
-                  maxLength={10}
-                />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#f97316' }]}
-                onPress={() => handleRequestOtp()}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Text style={styles.actionBtnText}>
-                    {isRTL ? 'طلب رمز التحقق من المشرف 🚀' : 'Request OTP from Supervisor'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          ) : (
-            /* STEP 2: 4-Digit OTP Entry */
-            <View style={styles.formSection}>
-              <View style={styles.otpBoxesRow}>
-                {otpDigits.map((digit, idx) => (
-                  <TextInput
-                    key={idx}
-                    ref={inputRefs[idx]}
-                    style={[
-                      styles.otpBox,
-                      {
-                        backgroundColor: colors.inputBg,
-                        borderColor: digit ? '#f97316' : colors.inputBorder,
-                        color: colors.textPrimary,
-                      },
-                    ]}
-                    value={digit}
-                    onChangeText={(text) => handleOtpChange(text, idx)}
-                    onKeyPress={(e) => handleKeyPress(e, idx)}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    selectTextOnFocus
-                  />
-                ))}
-              </View>
-
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#10b981', marginTop: 20 }]}
-                onPress={() => triggerVerification(nationalId, otpDigits.join(''))}
-                disabled={loading || otpDigits.join('').length < 4}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Text style={styles.actionBtnText}>
-                    {isRTL ? 'تأكيد الرمز وتوثيق الجهاز ✓' : 'Verify & Trust Device'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              {/* Resend Action */}
-              <View style={styles.resendRow}>
-                {resendCountdown > 0 ? (
-                  <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                    {isRTL
-                      ? `إعادة طلب رمز جديد بعد (${resendCountdown} ثانية)`
-                      : `Resend in (${resendCountdown}s)`}
-                  </Text>
-                ) : (
-                  <TouchableOpacity onPress={() => handleRequestOtp()} disabled={loading}>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#f97316' }}>
-                      {isRTL ? 'إعادة إرسال رمز جديد للمشرف' : 'Resend new code to supervisor'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* Close / Cancel Button */}
-          <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={loading}>
-            <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>
-              {isRTL ? 'إلغاء والعودة لتسجيل الدخول' : 'Back to Login'}
+              {step === 'REQUEST'
+                ? isRTL
+                  ? 'لتسجيل الدخول من هذا الهاتف لأول مرة، سيتم إرسال رمز سري (4 أرقام) إلى لوحة تحكم المشرف لتوثيق جهازك.'
+                  : 'To log in from this phone for the first time, a 4-digit code is sent to your supervisor dashboard.'
+                : isRTL
+                ? `المندوب: ${employeeName || nationalId} • أدخل رمز التحقق من المشرف`
+                : `Ask your supervisor for the 4-digit code shown on their dashboard.`}
             </Text>
-          </TouchableOpacity>
+
+            {/* Feedback Messages */}
+            {errorMessage ? (
+              <View style={[styles.msgBanner, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2' }]}>
+                <Ionicons name="alert-circle" size={18} color="#ef4444" />
+                <Text style={[styles.msgText, { color: '#ef4444' }]}>{errorMessage}</Text>
+              </View>
+            ) : null}
+
+            {successMessage ? (
+              <View style={[styles.msgBanner, { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#d1fae5' }]}>
+                <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                <Text style={[styles.msgText, { color: '#10b981' }]}>{successMessage}</Text>
+              </View>
+            ) : null}
+
+            {/* STEP 1: Enter National ID */}
+            {step === 'REQUEST' ? (
+              <View style={styles.formSection}>
+                <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t.nationalIdLabel}
+                </Text>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.inputBorder,
+                      flexDirection: isRTL ? 'row-reverse' : 'row',
+                    },
+                  ]}
+                >
+                  <Feather name="user" size={18} color={colors.textSecondary} />
+                  <TextInput
+                    style={[styles.textInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.nationalIdPlaceholder}
+                    placeholderTextColor="#94a3b8"
+                    value={nationalId}
+                    onChangeText={(val) => setNationalId(val.replace(/[^0-9]/g, '').slice(0, 10))}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: '#f97316' }]}
+                  onPress={() => handleRequestOtp()}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Text style={styles.actionBtnText}>
+                      {isRTL ? 'طلب رمز التحقق من المشرف 🚀' : 'Request OTP from Supervisor'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : (
+              /* STEP 2: 4-Digit OTP Entry */
+              <View style={styles.formSection}>
+                <View style={styles.otpBoxesRow}>
+                  {otpDigits.map((digit, idx) => {
+                    const isFocused = focusedIndex === idx;
+                    return (
+                      <TextInput
+                        key={idx}
+                        ref={inputRefs[idx]}
+                        style={[
+                          styles.otpBox,
+                          {
+                            backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                            borderColor: isFocused
+                              ? '#f97316'
+                              : digit
+                              ? '#10b981'
+                              : (isDarkMode ? '#334155' : '#cbd5e1'),
+                            borderWidth: isFocused ? 2.5 : 2,
+                            color: isDarkMode ? '#ffffff' : '#0f172a',
+                            shadowColor: isFocused ? '#f97316' : '#000',
+                            shadowOpacity: isFocused ? 0.3 : 0.05,
+                            shadowRadius: 6,
+                            elevation: isFocused ? 5 : 1,
+                          },
+                        ]}
+                        value={digit}
+                        onFocus={() => setFocusedIndex(idx)}
+                        onChangeText={(text) => handleOtpChange(text, idx)}
+                        onKeyPress={(e) => handleKeyPress(e, idx)}
+                        keyboardType="number-pad"
+                        maxLength={1}
+                        selectTextOnFocus
+                        selectionColor="#f97316"
+                        autoFocus={idx === 0}
+                      />
+                    );
+                  })}
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    {
+                      backgroundColor: '#10b981',
+                      marginTop: isKeyboardVisible ? 12 : 20,
+                    },
+                  ]}
+                  onPress={() => triggerVerification(nationalId, otpDigits.join(''))}
+                  disabled={loading || otpDigits.join('').length < 4}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Text style={styles.actionBtnText}>
+                      {isRTL ? 'تأكيد الرمز وتوثيق الجهاز ✓' : 'Verify & Trust Device'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* Resend Action */}
+                <View style={[styles.resendRow, { marginTop: isKeyboardVisible ? 10 : 16 }]}>
+                  {resendCountdown > 0 ? (
+                    <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                      {isRTL
+                        ? `إعادة طلب رمز جديد بعد (${resendCountdown} ثانية)`
+                        : `Resend in (${resendCountdown}s)`}
+                    </Text>
+                  ) : (
+                    <TouchableOpacity onPress={() => handleRequestOtp()} disabled={loading}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#f97316' }}>
+                        {isRTL ? 'إعادة إرسال رمز جديد للمشرف' : 'Resend new code to supervisor'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Close / Cancel Button */}
+            <TouchableOpacity
+              style={[styles.cancelBtn, { paddingVertical: isKeyboardVisible ? 8 : 14 }]}
+              onPress={onClose}
+              disabled={loading}
+            >
+              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>
+                {isRTL ? 'إلغاء والعودة لتسجيل الدخول' : 'Back to Login'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
@@ -523,12 +602,12 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   otpBox: {
-    width: 58,
-    height: 64,
+    width: 62,
+    height: 68,
     borderRadius: 16,
     borderWidth: 2,
     textAlign: 'center',
-    fontSize: 26,
+    fontSize: 30,
     fontWeight: '900',
   },
   resendRow: {
