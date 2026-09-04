@@ -14,7 +14,7 @@ import {
   Modal,
   KeyboardAvoidingView,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors, EmployeeProfile } from '../../types/delegate';
 import { setMyPhoneApi } from '../../services/api';
 
@@ -174,6 +174,11 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
       animationType="none"
       statusBarTranslucent
       onRequestClose={handleClose}
+      onShow={() => {
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 100);
+      }}
     >
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
@@ -330,7 +335,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                       textAlign: isRTL ? 'right' : 'left',
                     },
                   ]}
-                  placeholder={isRTL ? 'اكتب رقم الهاتف (05XXXXXXXX)' : '05XXXXXXXX'}
+                  placeholder={'05XXXXXXXX'}
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="phone-pad"
                   value={phoneNumber}
@@ -338,6 +343,8 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                   maxLength={14}
                   editable={!loading}
                   autoFocus={false}
+                  numberOfLines={1}
+                  multiline={false}
                 />
 
                 {/* Status Icon */}
@@ -407,52 +414,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                 </View>
               )}
 
-              {/* Warning Card */}
-              <View
-                style={[
-                  styles.warningLockCard,
-                  {
-                    backgroundColor: isDarkMode
-                      ? 'rgba(245, 158, 11, 0.1)'
-                      : '#fffbeb',
-                    borderColor: isDarkMode ? 'rgba(245, 158, 11, 0.28)' : '#fde68a',
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.warningLockHeader,
-                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name="lock-alert-outline"
-                    size={20}
-                    color="#f59e0b"
-                  />
-                  <Text
-                    style={[
-                      styles.warningLockTitle,
-                      { color: isDarkMode ? '#fbbf24' : '#b45309' },
-                    ]}
-                  >
-                    {isRTL ? 'تنبيه لا يمكن التراجع' : 'Permanent Record Warning'}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.warningLockDesc,
-                    {
-                      color: isDarkMode ? '#fef3c7' : '#92400e',
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                >
-                  {isRTL
-                    ? 'بمجرد حفظ رقم الهاتف سيتم تثبيته في حسابك نهائياً ولن تتمكن من تعديله أو حذفه لاحقاً. يرجى التأكد التام من صحة الرقم.'
-                    : 'Once saved, this phone number will be permanently locked to your account. You will not be able to edit or delete it.'}
-                </Text>
-              </View>
+
             </View>
 
             {/* Action Buttons */}
@@ -611,27 +573,29 @@ const styles = StyleSheet.create({
   },
   saudiBadge: {
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
     borderRadius: 8,
     borderWidth: 1,
-    gap: 6,
+    gap: 5,
     marginRight: 6,
+    height: 36,
+    flexShrink: 0,
   },
   flagEmoji: {
-    fontSize: 16,
+    fontSize: 15,
+    lineHeight: 18,
   },
   countryCode: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   textInput: {
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
     paddingHorizontal: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    height: 50,
   },
   inputActionBox: {
     paddingHorizontal: 6,
