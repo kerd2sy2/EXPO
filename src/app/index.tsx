@@ -58,6 +58,8 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { ShiftScreen } from '../screens/ShiftScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { AdminTargetDashboard } from '../screens/target/AdminTargetDashboard';
+import { SupervisorTargetDashboard } from '../screens/target/SupervisorTargetDashboard';
 
 // Modals
 import { SuccessShiftModal } from '../components/modals/SuccessShiftModal';
@@ -85,6 +87,7 @@ export default function DelegateApp() {
 
   // Authentication State
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
+  const [adminUser, setAdminUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -409,7 +412,14 @@ export default function DelegateApp() {
     try {
       // 1. Instant Cached User Restore
       const cached = await getCachedUser();
+      if (cached && (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN')) {
+        setAdminUser(cached);
+        setEmployee(null);
+        setLoading(false);
+        return;
+      }
       if (cached && cached.id) {
+        setAdminUser(null);
         setEmployee(cached);
         if (cached.motorcycle_number) {
           setEnteredMotorcycle(cached.motorcycle_number);
@@ -421,7 +431,14 @@ export default function DelegateApp() {
 
       // 2. Validate & Refresh Profile from Server without losing delegate fields
       const user = await workApi.getMe();
+      if (user && ((user as any).is_admin || (user as any).role === 'ADMIN' || (user as any).role === 'SUPERVISOR' || (user as any).role === 'SUPER_ADMIN')) {
+        setAdminUser(user);
+        setEmployee(null);
+        setLoading(false);
+        return;
+      }
       if (user && user.id) {
+        setAdminUser(null);
         const merged: EmployeeProfile = {
           ...(cached || {}),
           ...user,
@@ -619,7 +636,12 @@ export default function DelegateApp() {
     setLoginError('');
     try {
       const res = await workApi.login(inputVal, password);
-      if (res && res.employee) {
+      if (res && res.admin) {
+        setAdminUser(res.admin);
+        setEmployee(null);
+        return;
+      } else if (res && res.employee) {
+        setAdminUser(null);
         setEmployee(res.employee);
         if (res.employee.motorcycle_number) {
           setEnteredMotorcycle(res.employee.motorcycle_number);
@@ -703,6 +725,17 @@ export default function DelegateApp() {
     }
   };
 
+  // Admin / Supervisor Logout Handler
+  const handleAdminLogout = async () => {
+    try {
+      await setAuthToken(null);
+      await saveCachedUser(null);
+    } catch (e) {
+      console.log('Admin logout error', e);
+    }
+    setAdminUser(null);
+  };
+
   // Logout Handler
   const handleLogout = async () => {
     setAlertConfig({
@@ -714,10 +747,12 @@ export default function DelegateApp() {
       onPrimaryPress: async () => {
         try {
           await setAuthToken(null);
+          await saveCachedUser(null);
         } catch (e) {
           console.log('Logout error', e);
         }
         setEmployee(null);
+        setAdminUser(null);
         setActiveSession(null);
         setHistorySessions([]);
         setCurrentTab('home');
@@ -1106,6 +1141,34 @@ export default function DelegateApp() {
   }
 
   // Not Logged In -> Login Screen
+  if (!employee && !adminUser) {
+    return (
+      <LoginScreen
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        t={t}
+        lang={lang}
+        onSetLang={setLang}
+        onLogin={handleLogin}
+        onOtpSuccess={handleOtpSuccess}
+        loginError={loginError}
+        submitting={submitting}
+      />
+    );
+  }
+
+  // Admin Dashboard Portal
+  if (adminUser && (adminUser.role === 'ADMIN' || adminUser.role === 'SUPER_ADMIN')) {
+    return <AdminTargetDashboard user={adminUser} onLogout={handleAdminLogout} />;
+  }
+
+  // Supervisor Dashboard Portal
+  if (adminUser && adminUser.role === 'SUPERVISOR') {
+    return <SupervisorTargetDashboard user={adminUser} onLogout={handleAdminLogout} />;
+  }
+
+  // Delegate App - must have authenticated employee
   if (!employee) {
     return (
       <LoginScreen

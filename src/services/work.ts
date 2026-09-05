@@ -81,6 +81,8 @@ export const workApi = {
       if (data.employee) {
         await saveCachedUser(data.employee);
         await saveLastCredentialsForBiometrics(login.trim(), data.access_token, data.employee);
+      } else if (data.admin) {
+        await saveCachedUser({ ...data.admin, is_admin: true });
       }
     }
     return data;
@@ -90,6 +92,9 @@ export const workApi = {
   getMe: async (): Promise<EmployeeProfile | null> => {
     try {
       const cached = await getCachedUser();
+      if (cached && (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN')) {
+        return cached;
+      }
       const meResp = await apiRequest('/me');
       if (meResp && meResp.id) {
         let fullEmployee: any = cached ? { ...cached } : {};
