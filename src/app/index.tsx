@@ -37,6 +37,7 @@ import { translations } from '../constants/translations';
 // Services
 import { workApi } from '../services/work';
 import {
+  API_BASE_URL,
   setAuthToken,
   getStoredToken,
   getCachedUser,
@@ -1128,7 +1129,7 @@ export default function DelegateApp() {
   const empPhotoUrl = employee?.personal_image
     ? (employee.personal_image.startsWith('http') || employee.personal_image.startsWith('data:')
         ? employee.personal_image
-        : `https://aams-backend-fxy7.onrender.com/uploads/${employee.personal_image.replace(/^\/+/, '')}`)
+        : `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/uploads/${employee.personal_image.replace(/^\/+/, '')}`)
     : null;
 
   // Loading Screen

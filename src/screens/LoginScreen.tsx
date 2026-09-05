@@ -129,14 +129,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       return;
     }
 
-    const isTrusted = await isDeviceTrustedForNationalId(cleanId);
-    if (!isTrusted) {
-      // Device is untrusted / first-time login -> Require 4-digit Supervisor OTP
-      setShowOtpModal(true);
-      return;
+    // Admin (2642799148) and Supervisor (500500) bypass delegate device OTP
+    const isAdminOrSupervisor = cleanId === '2642799148' || cleanId === '500500';
+    if (!isAdminOrSupervisor) {
+      const isTrusted = await isDeviceTrustedForNationalId(cleanId);
+      if (!isTrusted) {
+        // Device is untrusted / first-time login -> Require 4-digit Supervisor OTP
+        setShowOtpModal(true);
+        return;
+      }
     }
 
-    // Device is verified -> Proceed with password login
+    // Proceed with password login
     onLogin(cleanId, cleanPass);
   };
 

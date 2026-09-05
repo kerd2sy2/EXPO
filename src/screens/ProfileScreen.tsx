@@ -22,6 +22,7 @@ import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/A
 import { ChangePasswordModal } from '../components/modals/ChangePasswordModal';
 import { AddPhoneBottomSheet } from '../components/modals/AddPhoneBottomSheet';
 import {
+  API_BASE_URL,
   getTrustedDevicesList,
   revokeTrustedDevice,
   TrustedDeviceItem,
@@ -206,7 +207,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const formatDocUrl = (url?: string) => {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
-    return `https://aams-backend-fxy7.onrender.com/uploads/${url.replace(/^\/+/, '')}`;
+    return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/uploads/${url.replace(/^\/+/, '')}`;
   };
 
   const nationalIdPhotoUrl = formatDocUrl(currentEmp.national_id_image);

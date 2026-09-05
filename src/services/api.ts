@@ -2,10 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 
-// Hosted Backend API URL (Render)
+// Hosted Backend API URL (Active Cloudflare Tunnel to Go Backend)
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
-  'https://aams-backend-fxy7.onrender.com/api/v1';
+  'https://contracts-guild-promotes-fat.trycloudflare.com/api/v1';
 
 const TOKEN_KEY = 'aams_delegate_token';
 const USER_KEY = 'aams_delegate_user';
