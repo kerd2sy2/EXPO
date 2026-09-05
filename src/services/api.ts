@@ -2,10 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 
-// Hosted Backend API URL (Hetzner Dedicated Cloud Server with Let's Encrypt SSL)
+// Hosted Backend API URL (Cloudflare Enterprise Custom Domain)
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
-  'https://46.225.102.67.sslip.io/api/v1';
+  'https://api.kerd2sy.com/api/v1';
 
 const TOKEN_KEY = 'aams_delegate_token';
 const USER_KEY = 'aams_delegate_user';
