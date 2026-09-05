@@ -12,7 +12,6 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
 import { ExcelImportPreview } from '../../types/target';
 import { targetApi } from '../../services/targetApi';
 
@@ -44,8 +43,54 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
   >('IGNORE_DUPLICATES');
 
   const handlePickFile = async () => {
+    // 1. Web Browser Support (Direct HTML5 File Input)
+    if (Platform.OS === 'web') {
+      try {
+        if (typeof document !== 'undefined') {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = '.xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel';
+          input.onchange = (e: any) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              const fileObj = {
+                uri: URL.createObjectURL(file),
+                name: file.name,
+                mimeType: file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              };
+              setSelectedFile(fileObj);
+              setPreview(null);
+              analyzeFile(fileObj);
+            }
+          };
+          input.click();
+          return;
+        }
+      } catch (err: any) {
+        Alert.alert('خطأ', 'تعذر فتح مستعرض الملفات: ' + err.message);
+        return;
+      }
+    }
+
+    // 2. Mobile Native Safe Dynamic Picker (Won't crash if missing from APK)
     try {
-      const res = await DocumentPicker.getDocumentAsync({
+      let picker: any = null;
+      try {
+        picker = require('expo-document-picker');
+      } catch {
+        picker = null;
+      }
+
+      if (!picker || typeof picker.getDocumentAsync !== 'function') {
+        Alert.alert(
+          'مستكشف الملفات',
+          'يتطلب اختيار ملف الإكسل مباشرة من ذاكرة الهاتف تثبيت ملف الـ APK المحدث، أو يمكنك رفع الملف بكل سهولة عبر متصفح الهاتف أو الكمبيوتر.',
+          [{ text: 'حسناً' }]
+        );
+        return;
+      }
+
+      const res = await picker.getDocumentAsync({
         type: [
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'application/vnd.ms-excel',
@@ -56,17 +101,20 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
 
       if (!res.canceled && res.assets && res.assets.length > 0) {
         const file = res.assets[0];
-        setSelectedFile({
+        const fileObj = {
           uri: file.uri,
           name: file.name,
           mimeType: file.mimeType,
-        });
+        };
+        setSelectedFile(fileObj);
         setPreview(null);
-        // Automatically start preview analysis
-        analyzeFile(file);
+        analyzeFile(fileObj);
       }
     } catch (e: any) {
-      Alert.alert('خطأ', 'فشل في اختيار الملف: ' + e.message);
+      Alert.alert(
+        'تنبيه',
+        'يرجى تثبيت النسخة المحدثة من التطبيق (APK) لتفعيل مستكشف ملفات الهاتف، أو رفع الملف عبر المتصفح.'
+      );
     }
   };
 
