@@ -10,6 +10,7 @@ import {
   StyleSheet,
   StatusBar,
   BackHandler,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -263,31 +264,31 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       {/* Dynamic Header matching Delegate App exactly */}
       <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         {currentView === 'home' ? (
-          /* Home Header: Supervisor Avatar + Name + Refresh + Logout */
+          /* Home Header: Company Logo + AAMS + LOGISTICS + Profile Screen Button */
           <>
             <TouchableOpacity
               style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
               onPress={() => setCurrentView('profile')}
               activeOpacity={0.8}
             >
-              <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-                <Ionicons name="shield-outline" size={28} color={colors.primary} />
-                <View style={[styles.avatarBadgeDot, { backgroundColor: '#22c55e' }]} />
-              </View>
+              <Image
+                source={require('../../../assets/images/logo.png')}
+                style={styles.headerLogoImage}
+                resizeMode="contain"
+              />
               <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                 <View style={[styles.headerNameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text
                     style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
                     numberOfLines={1}
                   >
-                    {user?.name || 'مشرف التوصيل'}
+                    AAMS
                   </Text>
                   <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
                 </View>
                 <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Ionicons name="shield-outline" size={13} color={colors.primary} />
-                  <Text style={[styles.headerUserRole, { color: colors.textSecondary }]}>
-                    مشرف التوصيل
+                  <Text style={[styles.headerUserRole, { color: colors.primary }]}>
+                    LOGISTICS
                   </Text>
                 </View>
               </View>
@@ -296,24 +297,10 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-                onPress={onRefresh}
+                onPress={() => setCurrentView('profile')}
                 activeOpacity={0.7}
               >
-                <Ionicons name="refresh-outline" size={22} color={colors.primary} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.headerActionBtn,
-                  {
-                    backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fee2e2',
-                    borderColor: isDarkMode ? '#7f1d1d' : '#fecaca',
-                  },
-                ]}
-                onPress={onLogout}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="log-out-outline" size={22} color="#ef4444" />
+                <Ionicons name="person-outline" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </>
@@ -843,46 +830,33 @@ const styles = StyleSheet.create({
     gap: 12,
     flex: 1,
   },
-  headerAvatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  avatarBadgeDot: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: '#ffffff',
+  headerLogoImage: {
+    width: 44,
+    height: 44,
   },
   headerUserText: {
     flex: 1,
     justifyContent: 'center',
-    gap: 3,
+    gap: 2,
   },
   headerNameRow: {
     alignItems: 'center',
     gap: 4,
   },
   headerUserName: {
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.2,
+    fontSize: 19,
+    fontWeight: '900',
+    letterSpacing: 1.5,
   },
   headerIdBadgeRow: {
     alignItems: 'center',
     gap: 5,
   },
   headerUserRole: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 2.2,
+    marginTop: 1,
   },
   headerActions: {
     alignItems: 'center',
