@@ -15,14 +15,13 @@ import { TargetAlertItem } from '../../types/target';
 import { targetApi } from '../../services/targetApi';
 
 interface TargetLogsScreenProps {
-  onBack: () => void;
+  onBack?: () => void;
   colors: ThemeColors;
   isDarkMode?: boolean;
   isRTL?: boolean;
 }
 
 export const TargetLogsScreen: React.FC<TargetLogsScreenProps> = ({
-  onBack,
   colors,
   isDarkMode = false,
   isRTL = true,
@@ -78,32 +77,6 @@ export const TargetLogsScreen: React.FC<TargetLogsScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Navigation Header */}
-      <View style={[styles.navHeader, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-          onPress={onBack}
-          activeOpacity={0.7}
-        >
-          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={colors.primary} />
-        </TouchableOpacity>
-
-        <View style={[styles.headerTitles, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-          <Text style={[styles.mainHeaderTitle, { color: colors.textPrimary }]}>سجل العمليات والمتابعة</Text>
-          <Text style={[styles.subHeaderTitle, { color: colors.textSecondary }]}>
-            سجل التنبيهات ومطابقة التارچت اليومية
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.refreshBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-          onPress={onRefresh}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="refresh-outline" size={20} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -282,42 +255,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  navHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    alignItems: 'center',
-    gap: 12,
-  },
-  backBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitles: {
-    flex: 1,
-    gap: 2,
-  },
-  mainHeaderTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  subHeaderTitle: {
-    fontSize: 11,
-  },
-  refreshBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 36,
   },
   summaryGrid: {
@@ -458,7 +398,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   logMetricLbl: {
-    fontSize: 11,
+    fontSize: 10,
     marginTop: 2,
   },
 });

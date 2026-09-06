@@ -207,77 +207,114 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     setCurrentView('data');
   };
 
-  // Determine Data Page Title
-  const getDataViewTitle = () => {
-    if (activeTab === 'identifiers') {
-      if (statusFilter === 'TARGET_ACHIEVED') return 'المعرفين الذين حققوا التارچت';
-      if (statusFilter === 'ON_TRACK') return 'المعرفين السائرين بالمعدل';
-      if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') return 'المعرفين في خطر / متأخرين';
-      return 'كافة المعرفين';
+  // Sub-Page Title (Displayed with orange underline like Delegate screens)
+  const getSubPageTitle = () => {
+    if (currentView === 'profile') return 'الملف الشخصي';
+    if (currentView === 'logs') return 'سجل العمليات والمتابعة';
+    if (currentView === 'data') {
+      if (activeTab === 'identifiers') {
+        if (statusFilter === 'TARGET_ACHIEVED') return 'المعرفين - حققوا التارچت';
+        if (statusFilter === 'ON_TRACK') return 'المعرفين - يسير بالمعدل';
+        if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') return 'المعرفين - في خطر / متأخر';
+        return 'قائمة المعرفين';
+      }
+      if (activeTab === 'drivers') return 'بيانات المناديب وطلبات اليوم';
+      if (activeTab === 'alerts') return 'تنبيهات العجز النشطة';
+      return 'صفحة البيانات';
     }
-    if (activeTab === 'drivers') return 'بيانات المناديب وطلبات اليوم';
-    if (activeTab === 'alerts') return 'تنبيهات العجز النشطة';
-    return 'صفحة البيانات';
+    return '';
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Modern App Header with Clickable Avatar opening Profile Page */}
+      {/* Dynamic Header matching Delegate App exactly */}
       <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <TouchableOpacity
-          style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          onPress={() => setCurrentView('profile')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-            <Ionicons name="shield-checkmark" size={28} color={colors.primary} />
-            <View style={[styles.avatarBadgeDot, { backgroundColor: '#22c55e' }]} />
-          </View>
-          <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <View style={[styles.headerNameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text
-                style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                numberOfLines={1}
+        {currentView === 'home' ? (
+          /* Home Header: User Avatar + Name + Refresh + Logout */
+          <>
+            <TouchableOpacity
+              style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              onPress={() => setCurrentView('profile')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
+                <Ionicons name="shield-checkmark" size={28} color={colors.primary} />
+                <View style={[styles.avatarBadgeDot, { backgroundColor: '#22c55e' }]} />
+              </View>
+              <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                <View style={[styles.headerNameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text
+                    style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    numberOfLines={1}
+                  >
+                    {user?.name || 'مدير النظام'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
+                </View>
+                <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="shield-checkmark-outline" size={13} color={colors.primary} />
+                  <Text style={[styles.headerUserRole, { color: colors.textSecondary }]}>
+                    {user?.role === 'SUPERVISOR' ? 'مشرف التوصيل' : 'لوحة تحكم الإدارة'}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity
+                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                onPress={onRefresh}
+                activeOpacity={0.7}
               >
-                {user?.name || 'مدير النظام'}
-              </Text>
-              <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
+                <Ionicons name="refresh-outline" size={22} color={colors.primary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.headerActionBtn,
+                  {
+                    backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fee2e2',
+                    borderColor: isDarkMode ? '#7f1d1d' : '#fecaca',
+                  },
+                ]}
+                onPress={onLogout}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="log-out-outline" size={22} color="#ef4444" />
+              </TouchableOpacity>
             </View>
-            <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Ionicons name="shield-checkmark-outline" size={13} color={colors.primary} />
-              <Text style={[styles.headerUserRole, { color: colors.textSecondary }]}>
-                لوحة تحكم الإدارة (الملف الشخصي)
+          </>
+        ) : (
+          /* Sub-Page Header: Back Button + Start-Aligned Title with Orange Underline (Identical to Delegate App) */
+          <View style={[styles.subPageHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <TouchableOpacity
+              style={styles.headerBackBtn}
+              onPress={() => setCurrentView('home')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons
+                name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                size={24}
+                color={colors.textPrimary}
+              />
+            </TouchableOpacity>
+
+            <View style={[styles.subPageTitleContainer, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {getSubPageTitle()}
               </Text>
+              <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
             </View>
           </View>
-        </TouchableOpacity>
-
-        <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity
-            style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-            onPress={onRefresh}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="refresh-outline" size={22} color={colors.primary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.headerActionBtn, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fee2e2', borderColor: isDarkMode ? '#7f1d1d' : '#fecaca' }]}
-            onPress={onLogout}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="log-out-outline" size={22} color="#ef4444" />
-          </TouchableOpacity>
-        </View>
+        )}
       </View>
 
       {/* VIEW 1: PROFILE SCREEN (PAGE NOT MODAL) */}
       {currentView === 'profile' ? (
         <AdminProfileScreen
           user={user}
-          onBack={() => setCurrentView('home')}
           onOpenTargetSettings={() => setShowSettingsModal(true)}
           onLogout={onLogout}
           colors={colors}
@@ -287,7 +324,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
       ) : currentView === 'logs' ? (
         /* VIEW 2: LOGS SCREEN */
         <TargetLogsScreen
-          onBack={() => setCurrentView('home')}
           colors={colors}
           isDarkMode={isDarkMode}
           isRTL={isRTL}
@@ -512,32 +548,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           }
         >
           <View style={styles.tabContainer}>
-            {/* Top Navigation Banner to Return to Home */}
-            <View
-              style={[
-                styles.dataNavBanner,
-                { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-              ]}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.backBtnPill,
-                  { backgroundColor: colors.inputBg, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-                ]}
-                onPress={() => setCurrentView('home')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={18} color={colors.primary} />
-                <Text style={[styles.backBtnText, { color: colors.primary }]}>العودة للرئيسية</Text>
-              </TouchableOpacity>
-
-              <View style={[styles.dataHeaderTitleCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                <Text style={[styles.dataViewTitle, { color: colors.textPrimary }]}>
-                  {getDataViewTitle()}
-                </Text>
-              </View>
-            </View>
-
             {/* Segmented Control / Tabs Header */}
             <View style={[styles.segmentedTabsContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
               <TouchableOpacity
@@ -958,9 +968,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1009,6 +1019,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  subPageHeaderRow: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+  },
+  subPageTitleContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  subPageHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  titleUnderlineBar: {
+    width: 34,
+    height: 3,
+    borderRadius: 2,
+    marginTop: 3,
   },
   mainScrollContent: {
     flexGrow: 1,
@@ -1136,34 +1173,6 @@ const styles = StyleSheet.create({
   },
   quickCardSub: {
     fontSize: 11,
-  },
-  dataNavBanner: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  backBtnPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  backBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  dataHeaderTitleCol: {
-    flex: 1,
-    paddingHorizontal: 10,
-  },
-  dataViewTitle: {
-    fontSize: 14,
-    fontWeight: '800',
   },
   segmentedTabsContainer: {
     flexDirection: 'row',

@@ -14,7 +14,6 @@ import { AppUpdateBottomSheet, UpdateModalState } from '../../components/modals/
 
 interface AdminProfileScreenProps {
   user: any;
-  onBack: () => void;
   onOpenTargetSettings: () => void;
   onLogout: () => void;
   colors: ThemeColors;
@@ -24,7 +23,6 @@ interface AdminProfileScreenProps {
 
 export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   user,
-  onBack,
   onOpenTargetSettings,
   onLogout,
   colors,
@@ -98,30 +96,6 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Navigation Top Header */}
-      <View
-        style={[
-          styles.navHeader,
-          { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.backBtn,
-            { backgroundColor: colors.inputBg, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-          ]}
-          onPress={onBack}
-          activeOpacity={0.7}
-        >
-          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={18} color={colors.primary} />
-          <Text style={[styles.backBtnText, { color: colors.primary }]}>العودة للرئيسية</Text>
-        </TouchableOpacity>
-
-        <View style={[styles.navTitleCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-          <Text style={[styles.navTitle, { color: colors.textPrimary }]}>الملف الشخصي</Text>
-        </View>
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -279,35 +253,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  navHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  backBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  navTitleCol: {
-    flex: 1,
-    paddingHorizontal: 12,
-  },
-  navTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 32,
   },
   profileCard: {
