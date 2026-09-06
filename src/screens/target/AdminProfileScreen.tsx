@@ -14,7 +14,7 @@ import { AppUpdateBottomSheet, UpdateModalState } from '../../components/modals/
 
 interface AdminProfileScreenProps {
   user: any;
-  onOpenTargetSettings: () => void;
+  onOpenTargetSettings?: () => void;
   onLogout: () => void;
   colors: ThemeColors;
   isDarkMode?: boolean;
@@ -30,6 +30,7 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   isRTL = true,
 }) => {
   const isSupervisor = user?.role === 'SUPERVISOR';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const roleLabel = isSupervisor ? 'مشرف التوصيل (Supervisor)' : 'مدير النظام (Admin)';
 
   // Updates BottomSheet State (Matching Delegate Experience)
@@ -160,33 +161,35 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
           </View>
         </View>
 
-        {/* 2. Target Settings Card (تعديل التارجت) */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }]}>
-            إدارة وقواعد التارچت
-          </Text>
+        {/* 2. Target Settings Card (تعديل التارجت - يظهر للمدير فقط) */}
+        {isAdmin && onOpenTargetSettings && (
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }]}>
+              إدارة وقواعد التارچت
+            </Text>
 
-          <TouchableOpacity
-            style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-            onPress={onOpenTargetSettings}
-            activeOpacity={0.75}
-          >
-            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <View style={[styles.settingIconBox, { backgroundColor: colors.primaryLight }]}>
-                <Ionicons name="options-outline" size={20} color={colors.primary} />
+            <TouchableOpacity
+              style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              onPress={onOpenTargetSettings}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.settingIconBox, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="options-outline" size={20} color={colors.primary} />
+                </View>
+                <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
+                  <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+                    تعديل التارچت وقواعد الإنجاز
+                  </Text>
+                  <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
+                    ضبط حدود التارچت اليومي والشهري للمعرفين
+                  </Text>
+                </View>
               </View>
-              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
-                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                  تعديل التارچت وقواعد الإنجاز
-                </Text>
-                <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
-                  ضبط حدود التارچت اليومي والشهري للمعرفين
-                </Text>
-              </View>
-            </View>
-            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
+              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* 3. App Settings Box (Matching Delegate: Check for Updates & Logout) */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>

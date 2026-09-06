@@ -327,7 +327,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       {currentView === 'profile' ? (
         <AdminProfileScreen
           user={user}
-          onOpenTargetSettings={() => setShowSettingsModal(true)}
           onLogout={onLogout}
           colors={colors}
           isDarkMode={isDarkMode}
@@ -793,13 +792,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         visible={!!selectedIdentifierId}
         identifierId={selectedIdentifierId}
         onClose={() => setSelectedIdentifierId(null)}
-        isDarkMode={isDarkMode}
-      />
-
-      <TargetSettingsModal
-        visible={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-        onSaved={loadData}
         isDarkMode={isDarkMode}
       />
     </SafeAreaView>
