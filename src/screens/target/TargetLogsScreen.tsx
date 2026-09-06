@@ -29,7 +29,7 @@ export const TargetLogsScreen: React.FC<TargetLogsScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [alerts, setAlerts] = useState<TargetAlertItem[]>([]);
-  const [filterType, setFilterType] = useState<'all' | 'unresolved' | 'resolved'>('all');
+  const [filterType, setFilterType] = useState<'unresolved' | 'resolved'>('unresolved');
   const [searchQuery, setSearchQuery] = useState('');
 
   const loadLogs = useCallback(async () => {
@@ -97,53 +97,54 @@ export const TargetLogsScreen: React.FC<TargetLogsScreenProps> = ({
           />
         }
       >
-        {/* Quick Summary Cards */}
+        {/* Quick Summary Cards (Active Alerts vs Resolved Operations) */}
         <View style={[styles.summaryGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.summaryBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="list-outline" size={20} color={colors.primary} />
-            <Text style={[styles.summaryNum, { color: colors.textPrimary }]}>{alerts.length}</Text>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>إجمالي السجلات</Text>
-          </View>
-
-          <View style={[styles.summaryBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="checkmark-circle-outline" size={20} color="#16a34a" />
-            <Text style={[styles.summaryNum, { color: '#16a34a' }]}>{resolvedCount}</Text>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>عمليات مسواة</Text>
-          </View>
-
-          <View style={[styles.summaryBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="alert-circle-outline" size={20} color="#dc2626" />
+          <TouchableOpacity
+            style={[styles.summaryBox, { backgroundColor: colors.card, borderColor: filterType === 'unresolved' ? '#dc2626' : colors.border }]}
+            onPress={() => setFilterType('unresolved')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="alert-circle-outline" size={22} color="#dc2626" />
             <Text style={[styles.summaryNum, { color: '#dc2626' }]}>{unresolvedCount}</Text>
             <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>تنبيهات نشطة</Text>
-          </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.summaryBox, { backgroundColor: colors.card, borderColor: filterType === 'resolved' ? '#16a34a' : colors.border }]}
+            onPress={() => setFilterType('resolved')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="checkmark-circle-outline" size={22} color="#16a34a" />
+            <Text style={[styles.summaryNum, { color: '#16a34a' }]}>{resolvedCount}</Text>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>عمليات مسواة</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Filter Segmented Control */}
-        <View style={[styles.filterRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+        {/* Filter Segmented Control (Only Unresolved & Resolved) */}
+        <View style={[styles.filterRow, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <TouchableOpacity
-            style={[styles.filterTab, filterType === 'all' && [styles.activeFilterTab, { backgroundColor: colors.card }]]}
-            onPress={() => setFilterType('all')}
-          >
-            <Text style={[styles.filterTabText, { color: filterType === 'all' ? colors.primary : colors.textSecondary }]}>
-              الكل ({alerts.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterTab, filterType === 'resolved' && [styles.activeFilterTab, { backgroundColor: colors.card }]]}
-            onPress={() => setFilterType('resolved')}
-          >
-            <Text style={[styles.filterTabText, { color: filterType === 'resolved' ? '#16a34a' : colors.textSecondary }]}>
-              المسواة ({resolvedCount})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterTab, filterType === 'unresolved' && [styles.activeFilterTab, { backgroundColor: colors.card }]]}
+            style={[
+              styles.filterTab,
+              filterType === 'unresolved' && [styles.activeFilterTab, { backgroundColor: '#dc2626' }],
+            ]}
             onPress={() => setFilterType('unresolved')}
+            activeOpacity={0.75}
           >
-            <Text style={[styles.filterTabText, { color: filterType === 'unresolved' ? '#dc2626' : colors.textSecondary }]}>
+            <Text style={[styles.filterTabText, { color: filterType === 'unresolved' ? '#ffffff' : colors.textPrimary }, filterType === 'unresolved' && { fontWeight: '800' }]}>
               النشطة ({unresolvedCount})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              filterType === 'resolved' && [styles.activeFilterTab, { backgroundColor: '#16a34a' }],
+            ]}
+            onPress={() => setFilterType('resolved')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.filterTabText, { color: filterType === 'resolved' ? '#ffffff' : colors.textPrimary }, filterType === 'resolved' && { fontWeight: '800' }]}>
+              المسواة ({resolvedCount})
             </Text>
           </TouchableOpacity>
         </View>

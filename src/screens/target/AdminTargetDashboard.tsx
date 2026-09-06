@@ -304,6 +304,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   const handleCardPress = (tab: 'identifiers' | 'drivers' | 'alerts', status = '') => {
     setActiveTab(tab);
     setStatusFilter(status);
+    setPlatformTab('ninja');
     setSearchQuery('');
     setCurrentView('data');
   };
@@ -376,7 +377,10 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           <View style={[styles.subPageHeaderRow, { flexDirection: 'row-reverse' }]}>
             <TouchableOpacity
               style={styles.headerBackBtn}
-              onPress={() => setCurrentView('home')}
+              onPress={() => {
+                setCurrentView('home');
+                setPlatformTab('ninja');
+              }}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons
