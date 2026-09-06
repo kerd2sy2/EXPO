@@ -10,9 +10,9 @@ import {
   TextInput,
   StyleSheet,
   Platform,
-  Linking,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import { ExcelImportPreview } from '../../types/target';
 import { targetApi } from '../../services/targetApi';
 
@@ -73,37 +73,13 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
       }
     }
 
-    // 2. Mobile Native Safe Dynamic Picker (Won't crash if missing from APK)
+    // 2. Mobile Native Device Files Picker (Direct Native Storage Access)
     try {
-      let picker: any = null;
-      try {
-        picker = require('expo-document-picker');
-      } catch {
-        picker = null;
-      }
-
-      if (!picker || typeof picker.getDocumentAsync !== 'function') {
-        Alert.alert(
-          'مستكشف ملفات الهاتف',
-          'يتطلب اختيار ملف الإكسل مباشرة من ذاكرة الهاتف تثبيت ملف APK المحدث، أو يمكنك رفع الملف بكل سهولة وفوراً عبر المتصفح.',
-          [
-            { text: 'إلغاء', style: 'cancel' },
-            {
-              text: 'فتح صفحة الرفع بالمتصفح',
-              onPress: () => {
-                Linking.openURL('https://aams.kerd2sy.com/dashboard/target/import').catch(() => {});
-                onClose();
-              },
-            },
-          ]
-        );
-        return;
-      }
-
-      const res = await picker.getDocumentAsync({
+      const res = await DocumentPicker.getDocumentAsync({
         type: [
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'application/vnd.ms-excel',
+          'application/*',
           '*/*',
         ],
         copyToCacheDirectory: true,
@@ -114,27 +90,14 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
         const fileObj = {
           uri: file.uri,
           name: file.name,
-          mimeType: file.mimeType,
+          mimeType: file.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         };
         setSelectedFile(fileObj);
         setPreview(null);
         analyzeFile(fileObj);
       }
-    } catch (e: any) {
-      Alert.alert(
-        'مستكشف ملفات الهاتف',
-        'يتطلب اختيار ملف الإكسل من ذاكرة الهاتف تثبيت ملف APK المحدث، أو يمكنك رفع الملف الآن مباشرة عبر المتصفح.',
-        [
-          { text: 'إلغاء', style: 'cancel' },
-          {
-            text: 'فتح صفحة الرفع بالمتصفح',
-            onPress: () => {
-              Linking.openURL('https://aams.kerd2sy.com/dashboard/target/import').catch(() => {});
-              onClose();
-            },
-          },
-        ]
-      );
+    } catch (err: any) {
+      Alert.alert('مستكشف ملفات الهاتف', 'تعذر فتح ملفات الهاتف: ' + (err?.message || 'يرجى المحاولة مرة أخرى'));
     }
   };
 
