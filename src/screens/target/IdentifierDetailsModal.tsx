@@ -217,7 +217,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
 
                 <View style={[styles.statBox, isDarkMode && styles.darkCard]}>
                   <Text style={styles.statLabel}>المطلوب يومياً</Text>
-                  <Text style={[styles.statValue, { color: '#f97316' }]}>{p.daily_required}</Text>
+                  <Text style={[styles.statValue, { color: '#f97316' }]}>{Math.round(p.daily_required || 0)}</Text>
                   <Text style={styles.statHint}>طلب / يوم</Text>
                 </View>
 

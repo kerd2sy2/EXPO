@@ -51,6 +51,25 @@ export const TargetSettingsModal: React.FC<TargetSettingsModalProps> = ({
     }
   };
 
+  const handleMonthlyTargetChange = (val: string) => {
+    const clean = val.replace(/[^0-9]/g, '');
+    setMonthlyTarget(clean);
+    if (clean) {
+      const num = parseInt(clean, 10);
+      if (!isNaN(num) && num > 0) {
+        const daily = Math.round(num / 30);
+        setDailyTarget(String(daily));
+      }
+    } else {
+      setDailyTarget('');
+    }
+  };
+
+  const handleDailyTargetChange = (val: string) => {
+    const clean = val.replace(/[^0-9]/g, '');
+    setDailyTarget(clean);
+  };
+
   const handleSave = async () => {
     const m = parseInt(monthlyTarget, 10);
     const d = parseInt(dailyTarget, 10);
@@ -70,7 +89,7 @@ export const TargetSettingsModal: React.FC<TargetSettingsModalProps> = ({
         default_monthly_target: m,
         default_daily_target: d,
       });
-      Alert.alert('نجاح', 'تم تحديث إعدادات التارچت بنجاح');
+      Alert.alert('نجاح', 'تم تحديث إعدادات التارچت بنجاح وتطبيقها على جميع المعرفين');
       onSaved();
       onClose();
     } catch (err: any) {
@@ -109,25 +128,25 @@ export const TargetSettingsModal: React.FC<TargetSettingsModalProps> = ({
                 style={[styles.input, isDarkMode && styles.darkInput]}
                 keyboardType="numeric"
                 value={monthlyTarget}
-                onChangeText={setMonthlyTarget}
+                onChangeText={handleMonthlyTargetChange}
                 placeholder="460"
                 placeholderTextColor="#94a3b8"
                 textAlign="right"
               />
 
-              <Text style={styles.label}>التارچت اليومي الافتراضي (طلب/يوم)</Text>
+              <Text style={styles.label}>التارچت اليومي المحسوب (طلب/يوم - بالتقريب لأقرب رقم صحيح)</Text>
               <TextInput
                 style={[styles.input, isDarkMode && styles.darkInput]}
                 keyboardType="numeric"
                 value={dailyTarget}
-                onChangeText={setDailyTarget}
+                onChangeText={handleDailyTargetChange}
                 placeholder="15"
                 placeholderTextColor="#94a3b8"
                 textAlign="right"
               />
 
               <Text style={styles.hint}>
-                * هذه القيم تطبق تلقائياً كقيم افتراضية للمعرفين الجدد وتستخدم في حسابات التنبؤ والتنبيهات.
+                * يتم حساب التارجت اليومي تلقائياً بالتقريب كرقم صحيح بدون كسور (تارجت الشهر ÷ 30).
               </Text>
 
               <TouchableOpacity

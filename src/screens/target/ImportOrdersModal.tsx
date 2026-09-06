@@ -23,6 +23,46 @@ interface ImportOrdersModalProps {
   isDarkMode?: boolean;
 }
 
+const ARABIC_MONTHS = [
+  'يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو',
+  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+];
+
+const getYesterdayFormatted = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const getTodayFormatted = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const getTwoDaysAgoFormatted = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 2);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const formatArabicDisplayDate = (dateStr: string) => {
+  if (!dateStr || dateStr.length < 10) return dateStr || 'غير محدد';
+  const parts = dateStr.split('-');
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  return `${d} ${ARABIC_MONTHS[m] || ''} ${y}`;
+};
+
 export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
   visible,
   onClose,
@@ -35,13 +75,24 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
     mimeType?: string;
   } | null>(null);
 
-  const [customDate, setCustomDate] = useState('');
+  const [customDate, setCustomDate] = useState(getYesterdayFormatted());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
+  const [pickerMonthIdx, setPickerMonthIdx] = useState(() => new Date().getMonth());
+  const [pickerDay, setPickerDay] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.getDate();
+  });
+
   const [analyzing, setAnalyzing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [preview, setPreview] = useState<ExcelImportPreview | null>(null);
   const [dedupAction, setDedupAction] = useState<
     'IGNORE_DUPLICATES' | 'REPLACE_DUPLICATES' | 'CANCEL'
   >('IGNORE_DUPLICATES');
+
+  const daysInPickerMonth = new Date(pickerYear, pickerMonthIdx + 1, 0).getDate();
 
   const handlePickFile = async () => {
     // 1. Web Browser Support (Direct HTML5 File Input)
@@ -155,10 +206,54 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
     }
   };
 
+  const handlePrevPickerMonth = () => {
+    if (pickerMonthIdx === 0) {
+      setPickerYear(y => y - 1);
+      setPickerMonthIdx(11);
+    } else {
+      setPickerMonthIdx(m => m - 1);
+    }
+  };
+
+  const handleNextPickerMonth = () => {
+    if (pickerMonthIdx === 11) {
+      setPickerYear(y => y + 1);
+      setPickerMonthIdx(0);
+    } else {
+      setPickerMonthIdx(m => m + 1);
+    }
+  };
+
+  const handleQuickSelectDate = (dateStr: string) => {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      setPickerYear(parseInt(parts[0], 10));
+      setPickerMonthIdx(parseInt(parts[1], 10) - 1);
+      setPickerDay(parseInt(parts[2], 10));
+    }
+    setCustomDate(dateStr);
+    setShowDatePicker(false);
+    if (selectedFile) {
+      analyzeFile(selectedFile, dateStr);
+    }
+  };
+
+  const handleApplyPickedDate = () => {
+    const validDay = Math.min(pickerDay, daysInPickerMonth);
+    const dayStr = String(validDay).padStart(2, '0');
+    const monthStr = String(pickerMonthIdx + 1).padStart(2, '0');
+    const fullDateStr = `${pickerYear}-${monthStr}-${dayStr}`;
+    setCustomDate(fullDateStr);
+    setShowDatePicker(false);
+    if (selectedFile) {
+      analyzeFile(selectedFile, fullDateStr);
+    }
+  };
+
   const resetState = () => {
     setSelectedFile(null);
     setPreview(null);
-    setCustomDate('');
+    setCustomDate(getYesterdayFormatted());
     setDedupAction('IGNORE_DUPLICATES');
   };
 
@@ -206,29 +301,37 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
               )}
             </View>
 
-            {/* Date Input Box */}
+            {/* Date Selector Box */}
             {selectedFile && (
               <View style={[styles.dateBox, isDarkMode && styles.darkCard]}>
-                <Text style={styles.dateLabel}>تاريخ الطلبات المعتمد (YYYY-MM-DD):</Text>
-                <View style={styles.dateInputRow}>
-                  <TextInput
-                    style={[styles.dateInput, isDarkMode && styles.darkInput]}
-                    value={customDate}
-                    onChangeText={setCustomDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#94a3b8"
-                    textAlign="center"
-                  />
-                  <TouchableOpacity
-                    style={styles.reAnalyzeBtn}
-                    onPress={() => analyzeFile(selectedFile, customDate)}
-                    disabled={analyzing}
-                  >
-                    <Text style={styles.reAnalyzeText}>إعادة الفحص</Text>
-                  </TouchableOpacity>
+                <View style={styles.dateHeaderRow}>
+                  <Text style={styles.dateLabel}>تاريخ الطلبات المعتمد في الملف:</Text>
+                  <View style={styles.defaultTag}>
+                    <Text style={styles.defaultTagText}>تقرير يوم أمس</Text>
+                  </View>
                 </View>
+
+                <TouchableOpacity
+                  style={[styles.datePickerBtn, isDarkMode && styles.darkDatePickerBtn]}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.datePickerLeft}>
+                    <View style={styles.editDateBadge}>
+                      <Feather name="calendar" size={14} color="#f97316" />
+                      <Text style={styles.editDateBadgeText}>تغيير التاريخ</Text>
+                    </View>
+                  </View>
+                  <View style={styles.datePickerRight}>
+                    <Text style={[styles.dateDisplayArabic, isDarkMode && styles.darkText]}>
+                      {formatArabicDisplayDate(customDate)}
+                    </Text>
+                    <Text style={styles.dateDisplayIso}>({customDate})</Text>
+                  </View>
+                </TouchableOpacity>
+
                 <Text style={styles.dateHint}>
-                  * تاريخ الطلبات يتم تسجيله باليوم المحدد أعلاه وليس تاريخ الرفع.
+                  * اضغط على التاريخ لاختيار تاريخ آخر من القائمة المنبثقة إذا لزم الأمر.
                 </Text>
               </View>
             )}
@@ -425,6 +528,185 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
           </ScrollView>
         </View>
       </View>
+
+      {/* Date Picker Bottom Sheet Modal */}
+      <Modal
+        visible={showDatePicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <View style={styles.pickerModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowDatePicker(false)}
+          />
+          <View style={[styles.pickerModalCard, isDarkMode && styles.darkCard]}>
+            <View style={[styles.pickerDragHandle, isDarkMode && { backgroundColor: '#475569' }]} />
+            <View style={styles.pickerModalHeader}>
+              <TouchableOpacity onPress={() => setShowDatePicker(false)} style={styles.pickerCloseBtn}>
+                <Ionicons name="close" size={22} color={isDarkMode ? '#fff' : '#1e293b'} />
+              </TouchableOpacity>
+              <View style={styles.pickerTitleCol}>
+                <Text style={[styles.pickerModalTitle, isDarkMode && styles.darkText]}>
+                  تحديد تاريخ تقرير الإكسل
+                </Text>
+                <Text style={styles.pickerModalSub}>
+                  الافتراضي هو تقرير يوم أمس ({formatArabicDisplayDate(getYesterdayFormatted())})
+                </Text>
+              </View>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.pickerModalScroll}>
+              {/* Quick Select Buttons */}
+              <Text style={[styles.pickerSectionLabel, isDarkMode && styles.darkTextSecondary]}>
+                اختيارات سريعة:
+              </Text>
+              <View style={styles.quickDateRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.quickDateBtn,
+                    customDate === getYesterdayFormatted() && styles.activeQuickDateBtn,
+                    isDarkMode && styles.darkQuickDateBtn,
+                  ]}
+                  onPress={() => handleQuickSelectDate(getYesterdayFormatted())}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.quickDateBtnTitle,
+                      customDate === getYesterdayFormatted() && styles.activeQuickDateText,
+                      isDarkMode && styles.darkText,
+                    ]}
+                  >
+                    ⭐ أمس (الافتراضي)
+                  </Text>
+                  <Text style={styles.quickDateBtnSub}>{formatArabicDisplayDate(getYesterdayFormatted())}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.quickDateBtn,
+                    customDate === getTodayFormatted() && styles.activeQuickDateBtn,
+                    isDarkMode && styles.darkQuickDateBtn,
+                  ]}
+                  onPress={() => handleQuickSelectDate(getTodayFormatted())}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.quickDateBtnTitle,
+                      customDate === getTodayFormatted() && styles.activeQuickDateText,
+                      isDarkMode && styles.darkText,
+                    ]}
+                  >
+                    📅 اليوم
+                  </Text>
+                  <Text style={styles.quickDateBtnSub}>{formatArabicDisplayDate(getTodayFormatted())}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.quickDateBtn,
+                    customDate === getTwoDaysAgoFormatted() && styles.activeQuickDateBtn,
+                    isDarkMode && styles.darkQuickDateBtn,
+                  ]}
+                  onPress={() => handleQuickSelectDate(getTwoDaysAgoFormatted())}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.quickDateBtnTitle,
+                      customDate === getTwoDaysAgoFormatted() && styles.activeQuickDateText,
+                      isDarkMode && styles.darkText,
+                    ]}
+                  >
+                    أول أمس
+                  </Text>
+                  <Text style={styles.quickDateBtnSub}>{formatArabicDisplayDate(getTwoDaysAgoFormatted())}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Month Navigator */}
+              <View style={[styles.pickerMonthNav, isDarkMode && styles.darkSubCard]}>
+                <TouchableOpacity onPress={handlePrevPickerMonth} style={styles.pickerNavArrow}>
+                  <Ionicons name="chevron-back" size={20} color={isDarkMode ? '#e2e8f0' : '#1e293b'} />
+                </TouchableOpacity>
+                <Text style={[styles.pickerMonthNavText, isDarkMode && styles.darkText]}>
+                  {ARABIC_MONTHS[pickerMonthIdx]} {pickerYear}
+                </Text>
+                <TouchableOpacity onPress={handleNextPickerMonth} style={styles.pickerNavArrow}>
+                  <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#e2e8f0' : '#1e293b'} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Days Grid */}
+              <Text style={[styles.pickerSectionLabel, isDarkMode && styles.darkTextSecondary]}>
+                اختر يوماً من التقويم:
+              </Text>
+              <View style={styles.pickerDaysGrid}>
+                {Array.from({ length: daysInPickerMonth }, (_, i) => i + 1).map(day => {
+                  const isSelected = pickerDay === day;
+                  const yesterdayObj = new Date();
+                  yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+                  const isYesterday =
+                    yesterdayObj.getFullYear() === pickerYear &&
+                    yesterdayObj.getMonth() === pickerMonthIdx &&
+                    yesterdayObj.getDate() === day;
+
+                  return (
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.pickerDayBox,
+                        isDarkMode && styles.darkDayBox,
+                        isSelected && styles.pickerSelectedDayBox,
+                        isYesterday && !isSelected && styles.pickerYesterdayDayBox,
+                      ]}
+                      onPress={() => setPickerDay(day)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerDayText,
+                          isDarkMode && styles.darkText,
+                          isSelected && styles.pickerSelectedDayText,
+                          isYesterday && !isSelected && styles.pickerYesterdayDayText,
+                        ]}
+                      >
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Selected Day Preview */}
+              <View style={[styles.pickedPreviewBox, isDarkMode && styles.darkSubCard]}>
+                <Ionicons name="checkmark-circle" size={18} color="#f97316" />
+                <Text style={[styles.pickedPreviewText, isDarkMode && styles.darkText]}>
+                  التاريخ المختار:{' '}
+                  <Text style={{ fontWeight: '800', color: '#f97316' }}>
+                    {pickerDay} {ARABIC_MONTHS[pickerMonthIdx]} {pickerYear} (
+                    {pickerYear}-{String(pickerMonthIdx + 1).padStart(2, '0')}-{String(pickerDay).padStart(2, '0')})
+                  </Text>
+                </Text>
+              </View>
+
+              {/* Confirm Picked Date Button */}
+              <TouchableOpacity
+                style={styles.pickerApplyBtn}
+                onPress={handleApplyPickedDate}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkmark" size={18} color="#fff" />
+                <Text style={styles.pickerApplyBtnText}>تأكيد هذا التاريخ وفحص الملف</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
@@ -553,48 +835,81 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  dateHeaderRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   dateLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: '#334155',
-    marginBottom: 6,
     textAlign: 'right',
   },
-  dateInputRow: {
-    flexDirection: 'row-reverse',
-    gap: 8,
+  defaultTag: {
+    backgroundColor: '#ffedd5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  dateInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    paddingVertical: 8,
-    fontSize: 14,
+  defaultTagText: {
+    fontSize: 10,
     fontWeight: '700',
-    color: '#0f172a',
-    backgroundColor: '#fff',
+    color: '#c2410c',
   },
-  darkInput: {
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
-    color: '#f8fafc',
-  },
-  reAnalyzeBtn: {
-    backgroundColor: '#3b82f6',
+  datePickerBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#fed7aa',
+    borderRadius: 12,
     paddingHorizontal: 14,
-    justifyContent: 'center',
-    borderRadius: 8,
+    paddingVertical: 12,
   },
-  reAnalyzeText: {
-    color: '#fff',
+  darkDatePickerBtn: {
+    backgroundColor: '#1e293b',
+    borderColor: '#475569',
+  },
+  datePickerRight: {
+    alignItems: 'flex-end',
+  },
+  dateDisplayArabic: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  dateDisplayIso: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  datePickerLeft: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  editDateBadge: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#fff7ed',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffedd5',
+  },
+  editDateBadgeText: {
     fontSize: 12,
     fontWeight: '700',
+    color: '#ea580c',
   },
   dateHint: {
     fontSize: 11,
     color: '#94a3b8',
-    marginTop: 6,
+    marginTop: 8,
     textAlign: 'right',
   },
   centerBox: {
@@ -693,6 +1008,40 @@ const styles = StyleSheet.create({
   dupActionTextActive: {
     color: '#fff',
   },
+  emptyIdentWarningCard: {
+    backgroundColor: '#fff7ed',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#ffedd5',
+  },
+  emptyIdentWarningHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyIdentWarningTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#c2410c',
+    flex: 1,
+    textAlign: 'right',
+  },
+  emptyIdentWarningSub: {
+    fontSize: 11,
+    color: '#9a3412',
+    marginTop: 4,
+    textAlign: 'right',
+  },
+  emptyIdentRowCard: {
+    borderColor: '#fdba74',
+    backgroundColor: '#fffaf5',
+  },
+  emptyIdentText: {
+    color: '#ea580c',
+    fontWeight: '800',
+  },
   tableSectionTitle: {
     fontSize: 14,
     fontWeight: '800',
@@ -759,40 +1108,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ea580c',
   },
-  emptyIdentWarningCard: {
-    backgroundColor: '#fff7ed',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#ffedd5',
-  },
-  emptyIdentWarningHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
-  },
-  emptyIdentWarningTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#c2410c',
-    flex: 1,
-    textAlign: 'right',
-  },
-  emptyIdentWarningSub: {
-    fontSize: 11,
-    color: '#9a3412',
-    marginTop: 4,
-    textAlign: 'right',
-  },
-  emptyIdentRowCard: {
-    borderColor: '#fdba74',
-    backgroundColor: '#fffaf5',
-  },
-  emptyIdentText: {
-    color: '#ea580c',
-    fontWeight: '800',
-  },
   appBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -839,6 +1154,203 @@ const styles = StyleSheet.create({
   confirmBtnText: {
     color: '#fff',
     fontSize: 15,
+    fontWeight: '800',
+  },
+  darkTextSecondary: {
+    color: '#94a3b8',
+  },
+  /* Date Picker Bottom Sheet Modal Styles */
+  pickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  pickerModalCard: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+    maxHeight: '88%',
+  },
+  pickerDragHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#cbd5e1',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  pickerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  pickerCloseBtn: {
+    padding: 6,
+    borderRadius: 8,
+  },
+  pickerTitleCol: {
+    alignItems: 'flex-end',
+    flex: 1,
+  },
+  pickerModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  pickerModalSub: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  pickerModalScroll: {
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  pickerSectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'right',
+  },
+  quickDateRow: {
+    flexDirection: 'row-reverse',
+    gap: 6,
+  },
+  quickDateBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+  },
+  darkQuickDateBtn: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  activeQuickDateBtn: {
+    backgroundColor: '#fff7ed',
+    borderColor: '#f97316',
+    borderWidth: 1.5,
+  },
+  quickDateBtnTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  activeQuickDateText: {
+    color: '#ea580c',
+    fontWeight: '800',
+  },
+  quickDateBtnSub: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  pickerMonthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  darkSubCard: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  pickerNavArrow: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+  },
+  pickerMonthNavText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  pickerDaysGrid: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'flex-start',
+  },
+  pickerDayBox: {
+    width: '12.5%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  darkDayBox: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  pickerSelectedDayBox: {
+    backgroundColor: '#f97316',
+    borderColor: '#ea580c',
+  },
+  pickerYesterdayDayBox: {
+    borderColor: '#f97316',
+    borderWidth: 1.5,
+  },
+  pickerDayText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  pickerSelectedDayText: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  pickerYesterdayDayText: {
+    color: '#ea580c',
+    fontWeight: '800',
+  },
+  pickedPreviewBox: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fff7ed',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+    marginTop: 4,
+  },
+  pickedPreviewText: {
+    fontSize: 12,
+    color: '#9a3412',
+    fontWeight: '600',
+  },
+  pickerApplyBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f97316',
+    paddingVertical: 13,
+    borderRadius: 14,
+    gap: 6,
+    marginTop: 6,
+  },
+  pickerApplyBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '800',
   },
 });

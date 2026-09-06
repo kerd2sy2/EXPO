@@ -731,7 +731,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
 
                         <View style={styles.itemMetricCol}>
                           <Text style={[styles.itemMetricVal, { color: colors.primary }]}>
-                            {ident.daily_required || 0}
+                            {Math.round(ident.daily_required || 0)}
                           </Text>
                           <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>المطلوب يومياً</Text>
                         </View>
