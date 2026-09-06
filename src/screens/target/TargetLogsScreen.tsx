@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -56,24 +56,32 @@ export const TargetLogsScreen: React.FC<TargetLogsScreenProps> = ({
     loadLogs();
   };
 
-  const filteredAlerts = alerts.filter((alert) => {
-    // Status filter
-    if (filterType === 'unresolved' && alert.is_resolved) return false;
-    if (filterType === 'resolved' && !alert.is_resolved) return false;
+  const filteredAlerts = useMemo(() => {
+    return (Array.isArray(alerts) ? alerts : []).filter((alert) => {
+      if (!alert) return false;
+      // Status filter
+      if (filterType === 'unresolved' && alert.is_resolved) return false;
+      if (filterType === 'resolved' && !alert.is_resolved) return false;
 
-    // Search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchName = alert.identifier_name?.toLowerCase().includes(q);
-      const matchDate = alert.alert_date?.toLowerCase().includes(q);
-      const matchDeficit = String(alert.deficit).includes(q);
-      return matchName || matchDate || matchDeficit;
-    }
-    return true;
-  });
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = alert.identifier_name?.toLowerCase().includes(q);
+        const matchDate = alert.alert_date?.includes(q);
+        const matchDeficit = String(alert.deficit ?? '').includes(q);
+        return Boolean(matchName || matchDate || matchDeficit);
+      }
+      return true;
+    });
+  }, [alerts, filterType, searchQuery]);
 
-  const resolvedCount = alerts.filter((a) => a.is_resolved).length;
-  const unresolvedCount = alerts.filter((a) => !a.is_resolved).length;
+  const resolvedCount = useMemo(() => {
+    return (Array.isArray(alerts) ? alerts : []).filter((a) => a && a.is_resolved).length;
+  }, [alerts]);
+
+  const unresolvedCount = useMemo(() => {
+    return (Array.isArray(alerts) ? alerts : []).filter((a) => a && !a.is_resolved).length;
+  }, [alerts]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -110,9 +110,9 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
       setLoading(true);
       const [sumData, identsData, driversData, alertsData] = await Promise.all([
         targetApi.getDashboard().catch(() => null),
-        targetApi.listIdentifiers({ search: searchQuery, status: statusFilter }).catch(() => []),
-        targetApi.listDrivers({ search: searchQuery }).catch(() => []),
-        targetApi.listAlerts({ unresolved_only: true }).catch(() => []),
+        targetApi.listIdentifiers().catch(() => []),
+        targetApi.listDrivers().catch(() => []),
+        targetApi.listAlerts({ unresolved_only: false }).catch(() => []),
       ]);
       setSummary(sumData || null);
       setIdentifiers(Array.isArray(identsData) ? identsData : []);
@@ -127,7 +127,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [searchQuery, statusFilter]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -154,7 +154,11 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   const handleResolveAlert = async (alertId: string) => {
     try {
       await targetApi.resolveAlert(alertId);
-      setAlerts((prev) => (Array.isArray(prev) ? prev.filter((a) => a.id !== alertId) : []));
+      setAlerts((prev) =>
+        Array.isArray(prev)
+          ? prev.map((a) => (a.id === alertId ? { ...a, is_resolved: true } : a))
+          : []
+      );
       Alert.alert('تم', 'تمت تسوية التنبيه بنجاح');
     } catch (e: any) {
       Alert.alert('خطأ', e.message || 'فشل في تسوية التنبيه');
@@ -195,15 +199,65 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     }
   };
 
-  // Safe array guards
-  const identsList = Array.isArray(identifiers) ? identifiers : [];
-  const driversList = Array.isArray(drivers) ? drivers : [];
-  const alertsList = Array.isArray(alerts) ? alerts : [];
+  // Fast In-Memory Local Filtering (Zero network lag, zero UI freeze)
+  const identsList = useMemo(() => {
+    let list = Array.isArray(identifiers) ? identifiers : [];
+    if (statusFilter === 'TARGET_ACHIEVED') {
+      list = list.filter((i) => i.status === 'TARGET_ACHIEVED');
+    } else if (statusFilter === 'ON_TRACK') {
+      list = list.filter((i) => i.status === 'ON_TRACK');
+    } else if (statusFilter === 'AT_RISK') {
+      list = list.filter((i) => i.status === 'AT_RISK' || i.status === 'BEHIND_TARGET');
+    } else if (statusFilter === 'BEHIND_TARGET') {
+      list = list.filter((i) => i.status === 'BEHIND_TARGET' || i.status === 'AT_RISK');
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (i) =>
+          i.name?.toLowerCase().includes(q) ||
+          i.code?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [identifiers, statusFilter, searchQuery]);
+
+  const driversList = useMemo(() => {
+    let list = Array.isArray(drivers) ? drivers : [];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (d) =>
+          d.name?.toLowerCase().includes(q) ||
+          d.phone?.includes(q)
+      );
+    }
+    return list;
+  }, [drivers, searchQuery]);
+
+  const alertsList = useMemo(() => {
+    let list = Array.isArray(alerts) ? alerts : [];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (a) =>
+          a.identifier_name?.toLowerCase().includes(q) ||
+          a.alert_date?.includes(q) ||
+          String(a.deficit).includes(q)
+      );
+    }
+    return list;
+  }, [alerts, searchQuery]);
+
+  const unresolvedAlertsCount = useMemo(() => {
+    return Array.isArray(alerts) ? alerts.filter((a) => !a.is_resolved).length : 0;
+  }, [alerts]);
 
   // Handler for KPI Card Clicks -> Opens Data Page filtered
   const handleCardPress = (tab: 'identifiers' | 'drivers' | 'alerts', status = '') => {
     setActiveTab(tab);
     setStatusFilter(status);
+    setSearchQuery('');
     setCurrentView('data');
   };
 
@@ -219,7 +273,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         return 'قائمة المعرفين';
       }
       if (activeTab === 'drivers') return 'بيانات المناديب وطلبات اليوم';
-      if (activeTab === 'alerts') return 'تنبيهات العجز النشطة';
+      if (activeTab === 'alerts') return 'تنبيهات العجز والمتابعة';
       return 'صفحة البيانات';
     }
     return '';
@@ -458,8 +512,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#f3e8ff' }]}>
                   <Ionicons name="notifications" size={22} color="#9333ea" />
                 </View>
-                <Text style={[styles.statNumber, { color: alertsList.length > 0 ? '#9333ea' : colors.textPrimary }]}>
-                  {alertsList.length}
+                <Text style={[styles.statNumber, { color: unresolvedAlertsCount > 0 ? '#dc2626' : colors.textPrimary }]}>
+                  {unresolvedAlertsCount}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>تنبيهات العجز النشطة</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -548,60 +602,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           }
         >
           <View style={styles.tabContainer}>
-            {/* Segmented Control / Tabs Header */}
-            <View style={[styles.segmentedTabsContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-              <TouchableOpacity
-                style={[
-                  styles.segmentedTab,
-                  activeTab === 'identifiers' && [styles.activeSegmentedTab, { backgroundColor: colors.card }],
-                ]}
-                onPress={() => setActiveTab('identifiers')}
-              >
-                <Text
-                  style={[
-                    styles.segmentedTabText,
-                    { color: activeTab === 'identifiers' ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  المعرفين ({identsList.length})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.segmentedTab,
-                  activeTab === 'drivers' && [styles.activeSegmentedTab, { backgroundColor: colors.card }],
-                ]}
-                onPress={() => setActiveTab('drivers')}
-              >
-                <Text
-                  style={[
-                    styles.segmentedTabText,
-                    { color: activeTab === 'drivers' ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  المناديب ({driversList.length})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.segmentedTab,
-                  activeTab === 'alerts' && [styles.activeSegmentedTab, { backgroundColor: colors.card }],
-                ]}
-                onPress={() => setActiveTab('alerts')}
-              >
-                <Text
-                  style={[
-                    styles.segmentedTabText,
-                    { color: activeTab === 'alerts' ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  التنبيهات ({alertsList.length})
-                </Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Search Box */}
             <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
@@ -612,7 +612,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                     ? 'بحث باسم المعرف أو الكود...'
                     : activeTab === 'drivers'
                     ? 'بحث باسم المندوب...'
-                    : 'بحث في التنبيهات...'
+                    : 'بحث في التنبيهات بالاسم أو التاريخ...'
                 }
                 placeholderTextColor={colors.textSecondary}
                 value={searchQuery}
@@ -624,79 +624,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 </TouchableOpacity>
               ) : null}
             </View>
-
-            {/* Status Filter Chips (For Identifiers) */}
-            {activeTab === 'identifiers' && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={[styles.filterChipsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              >
-                <TouchableOpacity
-                  style={[
-                    styles.filterChip,
-                    { backgroundColor: statusFilter === '' ? colors.primary : colors.card, borderColor: colors.border },
-                  ]}
-                  onPress={() => setStatusFilter('')}
-                >
-                  <Text style={[styles.filterChipText, { color: statusFilter === '' ? '#fff' : colors.textSecondary }]}>
-                    الكل ({identsList.length})
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.filterChip,
-                    { backgroundColor: statusFilter === 'TARGET_ACHIEVED' ? colors.primary : colors.card, borderColor: colors.border },
-                  ]}
-                  onPress={() => setStatusFilter('TARGET_ACHIEVED')}
-                >
-                  <View style={[styles.chipDot, { backgroundColor: '#3b82f6' }]} />
-                  <Text style={[styles.filterChipText, { color: statusFilter === 'TARGET_ACHIEVED' ? '#fff' : colors.textSecondary }]}>
-                    حقق التارچت
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.filterChip,
-                    { backgroundColor: statusFilter === 'ON_TRACK' ? colors.primary : colors.card, borderColor: colors.border },
-                  ]}
-                  onPress={() => setStatusFilter('ON_TRACK')}
-                >
-                  <View style={[styles.chipDot, { backgroundColor: '#22c55e' }]} />
-                  <Text style={[styles.filterChipText, { color: statusFilter === 'ON_TRACK' ? '#fff' : colors.textSecondary }]}>
-                    يسير بالمعدل
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.filterChip,
-                    { backgroundColor: statusFilter === 'AT_RISK' ? colors.primary : colors.card, borderColor: colors.border },
-                  ]}
-                  onPress={() => setStatusFilter('AT_RISK')}
-                >
-                  <View style={[styles.chipDot, { backgroundColor: '#eab308' }]} />
-                  <Text style={[styles.filterChipText, { color: statusFilter === 'AT_RISK' ? '#fff' : colors.textSecondary }]}>
-                    في خطر
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.filterChip,
-                    { backgroundColor: statusFilter === 'BEHIND_TARGET' ? colors.primary : colors.card, borderColor: colors.border },
-                  ]}
-                  onPress={() => setStatusFilter('BEHIND_TARGET')}
-                >
-                  <View style={[styles.chipDot, { backgroundColor: '#ef4444' }]} />
-                  <Text style={[styles.filterChipText, { color: statusFilter === 'BEHIND_TARGET' ? '#fff' : colors.textSecondary }]}>
-                    متأخر
-                  </Text>
-                </TouchableOpacity>
-              </ScrollView>
-            )}
 
             {/* Content Rendering */}
             {loading ? (
@@ -870,54 +797,73 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <Ionicons name="checkmark-circle-outline" size={48} color="#16a34a" />
                   <Text style={[styles.emptyTitle, { color: '#16a34a', marginTop: 10 }]}>
-                    لا توجد تنبيهات عجز نشطة
+                    لا توجد تنبيهات عجز مسجلة
                   </Text>
                   <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
                     كافة المعرفين يسيرون بالمعدل المطلوب أو أفضل!
                   </Text>
                 </View>
               ) : (
-                alertsList.map((alert) => (
-                  <View
-                    key={alert.id}
-                    style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  >
-                    <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                        <Text style={[styles.itemName, { color: colors.textPrimary }]}>
-                          المعرف: {alert.identifier_name}
-                        </Text>
-                        <Text style={[styles.itemCode, { color: colors.textSecondary }]}>
-                          تاريخ التنبيه: {alert.alert_date}
-                        </Text>
-                      </View>
-
-                      <View style={[styles.statusBadge, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2' }]}>
-                        <Text style={[styles.statusBadgeText, { color: '#dc2626' }]}>
-                          عجز {alert.deficit} طلب
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={[styles.alertNumsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Text style={[styles.alertNumText, { color: colors.textSecondary }]}>
-                        التارچت اليومي: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{alert.target_orders}</Text>
-                      </Text>
-                      <Text style={[styles.alertNumText, { color: colors.textSecondary }]}>
-                        المنفذ فعلياً: <Text style={{ color: colors.primary, fontWeight: '700' }}>{alert.actual_orders}</Text>
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={[styles.resolveBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
-                      onPress={() => handleResolveAlert(alert.id)}
-                      activeOpacity={0.7}
+                alertsList.map((alert, idx) => {
+                  const isResolved = Boolean(alert.is_resolved);
+                  return (
+                    <View
+                      key={alert.id || `alert-${idx}`}
+                      style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
                     >
-                      <Ionicons name="checkmark-done-outline" size={16} color={colors.primary} />
-                      <Text style={[styles.resolveBtnText, { color: colors.primary }]}>تسوية التنبيه</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))
+                      <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                          <Text style={[styles.itemName, { color: colors.textPrimary }]}>
+                            المعرف: {alert.identifier_name || 'معرف'}
+                          </Text>
+                          <Text style={[styles.itemCode, { color: colors.textSecondary }]}>
+                            تاريخ التنبيه: {alert.alert_date || '-'}
+                          </Text>
+                        </View>
+
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            {
+                              backgroundColor: isResolved
+                                ? (isDarkMode ? 'rgba(34, 197, 94, 0.18)' : '#dcfce7')
+                                : (isDarkMode ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2'),
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.statusBadgeText,
+                              { color: isResolved ? '#16a34a' : '#dc2626' },
+                            ]}
+                          >
+                            {isResolved ? 'تمت التسوية' : `عجز ${alert.deficit ?? 0} طلب`}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={[styles.alertNumsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <Text style={[styles.alertNumText, { color: colors.textSecondary }]}>
+                          التارچت اليومي: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{alert.target_orders ?? 0}</Text>
+                        </Text>
+                        <Text style={[styles.alertNumText, { color: colors.textSecondary }]}>
+                          المنفذ فعلياً: <Text style={{ color: colors.primary, fontWeight: '700' }}>{alert.actual_orders ?? 0}</Text>
+                        </Text>
+                      </View>
+
+                      {!isResolved && (
+                        <TouchableOpacity
+                          style={[styles.resolveBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+                          onPress={() => handleResolveAlert(alert.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="checkmark-done-outline" size={16} color={colors.primary} />
+                          <Text style={[styles.resolveBtnText, { color: colors.primary }]}>تسوية التنبيه</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })
               )
             )}
           </View>
