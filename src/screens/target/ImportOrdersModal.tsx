@@ -10,6 +10,7 @@ import {
   TextInput,
   StyleSheet,
   Platform,
+  Linking,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ExcelImportPreview } from '../../types/target';
@@ -83,9 +84,18 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
 
       if (!picker || typeof picker.getDocumentAsync !== 'function') {
         Alert.alert(
-          'مستكشف الملفات',
-          'يتطلب اختيار ملف الإكسل مباشرة من ذاكرة الهاتف تثبيت ملف الـ APK المحدث، أو يمكنك رفع الملف بكل سهولة عبر متصفح الهاتف أو الكمبيوتر.',
-          [{ text: 'حسناً' }]
+          'مستكشف ملفات الهاتف',
+          'يتطلب اختيار ملف الإكسل مباشرة من ذاكرة الهاتف تثبيت ملف APK المحدث، أو يمكنك رفع الملف بكل سهولة وفوراً عبر المتصفح.',
+          [
+            { text: 'إلغاء', style: 'cancel' },
+            {
+              text: 'فتح صفحة الرفع بالمتصفح',
+              onPress: () => {
+                Linking.openURL('https://aams.kerd2sy.com/dashboard/target/import').catch(() => {});
+                onClose();
+              },
+            },
+          ]
         );
         return;
       }
@@ -112,8 +122,18 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
       }
     } catch (e: any) {
       Alert.alert(
-        'تنبيه',
-        'يرجى تثبيت النسخة المحدثة من التطبيق (APK) لتفعيل مستكشف ملفات الهاتف، أو رفع الملف عبر المتصفح.'
+        'مستكشف ملفات الهاتف',
+        'يتطلب اختيار ملف الإكسل من ذاكرة الهاتف تثبيت ملف APK المحدث، أو يمكنك رفع الملف الآن مباشرة عبر المتصفح.',
+        [
+          { text: 'إلغاء', style: 'cancel' },
+          {
+            text: 'فتح صفحة الرفع بالمتصفح',
+            onPress: () => {
+              Linking.openURL('https://aams.kerd2sy.com/dashboard/target/import').catch(() => {});
+              onClose();
+            },
+          },
+        ]
       );
     }
   };
