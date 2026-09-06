@@ -1161,12 +1161,28 @@ export default function DelegateApp() {
 
   // Admin Dashboard Portal
   if (adminUser && (adminUser.role === 'ADMIN' || adminUser.role === 'SUPER_ADMIN')) {
-    return <AdminTargetDashboard user={adminUser} onLogout={handleAdminLogout} />;
+    return (
+      <AdminTargetDashboard
+        user={adminUser}
+        onLogout={handleAdminLogout}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+      />
+    );
   }
 
   // Supervisor Dashboard Portal
   if (adminUser && adminUser.role === 'SUPERVISOR') {
-    return <SupervisorTargetDashboard user={adminUser} onLogout={handleAdminLogout} />;
+    return (
+      <SupervisorTargetDashboard
+        user={adminUser}
+        onLogout={handleAdminLogout}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+      />
+    );
   }
 
   // Delegate App - must have authenticated employee
