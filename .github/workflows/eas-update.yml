@@ -17,7 +17,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: 🏗 Set up EAS CLI
         uses: expo/expo-github-action@v8
@@ -26,7 +25,9 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: 📦 Install dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: 🚀 Publish EAS Update
-        run: npx eas-cli update --channel production --environment production --message "Auto update: ${{ github.event.head_commit.message }}" --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas update --channel production --environment production --message "Auto update: ${{ github.event.head_commit.message }}" --non-interactive
