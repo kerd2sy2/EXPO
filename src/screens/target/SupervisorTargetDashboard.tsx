@@ -283,7 +283,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
           /* Home Header: Company Logo + AAMS + LOGISTICS (Perfect Horizontal Alignment) + Profile Screen Button */
           <>
             <TouchableOpacity
-              style={[styles.headerBrandContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              style={styles.headerBrandContainer}
               onPress={() => setShowDateFilterModal(true)}
               activeOpacity={0.7}
             >
@@ -305,14 +305,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 >
                   LOGISTICS
                 </Text>
-              </View>
-
-              <View style={[styles.headerDateBadge, isDarkMode && styles.darkHeaderDateBadge]}>
-                <Ionicons name="calendar-outline" size={12} color="#f97316" />
-                <Text style={styles.headerDateBadgeText} numberOfLines={1}>
-                  {dateFilter.label}
-                </Text>
-                <Ionicons name="chevron-down" size={11} color="#f97316" />
               </View>
             </TouchableOpacity>
 
