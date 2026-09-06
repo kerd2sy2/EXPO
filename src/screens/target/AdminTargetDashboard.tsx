@@ -227,24 +227,9 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     return name.replace(/\s*\((كيتا|نينجا|تويو|كينتا|Keeta|Ninja|Toyou)\)/gi, '').trim();
   };
 
-  const keetaCount = useMemo(() => {
-    return (identifiers || []).filter((i) => getIdentifierPlatform(i) === 'keeta').length;
-  }, [identifiers]);
-
-  const ninjaCount = useMemo(() => {
-    return (identifiers || []).filter((i) => getIdentifierPlatform(i) === 'ninja').length;
-  }, [identifiers]);
-
-  const toyouCount = useMemo(() => {
-    return (identifiers || []).filter((i) => getIdentifierPlatform(i) === 'toyou').length;
-  }, [identifiers]);
-
-  // Fast In-Memory Local Filtering (Zero network lag, zero UI freeze)
-  const identsList = useMemo(() => {
+  // Base list filtered by status and search (before platform partition)
+  const filteredBaseIdents = useMemo(() => {
     let list = Array.isArray(identifiers) ? identifiers : [];
-    if (platformTab) {
-      list = list.filter((i) => getIdentifierPlatform(i) === platformTab);
-    }
     if (statusFilter === 'TARGET_ACHIEVED') {
       list = list.filter((i) => i.status === 'TARGET_ACHIEVED');
     } else if (statusFilter === 'ON_TRACK') {
@@ -263,7 +248,24 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
       );
     }
     return list;
-  }, [identifiers, platformTab, statusFilter, searchQuery]);
+  }, [identifiers, statusFilter, searchQuery]);
+
+  const keetaCount = useMemo(() => {
+    return filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === 'keeta').length;
+  }, [filteredBaseIdents]);
+
+  const ninjaCount = useMemo(() => {
+    return filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === 'ninja').length;
+  }, [filteredBaseIdents]);
+
+  const toyouCount = useMemo(() => {
+    return filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === 'toyou').length;
+  }, [filteredBaseIdents]);
+
+  // Fast In-Memory Local Filtering (Zero network lag, zero UI freeze)
+  const identsList = useMemo(() => {
+    return filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === platformTab);
+  }, [filteredBaseIdents, platformTab]);
 
   const driversList = useMemo(() => {
     let list = Array.isArray(drivers) ? drivers : [];
