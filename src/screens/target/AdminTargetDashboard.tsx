@@ -10,6 +10,7 @@ import {
   Alert,
   StyleSheet,
   StatusBar,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -24,6 +25,8 @@ import { targetApi } from '../../services/targetApi';
 import { IdentifierDetailsModal } from './IdentifierDetailsModal';
 import { TargetSettingsModal } from './TargetSettingsModal';
 import { ImportOrdersModal } from './ImportOrdersModal';
+import { AdminProfileModal } from './AdminProfileModal';
+import { TargetLogsScreen } from './TargetLogsScreen';
 
 interface AdminTargetDashboardProps {
   user: any;
@@ -40,6 +43,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   colors: propColors,
   isRTL = true,
 }) => {
+  const [currentView, setCurrentView] = useState<'home' | 'data' | 'logs'>('home');
   const [activeTab, setActiveTab] = useState<'identifiers' | 'drivers' | 'alerts'>('identifiers');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,10 +61,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   const [selectedIdentifierId, setSelectedIdentifierId] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showAddIdentModal, setShowAddIdentModal] = useState(false);
-  const [newIdentName, setNewIdentName] = useState('');
-  const [newIdentCode, setNewIdentCode] = useState('');
-  const [creatingIdent, setCreatingIdent] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Theme Colors matching Delegate App
   const colors: ThemeColors = propColors || (isDarkMode
@@ -138,28 +139,18 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     loadData();
   };
 
-  const handleCreateIdentifier = async () => {
-    if (!newIdentName.trim()) {
-      Alert.alert('تنبيه', 'يرجى كتابة اسم المعرف');
-      return;
-    }
-    try {
-      setCreatingIdent(true);
-      await targetApi.createIdentifier({
-        name: newIdentName.trim(),
-        code: newIdentCode.trim() || undefined,
-      });
-      Alert.alert('نجاح', 'تمت إضافة المعرف بنجاح');
-      setNewIdentName('');
-      setNewIdentCode('');
-      setShowAddIdentModal(false);
-      loadData();
-    } catch (err: any) {
-      Alert.alert('خطأ', err.message || 'فشل في إضافة المعرف');
-    } finally {
-      setCreatingIdent(false);
-    }
-  };
+  useEffect(() => {
+    const backAction = () => {
+      if (currentView !== 'home') {
+        setCurrentView('home');
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [currentView]);
 
   const handleResolveAlert = async (alertId: string) => {
     try {
@@ -210,36 +201,59 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   const driversList = Array.isArray(drivers) ? drivers : [];
   const alertsList = Array.isArray(alerts) ? alerts : [];
 
-  const totalIdents = summary?.total_identifiers || identsList.length || 0;
-  const targetAchievedPercent = totalIdents > 0
-    ? Math.min(100, Math.round((((summary?.target_achieved || 0) + (summary?.on_track || 0)) / totalIdents) * 100))
-    : 0;
+  // Handler for KPI Card Clicks -> Opens Data Page filtered
+  const handleCardPress = (tab: 'identifiers' | 'drivers' | 'alerts', status = '') => {
+    setActiveTab(tab);
+    setStatusFilter(status);
+    setCurrentView('data');
+  };
+
+  // Determine Data Page Title
+  const getDataViewTitle = () => {
+    if (activeTab === 'identifiers') {
+      if (statusFilter === 'TARGET_ACHIEVED') return 'المعرفين الذين حققوا التارچت';
+      if (statusFilter === 'ON_TRACK') return 'المعرفين السائرين بالمعدل';
+      if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') return 'المعرفين في خطر / متأخرين';
+      return 'كافة المعرفين';
+    }
+    if (activeTab === 'drivers') return 'بيانات المناديب وطلبات اليوم';
+    if (activeTab === 'alerts') return 'تنبيهات العجز النشطة';
+    return 'صفحة البيانات';
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Modern App Header matching Delegate Screen */}
+      {/* Modern App Header with Clickable Avatar opening Profile */}
       <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <View style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <TouchableOpacity
+          style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          onPress={() => setShowProfileModal(true)}
+          activeOpacity={0.7}
+        >
           <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
             <Ionicons name="shield-checkmark" size={28} color={colors.primary} />
+            <View style={[styles.avatarBadgeDot, { backgroundColor: '#22c55e' }]} />
           </View>
           <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <Text
-              style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-              numberOfLines={1}
-            >
-              {user?.name || 'مدير النظام'}
-            </Text>
+            <View style={[styles.headerNameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text
+                style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                numberOfLines={1}
+              >
+                {user?.name || 'مدير النظام'}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
+            </View>
             <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Ionicons name="shield-checkmark-outline" size={13} color={colors.primary} />
               <Text style={[styles.headerUserRole, { color: colors.textSecondary }]}>
-                {user?.role === 'SUPERVISOR' ? 'مشرف التوصيل (Supervisor)' : 'لوحة تحكم الإدارة (Admin)'}
+                لوحة تحكم الإدارة (اضغط للملف)
               </Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <TouchableOpacity
@@ -260,661 +274,634 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.mainScrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        <View style={styles.tabContainer}>
-          {/* 1. Monthly Target & Overall Progress Hero Card */}
-          <View style={[styles.targetCardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.targetCardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <View style={[styles.targetTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.heroIconCircle, { backgroundColor: colors.primaryLight }]}>
-                  <Ionicons name="trending-up" size={18} color={colors.primary} />
-                </View>
-                <View>
-                  <Text style={[styles.targetCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    معدل إنجاز التارچت لشهر {summary?.current_month || 'الحالي'}
-                  </Text>
-                  <Text style={[styles.heroSubText, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    متابعة أداء المعرفين ومطابقة الطلبات
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={[styles.targetRatioText, { color: colors.textSecondary }]}>
-                <Text style={[styles.targetRatioBold, { color: colors.textPrimary }]}>
-                  {summary?.total_month_orders?.toLocaleString('en-US') || 0}
-                </Text>{' '}
-                طلب
-              </Text>
-            </View>
-
-            {/* Smooth Progress Bar */}
-            <View style={styles.targetProgressContainer}>
-              <View style={[styles.progressBarTrack, { backgroundColor: isDarkMode ? '#1f2433' : '#f1f5f9' }]}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: `${Math.max(3, targetAchievedPercent)}%`,
-                      backgroundColor: targetAchievedPercent >= 75 ? '#22c55e' : colors.primary,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-
-            {/* Footer Row */}
-            <View style={[styles.targetFooterRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <View style={[styles.targetFooterTag, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Ionicons name="calendar-outline" size={14} color={colors.primary} />
-                <Text style={[styles.targetFooterNotice, { color: colors.textSecondary }]}>
-                  متبقي {summary?.remaining_days || 0} يوم على إغلاق الشهر
-                </Text>
-              </View>
-
-              <View style={[styles.todayBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Ionicons name="flash" size={13} color="#f59e0b" />
-                <Text style={styles.todayOrdersText}>
-                  اليوم: {summary?.today_total_orders?.toLocaleString('en-US') || 0} طلب
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 2. Quick KPI Stats */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              مؤشرات الأداء الرئيسية
-            </Text>
-          </View>
-
-          <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : '#dbeafe' }]}>
-                <Ionicons name="people" size={22} color="#2563eb" />
-              </View>
-              <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                {summary?.total_identifiers ?? identsList.length}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>إجمالي المعرفين</Text>
-            </View>
-
-            <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.16)' : '#dcfce7' }]}>
-                <Ionicons name="trophy" size={22} color="#16a34a" />
-              </View>
-              <Text style={[styles.statNumber, { color: '#16a34a' }]}>
-                {summary?.target_achieved ?? 0}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>حققوا التارچت</Text>
-            </View>
-
-            <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#ccfbf1' }]}>
-                <Ionicons name="trending-up" size={22} color="#0d9488" />
-              </View>
-              <Text style={[styles.statNumber, { color: '#0d9488' }]}>
-                {summary?.on_track ?? 0}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>بالمعدل المطلوب</Text>
-            </View>
-
-            <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.16)' : '#fee2e2' }]}>
-                <Ionicons name="warning" size={22} color="#dc2626" />
-              </View>
-              <Text style={[styles.statNumber, { color: '#dc2626' }]}>
-                {(summary?.at_risk ?? 0) + (summary?.behind_target ?? 0)}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>في خطر / متأخرين</Text>
-            </View>
-
-            <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-                <Ionicons name="flash" size={22} color={colors.primary} />
-              </View>
-              <Text style={[styles.statNumber, { color: colors.primary }]}>
-                {summary?.today_total_orders ?? 0}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>طلبات اليوم</Text>
-            </View>
-
-            <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#f3e8ff' }]}>
-                <Ionicons name="notifications" size={22} color="#9333ea" />
-              </View>
-              <Text style={[styles.statNumber, { color: alertsList.length > 0 ? '#9333ea' : colors.textPrimary }]}>
-                {alertsList.length}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>تنبيهات العجز النشطة</Text>
-            </View>
-          </View>
-
-          {/* 3. Quick Actions */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              الإجراءات والعمليات
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.quickCardRow,
-              { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-            ]}
-            onPress={() => setShowImportModal(true)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickCardIconCircle, { backgroundColor: colors.primaryLight }]}>
-              <Feather name="upload-cloud" size={22} color={colors.primary} />
-            </View>
-            <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-              <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                استيراد ملف إكسل اليومي
-              </Text>
-              <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                رفع كشف الطلبات ومطابقة التارچت آلياً
-              </Text>
-            </View>
-            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.quickCardRow,
-              { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-            ]}
-            onPress={() => setShowAddIdentModal(true)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickCardIconCircle, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : '#dbeafe' }]}>
-              <Ionicons name="person-add-outline" size={22} color="#2563eb" />
-            </View>
-            <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-              <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                إضافة معرّف جديد
-              </Text>
-              <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                ربط كود ومعرف جديد بحسابات المناديب
-              </Text>
-            </View>
-            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.quickCardRow,
-              { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-            ]}
-            onPress={() => setShowSettingsModal(true)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickCardIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#f3e8ff' }]}>
-              <Ionicons name="options-outline" size={22} color="#9333ea" />
-            </View>
-            <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-              <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                إعدادات وقواعد التارچت
-              </Text>
-              <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                ضبط الحدود والنسب اليومية والشهرية
-              </Text>
-            </View>
-            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          {/* 4. Segmented Control / Tabs Header */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              سجل الأداء والمتابعة
-            </Text>
-          </View>
-
-          <View style={[styles.segmentedTabsContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-            <TouchableOpacity
-              style={[
-                styles.segmentedTab,
-                activeTab === 'identifiers' && [styles.activeSegmentedTab, { backgroundColor: colors.card }],
-              ]}
-              onPress={() => setActiveTab('identifiers')}
-            >
-              <Text
-                style={[
-                  styles.segmentedTabText,
-                  { color: activeTab === 'identifiers' ? colors.primary : colors.textSecondary },
-                ]}
-              >
-                المعرفين ({identsList.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.segmentedTab,
-                activeTab === 'drivers' && [styles.activeSegmentedTab, { backgroundColor: colors.card }],
-              ]}
-              onPress={() => setActiveTab('drivers')}
-            >
-              <Text
-                style={[
-                  styles.segmentedTabText,
-                  { color: activeTab === 'drivers' ? colors.primary : colors.textSecondary },
-                ]}
-              >
-                المناديب ({driversList.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.segmentedTab,
-                activeTab === 'alerts' && [styles.activeSegmentedTab, { backgroundColor: colors.card }],
-              ]}
-              onPress={() => setActiveTab('alerts')}
-            >
-              <Text
-                style={[
-                  styles.segmentedTabText,
-                  { color: activeTab === 'alerts' ? colors.primary : colors.textSecondary },
-                ]}
-              >
-                التنبيهات ({alertsList.length})
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Search Box */}
-          <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-              placeholder={
-                activeTab === 'identifiers'
-                  ? 'بحث باسم المعرف أو الكود...'
-                  : activeTab === 'drivers'
-                  ? 'بحث باسم المندوب...'
-                  : 'بحث في التنبيهات...'
-              }
-              placeholderTextColor={colors.textSecondary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
+      {/* VIEW 1: LOGS SCREEN */}
+      {currentView === 'logs' ? (
+        <TargetLogsScreen
+          onBack={() => setCurrentView('home')}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+        />
+      ) : currentView === 'home' ? (
+        /* VIEW 2: HOME DASHBOARD (KPIs & Quick Cards) */
+        <ScrollView
+          contentContainerStyle={styles.mainScrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
-            {searchQuery ? (
-              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
-            ) : null}
-          </View>
+          }
+        >
+          <View style={styles.tabContainer}>
+            {/* 1. Quick KPI Stats - Clickable Cards leading to Data Page */}
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                مؤشرات الأداء الرئيسية
+              </Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                اضغط على أي مؤشر لعرض تفاصيل البيانات ومطابقة الأداء
+              </Text>
+            </View>
 
-          {/* Status Filter Chips */}
-          {activeTab === 'identifiers' && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={[styles.filterChipsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+            <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              {/* Card 1: إجمالي المعرفين */}
+              <TouchableOpacity
+                style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => handleCardPress('identifiers', '')}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : '#dbeafe' }]}>
+                  <Ionicons name="people" size={22} color="#2563eb" />
+                </View>
+                <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
+                  {summary?.total_identifiers ?? identsList.length}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>إجمالي المعرفين</Text>
+                <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.statTapHintText, { color: colors.primary }]}>عرض الكل</Text>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color={colors.primary} />
+                </View>
+              </TouchableOpacity>
+
+              {/* Card 2: حققوا التارچت */}
+              <TouchableOpacity
+                style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => handleCardPress('identifiers', 'TARGET_ACHIEVED')}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.16)' : '#dcfce7' }]}>
+                  <Ionicons name="trophy" size={22} color="#16a34a" />
+                </View>
+                <Text style={[styles.statNumber, { color: '#16a34a' }]}>
+                  {summary?.target_achieved ?? 0}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>حققوا التارچت</Text>
+                <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.statTapHintText, { color: '#16a34a' }]}>عرض المحققين</Text>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#16a34a" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Card 3: بالمعدل المطلوب */}
+              <TouchableOpacity
+                style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => handleCardPress('identifiers', 'ON_TRACK')}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#ccfbf1' }]}>
+                  <Ionicons name="trending-up" size={22} color="#0d9488" />
+                </View>
+                <Text style={[styles.statNumber, { color: '#0d9488' }]}>
+                  {summary?.on_track ?? 0}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>بالمعدل المطلوب</Text>
+                <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.statTapHintText, { color: '#0d9488' }]}>عرض السائرين</Text>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#0d9488" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Card 4: في خطر / متأخرين */}
+              <TouchableOpacity
+                style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => handleCardPress('identifiers', 'AT_RISK')}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.16)' : '#fee2e2' }]}>
+                  <Ionicons name="warning" size={22} color="#dc2626" />
+                </View>
+                <Text style={[styles.statNumber, { color: '#dc2626' }]}>
+                  {(summary?.at_risk ?? 0) + (summary?.behind_target ?? 0)}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>في خطر / متأخرين</Text>
+                <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.statTapHintText, { color: '#dc2626' }]}>عرض المتأخرين</Text>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#dc2626" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Card 5: طلبات اليوم */}
+              <TouchableOpacity
+                style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => handleCardPress('drivers')}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="flash" size={22} color={colors.primary} />
+                </View>
+                <Text style={[styles.statNumber, { color: colors.primary }]}>
+                  {summary?.today_total_orders ?? 0}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>طلبات اليوم</Text>
+                <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.statTapHintText, { color: colors.primary }]}>بيانات المناديب</Text>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color={colors.primary} />
+                </View>
+              </TouchableOpacity>
+
+              {/* Card 6: تنبيهات العجز النشطة */}
+              <TouchableOpacity
+                style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => handleCardPress('alerts')}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#f3e8ff' }]}>
+                  <Ionicons name="notifications" size={22} color="#9333ea" />
+                </View>
+                <Text style={[styles.statNumber, { color: alertsList.length > 0 ? '#9333ea' : colors.textPrimary }]}>
+                  {alertsList.length}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>تنبيهات العجز النشطة</Text>
+                <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.statTapHintText, { color: '#9333ea' }]}>عرض التنبيهات</Text>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#9333ea" />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* 2. Prominent "سجل" Card (Activity & Audit Log Card) */}
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                سجل العمليات والمتابعة
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.historyHeroCard,
+                { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+              ]}
+              onPress={() => setCurrentView('logs')}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.historyIconCircle, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : '#dbeafe' }]}>
+                <Ionicons name="time-outline" size={26} color="#2563eb" />
+              </View>
+              <View style={[styles.historyTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                <View style={[styles.historyTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.historyCardTitle, { color: colors.textPrimary }]}>
+                    سجل العمليات والأداء
+                  </Text>
+                  <View style={[styles.historyBadge, { backgroundColor: colors.primaryLight }]}>
+                    <Text style={[styles.historyBadgeText, { color: colors.primary }]}>السجل التاريخي</Text>
+                  </View>
+                </View>
+                <Text style={[styles.historyCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  استعراض سجل استيراد الطلبات، تنبيهات العجز، والتسويات
+                </Text>
+              </View>
+              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            {/* 3. Operations: Import Excel Card */}
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                العمليات والاستيراد
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.quickCardRow,
+                { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+              ]}
+              onPress={() => setShowImportModal(true)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickCardIconCircle, { backgroundColor: colors.primaryLight }]}>
+                <Feather name="upload-cloud" size={22} color={colors.primary} />
+              </View>
+              <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  استيراد ملف إكسل اليومي
+                </Text>
+                <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  رفع كشف الطلبات ومطابقة التارچت آلياً
+                </Text>
+              </View>
+              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      ) : (
+        /* VIEW 3: DATA VIEW (FULL LIST / SEARCH / FILTERS) */
+        <ScrollView
+          contentContainerStyle={styles.mainScrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          <View style={styles.tabContainer}>
+            {/* Top Navigation Banner to Return to Home */}
+            <View
+              style={[
+                styles.dataNavBanner,
+                { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+              ]}
             >
               <TouchableOpacity
                 style={[
-                  styles.filterChip,
-                  { backgroundColor: statusFilter === '' ? colors.primary : colors.card, borderColor: colors.border },
+                  styles.backBtnPill,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
                 ]}
-                onPress={() => setStatusFilter('')}
+                onPress={() => setCurrentView('home')}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.filterChipText, { color: statusFilter === '' ? '#fff' : colors.textSecondary }]}>
-                  الكل ({identsList.length})
-                </Text>
+                <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={18} color={colors.primary} />
+                <Text style={[styles.backBtnText, { color: colors.primary }]}>العودة للرئيسية</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  { backgroundColor: statusFilter === 'ON_TRACK' ? colors.primary : colors.card, borderColor: colors.border },
-                ]}
-                onPress={() => setStatusFilter('ON_TRACK')}
-              >
-                <View style={[styles.chipDot, { backgroundColor: '#22c55e' }]} />
-                <Text style={[styles.filterChipText, { color: statusFilter === 'ON_TRACK' ? '#fff' : colors.textSecondary }]}>
-                  يسير بالمعدل
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  { backgroundColor: statusFilter === 'AT_RISK' ? colors.primary : colors.card, borderColor: colors.border },
-                ]}
-                onPress={() => setStatusFilter('AT_RISK')}
-              >
-                <View style={[styles.chipDot, { backgroundColor: '#eab308' }]} />
-                <Text style={[styles.filterChipText, { color: statusFilter === 'AT_RISK' ? '#fff' : colors.textSecondary }]}>
-                  في خطر
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  { backgroundColor: statusFilter === 'BEHIND_TARGET' ? colors.primary : colors.card, borderColor: colors.border },
-                ]}
-                onPress={() => setStatusFilter('BEHIND_TARGET')}
-              >
-                <View style={[styles.chipDot, { backgroundColor: '#ef4444' }]} />
-                <Text style={[styles.filterChipText, { color: statusFilter === 'BEHIND_TARGET' ? '#fff' : colors.textSecondary }]}>
-                  متأخر
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  { backgroundColor: statusFilter === 'TARGET_ACHIEVED' ? colors.primary : colors.card, borderColor: colors.border },
-                ]}
-                onPress={() => setStatusFilter('TARGET_ACHIEVED')}
-              >
-                <View style={[styles.chipDot, { backgroundColor: '#3b82f6' }]} />
-                <Text style={[styles.filterChipText, { color: statusFilter === 'TARGET_ACHIEVED' ? '#fff' : colors.textSecondary }]}>
-                  حقق التارچت
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          )}
-
-          {/* 5. Content Rendering */}
-          {loading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>جارٍ جلب البيانات ومطابقة الأداء...</Text>
-            </View>
-          ) : activeTab === 'identifiers' ? (
-            identsList.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Ionicons name="search-outline" size={44} color={colors.textSecondary} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد معرفات مسجلة</Text>
-                <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-                  يمكنك استيراد كشف الطلبات عبر لوحة التحكم على الويب
+              <View style={[styles.dataHeaderTitleCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                <Text style={[styles.dataViewTitle, { color: colors.textPrimary }]}>
+                  {getDataViewTitle()}
                 </Text>
               </View>
-            ) : (
-              identsList.map((ident) => {
-                const badge = getStatusBadge(ident.status);
-                return (
-                  <TouchableOpacity
-                    key={ident.id}
+            </View>
+
+            {/* Segmented Control / Tabs Header */}
+            <View style={[styles.segmentedTabsContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={[
+                  styles.segmentedTab,
+                  activeTab === 'identifiers' && [styles.activeSegmentedTab, { backgroundColor: colors.card }],
+                ]}
+                onPress={() => setActiveTab('identifiers')}
+              >
+                <Text
+                  style={[
+                    styles.segmentedTabText,
+                    { color: activeTab === 'identifiers' ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  المعرفين ({identsList.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.segmentedTab,
+                  activeTab === 'drivers' && [styles.activeSegmentedTab, { backgroundColor: colors.card }],
+                ]}
+                onPress={() => setActiveTab('drivers')}
+              >
+                <Text
+                  style={[
+                    styles.segmentedTabText,
+                    { color: activeTab === 'drivers' ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  المناديب ({driversList.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.segmentedTab,
+                  activeTab === 'alerts' && [styles.activeSegmentedTab, { backgroundColor: colors.card }],
+                ]}
+                onPress={() => setActiveTab('alerts')}
+              >
+                <Text
+                  style={[
+                    styles.segmentedTabText,
+                    { color: activeTab === 'alerts' ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  التنبيهات ({alertsList.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Search Box */}
+            <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder={
+                  activeTab === 'identifiers'
+                    ? 'بحث باسم المعرف أو الكود...'
+                    : activeTab === 'drivers'
+                    ? 'بحث باسم المندوب...'
+                    : 'بحث في التنبيهات...'
+                }
+                placeholderTextColor={colors.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery ? (
+                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* Status Filter Chips (For Identifiers) */}
+            {activeTab === 'identifiers' && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[styles.filterChipsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.filterChip,
+                    { backgroundColor: statusFilter === '' ? colors.primary : colors.card, borderColor: colors.border },
+                  ]}
+                  onPress={() => setStatusFilter('')}
+                >
+                  <Text style={[styles.filterChipText, { color: statusFilter === '' ? '#fff' : colors.textSecondary }]}>
+                    الكل ({identsList.length})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.filterChip,
+                    { backgroundColor: statusFilter === 'TARGET_ACHIEVED' ? colors.primary : colors.card, borderColor: colors.border },
+                  ]}
+                  onPress={() => setStatusFilter('TARGET_ACHIEVED')}
+                >
+                  <View style={[styles.chipDot, { backgroundColor: '#3b82f6' }]} />
+                  <Text style={[styles.filterChipText, { color: statusFilter === 'TARGET_ACHIEVED' ? '#fff' : colors.textSecondary }]}>
+                    حقق التارچت
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.filterChip,
+                    { backgroundColor: statusFilter === 'ON_TRACK' ? colors.primary : colors.card, borderColor: colors.border },
+                  ]}
+                  onPress={() => setStatusFilter('ON_TRACK')}
+                >
+                  <View style={[styles.chipDot, { backgroundColor: '#22c55e' }]} />
+                  <Text style={[styles.filterChipText, { color: statusFilter === 'ON_TRACK' ? '#fff' : colors.textSecondary }]}>
+                    يسير بالمعدل
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.filterChip,
+                    { backgroundColor: statusFilter === 'AT_RISK' ? colors.primary : colors.card, borderColor: colors.border },
+                  ]}
+                  onPress={() => setStatusFilter('AT_RISK')}
+                >
+                  <View style={[styles.chipDot, { backgroundColor: '#eab308' }]} />
+                  <Text style={[styles.filterChipText, { color: statusFilter === 'AT_RISK' ? '#fff' : colors.textSecondary }]}>
+                    في خطر
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.filterChip,
+                    { backgroundColor: statusFilter === 'BEHIND_TARGET' ? colors.primary : colors.card, borderColor: colors.border },
+                  ]}
+                  onPress={() => setStatusFilter('BEHIND_TARGET')}
+                >
+                  <View style={[styles.chipDot, { backgroundColor: '#ef4444' }]} />
+                  <Text style={[styles.filterChipText, { color: statusFilter === 'BEHIND_TARGET' ? '#fff' : colors.textSecondary }]}>
+                    متأخر
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+
+            {/* Content Rendering */}
+            {loading ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>جارٍ جلب البيانات ومطابقة الأداء...</Text>
+              </View>
+            ) : activeTab === 'identifiers' ? (
+              identsList.length === 0 ? (
+                <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Ionicons name="search-outline" size={44} color={colors.textSecondary} />
+                  <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد معرفات مسجلة</Text>
+                  <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+                    يمكنك استيراد كشف الطلبات عبر لوحة التحكم
+                  </Text>
+                </View>
+              ) : (
+                identsList.map((ident) => {
+                  const badge = getStatusBadge(ident.status);
+                  return (
+                    <TouchableOpacity
+                      key={ident.id}
+                      style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => setSelectedIdentifierId(ident.id)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={[styles.itemTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                          <Text style={[styles.itemName, { color: colors.textPrimary }]}>{ident.name}</Text>
+                          {ident.code ? (
+                            <Text style={[styles.itemCode, { color: colors.textSecondary }]}>كود: {ident.code}</Text>
+                          ) : null}
+                        </View>
+
+                        <View style={[styles.statusBadge, { backgroundColor: badge.bg, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                          <View style={[styles.badgeDot, { backgroundColor: badge.dot }]} />
+                          <Text style={[styles.statusBadgeText, { color: badge.text }]}>{badge.label}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.itemProgressSection}>
+                        <View style={[styles.itemProgressTrack, { backgroundColor: isDarkMode ? '#1f2433' : '#f1f5f9' }]}>
+                          <View
+                            style={[
+                              styles.itemProgressFill,
+                              {
+                                width: `${Math.min(100, Math.max(2, ident.achievement_percent || 0))}%`,
+                                backgroundColor: (ident.achievement_percent || 0) >= 100 ? '#22c55e' : colors.primary,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={[styles.itemProgressPct, { color: colors.primary }]}>
+                          {ident.achievement_percent || 0}%
+                        </Text>
+                      </View>
+
+                      <View style={[styles.itemMetricsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={styles.itemMetricCol}>
+                          <Text style={[styles.itemMetricVal, { color: colors.textPrimary }]}>
+                            {ident.month_orders || 0} / {ident.monthly_target || 0}
+                          </Text>
+                          <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>الطلبات / التارچت</Text>
+                        </View>
+
+                        <View style={styles.itemMetricCol}>
+                          <Text style={[styles.itemMetricVal, { color: colors.textPrimary }]}>
+                            {ident.daily_average || 0}
+                          </Text>
+                          <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>متوسط يومي</Text>
+                        </View>
+
+                        <View style={styles.itemMetricCol}>
+                          <Text style={[styles.itemMetricVal, { color: colors.primary }]}>
+                            {ident.daily_required || 0}
+                          </Text>
+                          <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>المطلوب يومياً</Text>
+                        </View>
+
+                        <View style={styles.itemMetricCol}>
+                          <Text
+                            style={[
+                              styles.itemMetricVal,
+                              { color: ident.is_qualified ? '#16a34a' : '#dc2626' },
+                            ]}
+                          >
+                            {ident.projected_monthly_orders || 0}
+                          </Text>
+                          <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>التوقع الشهري</Text>
+                        </View>
+                      </View>
+
+                      <View style={[styles.itemBottomRow, { borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={[styles.qualificationRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                          <Ionicons
+                            name={ident.is_qualified ? 'checkmark-circle' : 'close-circle'}
+                            size={15}
+                            color={ident.is_qualified ? '#16a34a' : '#dc2626'}
+                          />
+                          <Text
+                            style={[
+                              styles.qualificationText,
+                              { color: ident.is_qualified ? '#16a34a' : '#dc2626' },
+                            ]}
+                          >
+                            {ident.is_qualified ? 'مؤهل للتارچت' : 'غير مؤهل'}
+                          </Text>
+                        </View>
+
+                        <View style={[styles.tapDetailsGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                          <Text style={[styles.tapDetailsText, { color: colors.primary }]}>التفاصيل والمناديب</Text>
+                          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={14} color={colors.primary} />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )
+            ) : activeTab === 'drivers' ? (
+              driversList.length === 0 ? (
+                <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Ionicons name="people-outline" size={44} color={colors.textSecondary} />
+                  <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا يوجد مناديب مسجلين</Text>
+                  <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+                    تأكد من مطابقة أسماء المناديب داخل ملف الإكسل
+                  </Text>
+                </View>
+              ) : (
+                driversList.map((drv) => (
+                  <View
+                    key={drv.id}
                     style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => setSelectedIdentifierId(ident.id)}
-                    activeOpacity={0.75}
                   >
                     <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <View style={[styles.itemTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                        <Text style={[styles.itemName, { color: colors.textPrimary }]}>{ident.name}</Text>
-                        {ident.code ? (
-                          <Text style={[styles.itemCode, { color: colors.textSecondary }]}>كود: {ident.code}</Text>
-                        ) : null}
+                      <View style={[styles.driverAvatarRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={[styles.driverAvatarCircle, { backgroundColor: colors.primaryLight }]}>
+                          <Ionicons name="person" size={20} color={colors.primary} />
+                        </View>
+                        <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                          <Text style={[styles.itemName, { color: colors.textPrimary }]}>{drv.name}</Text>
+                          {drv.phone ? (
+                            <Text style={[styles.itemCode, { color: colors.textSecondary }]}>{drv.phone}</Text>
+                          ) : null}
+                        </View>
                       </View>
 
-                      <View style={[styles.statusBadge, { backgroundColor: badge.bg, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <View style={[styles.badgeDot, { backgroundColor: badge.dot }]} />
-                        <Text style={[styles.statusBadgeText, { color: badge.text }]}>{badge.label}</Text>
+                      <View style={[styles.driverBadge, { backgroundColor: colors.primaryLight }]}>
+                        <Text style={[styles.driverBadgeNum, { color: colors.primary }]}>{drv.month_orders || 0}</Text>
+                        <Text style={[styles.driverBadgeLbl, { color: colors.textSecondary }]}>طلب بالشهر</Text>
                       </View>
                     </View>
 
-                    <View style={styles.itemProgressSection}>
-                      <View style={[styles.itemProgressTrack, { backgroundColor: isDarkMode ? '#1f2433' : '#f1f5f9' }]}>
-                        <View
-                          style={[
-                            styles.itemProgressFill,
-                            {
-                              width: `${Math.min(100, Math.max(2, ident.achievement_percent || 0))}%`,
-                              backgroundColor: (ident.achievement_percent || 0) >= 100 ? '#22c55e' : colors.primary,
-                            },
-                          ]}
-                        />
+                    {Array.isArray(drv.identifiers) && drv.identifiers.length > 0 && (
+                      <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>المعرفات:</Text>
+                        <Text style={[styles.tagValue, { color: colors.textPrimary }]}>{drv.identifiers.join('، ')}</Text>
                       </View>
-                      <Text style={[styles.itemProgressPct, { color: colors.primary }]}>
-                        {ident.achievement_percent || 0}%
-                      </Text>
-                    </View>
+                    )}
 
-                    <View style={[styles.itemMetricsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <View style={styles.itemMetricCol}>
-                        <Text style={[styles.itemMetricVal, { color: colors.textPrimary }]}>
-                          {ident.month_orders || 0} / {ident.monthly_target || 0}
-                        </Text>
-                        <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>الطلبات / التارچت</Text>
+                    {Array.isArray(drv.apps) && drv.apps.length > 0 && (
+                      <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>التطبيقات:</Text>
+                        <Text style={[styles.tagValue, { color: colors.primary }]}>{drv.apps.join('، ')}</Text>
                       </View>
-
-                      <View style={styles.itemMetricCol}>
-                        <Text style={[styles.itemMetricVal, { color: colors.textPrimary }]}>
-                          {ident.daily_average || 0}
-                        </Text>
-                        <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>متوسط يومي</Text>
-                      </View>
-
-                      <View style={styles.itemMetricCol}>
-                        <Text style={[styles.itemMetricVal, { color: colors.primary }]}>
-                          {ident.daily_required || 0}
-                        </Text>
-                        <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>المطلوب يومياً</Text>
-                      </View>
-
-                      <View style={styles.itemMetricCol}>
-                        <Text
-                          style={[
-                            styles.itemMetricVal,
-                            { color: ident.is_qualified ? '#16a34a' : '#dc2626' },
-                          ]}
-                        >
-                          {ident.projected_monthly_orders || 0}
-                        </Text>
-                        <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>التوقع الشهري</Text>
-                      </View>
-                    </View>
-
-                    <View style={[styles.itemBottomRow, { borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <View style={[styles.qualificationRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Ionicons
-                          name={ident.is_qualified ? 'checkmark-circle' : 'close-circle'}
-                          size={15}
-                          color={ident.is_qualified ? '#16a34a' : '#dc2626'}
-                        />
-                        <Text
-                          style={[
-                            styles.qualificationText,
-                            { color: ident.is_qualified ? '#16a34a' : '#dc2626' },
-                          ]}
-                        >
-                          {ident.is_qualified ? 'مؤهل للتارچت' : 'غير مؤهل'}
-                        </Text>
-                      </View>
-
-                      <View style={[styles.tapDetailsGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Text style={[styles.tapDetailsText, { color: colors.primary }]}>التفاصيل والمناديب</Text>
-                        <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={14} color={colors.primary} />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
-            )
-          ) : activeTab === 'drivers' ? (
-            driversList.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Ionicons name="people-outline" size={44} color={colors.textSecondary} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا يوجد مناديب مسجلين</Text>
-                <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-                  تأكد من مطابقة أسماء المناديب داخل ملف الإكسل
-                </Text>
-              </View>
-            ) : (
-              driversList.map((drv) => (
-                <View
-                  key={drv.id}
-                  style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                >
-                  <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={[styles.driverAvatarRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <View style={[styles.driverAvatarCircle, { backgroundColor: colors.primaryLight }]}>
-                        <Ionicons name="person" size={20} color={colors.primary} />
-                      </View>
-                      <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                        <Text style={[styles.itemName, { color: colors.textPrimary }]}>{drv.name}</Text>
-                        {drv.phone ? (
-                          <Text style={[styles.itemCode, { color: colors.textSecondary }]}>{drv.phone}</Text>
-                        ) : null}
-                      </View>
-                    </View>
-
-                    <View style={[styles.driverBadge, { backgroundColor: colors.primaryLight }]}>
-                      <Text style={[styles.driverBadgeNum, { color: colors.primary }]}>{drv.month_orders || 0}</Text>
-                      <Text style={[styles.driverBadgeLbl, { color: colors.textSecondary }]}>طلب بالشهر</Text>
-                    </View>
+                    )}
                   </View>
-
-                  {Array.isArray(drv.identifiers) && drv.identifiers.length > 0 && (
-                    <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>المعرفات:</Text>
-                      <Text style={[styles.tagValue, { color: colors.textPrimary }]}>{drv.identifiers.join('، ')}</Text>
-                    </View>
-                  )}
-
-                  {Array.isArray(drv.apps) && drv.apps.length > 0 && (
-                    <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>التطبيقات:</Text>
-                      <Text style={[styles.tagValue, { color: colors.primary }]}>{drv.apps.join('، ')}</Text>
-                    </View>
-                  )}
+                ))
+              )
+            ) : (
+              alertsList.length === 0 ? (
+                <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Ionicons name="checkmark-circle-outline" size={48} color="#16a34a" />
+                  <Text style={[styles.emptyTitle, { color: '#16a34a', marginTop: 10 }]}>
+                    لا توجد تنبيهات عجز نشطة
+                  </Text>
+                  <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+                    كافة المعرفين يسيرون بالمعدل المطلوب أو أفضل!
+                  </Text>
                 </View>
-              ))
-            )
-          ) : (
-            alertsList.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Ionicons name="checkmark-circle-outline" size={48} color="#16a34a" />
-                <Text style={[styles.emptyTitle, { color: '#16a34a', marginTop: 10 }]}>
-                  لا توجد تنبيهات عجز نشطة
-                </Text>
-                <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-                  كافة المعرفين يسيرون بالمعدل المطلوب أو أفضل!
-                </Text>
-              </View>
-            ) : (
-              alertsList.map((alert) => (
-                <View
-                  key={alert.id}
-                  style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                >
-                  <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                      <Text style={[styles.itemName, { color: colors.textPrimary }]}>
-                        المعرف: {alert.identifier_name}
-                      </Text>
-                      <Text style={[styles.itemCode, { color: colors.textSecondary }]}>
-                        تاريخ التنبيه: {alert.alert_date}
-                      </Text>
-                    </View>
-
-                    <View style={[styles.statusBadge, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2' }]}>
-                      <Text style={[styles.statusBadgeText, { color: '#dc2626' }]}>
-                        عجز {alert.deficit} طلب
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={[styles.alertNumsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Text style={[styles.alertNumText, { color: colors.textSecondary }]}>
-                      التارچت اليومي: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{alert.target_orders}</Text>
-                    </Text>
-                    <Text style={[styles.alertNumText, { color: colors.textSecondary }]}>
-                      المنفذ فعلياً: <Text style={{ color: colors.primary, fontWeight: '700' }}>{alert.actual_orders}</Text>
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[styles.resolveBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
-                    onPress={() => handleResolveAlert(alert.id)}
-                    activeOpacity={0.7}
+              ) : (
+                alertsList.map((alert) => (
+                  <View
+                    key={alert.id}
+                    style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
                   >
-                    <Ionicons name="checkmark-done-outline" size={16} color={colors.primary} />
-                    <Text style={[styles.resolveBtnText, { color: colors.primary }]}>تسوية التنبيه</Text>
-                  </TouchableOpacity>
-                </View>
-              ))
-            )
-          )}
-        </View>
-      </ScrollView>
+                    <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                        <Text style={[styles.itemName, { color: colors.textPrimary }]}>
+                          المعرف: {alert.identifier_name}
+                        </Text>
+                        <Text style={[styles.itemCode, { color: colors.textSecondary }]}>
+                          تاريخ التنبيه: {alert.alert_date}
+                        </Text>
+                      </View>
 
-      {/* Add Identifier Modal */}
-      {showAddIdentModal && (
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>إضافة معرف جديد</Text>
-              <TouchableOpacity onPress={() => setShowAddIdentModal(false)}>
-                <Ionicons name="close" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
+                      <View style={[styles.statusBadge, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2' }]}>
+                        <Text style={[styles.statusBadgeText, { color: '#dc2626' }]}>
+                          عجز {alert.deficit} طلب
+                        </Text>
+                      </View>
+                    </View>
 
-            <Text style={[styles.modalLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-              اسم المعرف <Text style={{ color: '#ef4444' }}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.modalInput,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
-              ]}
-              placeholder="مثال: فهد، كريم، أسامة..."
-              placeholderTextColor={colors.textSecondary}
-              value={newIdentName}
-              onChangeText={setNewIdentName}
-            />
+                    <View style={[styles.alertNumsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <Text style={[styles.alertNumText, { color: colors.textSecondary }]}>
+                        التارچت اليومي: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{alert.target_orders}</Text>
+                      </Text>
+                      <Text style={[styles.alertNumText, { color: colors.textSecondary }]}>
+                        المنفذ فعلياً: <Text style={{ color: colors.primary, fontWeight: '700' }}>{alert.actual_orders}</Text>
+                      </Text>
+                    </View>
 
-            <Text style={[styles.modalLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-              كود المعرف (اختياري)
-            </Text>
-            <TextInput
-              style={[
-                styles.modalInput,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
-              ]}
-              placeholder="مثال: 1045"
-              placeholderTextColor={colors.textSecondary}
-              value={newIdentCode}
-              onChangeText={setNewIdentCode}
-            />
-
-            <View style={[styles.modalActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <TouchableOpacity
-                style={[styles.modalCancelBtn, { borderColor: colors.border }]}
-                onPress={() => setShowAddIdentModal(false)}
-              >
-                <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>إلغاء</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
-                onPress={handleCreateIdentifier}
-                disabled={creatingIdent}
-              >
-                {creatingIdent ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.modalSubmitText}>إضافة المعرف</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+                    <TouchableOpacity
+                      style={[styles.resolveBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+                      onPress={() => handleResolveAlert(alert.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="checkmark-done-outline" size={16} color={colors.primary} />
+                      <Text style={[styles.resolveBtnText, { color: colors.primary }]}>تسوية التنبيه</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )
+            )}
           </View>
-        </View>
+        </ScrollView>
       )}
 
       {/* Sub-Modals */}
@@ -923,6 +910,17 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         identifierId={selectedIdentifierId}
         onClose={() => setSelectedIdentifierId(null)}
         isDarkMode={isDarkMode}
+      />
+
+      <AdminProfileModal
+        visible={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+        onOpenTargetSettings={() => setShowSettingsModal(true)}
+        onLogout={onLogout}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
       />
 
       <TargetSettingsModal
@@ -961,17 +959,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerAvatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  avatarBadgeDot: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
   },
   headerUserText: {
     flex: 1,
     justifyContent: 'center',
     gap: 3,
+  },
+  headerNameRow: {
+    alignItems: 'center',
+    gap: 4,
   },
   headerUserName: {
     fontSize: 16,
@@ -1006,85 +1019,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
   },
-  targetCardContainer: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 18,
-    marginBottom: 16,
-  },
-  targetCardHeader: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  targetTitleGroup: {
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  heroIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  targetCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  heroSubText: {
-    fontSize: 11,
-    marginTop: 1,
-  },
-  targetRatioText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  targetRatioBold: {
-    fontWeight: '800',
-    fontSize: 16,
-  },
-  targetProgressContainer: {
-    marginBottom: 12,
-  },
-  progressBarTrack: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  targetFooterRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  targetFooterTag: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  targetFooterNotice: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  todayBadgeRow: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  todayOrdersText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#f59e0b',
-  },
   sectionHeader: {
-    marginBottom: 12,
-    marginTop: 4,
+    marginBottom: 10,
+    marginTop: 6,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
   },
   statsGrid: {
     flexWrap: 'wrap',
@@ -1093,12 +1038,12 @@ const styles = StyleSheet.create({
   },
   statBox: {
     width: '48%',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 120,
+    minHeight: 135,
   },
   statIconCircle: {
     width: 44,
@@ -1117,32 +1062,109 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
+    marginBottom: 6,
+  },
+  statTapHint: {
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 2,
+  },
+  statTapHintText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  historyHeroCard: {
+    borderRadius: 18,
+    borderWidth: 1.5,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  historyIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyTextCol: {
+    flex: 1,
+    gap: 3,
+  },
+  historyTitleRow: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  historyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  historyBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  historyCardSub: {
+    fontSize: 11,
   },
   quickCardRow: {
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,
     alignItems: 'center',
+    marginBottom: 12,
     gap: 12,
-    marginBottom: 10,
   },
   quickCardIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
   },
   quickCardTextCol: {
     flex: 1,
+    gap: 2,
   },
   quickCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    marginBottom: 2,
   },
   quickCardSub: {
     fontSize: 11,
+  },
+  dataNavBanner: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  backBtnPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  backBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  dataHeaderTitleCol: {
+    flex: 1,
+    paddingHorizontal: 10,
+  },
+  dataViewTitle: {
+    fontSize: 14,
+    fontWeight: '800',
   },
   segmentedTabsContainer: {
     flexDirection: 'row',
@@ -1150,19 +1172,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 4,
     marginBottom: 12,
+    gap: 4,
   },
   segmentedTab: {
     flex: 1,
-    paddingVertical: 9,
+    paddingVertical: 8,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activeSegmentedTab: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
     elevation: 2,
   },
   segmentedTabText: {
@@ -1173,7 +1196,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 12,
-    height: 46,
+    height: 44,
     alignItems: 'center',
     gap: 8,
     marginBottom: 12,
@@ -1188,12 +1211,12 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 6,
   },
   chipDot: {
@@ -1203,46 +1226,42 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   loadingBox: {
-    padding: 40,
+    paddingVertical: 40,
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 12,
   },
   loadingText: {
     fontSize: 13,
-    fontWeight: '500',
   },
   emptyCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 30,
+    padding: 32,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 12,
+    gap: 8,
+    marginTop: 8,
   },
   emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 8,
+    fontSize: 16,
+    fontWeight: '800',
   },
   emptySub: {
     fontSize: 12,
-    marginTop: 4,
     textAlign: 'center',
   },
   itemCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 10,
+    gap: 10,
   },
   itemTopRow: {
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
   },
   itemTitleGroup: {
     flex: 1,
@@ -1254,6 +1273,7 @@ const styles = StyleSheet.create({
   },
   itemCode: {
     fontSize: 11,
+    fontWeight: '500',
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -1274,8 +1294,7 @@ const styles = StyleSheet.create({
   itemProgressSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
+    gap: 8,
   },
   itemProgressTrack: {
     flex: 1,
@@ -1288,36 +1307,32 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   itemProgressPct: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    width: 40,
-    textAlign: 'center',
+    minWidth: 35,
+    textAlign: 'right',
   },
   itemMetricsRow: {
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(150, 150, 150, 0.2)',
+    paddingTop: 4,
   },
   itemMetricCol: {
     alignItems: 'center',
-    flex: 1,
   },
   itemMetricVal: {
     fontSize: 13,
     fontWeight: '800',
-    marginBottom: 2,
   },
   itemMetricLbl: {
     fontSize: 10,
+    marginTop: 2,
   },
   itemBottomRow: {
-    borderTopWidth: 1,
-    paddingTop: 10,
-    marginTop: 6,
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   qualificationRow: {
     alignItems: 'center',
@@ -1329,7 +1344,7 @@ const styles = StyleSheet.create({
   },
   tapDetailsGroup: {
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   tapDetailsText: {
     fontSize: 11,
@@ -1340,126 +1355,56 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   driverAvatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
   },
   driverBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
     alignItems: 'center',
   },
   driverBadgeNum: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
   driverBadgeLbl: {
     fontSize: 9,
-    fontWeight: '600',
   },
   tagRow: {
     alignItems: 'center',
     gap: 6,
-    marginTop: 6,
   },
   tagLabel: {
     fontSize: 11,
     fontWeight: '600',
   },
   tagValue: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   alertNumsRow: {
-    gap: 16,
-    marginVertical: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 4,
   },
   alertNumText: {
     fontSize: 12,
   },
   resolveBtn: {
-    borderWidth: 1,
     borderRadius: 10,
-    paddingVertical: 8,
+    borderWidth: 1,
+    paddingVertical: 6,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 6,
-    marginTop: 6,
+    marginTop: 4,
   },
   resolveBtnText: {
     fontSize: 12,
-    fontWeight: '700',
-  },
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    zIndex: 999,
-  },
-  modalCard: {
-    width: '100%',
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 20,
-  },
-  modalHeader: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  modalLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 6,
-    marginTop: 10,
-  },
-  modalInput: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    height: 44,
-    fontSize: 13,
-  },
-  modalActionsRow: {
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 20,
-  },
-  modalCancelBtn: {
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  modalCancelText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  modalSubmitBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  modalSubmitText: {
-    color: '#fff',
-    fontSize: 13,
     fontWeight: '700',
   },
 });
