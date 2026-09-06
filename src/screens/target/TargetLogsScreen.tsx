@@ -100,51 +100,52 @@ export const TargetLogsScreen: React.FC<TargetLogsScreenProps> = ({
         {/* Quick Summary Cards (Active Alerts vs Resolved Operations) */}
         <View style={[styles.summaryGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <TouchableOpacity
-            style={[styles.summaryBox, { backgroundColor: colors.card, borderColor: filterType === 'unresolved' ? '#dc2626' : colors.border }]}
+            style={[
+              styles.summaryBox,
+              {
+                backgroundColor: filterType === 'unresolved'
+                  ? (isDarkMode ? 'rgba(220, 38, 38, 0.15)' : '#fee2e2')
+                  : colors.card,
+                borderColor: filterType === 'unresolved' ? '#dc2626' : colors.border,
+              },
+            ]}
             onPress={() => setFilterType('unresolved')}
             activeOpacity={0.75}
           >
             <Ionicons name="alert-circle-outline" size={22} color="#dc2626" />
             <Text style={[styles.summaryNum, { color: '#dc2626' }]}>{unresolvedCount}</Text>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>تنبيهات نشطة</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.summaryBox, { backgroundColor: colors.card, borderColor: filterType === 'resolved' ? '#16a34a' : colors.border }]}
-            onPress={() => setFilterType('resolved')}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="checkmark-circle-outline" size={22} color="#16a34a" />
-            <Text style={[styles.summaryNum, { color: '#16a34a' }]}>{resolvedCount}</Text>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>عمليات مسواة</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Filter Segmented Control (Only Unresolved & Resolved) */}
-        <View style={[styles.filterRow, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity
-            style={[
-              styles.filterTab,
-              filterType === 'unresolved' && [styles.activeFilterTab, { backgroundColor: '#dc2626' }],
-            ]}
-            onPress={() => setFilterType('unresolved')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.filterTabText, { color: filterType === 'unresolved' ? '#ffffff' : colors.textPrimary }, filterType === 'unresolved' && { fontWeight: '800' }]}>
-              النشطة ({unresolvedCount})
+            <Text
+              style={[
+                styles.summaryLabel,
+                { color: filterType === 'unresolved' ? (isDarkMode ? '#f87171' : '#b91c1c') : colors.textSecondary, fontWeight: filterType === 'unresolved' ? '800' : '600' },
+              ]}
+            >
+              تنبيهات نشطة
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
-              styles.filterTab,
-              filterType === 'resolved' && [styles.activeFilterTab, { backgroundColor: '#16a34a' }],
+              styles.summaryBox,
+              {
+                backgroundColor: filterType === 'resolved'
+                  ? (isDarkMode ? 'rgba(22, 163, 74, 0.15)' : '#dcfce7')
+                  : colors.card,
+                borderColor: filterType === 'resolved' ? '#16a34a' : colors.border,
+              },
             ]}
             onPress={() => setFilterType('resolved')}
             activeOpacity={0.75}
           >
-            <Text style={[styles.filterTabText, { color: filterType === 'resolved' ? '#ffffff' : colors.textPrimary }, filterType === 'resolved' && { fontWeight: '800' }]}>
-              المسواة ({resolvedCount})
+            <Ionicons name="checkmark-circle-outline" size={22} color="#16a34a" />
+            <Text style={[styles.summaryNum, { color: '#16a34a' }]}>{resolvedCount}</Text>
+            <Text
+              style={[
+                styles.summaryLabel,
+                { color: filterType === 'resolved' ? (isDarkMode ? '#4ade80' : '#15803d') : colors.textSecondary, fontWeight: filterType === 'resolved' ? '800' : '600' },
+              ]}
+            >
+              عمليات مسواة
             </Text>
           </TouchableOpacity>
         </View>
@@ -289,32 +290,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 4,
-    marginBottom: 14,
-    gap: 4,
-  },
-  filterTab: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeFilterTab: {
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  filterTabText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   searchBox: {
     borderRadius: 14,
