@@ -68,11 +68,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       try {
         const hasHardware = await LocalAuthentication.hasHardwareAsync();
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-        if (hasHardware && isEnrolled) {
+        const enabled = await isBiometricEnabled();
+        const saved = await getSavedCredentialsForBiometrics();
+        if (hasHardware && isEnrolled && enabled && saved && saved.user) {
           setIsBiometricSupported(true);
+        } else {
+          setIsBiometricSupported(false);
         }
       } catch (e) {
         console.log('Biometric support check notice:', e);
+        setIsBiometricSupported(false);
       }
     };
     checkBiometrics();
@@ -94,17 +99,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             await setAuthToken(saved.token);
           }
           await saveCachedUser(saved.user);
+          const isAdmin = saved.user.role === 'ADMIN' || saved.user.role === 'SUPER_ADMIN' || saved.user.role === 'SUPERVISOR';
           await onOtpSuccess({
             access_token: saved.token,
-            employee: saved.user,
+            employee: isAdmin ? undefined : saved.user,
+            admin: isAdmin ? saved.user : undefined,
           });
         } else {
           setAlertConfig({
             type: 'info',
             title: isRTL ? 'تفعيل البصمة' : 'Biometrics Setup',
             message: isRTL
-              ? 'يرجى تسجيل الدخول برقم الهوية وكلمة المرور لمرة واحدة لربط بصمتك بالحساب.'
-              : 'Please log in with your ID and password once to link your biometric credentials.',
+              ? 'يرجى تسجيل الدخول لمرة واحدة وتفعيل البصمة من الملف الشخصي لربط بصمتك بالحساب.'
+              : 'Please log in once and enable biometrics from your profile to link your account.',
             primaryButtonText: isRTL ? 'حسناً' : 'OK',
           });
         }

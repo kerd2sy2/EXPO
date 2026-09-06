@@ -74,7 +74,7 @@ const BIOMETRIC_ENABLED_KEY = 'aams_biometric_enabled';
 export const isBiometricEnabled = async (): Promise<boolean> => {
   try {
     const val = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
-    return val !== 'false';
+    return val === 'true';
   } catch {
     return false;
   }

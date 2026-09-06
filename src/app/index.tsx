@@ -666,6 +666,14 @@ export default function DelegateApp() {
       if (res && res.admin) {
         setAdminUser(res.admin);
         setEmployee(null);
+        await saveCachedUser(res.admin);
+        if (res.access_token) {
+          await setAuthToken(res.access_token);
+          const bioOn = await isBiometricEnabled();
+          if (bioOn) {
+            await saveLastCredentialsForBiometrics(inputVal, res.access_token, res.admin);
+          }
+        }
         return;
       } else if (res && res.employee) {
         setAdminUser(null);
@@ -713,6 +721,18 @@ export default function DelegateApp() {
   const handleOtpSuccess = async (loginResp?: any) => {
     if (loginResp?.access_token) {
       await setAuthToken(loginResp.access_token);
+    }
+    if (loginResp?.admin) {
+      setAdminUser(loginResp.admin);
+      setEmployee(null);
+      await saveCachedUser(loginResp.admin);
+      const bioOn = await isBiometricEnabled();
+      if (bioOn) {
+        const idVal = loginResp.admin.phone || loginResp.admin.username || 'admin';
+        await saveLastCredentialsForBiometrics(idVal, loginResp.access_token, loginResp.admin);
+      }
+      setCurrentTab('home');
+      return;
     }
     const emp = loginResp?.employee || loginResp;
     if (emp && emp.id) {

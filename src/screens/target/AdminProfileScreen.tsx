@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,19 @@ import {
   StyleSheet,
   Alert,
   Modal,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors } from '../../types/delegate';
 import { AppUpdateBottomSheet, UpdateModalState } from '../../components/modals/AppUpdateBottomSheet';
+import {
+  isBiometricEnabled,
+  setBiometricEnabled,
+  saveLastCredentialsForBiometrics,
+  getStoredToken,
+} from '../../services/api';
 
 interface AdminProfileScreenProps {
   user: any;
@@ -34,10 +42,65 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const roleLabel = isSupervisor ? 'مشرف التوصيل (Supervisor)' : 'مدير النظام (Admin)';
 
-  // Updates BottomSheet State (Matching Delegate Experience)
+  // Updates BottomSheet State
   const [updateModalVisible, setUpdateModalVisible] = useState(false);
   const [updateState, setUpdateState] = useState<UpdateModalState>('CHECKING');
   const [updateError, setUpdateError] = useState('');
+
+  // Biometrics State
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+  const [biometricsOn, setBiometricsOn] = useState(false);
+
+  useEffect(() => {
+    const checkBio = async () => {
+      try {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (hasHardware && isEnrolled) {
+          setBiometricsAvailable(true);
+          const enabled = await isBiometricEnabled();
+          setBiometricsOn(enabled);
+        }
+      } catch (e) {
+        console.log('Biometric check error in Admin Profile:', e);
+      }
+    };
+    checkBio();
+  }, []);
+
+  const handleToggleBiometrics = async (val: boolean) => {
+    if (val) {
+      try {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: isRTL ? 'تأكيد البصمة لتفعيل الدخول السريع' : 'Confirm Biometrics to Enable',
+          cancelLabel: isRTL ? 'إلغاء' : 'Cancel',
+          disableDeviceFallback: false,
+        });
+
+        if (result.success) {
+          const token = getStoredToken();
+          const identifier = user?.phone || user?.username || user?.email || (isAdmin ? '2642799148' : '500500');
+          if (token) {
+            await saveLastCredentialsForBiometrics(identifier, token, user);
+          }
+          await setBiometricEnabled(true);
+          setBiometricsOn(true);
+          Alert.alert(
+            isRTL ? 'تم التفعيل' : 'Activated',
+            isRTL
+              ? 'تم تفعيل تسجيل الدخول بالبصمة بنجاح على هذا الجهاز.'
+              : 'Biometric login has been activated on this device.'
+          );
+        }
+      } catch (e) {
+        console.log('Biometric activation error:', e);
+        Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل التحقق من البصمة' : 'Biometric verification failed');
+      }
+    } else {
+      await setBiometricEnabled(false);
+      setBiometricsOn(false);
+    }
+  };
 
   const handleCheckForUpdates = async () => {
     if (__DEV__ || !Updates.isEnabled) {
@@ -192,11 +255,41 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
           </View>
         )}
 
-        {/* 3. App Settings Box (Matching Delegate: Check for Updates & Logout) */}
+        {/* 3. App Settings Box (Biometrics, Updates & Logout) */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }]}>
             إعدادات النظام والتحديثات
           </Text>
+
+          {/* Biometrics Toggle Row */}
+          {biometricsAvailable && (
+            <View
+              style={[
+                styles.settingRow,
+                { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+              ]}
+            >
+              <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.settingIconBox, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5' }]}>
+                  <Ionicons name="finger-print" size={20} color="#f97316" />
+                </View>
+                <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
+                  <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+                    تسجيل الدخول بالبصمة
+                  </Text>
+                  <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
+                    بصمة الإصبع أو الوجه لتسجيل الدخول السريع
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={biometricsOn}
+                onValueChange={handleToggleBiometrics}
+                trackColor={{ false: isDarkMode ? '#334155' : '#cbd5e1', true: colors.primary }}
+                thumbColor="#ffffff"
+              />
+            </View>
+          )}
 
           {/* Check for Updates Row - Triggers Updates BottomSheet */}
           <TouchableOpacity
