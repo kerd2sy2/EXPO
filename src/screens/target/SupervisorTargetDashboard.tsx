@@ -58,7 +58,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [platformTab, setPlatformTab] = useState<'keeta' | 'ninja' | 'toyou'>('keeta');
+  const [platformTab, setPlatformTab] = useState<'ninja' | 'keeta' | 'toyou'>('ninja');
   const [selectedIdentifierId, setSelectedIdentifierId] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
@@ -649,7 +649,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                   <TouchableOpacity
                     style={[
                       styles.platformTabItem,
-                      platformTab === 'ninja' && [styles.platformTabItemActive, { backgroundColor: '#7c3aed' }],
+                      platformTab === 'ninja' && [styles.platformTabItemActive, { backgroundColor: '#000000', borderColor: isDarkMode ? '#334155' : '#0f172a', borderWidth: 1 }],
                     ]}
                     onPress={() => setPlatformTab('ninja')}
                     activeOpacity={0.75}
