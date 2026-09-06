@@ -130,8 +130,9 @@ export const clearSavedBiometrics = async (): Promise<void> => {
 
 export async function apiRequest<T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { timeoutMs?: number } = {}
 ): Promise<T> {
+  const { timeoutMs = 12000, ...fetchOptions } = options;
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   
   // Ensure token is loaded if not already in memory
@@ -143,32 +144,47 @@ export async function apiRequest<T = any>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-    ...(options.headers as Record<string, string>),
+    ...(fetchOptions.headers as Record<string, string>),
   };
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
 
-  const text = await response.text();
-  let data: any;
   try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = { message: text };
-  }
+    const response = await fetch(url, {
+      ...fetchOptions,
+      headers,
+      signal: fetchOptions.signal || controller.signal,
+    });
 
-  if (!response.ok) {
-    const errorMsg = data?.error || data?.message || `خطأ في الخادم (${response.status})`;
-    throw new Error(errorMsg);
-  }
+    const text = await response.text();
+    let data: any;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { message: text };
+    }
 
-  return data;
+    if (!response.ok) {
+      const errorMsg = data?.error || data?.message || `خطأ في الخادم (${response.status})`;
+      throw new Error(errorMsg);
+    }
+
+    return data;
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error('انتهت مهلة الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 // ------------------------------------------------------------------

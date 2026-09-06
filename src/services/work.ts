@@ -1,4 +1,12 @@
-import { apiRequest, setAuthToken, saveCachedUser, getCachedUser, saveLastCredentialsForBiometrics } from './api';
+import {
+  apiRequest,
+  setAuthToken,
+  saveCachedUser,
+  getCachedUser,
+  saveLastCredentialsForBiometrics,
+  getStoredToken,
+  loadStoredToken,
+} from './api';
 
 export interface EmployeeProfile {
   id: string;
@@ -95,11 +103,15 @@ export const workApi = {
       if (cached && (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN')) {
         return cached;
       }
-      const meResp = await apiRequest('/me');
+      const token = getStoredToken() || (await loadStoredToken());
+      if (!token) {
+        return null;
+      }
+      const meResp = await apiRequest('/me', { timeoutMs: 8000 });
       if (meResp && meResp.id) {
         let fullEmployee: any = cached ? { ...cached } : {};
         try {
-          const empDetail = await apiRequest<EmployeeProfile>(`/employees/${meResp.id}`);
+          const empDetail = await apiRequest<EmployeeProfile>(`/employees/${meResp.id}`, { timeoutMs: 8000 });
           if (empDetail && empDetail.id) {
             fullEmployee = { ...fullEmployee, ...empDetail };
           }

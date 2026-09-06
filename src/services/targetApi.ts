@@ -24,13 +24,31 @@ const getHeaders = (isMultipart = false) => {
   return headers;
 };
 
+async function targetFetch(url: string, options: RequestInit = {}, timeoutMs = 10000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: options.signal || controller.signal,
+    });
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error('انتهت مهلة الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export const targetApi = {
   // 1. Dashboard Summary
   getDashboard: async (month?: string): Promise<TargetDashboardSummary> => {
     const url = month
       ? `${API_BASE_URL}/target/dashboard?month=${encodeURIComponent(month)}`
       : `${API_BASE_URL}/target/dashboard`;
-    const res = await fetch(url, { headers: getHeaders() });
+    const res = await targetFetch(url, { headers: getHeaders() });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'فشل في جلب بيانات لوحة التحكم');
@@ -49,7 +67,7 @@ export const targetApi = {
     if (params?.status) q.append('status', params.status);
     if (params?.month) q.append('month', params.month);
 
-    const res = await fetch(`${API_BASE_URL}/target/identifiers?${q.toString()}`, {
+    const res = await targetFetch(`${API_BASE_URL}/target/identifiers?${q.toString()}`, {
       headers: getHeaders(),
     });
     if (!res.ok) {
@@ -65,7 +83,7 @@ export const targetApi = {
     const url = month
       ? `${API_BASE_URL}/target/identifiers/${id}?month=${encodeURIComponent(month)}`
       : `${API_BASE_URL}/target/identifiers/${id}`;
-    const res = await fetch(url, { headers: getHeaders() });
+    const res = await targetFetch(url, { headers: getHeaders() });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'فشل في جلب تفاصيل المعرف');
@@ -80,7 +98,7 @@ export const targetApi = {
     monthly_target?: number;
     daily_target?: number;
   }): Promise<any> => {
-    const res = await fetch(`${API_BASE_URL}/target/identifiers`, {
+    const res = await targetFetch(`${API_BASE_URL}/target/identifiers`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(data),
@@ -103,7 +121,7 @@ export const targetApi = {
       is_active?: boolean;
     }
   ): Promise<any> => {
-    const res = await fetch(`${API_BASE_URL}/target/identifiers/${id}`, {
+    const res = await targetFetch(`${API_BASE_URL}/target/identifiers/${id}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(data),
@@ -117,7 +135,7 @@ export const targetApi = {
 
   // 6. Delete Identifier (Admin only)
   deleteIdentifier: async (id: string): Promise<any> => {
-    const res = await fetch(`${API_BASE_URL}/target/identifiers/${id}`, {
+    const res = await targetFetch(`${API_BASE_URL}/target/identifiers/${id}`, {
       method: 'DELETE',
       headers: getHeaders(),
     });
@@ -137,7 +155,7 @@ export const targetApi = {
     if (params?.search) q.append('search', params.search);
     if (params?.month) q.append('month', params.month);
 
-    const res = await fetch(`${API_BASE_URL}/target/drivers?${q.toString()}`, {
+    const res = await targetFetch(`${API_BASE_URL}/target/drivers?${q.toString()}`, {
       headers: getHeaders(),
     });
     if (!res.ok) {
@@ -157,7 +175,7 @@ export const targetApi = {
     if (params?.date) q.append('date', params.date);
     if (params?.unresolved_only) q.append('unresolved_only', 'true');
 
-    const res = await fetch(`${API_BASE_URL}/target/alerts?${q.toString()}`, {
+    const res = await targetFetch(`${API_BASE_URL}/target/alerts?${q.toString()}`, {
       headers: getHeaders(),
     });
     if (!res.ok) {
@@ -170,7 +188,7 @@ export const targetApi = {
 
   // 9. Resolve Alert
   resolveAlert: async (id: string): Promise<any> => {
-    const res = await fetch(`${API_BASE_URL}/target/alerts/${id}/resolve`, {
+    const res = await targetFetch(`${API_BASE_URL}/target/alerts/${id}/resolve`, {
       method: 'PATCH',
       headers: getHeaders(),
     });
@@ -197,11 +215,11 @@ export const targetApi = {
       formData.append('date', customDate);
     }
 
-    const res = await fetch(`${API_BASE_URL}/admin/target/import/preview`, {
+    const res = await targetFetch(`${API_BASE_URL}/admin/target/import/preview`, {
       method: 'POST',
       headers: getHeaders(true),
       body: formData,
-    });
+    }, 20000);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'فشل في فحص ومعاينة ملف الإكسل');
@@ -216,11 +234,11 @@ export const targetApi = {
     deduplication_action: 'IGNORE_DUPLICATES' | 'REPLACE_DUPLICATES' | 'CANCEL';
     rows: any[];
   }): Promise<ConfirmImportResponse> => {
-    const res = await fetch(`${API_BASE_URL}/admin/target/import/confirm`, {
+    const res = await targetFetch(`${API_BASE_URL}/admin/target/import/confirm`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(data),
-    });
+    }, 20000);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'فشل في حفظ بيانات الإكسل في قاعدة البيانات');
@@ -230,7 +248,7 @@ export const targetApi = {
 
   // 12. Settings
   getTargetSettings: async (): Promise<TargetSettings> => {
-    const res = await fetch(`${API_BASE_URL}/target/settings`, {
+    const res = await targetFetch(`${API_BASE_URL}/target/settings`, {
       headers: getHeaders(),
     });
     if (!res.ok) {
@@ -241,7 +259,7 @@ export const targetApi = {
   },
 
   updateTargetSettings: async (settings: TargetSettings): Promise<any> => {
-    const res = await fetch(`${API_BASE_URL}/target/settings`, {
+    const res = await targetFetch(`${API_BASE_URL}/target/settings`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(settings),

@@ -40,6 +40,7 @@ import {
   API_BASE_URL,
   setAuthToken,
   getStoredToken,
+  loadStoredToken,
   getCachedUser,
   saveCachedUser,
   saveLastCredentialsForBiometrics,
@@ -373,10 +374,14 @@ export default function DelegateApp() {
       }
 
       if (check && check.isAvailable) {
-        setUpdateState('DOWNLOADING');
-        setUpdateModalVisible(true);
+        if (interactive) {
+          setUpdateState('DOWNLOADING');
+          setUpdateModalVisible(true);
+        }
+        // Download update quietly in the background without forcing popup
         await Updates.fetchUpdateAsync();
         setUpdateState('READY');
+        setUpdateModalVisible(true);
       } else if (interactive) {
         setUpdateState('UP_TO_DATE');
         setUpdateModalVisible(true);
@@ -400,73 +405,94 @@ export default function DelegateApp() {
     }
   };
 
-  // Background check for update 3 seconds after app starts
+  // Background check for update 8 seconds after app starts so startup is completely undisturbed
   useEffect(() => {
     const timer = setTimeout(() => {
       handleCheckForUpdates(false);
-    }, 3500);
+    }, 8000);
     return () => clearTimeout(timer);
   }, []);
 
   const checkSession = async () => {
-    setLoading(true);
     try {
-      // 1. Instant Cached User Restore
+      // 1. Fast Token Check - If no token exists at all, immediately show login screen in < 5ms
+      const token = await loadStoredToken();
       const cached = await getCachedUser();
-      if (cached && (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN')) {
-        setAdminUser(cached);
+
+      if (!token) {
+        setAdminUser(null);
         setEmployee(null);
         setLoading(false);
         return;
       }
-      if (cached && cached.id) {
-        setAdminUser(null);
-        setEmployee(cached);
-        if (cached.motorcycle_number) {
-          setEnteredMotorcycle(cached.motorcycle_number);
+
+      // 2. Instant Render from Local Cache (< 10ms Cold Start!)
+      if (cached) {
+        if (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN') {
+          setAdminUser(cached);
+          setEmployee(null);
+          setLoading(false);
+          return;
         }
-        // Background fetch active session and history immediately
-        fetchActiveSession(cached.id);
-        fetchHistory(cached.id);
+        if (cached.id) {
+          setAdminUser(null);
+          setEmployee(cached);
+          if (cached.motorcycle_number) {
+            setEnteredMotorcycle(cached.motorcycle_number);
+          }
+          // Immediately hide loading spinner so user sees dashboard right away!
+          setLoading(false);
+          // Fetch shift session and history in background
+          fetchActiveSession(cached.id);
+          fetchHistory(cached.id);
+        }
       }
 
-      // 2. Validate & Refresh Profile from Server without losing delegate fields
-      const user = await workApi.getMe();
-      if (user && ((user as any).is_admin || (user as any).role === 'ADMIN' || (user as any).role === 'SUPERVISOR' || (user as any).role === 'SUPER_ADMIN')) {
-        setAdminUser(user);
-        setEmployee(null);
-        setLoading(false);
-        return;
-      }
-      if (user && user.id) {
-        setAdminUser(null);
-        const merged: EmployeeProfile = {
-          ...(cached || {}),
-          ...user,
-          motorcycle_number: user.motorcycle_number || cached?.motorcycle_number || '',
-          key_number: user.key_number || cached?.key_number || '',
-          national_id: user.national_id || cached?.national_id || '',
-          personal_image: user.personal_image || cached?.personal_image || '',
-          national_id_image: user.national_id_image || cached?.national_id_image || '',
-          driving_license_image: user.driving_license_image || cached?.driving_license_image || '',
-          passport_image: user.passport_image || cached?.passport_image || '',
-          vehicle_registration_image: user.vehicle_registration_image || cached?.vehicle_registration_image || '',
-          employee_number: user.employee_number || cached?.employee_number || '',
-          phone: user.phone || cached?.phone || '',
-          branch_name: user.branch_name || cached?.branch_name || '',
-        } as EmployeeProfile;
-
-        setEmployee(merged);
-        if (merged.motorcycle_number) {
-          setEnteredMotorcycle(merged.motorcycle_number);
+      // 3. Silent Background Server Sync (Does NOT freeze the screen with a spinner)
+      workApi.getMe().then(async (user) => {
+        if (!user) {
+          if (!cached) {
+            setEmployee(null);
+            setAdminUser(null);
+          }
+          return;
         }
-        await Promise.all([
-          fetchActiveSession(merged.id),
-          fetchHistory(merged.id),
-        ]);
-      } else if (!cached) {
-        setEmployee(null);
-      }
+
+        if ((user as any).is_admin || (user as any).role === 'ADMIN' || (user as any).role === 'SUPERVISOR' || (user as any).role === 'SUPER_ADMIN') {
+          setAdminUser(user);
+          setEmployee(null);
+          return;
+        }
+
+        if (user.id) {
+          setAdminUser(null);
+          const merged: EmployeeProfile = {
+            ...(cached || {}),
+            ...user,
+            motorcycle_number: user.motorcycle_number || cached?.motorcycle_number || '',
+            key_number: user.key_number || cached?.key_number || '',
+            national_id: user.national_id || cached?.national_id || '',
+            personal_image: user.personal_image || cached?.personal_image || '',
+            national_id_image: user.national_id_image || cached?.national_id_image || '',
+            driving_license_image: user.driving_license_image || cached?.driving_license_image || '',
+            passport_image: user.passport_image || cached?.passport_image || '',
+            vehicle_registration_image: user.vehicle_registration_image || cached?.vehicle_registration_image || '',
+            employee_number: user.employee_number || cached?.employee_number || '',
+            phone: user.phone || cached?.phone || '',
+            branch_name: user.branch_name || cached?.branch_name || '',
+          } as EmployeeProfile;
+
+          setEmployee(merged);
+          if (merged.motorcycle_number) {
+            setEnteredMotorcycle(merged.motorcycle_number);
+          }
+          fetchActiveSession(merged.id);
+          fetchHistory(merged.id);
+        }
+      }).catch((err) => {
+        console.log('Background session refresh notice:', err);
+      });
+
     } catch (err) {
       console.log('Session check notice:', err);
     } finally {
