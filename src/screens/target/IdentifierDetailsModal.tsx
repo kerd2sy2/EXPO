@@ -58,6 +58,8 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
   if (!visible) return null;
 
   const p = details?.performance;
+  const driversBreakdown = Array.isArray(details?.drivers_breakdown) ? details.drivers_breakdown : [];
+  const appsBreakdown = (details?.apps_breakdown && typeof details.apps_breakdown === 'object') ? details.apps_breakdown : {};
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -244,14 +246,14 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
               <View style={styles.sectionHeader}>
                 <Ionicons name="people-outline" size={20} color="#f97316" />
                 <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
-                  تحليل المندوبين المشتركين ({details.drivers_breakdown.length})
+                  تحليل المندوبين المشتركين ({driversBreakdown.length})
                 </Text>
               </View>
 
-              {details.drivers_breakdown.length === 0 ? (
+              {driversBreakdown.length === 0 ? (
                 <Text style={styles.emptyText}>لا يوجد مناديب مسجلين لهذا المعرف في هذا الشهر</Text>
               ) : (
-                details.drivers_breakdown.map((drv, idx) => (
+                driversBreakdown.map((drv, idx) => (
                   <View key={idx} style={[styles.driverCard, isDarkMode && styles.darkCard]}>
                     <View style={styles.driverInfo}>
                       <Text style={[styles.driverName, isDarkMode && styles.darkText]}>
@@ -282,12 +284,16 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                 </Text>
               </View>
               <View style={styles.appsRow}>
-                {Object.entries(details.apps_breakdown).map(([appName, count], i) => (
-                  <View key={i} style={[styles.appChip, isDarkMode && styles.darkCard]}>
-                    <Text style={styles.appChipName}>{appName}</Text>
-                    <Text style={styles.appChipCount}>{count} طلب</Text>
-                  </View>
-                ))}
+                {Object.entries(appsBreakdown).length === 0 ? (
+                  <Text style={styles.emptyText}>لا توجد تطبيقات مسجلة</Text>
+                ) : (
+                  Object.entries(appsBreakdown).map(([appName, count], i) => (
+                    <View key={i} style={[styles.appChip, isDarkMode && styles.darkCard]}>
+                      <Text style={styles.appChipName}>{appName}</Text>
+                      <Text style={styles.appChipCount}>{count} طلب</Text>
+                    </View>
+                  ))
+                )}
               </View>
             </ScrollView>
           ) : null}
