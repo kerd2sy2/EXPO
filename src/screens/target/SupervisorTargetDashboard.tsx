@@ -169,16 +169,18 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         };
       case 'AT_RISK':
         return {
-          bg: isDarkMode ? 'rgba(234, 179, 8, 0.18)' : '#fef9c3',
-          text: isDarkMode ? '#fde047' : '#854d0e',
+          bg: isDarkMode ? 'rgba(245, 158, 11, 0.22)' : '#fef3c7',
+          text: isDarkMode ? '#fbbf24' : '#b45309',
+          border: isDarkMode ? 'rgba(245, 158, 11, 0.5)' : '#fcd34d',
           label: 'في خطر',
-          dot: '#eab308',
+          dot: '#f59e0b',
         };
       case 'BEHIND_TARGET':
       default:
         return {
           bg: isDarkMode ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2',
           text: isDarkMode ? '#f87171' : '#b91c1c',
+          border: isDarkMode ? 'rgba(239, 68, 68, 0.4)' : '#fca5a5',
           label: 'متأخر',
           dot: '#ef4444',
         };
@@ -609,45 +611,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               </View>
             ) : activeTab === 'identifiers' ? (
               <View>
-                {/* Platform Filter Tabs (Keeta / Ninja) */}
+                {/* Platform Filter Tabs (Ninja / Keeta) */}
                 <View style={[styles.platformTabsBar, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <TouchableOpacity
-                    style={[
-                      styles.platformTabItem,
-                      platformTab === 'keeta' && [styles.platformTabItemActive, { backgroundColor: '#d97706' }],
-                    ]}
-                    onPress={() => setPlatformTab('keeta')}
-                    activeOpacity={0.75}
-                  >
-                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
-                      <Image
-                        source={require('../../../assets/images/keeta.png')}
-                        style={styles.platformTabLogo}
-                        resizeMode="cover"
-                      />
-                      <Text
-                        style={[
-                          styles.platformTabItemText,
-                          { color: platformTab === 'keeta' ? '#ffffff' : colors.textPrimary },
-                          platformTab === 'keeta' && styles.platformTabItemTextActive,
-                        ]}
-                      >
-                        كيتا
-                      </Text>
-                      <View style={[
-                        styles.platformCountBadge,
-                        { backgroundColor: platformTab === 'keeta' ? 'rgba(255,255,255,0.3)' : isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }
-                      ]}>
-                        <Text style={[
-                          styles.platformCountText,
-                          { color: platformTab === 'keeta' ? '#ffffff' : colors.textPrimary }
-                        ]}>
-                          {keetaCount}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-
+                  {/* 1. NINJA (First) */}
                   <TouchableOpacity
                     style={[
                       styles.platformTabItem,
@@ -680,6 +646,44 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                           { color: platformTab === 'ninja' ? '#ffffff' : colors.textPrimary }
                         ]}>
                           {ninjaCount}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* 2. KEETA (Second) */}
+                  <TouchableOpacity
+                    style={[
+                      styles.platformTabItem,
+                      platformTab === 'keeta' && [styles.platformTabItemActive, { backgroundColor: '#d97706' }],
+                    ]}
+                    onPress={() => setPlatformTab('keeta')}
+                    activeOpacity={0.75}
+                  >
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                      <Image
+                        source={require('../../../assets/images/keeta.png')}
+                        style={styles.platformTabLogo}
+                        resizeMode="cover"
+                      />
+                      <Text
+                        style={[
+                          styles.platformTabItemText,
+                          { color: platformTab === 'keeta' ? '#ffffff' : colors.textPrimary },
+                          platformTab === 'keeta' && styles.platformTabItemTextActive,
+                        ]}
+                      >
+                        كيتا
+                      </Text>
+                      <View style={[
+                        styles.platformCountBadge,
+                        { backgroundColor: platformTab === 'keeta' ? 'rgba(255,255,255,0.3)' : isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }
+                      ]}>
+                        <Text style={[
+                          styles.platformCountText,
+                          { color: platformTab === 'keeta' ? '#ffffff' : colors.textPrimary }
+                        ]}>
+                          {keetaCount}
                         </Text>
                       </View>
                     </View>
@@ -761,7 +765,15 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                           </View>
                         </View>
 
-                        <View style={[styles.statusBadge, { backgroundColor: badge.bg, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={[
+                          styles.statusBadge,
+                          {
+                            backgroundColor: badge.bg,
+                            borderColor: badge.border || 'transparent',
+                            borderWidth: badge.border ? 1 : 0,
+                            flexDirection: isRTL ? 'row-reverse' : 'row',
+                          }
+                        ]}>
                           <View style={[styles.badgeDot, { backgroundColor: badge.dot }]} />
                           <Text style={[styles.statusBadgeText, { color: badge.text }]}>{badge.label}</Text>
                         </View>
@@ -1327,20 +1339,25 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   statusBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 5,
+    flexShrink: 0,
+    minWidth: 68,
   },
   badgeDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
+    flexShrink: 0,
   },
   statusBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
+    flexShrink: 0,
   },
   itemProgressSection: {
     flexDirection: 'row',

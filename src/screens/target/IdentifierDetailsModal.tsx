@@ -68,7 +68,11 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
       case 'ON_TRACK':
         return { bg: '#dcfce7', text: '#15803d', label: '🟢 يسير بالمعدل المطلوب' };
       case 'AT_RISK':
-        return { bg: '#fef9c3', text: '#854d0e', label: '🟡 في خطر' };
+        return {
+          bg: isDarkMode ? 'rgba(245, 158, 11, 0.22)' : '#fef3c7',
+          text: isDarkMode ? '#fbbf24' : '#b45309',
+          label: '🟡 في خطر',
+        };
       case 'BEHIND_TARGET':
       default:
         return { bg: '#fee2e2', text: '#b91c1c', label: '🔴 متأخر عن التارچت' };
