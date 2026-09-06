@@ -369,11 +369,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               onPress={handleLogoTap}
               activeOpacity={0.7}
             >
-              <Image
-                source={require('../../../assets/images/logo.png')}
-                style={styles.headerLogoImage}
-                resizeMode="contain"
-              />
               <View style={styles.headerBrandTextCol}>
                 <Text
                   style={[styles.headerBrandTitle, { color: colors.textPrimary }]}
@@ -388,6 +383,11 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                   LOGISTICS
                 </Text>
               </View>
+              <Image
+                source={require('../../../assets/images/logo.png')}
+                style={styles.headerLogoImage}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
 
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>

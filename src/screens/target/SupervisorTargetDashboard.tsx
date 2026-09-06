@@ -346,11 +346,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               onPress={handleLogoTap}
               activeOpacity={0.7}
             >
-              <Image
-                source={require('../../../assets/images/logo.png')}
-                style={styles.headerLogoImage}
-                resizeMode="contain"
-              />
               <View style={styles.headerBrandTextCol}>
                 <Text
                   style={[styles.headerBrandTitle, { color: colors.textPrimary }]}
@@ -365,6 +360,11 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                   LOGISTICS
                 </Text>
               </View>
+              <Image
+                source={require('../../../assets/images/logo.png')}
+                style={styles.headerLogoImage}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
 
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -1032,9 +1032,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         visible={showBranchModal}
         selectedBranch={branchFilter}
         onSelectBranch={(b) => setBranchFilter(b)}
-        dateFilter={dateFilter}
-        onOpenDateFilter={() => setShowDateFilterModal(true)}
-        onResetDateFilter={(newDefault) => setDateFilter(newDefault)}
         onClose={() => setShowBranchModal(false)}
         colors={colors}
         isDarkMode={isDarkMode}
