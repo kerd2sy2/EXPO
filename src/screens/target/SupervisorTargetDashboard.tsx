@@ -179,6 +179,17 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     }
   };
 
+  const getIdentifierPlatform = (ident: any): 'keeta' | 'ninja' | 'toyou' => {
+    const str = `${ident?.name || ''} ${ident?.code || ''} ${ident?.app_name || ''}`.toLowerCase();
+    if (str.includes('ninja') || str.includes('نينجا') || str.includes('فردين')) {
+      return 'ninja';
+    }
+    if (str.includes('toyou') || str.includes('to you') || str.includes('تويو')) {
+      return 'toyou';
+    }
+    return 'keeta';
+  };
+
   // Fast In-Memory Local Filtering (Zero network lag, zero UI freeze)
   const identsList = useMemo(() => {
     let list = Array.isArray(identifiers) ? identifiers : [];
@@ -571,6 +582,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               ) : (
                 identsList.map((ident) => {
                   const badge = getStatusBadge(ident.status);
+                  const platform = getIdentifierPlatform(ident);
                   return (
                     <TouchableOpacity
                       key={ident.id}
@@ -579,11 +591,51 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                       activeOpacity={0.75}
                     >
                       <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <View style={[styles.itemTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                          <Text style={[styles.itemName, { color: colors.textPrimary }]}>{ident.name}</Text>
-                          {ident.code ? (
-                            <Text style={[styles.itemCode, { color: colors.textSecondary }]}>كود: {ident.code}</Text>
-                          ) : null}
+                        <View style={[styles.identAvatarTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                          <View
+                            style={[
+                              styles.identPlatformAvatar,
+                              {
+                                backgroundColor:
+                                  platform === 'ninja'
+                                    ? '#ffffff'
+                                    : platform === 'toyou'
+                                    ? '#ffffff'
+                                    : '#fde047',
+                                borderColor:
+                                  platform === 'ninja'
+                                    ? (isDarkMode ? '#475569' : '#0f172a')
+                                    : platform === 'toyou'
+                                    ? '#06b6d4'
+                                    : '#eab308',
+                              },
+                            ]}
+                          >
+                            <Image
+                              source={
+                                platform === 'ninja'
+                                  ? require('../../../assets/images/ninja.png')
+                                  : platform === 'toyou'
+                                  ? require('../../../assets/images/toyou.png')
+                                  : require('../../../assets/images/keeta.png')
+                              }
+                              style={
+                                platform === 'ninja'
+                                  ? styles.identNinjaAvatarImg
+                                  : platform === 'toyou'
+                                  ? styles.identToyouAvatarImg
+                                  : styles.identKeetaAvatarImg
+                              }
+                              resizeMode={platform === 'keeta' ? 'cover' : 'contain'}
+                            />
+                          </View>
+
+                          <View style={[styles.itemTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                            <Text style={[styles.itemName, { color: colors.textPrimary }]}>{ident.name}</Text>
+                            {ident.code ? (
+                              <Text style={[styles.itemCode, { color: colors.textSecondary }]}>كود: {ident.code}</Text>
+                            ) : null}
+                          </View>
                         </View>
 
                         <View style={[styles.statusBadge, { backgroundColor: badge.bg, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -1075,6 +1127,32 @@ const styles = StyleSheet.create({
   itemTopRow: {
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  identAvatarTitleGroup: {
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  identPlatformAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  identNinjaAvatarImg: {
+    width: 32,
+    height: 32,
+  },
+  identToyouAvatarImg: {
+    width: 35,
+    height: 35,
+  },
+  identKeetaAvatarImg: {
+    width: 44,
+    height: 44,
   },
   itemTitleGroup: {
     flex: 1,

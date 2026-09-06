@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { IdentifierDetails } from '../../types/target';
@@ -72,7 +73,15 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
     }
   };
 
+  const getIdentifierPlatform = (name?: string, code?: string): 'keeta' | 'ninja' | 'toyou' => {
+    const str = `${name || ''} ${code || ''}`.toLowerCase();
+    if (str.includes('ninja') || str.includes('نينجا') || str.includes('فردين')) return 'ninja';
+    if (str.includes('toyou') || str.includes('to you') || str.includes('تويو')) return 'toyou';
+    return 'keeta';
+  };
+
   const statusBadge = p ? getStatusBadge(p.status) : null;
+  const platform = getIdentifierPlatform(p?.name, p?.code);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -83,11 +92,48 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#1e293b'} />
             </TouchableOpacity>
-            <View style={styles.titleContainer}>
-              <Text style={[styles.title, isDarkMode && styles.darkText]}>
-                {p?.name ? `تفاصيل المعرف: ${p.name}` : 'تفاصيل المعرف'}
-              </Text>
-              {p?.code ? <Text style={styles.codeText}>كود: {p.code}</Text> : null}
+            <View style={styles.headerTitleGroup}>
+              <View style={styles.titleContainer}>
+                <Text style={[styles.title, isDarkMode && styles.darkText]}>
+                  {p?.name ? `تفاصيل المعرف: ${p.name}` : 'تفاصيل المعرف'}
+                </Text>
+                {p?.code ? <Text style={styles.codeText}>كود: {p.code}</Text> : null}
+              </View>
+              {p?.name ? (
+                <View
+                  style={[
+                    styles.platformAvatar,
+                    {
+                      backgroundColor:
+                        platform === 'ninja' ? '#ffffff' : platform === 'toyou' ? '#ffffff' : '#fde047',
+                      borderColor:
+                        platform === 'ninja'
+                          ? isDarkMode ? '#475569' : '#0f172a'
+                          : platform === 'toyou'
+                          ? '#06b6d4'
+                          : '#eab308',
+                    },
+                  ]}
+                >
+                  <Image
+                    source={
+                      platform === 'ninja'
+                        ? require('../../../assets/images/ninja.png')
+                        : platform === 'toyou'
+                        ? require('../../../assets/images/toyou.png')
+                        : require('../../../assets/images/keeta.png')
+                    }
+                    style={
+                      platform === 'ninja'
+                        ? styles.ninjaAvatarImg
+                        : platform === 'toyou'
+                        ? styles.toyouAvatarImg
+                        : styles.keetaAvatarImg
+                    }
+                    resizeMode={platform === 'keeta' ? 'cover' : 'contain'}
+                  />
+                </View>
+              ) : null}
             </View>
           </View>
 
@@ -277,6 +323,32 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  platformAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  ninjaAvatarImg: {
+    width: 32,
+    height: 32,
+  },
+  toyouAvatarImg: {
+    width: 35,
+    height: 35,
+  },
+  keetaAvatarImg: {
+    width: 44,
+    height: 44,
   },
   titleContainer: {
     alignItems: 'flex-end',

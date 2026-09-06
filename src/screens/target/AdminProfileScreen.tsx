@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
@@ -234,39 +235,28 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color="#ef4444" />
           </TouchableOpacity>
         </View>
-
-        {/* 4. Standalone Big Logout Button (Delegate style) */}
-        <TouchableOpacity
-          style={[
-            styles.standaloneLogoutBtn,
-            {
-              backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fee2e2',
-              borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.28)' : '#fca5a5',
-              flexDirection: isRTL ? 'row-reverse' : 'row',
-            },
-          ]}
-          onPress={handleConfirmLogout}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="log-out-outline" size={22} color="#ef4444" />
-          <Text style={styles.standaloneLogoutText}>
-            {isRTL ? 'تسجيل الخروج من الحساب' : 'Log Out of Account'}
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
 
-      {/* 4. App Update Bottom Sheet (Same as Delegate) */}
-      <AppUpdateBottomSheet
+      {/* 4. App Update Bottom Sheet (Wrapped in Modal like Delegate App) */}
+      <Modal
         visible={updateModalVisible}
-        state={updateState}
-        errorMessage={updateError}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        onApplyUpdate={handleApplyUpdate}
-        onCheckAgain={handleCheckForUpdates}
-        onClose={() => setUpdateModalVisible(false)}
-      />
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => setUpdateModalVisible(false)}
+      >
+        <AppUpdateBottomSheet
+          visible={updateModalVisible}
+          state={updateState}
+          errorMessage={updateError}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          onApplyUpdate={handleApplyUpdate}
+          onCheckAgain={handleCheckForUpdates}
+          onClose={() => setUpdateModalVisible(false)}
+        />
+      </Modal>
     </View>
   );
 };
@@ -383,21 +373,5 @@ const styles = StyleSheet.create({
   settingRowSub: {
     fontSize: 11,
     marginTop: 2,
-  },
-  standaloneLogoutBtn: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  standaloneLogoutText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#ef4444',
   },
 });

@@ -83,9 +83,11 @@ export const TargetSettingsModal: React.FC<TargetSettingsModalProps> = ({
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
         <View style={[styles.card, isDarkMode && styles.darkCard]}>
+          <View style={[styles.dragHandle, isDarkMode && { backgroundColor: '#475569' }]} />
           <View style={styles.header}>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={22} color={isDarkMode ? '#fff' : '#1e293b'} />
@@ -151,20 +153,32 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    padding: 20,
   },
   card: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 500,
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    elevation: 5,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 38,
+    elevation: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+  },
+  dragHandle: {
+    width: 44,
+    height: 4.5,
+    borderRadius: 3,
+    backgroundColor: '#cbd5e1',
+    alignSelf: 'center',
+    marginBottom: 14,
   },
   darkCard: {
     backgroundColor: '#0f172a',
