@@ -206,7 +206,12 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   };
 
   const getIdentifierPlatform = (ident: any): 'keeta' | 'ninja' | 'toyou' => {
-    const str = `${ident?.name || ''} ${ident?.code || ''} ${ident?.app_name || ''}`.toLowerCase();
+    const app = (ident?.app_name || '').toLowerCase();
+    if (app.includes('ninja') || app.includes('نينجا')) return 'ninja';
+    if (app.includes('toyou') || app.includes('to you') || app.includes('تويو')) return 'toyou';
+    if (app.includes('keeta') || app.includes('كيتا') || app.includes('كينتا')) return 'keeta';
+
+    const str = `${ident?.name || ''} ${ident?.code || ''}`.toLowerCase();
     if (str.includes('ninja') || str.includes('نينجا') || str.includes('فردين')) {
       return 'ninja';
     }
@@ -693,7 +698,46 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                           </View>
 
                           <View style={[styles.itemTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                            <Text style={[styles.itemName, { color: colors.textPrimary }]}>{ident.name}</Text>
+                            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <Text style={[styles.itemName, { color: colors.textPrimary }]}>{ident.name}</Text>
+                              {ident.app_name ? (
+                                <View
+                                  style={[
+                                    styles.appBadge,
+                                    {
+                                      backgroundColor:
+                                        platform === 'ninja'
+                                          ? (isDarkMode ? '#3b0764' : '#f3e8ff')
+                                          : platform === 'toyou'
+                                          ? (isDarkMode ? '#082f49' : '#e0f2fe')
+                                          : (isDarkMode ? '#422006' : '#fef9c3'),
+                                      borderColor:
+                                        platform === 'ninja'
+                                          ? '#a855f7'
+                                          : platform === 'toyou'
+                                          ? '#38bdf8'
+                                          : '#facc15',
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.appBadgeText,
+                                      {
+                                        color:
+                                          platform === 'ninja'
+                                            ? (isDarkMode ? '#d8b4fe' : '#7e22ce')
+                                            : platform === 'toyou'
+                                            ? (isDarkMode ? '#7dd3fc' : '#0369a1')
+                                            : (isDarkMode ? '#fde047' : '#854d0e'),
+                                      },
+                                    ]}
+                                  >
+                                    {ident.app_name}
+                                  </Text>
+                                </View>
+                              ) : null}
+                            </View>
                             {ident.code ? (
                               <Text style={[styles.itemCode, { color: colors.textSecondary }]}>كود: {ident.code}</Text>
                             ) : null}
@@ -1443,6 +1487,16 @@ const styles = StyleSheet.create({
   },
   resolveBtnText: {
     fontSize: 12,
+    fontWeight: '700',
+  },
+  appBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  appBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
   },
 });
