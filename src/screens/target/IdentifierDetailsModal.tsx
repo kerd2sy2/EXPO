@@ -87,6 +87,11 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
     return 'keeta';
   };
 
+  const formatIdentifierDisplayName = (name?: string) => {
+    if (!name) return '';
+    return name.replace(/\s*\((كيتا|نينجا|تويو|كينتا|Keeta|Ninja|Toyou)\)/gi, '').trim();
+  };
+
   const statusBadge = p ? getStatusBadge(p.status) : null;
   const platform = getIdentifierPlatform(p?.name, p?.code, p?.app_name);
 
@@ -102,7 +107,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
             <View style={styles.headerTitleGroup}>
               <View style={styles.titleContainer}>
                 <Text style={[styles.title, isDarkMode && styles.darkText]}>
-                  {p?.name ? `تفاصيل المعرف: ${p.name}${p.app_name ? ` (${p.app_name})` : ''}` : 'تفاصيل المعرف'}
+                  {p?.name ? `تفاصيل المعرف: ${formatIdentifierDisplayName(p.name)}` : 'تفاصيل المعرف'}
                 </Text>
                 {p?.code ? <Text style={styles.codeText}>كود: {p.code}</Text> : null}
               </View>

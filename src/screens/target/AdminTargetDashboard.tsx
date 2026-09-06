@@ -222,6 +222,11 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     return 'keeta';
   };
 
+  const formatIdentifierDisplayName = (name?: string) => {
+    if (!name) return '';
+    return name.replace(/\s*\((كيتا|نينجا|تويو|كينتا|Keeta|Ninja|Toyou)\)/gi, '').trim();
+  };
+
   const keetaCount = useMemo(() => {
     return (identifiers || []).filter((i) => getIdentifierPlatform(i) === 'keeta').length;
   }, [identifiers]);
@@ -656,35 +661,48 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             ) : activeTab === 'identifiers' ? (
               <View>
                 {/* Platform Filter Tabs (All / Keeta / Ninja) */}
-                <View style={[styles.platformTabsBar, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.platformTabsBar, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <TouchableOpacity
                     style={[
                       styles.platformTabItem,
                       platformTab === 'all' && [styles.platformTabItemActive, { backgroundColor: colors.primary }],
                     ]}
                     onPress={() => setPlatformTab('all')}
-                    activeOpacity={0.7}
+                    activeOpacity={0.75}
                   >
-                    <Text
-                      style={[
-                        styles.platformTabItemText,
-                        { color: platformTab === 'all' ? '#ffffff' : colors.textSecondary },
-                        platformTab === 'all' && styles.platformTabItemTextActive,
-                      ]}
-                    >
-                      الكل ({identifiers.length})
-                    </Text>
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 5 }}>
+                      <Text
+                        style={[
+                          styles.platformTabItemText,
+                          { color: platformTab === 'all' ? '#ffffff' : colors.textPrimary },
+                          platformTab === 'all' && styles.platformTabItemTextActive,
+                        ]}
+                      >
+                        الكل
+                      </Text>
+                      <View style={[
+                        styles.platformCountBadge,
+                        { backgroundColor: platformTab === 'all' ? 'rgba(255,255,255,0.28)' : isDarkMode ? '#334155' : '#e2e8f0' }
+                      ]}>
+                        <Text style={[
+                          styles.platformCountText,
+                          { color: platformTab === 'all' ? '#ffffff' : colors.textPrimary }
+                        ]}>
+                          {identifiers.length}
+                        </Text>
+                      </View>
+                    </View>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
                       styles.platformTabItem,
-                      platformTab === 'keeta' && [styles.platformTabItemActive, { backgroundColor: '#eab308' }],
+                      platformTab === 'keeta' && [styles.platformTabItemActive, { backgroundColor: '#d97706' }],
                     ]}
                     onPress={() => setPlatformTab('keeta')}
-                    activeOpacity={0.7}
+                    activeOpacity={0.75}
                   >
-                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 5 }}>
                       <Image
                         source={require('../../../assets/images/keeta.png')}
                         style={styles.platformTabLogo}
@@ -693,24 +711,35 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                       <Text
                         style={[
                           styles.platformTabItemText,
-                          { color: platformTab === 'keeta' ? '#ffffff' : colors.textSecondary },
+                          { color: platformTab === 'keeta' ? '#ffffff' : colors.textPrimary },
                           platformTab === 'keeta' && styles.platformTabItemTextActive,
                         ]}
                       >
-                        كيتا ({keetaCount})
+                        كيتا
                       </Text>
+                      <View style={[
+                        styles.platformCountBadge,
+                        { backgroundColor: platformTab === 'keeta' ? 'rgba(255,255,255,0.28)' : isDarkMode ? '#334155' : '#e2e8f0' }
+                      ]}>
+                        <Text style={[
+                          styles.platformCountText,
+                          { color: platformTab === 'keeta' ? '#ffffff' : colors.textPrimary }
+                        ]}>
+                          {keetaCount}
+                        </Text>
+                      </View>
                     </View>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
                       styles.platformTabItem,
-                      platformTab === 'ninja' && [styles.platformTabItemActive, { backgroundColor: isDarkMode ? '#7c3aed' : '#0f172a' }],
+                      platformTab === 'ninja' && [styles.platformTabItemActive, { backgroundColor: '#7c3aed' }],
                     ]}
                     onPress={() => setPlatformTab('ninja')}
-                    activeOpacity={0.7}
+                    activeOpacity={0.75}
                   >
-                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 5 }}>
                       <Image
                         source={require('../../../assets/images/ninja.png')}
                         style={styles.platformTabLogo}
@@ -719,12 +748,23 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                       <Text
                         style={[
                           styles.platformTabItemText,
-                          { color: platformTab === 'ninja' ? '#ffffff' : colors.textSecondary },
+                          { color: platformTab === 'ninja' ? '#ffffff' : colors.textPrimary },
                           platformTab === 'ninja' && styles.platformTabItemTextActive,
                         ]}
                       >
-                        نينجا ({ninjaCount})
+                        نينجا
                       </Text>
+                      <View style={[
+                        styles.platformCountBadge,
+                        { backgroundColor: platformTab === 'ninja' ? 'rgba(255,255,255,0.28)' : isDarkMode ? '#334155' : '#e2e8f0' }
+                      ]}>
+                        <Text style={[
+                          styles.platformCountText,
+                          { color: platformTab === 'ninja' ? '#ffffff' : colors.textPrimary }
+                        ]}>
+                          {ninjaCount}
+                        </Text>
+                      </View>
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -795,46 +835,9 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                           </View>
 
                           <View style={[styles.itemTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                              <Text style={[styles.itemName, { color: colors.textPrimary }]}>{ident.name}</Text>
-                              {ident.app_name ? (
-                                <View
-                                  style={[
-                                    styles.appBadge,
-                                    {
-                                      backgroundColor:
-                                        platform === 'ninja'
-                                          ? (isDarkMode ? '#3b0764' : '#f3e8ff')
-                                          : platform === 'toyou'
-                                          ? (isDarkMode ? '#082f49' : '#e0f2fe')
-                                          : (isDarkMode ? '#422006' : '#fef9c3'),
-                                      borderColor:
-                                        platform === 'ninja'
-                                          ? '#a855f7'
-                                          : platform === 'toyou'
-                                          ? '#38bdf8'
-                                          : '#facc15',
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.appBadgeText,
-                                      {
-                                        color:
-                                          platform === 'ninja'
-                                            ? (isDarkMode ? '#d8b4fe' : '#7e22ce')
-                                            : platform === 'toyou'
-                                            ? (isDarkMode ? '#7dd3fc' : '#0369a1')
-                                            : (isDarkMode ? '#fde047' : '#854d0e'),
-                                      },
-                                    ]}
-                                  >
-                                    {ident.app_name}
-                                  </Text>
-                                </View>
-                              ) : null}
-                            </View>
+                            <Text style={[styles.itemName, { color: colors.textPrimary }]}>
+                              {formatIdentifierDisplayName(ident.name)}
+                            </Text>
                             {ident.code ? (
                               <Text style={[styles.itemCode, { color: colors.textSecondary }]}>كود: {ident.code}</Text>
                             ) : null}
@@ -1633,5 +1636,17 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 3,
+  },
+  platformCountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  platformCountText: {
+    fontSize: 11,
+    fontWeight: '800',
   },
 });
