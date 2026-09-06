@@ -43,6 +43,7 @@ import {
   loadStoredToken,
   getCachedUser,
   saveCachedUser,
+  isBiometricEnabled,
   saveLastCredentialsForBiometrics,
 } from '../services/api';
 import {

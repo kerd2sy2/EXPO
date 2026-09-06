@@ -22,6 +22,7 @@ import { OtpVerificationModal } from '../components/modals/OtpVerificationModal'
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import {
   isDeviceTrustedForNationalId,
+  isBiometricEnabled,
   getSavedCredentialsForBiometrics,
   setAuthToken,
   saveCachedUser,
