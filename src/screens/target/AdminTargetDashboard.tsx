@@ -12,7 +12,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import {
   TargetDashboardSummary,
   IdentifierPerformance,
@@ -109,17 +109,20 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     try {
       setLoading(true);
       const [sumData, identsData, driversData, alertsData] = await Promise.all([
-        targetApi.getDashboard(),
-        targetApi.listIdentifiers({ search: searchQuery, status: statusFilter }),
-        targetApi.listDrivers({ search: searchQuery }),
-        targetApi.listAlerts({ unresolved_only: true }),
+        targetApi.getDashboard().catch(() => null),
+        targetApi.listIdentifiers({ search: searchQuery, status: statusFilter }).catch(() => []),
+        targetApi.listDrivers({ search: searchQuery }).catch(() => []),
+        targetApi.listAlerts({ unresolved_only: true }).catch(() => []),
       ]);
-      setSummary(sumData);
-      setIdentifiers(identsData);
-      setDrivers(driversData);
-      setAlerts(alertsData);
+      setSummary(sumData || null);
+      setIdentifiers(Array.isArray(identsData) ? identsData : []);
+      setDrivers(Array.isArray(driversData) ? driversData : []);
+      setAlerts(Array.isArray(alertsData) ? alertsData : []);
     } catch (err: any) {
       console.log('Error loading admin dashboard data:', err);
+      setIdentifiers([]);
+      setDrivers([]);
+      setAlerts([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -161,7 +164,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   const handleResolveAlert = async (alertId: string) => {
     try {
       await targetApi.resolveAlert(alertId);
-      setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+      setAlerts((prev) => (Array.isArray(prev) ? prev.filter((a) => a.id !== alertId) : []));
       Alert.alert('تم', 'تمت تسوية التنبيه بنجاح');
     } catch (e: any) {
       Alert.alert('خطأ', e.message || 'فشل في تسوية التنبيه');
@@ -202,9 +205,14 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     }
   };
 
-  // Target Achievement percentage for overall month banner
-  const targetAchievedPercent = summary
-    ? Math.min(100, Math.round(((summary.target_achieved + summary.on_track) / Math.max(1, summary.total_identifiers)) * 100))
+  // Safe array guards
+  const identsList = Array.isArray(identifiers) ? identifiers : [];
+  const driversList = Array.isArray(drivers) ? drivers : [];
+  const alertsList = Array.isArray(alerts) ? alerts : [];
+
+  const totalIdents = summary?.total_identifiers || identsList.length || 0;
+  const targetAchievedPercent = totalIdents > 0
+    ? Math.min(100, Math.round((((summary?.target_achieved || 0) + (summary?.on_track || 0)) / totalIdents) * 100))
     : 0;
 
   return (
@@ -265,7 +273,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         }
       >
         <View style={styles.tabContainer}>
-          {/* 1. Monthly Target & Overall Progress Hero Card (Same as Delegate Target Card) */}
+          {/* 1. Monthly Target & Overall Progress Hero Card */}
           <View style={[styles.targetCardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.targetCardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={[styles.targetTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -323,7 +331,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             </View>
           </View>
 
-          {/* 2. Quick KPI Stats (Exact 2-Column Grid of Delegate App) */}
+          {/* 2. Quick KPI Stats */}
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
               مؤشرات الأداء الرئيسية
@@ -331,18 +339,16 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           </View>
 
           <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            {/* Box 1: Total Identifiers */}
             <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : '#dbeafe' }]}>
                 <Ionicons name="people" size={22} color="#2563eb" />
               </View>
               <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                {summary?.total_identifiers ?? 0}
+                {summary?.total_identifiers ?? identsList.length}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>إجمالي المعرفين</Text>
             </View>
 
-            {/* Box 2: Target Achieved */}
             <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.16)' : '#dcfce7' }]}>
                 <Ionicons name="trophy" size={22} color="#16a34a" />
@@ -353,9 +359,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>حققوا التارچت</Text>
             </View>
 
-            {/* Box 3: On Track */}
             <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.16)' : '#ccfbf1' }]}>
+              <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#ccfbf1' }]}>
                 <Ionicons name="trending-up" size={22} color="#0d9488" />
               </View>
               <Text style={[styles.statNumber, { color: '#0d9488' }]}>
@@ -364,7 +369,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>بالمعدل المطلوب</Text>
             </View>
 
-            {/* Box 4: At Risk / Behind */}
             <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.16)' : '#fee2e2' }]}>
                 <Ionicons name="warning" size={22} color="#dc2626" />
@@ -375,7 +379,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>في خطر / متأخرين</Text>
             </View>
 
-            {/* Box 5: Today Orders */}
             <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
                 <Ionicons name="flash" size={22} color={colors.primary} />
@@ -386,26 +389,24 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>طلبات اليوم</Text>
             </View>
 
-            {/* Box 6: Active Alerts */}
             <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#f3e8ff' }]}>
                 <Ionicons name="notifications" size={22} color="#9333ea" />
               </View>
-              <Text style={[styles.statNumber, { color: alerts.length > 0 ? '#9333ea' : colors.textPrimary }]}>
-                {alerts.length}
+              <Text style={[styles.statNumber, { color: alertsList.length > 0 ? '#9333ea' : colors.textPrimary }]}>
+                {alertsList.length}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>تنبيهات العجز النشطة</Text>
             </View>
           </View>
 
-          {/* 3. Quick Actions (Matching quickCardRow in Delegate App) */}
+          {/* 3. Quick Actions */}
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
               الإجراءات والعمليات
             </Text>
           </View>
 
-          {/* Action 1: Upload Excel */}
           <TouchableOpacity
             style={[
               styles.quickCardRow,
@@ -428,7 +429,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* Action 2: Add Identifier */}
           <TouchableOpacity
             style={[
               styles.quickCardRow,
@@ -451,7 +451,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* Action 3: Target Settings */}
           <TouchableOpacity
             style={[
               styles.quickCardRow,
@@ -481,7 +480,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             </Text>
           </View>
 
-          {/* Modern Segmented Navigation Tabs */}
           <View style={[styles.segmentedTabsContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
             <TouchableOpacity
               style={[
@@ -496,7 +494,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                   { color: activeTab === 'identifiers' ? colors.primary : colors.textSecondary },
                 ]}
               >
-                المعرفين ({identifiers.length})
+                المعرفين ({identsList.length})
               </Text>
             </TouchableOpacity>
 
@@ -513,7 +511,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                   { color: activeTab === 'drivers' ? colors.primary : colors.textSecondary },
                 ]}
               >
-                المناديب ({drivers.length})
+                المناديب ({driversList.length})
               </Text>
             </TouchableOpacity>
 
@@ -530,7 +528,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                   { color: activeTab === 'alerts' ? colors.primary : colors.textSecondary },
                 ]}
               >
-                التنبيهات ({alerts.length})
+                التنبيهات ({alertsList.length})
               </Text>
             </TouchableOpacity>
           </View>
@@ -558,7 +556,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             ) : null}
           </View>
 
-          {/* Status Filter Chips (for Identifiers Tab) */}
+          {/* Status Filter Chips */}
           {activeTab === 'identifiers' && (
             <ScrollView
               horizontal
@@ -573,7 +571,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 onPress={() => setStatusFilter('')}
               >
                 <Text style={[styles.filterChipText, { color: statusFilter === '' ? '#fff' : colors.textSecondary }]}>
-                  الكل ({identifiers.length})
+                  الكل ({identsList.length})
                 </Text>
               </TouchableOpacity>
 
@@ -638,16 +636,16 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               <Text style={[styles.loadingText, { color: colors.textSecondary }]}>جارٍ جلب البيانات ومطابقة الأداء...</Text>
             </View>
           ) : activeTab === 'identifiers' ? (
-            identifiers.length === 0 ? (
+            identsList.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Ionicons name="search-outline" size={44} color={colors.textSecondary} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد معرفات مطابقة</Text>
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد معرفات مسجلة</Text>
                 <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-                  جرب البحث باسم آخر أو قم باستيراد كشف جديد من إكسل
+                  يمكنك استيراد كشف الطلبات عبر لوحة التحكم على الويب
                 </Text>
               </View>
             ) : (
-              identifiers.map((ident) => {
+              identsList.map((ident) => {
                 const badge = getStatusBadge(ident.status);
                 return (
                   <TouchableOpacity
@@ -656,7 +654,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                     onPress={() => setSelectedIdentifierId(ident.id)}
                     activeOpacity={0.75}
                   >
-                    {/* Top Row: Name + Status Badge */}
                     <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <View style={[styles.itemTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                         <Text style={[styles.itemName, { color: colors.textPrimary }]}>{ident.name}</Text>
@@ -671,43 +668,41 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                       </View>
                     </View>
 
-                    {/* Progress Bar with Percentage */}
                     <View style={styles.itemProgressSection}>
                       <View style={[styles.itemProgressTrack, { backgroundColor: isDarkMode ? '#1f2433' : '#f1f5f9' }]}>
                         <View
                           style={[
                             styles.itemProgressFill,
                             {
-                              width: `${Math.min(100, Math.max(2, ident.achievement_percent))}%`,
-                              backgroundColor: ident.achievement_percent >= 100 ? '#22c55e' : colors.primary,
+                              width: `${Math.min(100, Math.max(2, ident.achievement_percent || 0))}%`,
+                              backgroundColor: (ident.achievement_percent || 0) >= 100 ? '#22c55e' : colors.primary,
                             },
                           ]}
                         />
                       </View>
                       <Text style={[styles.itemProgressPct, { color: colors.primary }]}>
-                        {ident.achievement_percent}%
+                        {ident.achievement_percent || 0}%
                       </Text>
                     </View>
 
-                    {/* 4-Metric Grid */}
                     <View style={[styles.itemMetricsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <View style={styles.itemMetricCol}>
                         <Text style={[styles.itemMetricVal, { color: colors.textPrimary }]}>
-                          {ident.month_orders} / {ident.monthly_target}
+                          {ident.month_orders || 0} / {ident.monthly_target || 0}
                         </Text>
                         <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>الطلبات / التارچت</Text>
                       </View>
 
                       <View style={styles.itemMetricCol}>
                         <Text style={[styles.itemMetricVal, { color: colors.textPrimary }]}>
-                          {ident.daily_average}
+                          {ident.daily_average || 0}
                         </Text>
                         <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>متوسط يومي</Text>
                       </View>
 
                       <View style={styles.itemMetricCol}>
                         <Text style={[styles.itemMetricVal, { color: colors.primary }]}>
-                          {ident.daily_required}
+                          {ident.daily_required || 0}
                         </Text>
                         <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>المطلوب يومياً</Text>
                       </View>
@@ -719,13 +714,12 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                             { color: ident.is_qualified ? '#16a34a' : '#dc2626' },
                           ]}
                         >
-                          {ident.projected_monthly_orders}
+                          {ident.projected_monthly_orders || 0}
                         </Text>
                         <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>التوقع الشهري</Text>
                       </View>
                     </View>
 
-                    {/* Bottom Details Action */}
                     <View style={[styles.itemBottomRow, { borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <View style={[styles.qualificationRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Ionicons
@@ -753,7 +747,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               })
             )
           ) : activeTab === 'drivers' ? (
-            drivers.length === 0 ? (
+            driversList.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Ionicons name="people-outline" size={44} color={colors.textSecondary} />
                 <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا يوجد مناديب مسجلين</Text>
@@ -762,7 +756,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 </Text>
               </View>
             ) : (
-              drivers.map((drv) => (
+              driversList.map((drv) => (
                 <View
                   key={drv.id}
                   style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -781,19 +775,19 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                     </View>
 
                     <View style={[styles.driverBadge, { backgroundColor: colors.primaryLight }]}>
-                      <Text style={[styles.driverBadgeNum, { color: colors.primary }]}>{drv.month_orders}</Text>
+                      <Text style={[styles.driverBadgeNum, { color: colors.primary }]}>{drv.month_orders || 0}</Text>
                       <Text style={[styles.driverBadgeLbl, { color: colors.textSecondary }]}>طلب بالشهر</Text>
                     </View>
                   </View>
 
-                  {drv.identifiers && drv.identifiers.length > 0 && (
+                  {Array.isArray(drv.identifiers) && drv.identifiers.length > 0 && (
                     <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>المعرفات:</Text>
                       <Text style={[styles.tagValue, { color: colors.textPrimary }]}>{drv.identifiers.join('، ')}</Text>
                     </View>
                   )}
 
-                  {drv.apps && drv.apps.length > 0 && (
+                  {Array.isArray(drv.apps) && drv.apps.length > 0 && (
                     <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>التطبيقات:</Text>
                       <Text style={[styles.tagValue, { color: colors.primary }]}>{drv.apps.join('، ')}</Text>
@@ -803,7 +797,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               ))
             )
           ) : (
-            alerts.length === 0 ? (
+            alertsList.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Ionicons name="checkmark-circle-outline" size={48} color="#16a34a" />
                 <Text style={[styles.emptyTitle, { color: '#16a34a', marginTop: 10 }]}>
@@ -814,7 +808,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 </Text>
               </View>
             ) : (
-              alerts.map((alert) => (
+              alertsList.map((alert) => (
                 <View
                   key={alert.id}
                   style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -860,7 +854,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         </View>
       </ScrollView>
 
-      {/* Add Identifier Modal with matching modern aesthetics */}
+      {/* Add Identifier Modal */}
       {showAddIdentModal && (
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -1012,7 +1006,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
   },
-  // Hero Target Card
   targetCardContainer: {
     borderRadius: 20,
     borderWidth: 1,
@@ -1085,7 +1078,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#f59e0b',
   },
-  // Sections
   sectionHeader: {
     marginBottom: 12,
     marginTop: 4,
@@ -1094,7 +1086,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  // 2-Column KPI Grid
   statsGrid: {
     flexWrap: 'wrap',
     gap: 12,
@@ -1127,7 +1118,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  // Quick Actions Rows
   quickCardRow: {
     borderRadius: 16,
     borderWidth: 1,
@@ -1154,7 +1144,6 @@ const styles = StyleSheet.create({
   quickCardSub: {
     fontSize: 11,
   },
-  // Segmented Control
   segmentedTabsContainer: {
     flexDirection: 'row',
     borderRadius: 14,
@@ -1180,7 +1169,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  // Search Box
   searchBox: {
     borderRadius: 14,
     borderWidth: 1,
@@ -1195,7 +1183,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     height: '100%',
   },
-  // Filter Chips
   filterChipsRow: {
     gap: 8,
     paddingBottom: 12,
@@ -1218,7 +1205,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  // Loading & Empty
   loadingBox: {
     padding: 40,
     alignItems: 'center',
@@ -1247,7 +1233,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  // Item Cards
   itemCard: {
     borderRadius: 18,
     borderWidth: 1,
@@ -1286,7 +1271,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  // Progress in Card
   itemProgressSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1309,7 +1293,6 @@ const styles = StyleSheet.create({
     width: 40,
     textAlign: 'center',
   },
-  // Metrics Row in Card
   itemMetricsRow: {
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1352,7 +1335,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  // Driver Cards
   driverAvatarRow: {
     alignItems: 'center',
     gap: 10,
@@ -1391,7 +1373,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  // Alerts Card
   alertNumsRow: {
     gap: 16,
     marginVertical: 8,
@@ -1413,7 +1394,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  // Modal
   modalOverlay: {
     position: 'absolute',
     top: 0,

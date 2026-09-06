@@ -11,7 +11,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import {
   TargetDashboardSummary,
   IdentifierPerformance,
@@ -96,17 +96,20 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     try {
       setLoading(true);
       const [sumData, identsData, driversData, alertsData] = await Promise.all([
-        targetApi.getDashboard(),
-        targetApi.listIdentifiers({ search: searchQuery, status: statusFilter }),
-        targetApi.listDrivers({ search: searchQuery }),
-        targetApi.listAlerts({ unresolved_only: true }),
+        targetApi.getDashboard().catch(() => null),
+        targetApi.listIdentifiers({ search: searchQuery, status: statusFilter }).catch(() => []),
+        targetApi.listDrivers({ search: searchQuery }).catch(() => []),
+        targetApi.listAlerts({ unresolved_only: true }).catch(() => []),
       ]);
-      setSummary(sumData);
-      setIdentifiers(identsData);
-      setDrivers(driversData);
-      setAlerts(alertsData);
+      setSummary(sumData || null);
+      setIdentifiers(Array.isArray(identsData) ? identsData : []);
+      setDrivers(Array.isArray(driversData) ? driversData : []);
+      setAlerts(Array.isArray(alertsData) ? alertsData : []);
     } catch (err: any) {
       console.log('Error loading supervisor dashboard:', err);
+      setIdentifiers([]);
+      setDrivers([]);
+      setAlerts([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -156,8 +159,14 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     }
   };
 
-  const targetAchievedPercent = summary
-    ? Math.min(100, Math.round(((summary.target_achieved + summary.on_track) / Math.max(1, summary.total_identifiers)) * 100))
+  // Safe array guards
+  const identsList = Array.isArray(identifiers) ? identifiers : [];
+  const driversList = Array.isArray(drivers) ? drivers : [];
+  const alertsList = Array.isArray(alerts) ? alerts : [];
+
+  const totalIdents = summary?.total_identifiers || identsList.length || 0;
+  const targetAchievedPercent = totalIdents > 0
+    ? Math.min(100, Math.round((((summary?.target_achieved || 0) + (summary?.on_track || 0)) / totalIdents) * 100))
     : 0;
 
   return (
@@ -287,7 +296,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 <Ionicons name="people" size={22} color="#2563eb" />
               </View>
               <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                {summary?.total_identifiers ?? 0}
+                {summary?.total_identifiers ?? identsList.length}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>إجمالي المعرفين</Text>
             </View>
@@ -303,7 +312,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
             </View>
 
             <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.16)' : '#ccfbf1' }]}>
+              <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#ccfbf1' }]}>
                 <Ionicons name="trending-up" size={22} color="#0d9488" />
               </View>
               <Text style={[styles.statNumber, { color: '#0d9488' }]}>
@@ -336,8 +345,8 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#f3e8ff' }]}>
                 <Ionicons name="notifications" size={22} color="#9333ea" />
               </View>
-              <Text style={[styles.statNumber, { color: alerts.length > 0 ? '#9333ea' : colors.textPrimary }]}>
-                {alerts.length}
+              <Text style={[styles.statNumber, { color: alertsList.length > 0 ? '#9333ea' : colors.textPrimary }]}>
+                {alertsList.length}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>تنبيهات العجز النشطة</Text>
             </View>
@@ -364,7 +373,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                   { color: activeTab === 'identifiers' ? colors.primary : colors.textSecondary },
                 ]}
               >
-                المعرفين ({identifiers.length})
+                المعرفين ({identsList.length})
               </Text>
             </TouchableOpacity>
 
@@ -381,7 +390,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                   { color: activeTab === 'drivers' ? colors.primary : colors.textSecondary },
                 ]}
               >
-                المناديب ({drivers.length})
+                المناديب ({driversList.length})
               </Text>
             </TouchableOpacity>
 
@@ -398,7 +407,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                   { color: activeTab === 'alerts' ? colors.primary : colors.textSecondary },
                 ]}
               >
-                التنبيهات ({alerts.length})
+                التنبيهات ({alertsList.length})
               </Text>
             </TouchableOpacity>
           </View>
@@ -441,7 +450,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 onPress={() => setStatusFilter('')}
               >
                 <Text style={[styles.filterChipText, { color: statusFilter === '' ? '#fff' : colors.textSecondary }]}>
-                  الكل ({identifiers.length})
+                  الكل ({identsList.length})
                 </Text>
               </TouchableOpacity>
 
@@ -506,16 +515,16 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               <Text style={[styles.loadingText, { color: colors.textSecondary }]}>جارٍ جلب البيانات ومطابقة الأداء...</Text>
             </View>
           ) : activeTab === 'identifiers' ? (
-            identifiers.length === 0 ? (
+            identsList.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Ionicons name="search-outline" size={44} color={colors.textSecondary} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد معرفات مطابقة</Text>
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد معرفات مسجلة</Text>
                 <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-                  جرب البحث باسم آخر أو تأكد من مطابقة ملفات الإكسل
+                  يمكنك استيراد كشف الطلبات عبر لوحة التحكم على الويب
                 </Text>
               </View>
             ) : (
-              identifiers.map((ident) => {
+              identsList.map((ident) => {
                 const badge = getStatusBadge(ident.status);
                 return (
                   <TouchableOpacity
@@ -544,35 +553,35 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                           style={[
                             styles.itemProgressFill,
                             {
-                              width: `${Math.min(100, Math.max(2, ident.achievement_percent))}%`,
-                              backgroundColor: ident.achievement_percent >= 100 ? '#22c55e' : colors.primary,
+                              width: `${Math.min(100, Math.max(2, ident.achievement_percent || 0))}%`,
+                              backgroundColor: (ident.achievement_percent || 0) >= 100 ? '#22c55e' : colors.primary,
                             },
                           ]}
                         />
                       </View>
                       <Text style={[styles.itemProgressPct, { color: colors.primary }]}>
-                        {ident.achievement_percent}%
+                        {ident.achievement_percent || 0}%
                       </Text>
                     </View>
 
                     <View style={[styles.itemMetricsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <View style={styles.itemMetricCol}>
                         <Text style={[styles.itemMetricVal, { color: colors.textPrimary }]}>
-                          {ident.month_orders} / {ident.monthly_target}
+                          {ident.month_orders || 0} / {ident.monthly_target || 0}
                         </Text>
                         <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>الطلبات / التارچت</Text>
                       </View>
 
                       <View style={styles.itemMetricCol}>
                         <Text style={[styles.itemMetricVal, { color: colors.textPrimary }]}>
-                          {ident.daily_average}
+                          {ident.daily_average || 0}
                         </Text>
                         <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>متوسط يومي</Text>
                       </View>
 
                       <View style={styles.itemMetricCol}>
                         <Text style={[styles.itemMetricVal, { color: colors.primary }]}>
-                          {ident.daily_required}
+                          {ident.daily_required || 0}
                         </Text>
                         <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>المطلوب يومياً</Text>
                       </View>
@@ -584,7 +593,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                             { color: ident.is_qualified ? '#16a34a' : '#dc2626' },
                           ]}
                         >
-                          {ident.projected_monthly_orders}
+                          {ident.projected_monthly_orders || 0}
                         </Text>
                         <Text style={[styles.itemMetricLbl, { color: colors.textSecondary }]}>التوقع الشهري</Text>
                       </View>
@@ -617,7 +626,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               })
             )
           ) : activeTab === 'drivers' ? (
-            drivers.length === 0 ? (
+            driversList.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Ionicons name="people-outline" size={44} color={colors.textSecondary} />
                 <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا يوجد مناديب مسجلين</Text>
@@ -626,7 +635,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 </Text>
               </View>
             ) : (
-              drivers.map((drv) => (
+              driversList.map((drv) => (
                 <View
                   key={drv.id}
                   style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -645,19 +654,19 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                     </View>
 
                     <View style={[styles.driverBadge, { backgroundColor: colors.primaryLight }]}>
-                      <Text style={[styles.driverBadgeNum, { color: colors.primary }]}>{drv.month_orders}</Text>
+                      <Text style={[styles.driverBadgeNum, { color: colors.primary }]}>{drv.month_orders || 0}</Text>
                       <Text style={[styles.driverBadgeLbl, { color: colors.textSecondary }]}>طلب بالشهر</Text>
                     </View>
                   </View>
 
-                  {drv.identifiers && drv.identifiers.length > 0 && (
+                  {Array.isArray(drv.identifiers) && drv.identifiers.length > 0 && (
                     <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>المعرفات:</Text>
                       <Text style={[styles.tagValue, { color: colors.textPrimary }]}>{drv.identifiers.join('، ')}</Text>
                     </View>
                   )}
 
-                  {drv.apps && drv.apps.length > 0 && (
+                  {Array.isArray(drv.apps) && drv.apps.length > 0 && (
                     <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>التطبيقات:</Text>
                       <Text style={[styles.tagValue, { color: colors.primary }]}>{drv.apps.join('، ')}</Text>
@@ -667,7 +676,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               ))
             )
           ) : (
-            alerts.length === 0 ? (
+            alertsList.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Ionicons name="checkmark-circle-outline" size={48} color="#16a34a" />
                 <Text style={[styles.emptyTitle, { color: '#16a34a', marginTop: 10 }]}>
@@ -678,7 +687,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 </Text>
               </View>
             ) : (
-              alerts.map((alert) => (
+              alertsList.map((alert) => (
                 <View
                   key={alert.id}
                   style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}

@@ -56,7 +56,8 @@ export const targetApi = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'فشل في جلب قائمة المعرفين');
     }
-    return res.json();
+    const data = await res.json().catch(() => []);
+    return Array.isArray(data) ? data : [];
   },
 
   // 3. Identifier Details
@@ -143,7 +144,8 @@ export const targetApi = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'فشل في جلب بيانات المندوبين');
     }
-    return res.json();
+    const data = await res.json().catch(() => []);
+    return Array.isArray(data) ? data : [];
   },
 
   // 8. Alerts List
@@ -162,7 +164,8 @@ export const targetApi = {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'فشل في جلب التنبيهات');
     }
-    return res.json();
+    const data = await res.json().catch(() => []);
+    return Array.isArray(data) ? data : [];
   },
 
   // 9. Resolve Alert
