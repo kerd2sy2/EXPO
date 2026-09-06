@@ -804,8 +804,10 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                       </View>
 
                       <View style={[styles.driverBadge, { backgroundColor: colors.primaryLight }]}>
-                        <Text style={[styles.driverBadgeNum, { color: colors.primary }]}>{drv.month_orders || 0}</Text>
-                        <Text style={[styles.driverBadgeLbl, { color: colors.textSecondary }]}>طلب بالشهر</Text>
+                        <Text style={[styles.driverBadgeNum, { color: colors.primary }]}>
+                          {drv.today_orders !== undefined ? drv.today_orders : (drv.month_orders || 0)}
+                        </Text>
+                        <Text style={[styles.driverBadgeLbl, { color: colors.textSecondary }]}>طلب اليوم</Text>
                       </View>
                     </View>
 
