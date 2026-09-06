@@ -26,6 +26,7 @@ import { IdentifierDetailsModal } from './IdentifierDetailsModal';
 import { TargetSettingsModal } from './TargetSettingsModal';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { TargetLogsScreen } from './TargetLogsScreen';
+import { DateFilterModal, DateFilterValue, getDefaultMonthFilter } from './DateFilterModal';
 
 interface SupervisorTargetDashboardProps {
   user: any;
@@ -46,6 +47,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
   const [activeTab, setActiveTab] = useState<'identifiers' | 'drivers' | 'alerts'>('identifiers');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>(getDefaultMonthFilter);
+  const [showDateFilterModal, setShowDateFilterModal] = useState(false);
 
   const [summary, setSummary] = useState<TargetDashboardSummary | null>(null);
   const [identifiers, setIdentifiers] = useState<IdentifierPerformance[]>([]);
@@ -102,11 +106,12 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      const queryMonth = dateFilter.type === 'day' && dateFilter.date ? dateFilter.date : dateFilter.month;
       const [sumData, identsData, driversData, alertsData] = await Promise.all([
-        targetApi.getDashboard().catch(() => null),
-        targetApi.listIdentifiers().catch(() => []),
-        targetApi.listDrivers().catch(() => []),
-        targetApi.listAlerts({ unresolved_only: false }).catch(() => []),
+        targetApi.getDashboard(queryMonth).catch(() => null),
+        targetApi.listIdentifiers({ month: queryMonth }).catch(() => []),
+        targetApi.listDrivers({ month: queryMonth }).catch(() => []),
+        targetApi.listAlerts({ unresolved_only: false, date: dateFilter.type === 'day' ? dateFilter.date : undefined }).catch(() => []),
       ]);
       setSummary(sumData || null);
       setIdentifiers(Array.isArray(identsData) ? identsData : []);
@@ -121,7 +126,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [dateFilter]);
 
   useEffect(() => {
     loadData();
@@ -277,7 +282,11 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         {currentView === 'home' ? (
           /* Home Header: Company Logo + AAMS + LOGISTICS (Perfect Horizontal Alignment) + Profile Screen Button */
           <>
-            <View style={styles.headerBrandContainer}>
+            <TouchableOpacity
+              style={[styles.headerBrandContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              onPress={() => setShowDateFilterModal(true)}
+              activeOpacity={0.7}
+            >
               <Image
                 source={require('../../../assets/images/logo.png')}
                 style={styles.headerLogoImage}
@@ -297,7 +306,15 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                   LOGISTICS
                 </Text>
               </View>
-            </View>
+
+              <View style={[styles.headerDateBadge, isDarkMode && styles.darkHeaderDateBadge]}>
+                <Ionicons name="calendar-outline" size={12} color="#f97316" />
+                <Text style={styles.headerDateBadgeText} numberOfLines={1}>
+                  {dateFilter.label}
+                </Text>
+                <Ionicons name="chevron-down" size={11} color="#f97316" />
+              </View>
+            </TouchableOpacity>
 
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity
@@ -843,7 +860,18 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       <IdentifierDetailsModal
         visible={!!selectedIdentifierId}
         identifierId={selectedIdentifierId}
+        month={dateFilter.month}
         onClose={() => setSelectedIdentifierId(null)}
+        isDarkMode={isDarkMode}
+      />
+
+      <DateFilterModal
+        visible={showDateFilterModal}
+        currentFilter={dateFilter}
+        onApply={(newFilter) => {
+          setDateFilter(newFilter);
+        }}
+        onClose={() => setShowDateFilterModal(false)}
         isDarkMode={isDarkMode}
       />
     </SafeAreaView>
@@ -867,6 +895,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+  },
+  headerDateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff7ed',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+    gap: 4,
+    marginHorizontal: 4,
+  },
+  darkHeaderDateBadge: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  headerDateBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#ea580c',
+    maxWidth: 130,
   },
   headerLogoImage: {
     width: 40,
