@@ -25,7 +25,7 @@ import { targetApi } from '../../services/targetApi';
 import { IdentifierDetailsModal } from './IdentifierDetailsModal';
 import { TargetSettingsModal } from './TargetSettingsModal';
 import { ImportOrdersModal } from './ImportOrdersModal';
-import { AdminProfileModal } from './AdminProfileModal';
+import { AdminProfileScreen } from './AdminProfileScreen';
 import { TargetLogsScreen } from './TargetLogsScreen';
 
 interface AdminTargetDashboardProps {
@@ -43,7 +43,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   colors: propColors,
   isRTL = true,
 }) => {
-  const [currentView, setCurrentView] = useState<'home' | 'data' | 'logs'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'data' | 'logs' | 'profile'>('home');
   const [activeTab, setActiveTab] = useState<'identifiers' | 'drivers' | 'alerts'>('identifiers');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,7 +61,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   const [selectedIdentifierId, setSelectedIdentifierId] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Theme Colors matching Delegate App
   const colors: ThemeColors = propColors || (isDarkMode
@@ -225,11 +224,11 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Modern App Header with Clickable Avatar opening Profile */}
+      {/* Modern App Header with Clickable Avatar opening Profile Page */}
       <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <TouchableOpacity
           style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          onPress={() => setShowProfileModal(true)}
+          onPress={() => setCurrentView('profile')}
           activeOpacity={0.7}
         >
           <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
@@ -249,7 +248,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Ionicons name="shield-checkmark-outline" size={13} color={colors.primary} />
               <Text style={[styles.headerUserRole, { color: colors.textSecondary }]}>
-                لوحة تحكم الإدارة (اضغط للملف)
+                لوحة تحكم الإدارة (الملف الشخصي)
               </Text>
             </View>
           </View>
@@ -274,8 +273,19 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         </View>
       </View>
 
-      {/* VIEW 1: LOGS SCREEN */}
-      {currentView === 'logs' ? (
+      {/* VIEW 1: PROFILE SCREEN (PAGE NOT MODAL) */}
+      {currentView === 'profile' ? (
+        <AdminProfileScreen
+          user={user}
+          onBack={() => setCurrentView('home')}
+          onOpenTargetSettings={() => setShowSettingsModal(true)}
+          onLogout={onLogout}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+        />
+      ) : currentView === 'logs' ? (
+        /* VIEW 2: LOGS SCREEN */
         <TargetLogsScreen
           onBack={() => setCurrentView('home')}
           colors={colors}
@@ -283,7 +293,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           isRTL={isRTL}
         />
       ) : currentView === 'home' ? (
-        /* VIEW 2: HOME DASHBOARD (KPIs & Quick Cards) */
+        /* VIEW 3: HOME DASHBOARD (KPIs & Quick Cards) */
         <ScrollView
           contentContainerStyle={styles.mainScrollContent}
           showsVerticalScrollIndicator={false}
@@ -423,7 +433,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* 2. Prominent "سجل" Card (Activity & Audit Log Card) */}
+            {/* 2. Prominent "سجل" Card */}
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                 سجل العمليات والمتابعة
@@ -488,7 +498,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           </View>
         </ScrollView>
       ) : (
-        /* VIEW 3: DATA VIEW (FULL LIST / SEARCH / FILTERS) */
+        /* VIEW 4: DATA VIEW (FULL LIST / SEARCH / FILTERS) */
         <ScrollView
           contentContainerStyle={styles.mainScrollContent}
           showsVerticalScrollIndicator={false}
@@ -910,17 +920,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         identifierId={selectedIdentifierId}
         onClose={() => setSelectedIdentifierId(null)}
         isDarkMode={isDarkMode}
-      />
-
-      <AdminProfileModal
-        visible={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        user={user}
-        onOpenTargetSettings={() => setShowSettingsModal(true)}
-        onLogout={onLogout}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
       />
 
       <TargetSettingsModal
