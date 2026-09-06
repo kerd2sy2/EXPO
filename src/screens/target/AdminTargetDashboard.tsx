@@ -306,12 +306,12 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
       {/* Dynamic Header matching Delegate App exactly */}
-      <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+      <View style={[styles.appHeader, { flexDirection: 'row-reverse' }]}>
         {currentView === 'home' ? (
-          /* Home Header: Company Logo + AAMS + LOGISTICS (Perfect Horizontal Alignment) + Profile Screen Button */
+          /* Home Header: Company Logo + AAMS + LOGISTICS (Right-Aligned) + Profile Screen Button */
           <>
             <TouchableOpacity
-              style={styles.headerBrandContainer}
+              style={[styles.headerBrandContainer, { flexDirection: 'row-reverse' }]}
               onPress={() => setShowDateFilterModal(true)}
               activeOpacity={0.7}
             >
@@ -336,7 +336,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               </View>
             </TouchableOpacity>
 
-            <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={styles.headerActions}>
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setCurrentView('profile')}
@@ -347,22 +347,22 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             </View>
           </>
         ) : (
-          /* Sub-Page Header: Back Button + Start-Aligned Title with Orange Underline (Identical to Delegate App) */
-          <View style={[styles.subPageHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          /* Sub-Page Header: Back Button + Start-Aligned Title with Orange Underline */
+          <View style={[styles.subPageHeaderRow, { flexDirection: 'row-reverse' }]}>
             <TouchableOpacity
               style={styles.headerBackBtn}
               onPress={() => setCurrentView('home')}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons
-                name={isRTL ? 'arrow-forward' : 'arrow-back'}
+                name="arrow-forward"
                 size={24}
                 color={colors.textPrimary}
               />
             </TouchableOpacity>
 
-            <View style={[styles.subPageTitleContainer, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-              <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+            <View style={[styles.subPageTitleContainer, { alignItems: 'flex-end' }]}>
+              <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: 'right' }]}>
                 {getSubPageTitle()}
               </Text>
               <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
