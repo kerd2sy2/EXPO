@@ -266,33 +266,24 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         {currentView === 'home' ? (
           /* Home Header: Company Logo + AAMS + LOGISTICS + Profile Screen Button */
           <>
-            <TouchableOpacity
-              style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={() => setCurrentView('profile')}
-              activeOpacity={0.8}
-            >
+            <View style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Image
                 source={require('../../../assets/images/logo.png')}
                 style={styles.headerLogoImage}
                 resizeMode="contain"
               />
               <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                <View style={[styles.headerNameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text
-                    style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                    numberOfLines={1}
-                  >
-                    AAMS
-                  </Text>
-                  <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
-                </View>
-                <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text style={[styles.headerUserRole, { color: colors.primary }]}>
-                    LOGISTICS
-                  </Text>
-                </View>
+                <Text
+                  style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                  numberOfLines={1}
+                >
+                  AAMS
+                </Text>
+                <Text style={[styles.headerUserRole, { color: colors.primary }]}>
+                  LOGISTICS
+                </Text>
               </View>
-            </TouchableOpacity>
+            </View>
 
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity
