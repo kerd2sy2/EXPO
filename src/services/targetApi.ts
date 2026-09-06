@@ -44,10 +44,12 @@ async function targetFetch(url: string, options: RequestInit = {}, timeoutMs = 1
 
 export const targetApi = {
   // 1. Dashboard Summary
-  getDashboard: async (month?: string): Promise<TargetDashboardSummary> => {
-    const url = month
-      ? `${API_BASE_URL}/target/dashboard?month=${encodeURIComponent(month)}`
-      : `${API_BASE_URL}/target/dashboard`;
+  getDashboard: async (month?: string, branch?: string): Promise<TargetDashboardSummary> => {
+    const q = new URLSearchParams();
+    if (month) q.append('month', month);
+    if (branch && branch !== 'all') q.append('branch', branch);
+    const queryString = q.toString();
+    const url = queryString ? `${API_BASE_URL}/target/dashboard?${queryString}` : `${API_BASE_URL}/target/dashboard`;
     const res = await targetFetch(url, { headers: getHeaders() });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -61,11 +63,13 @@ export const targetApi = {
     search?: string;
     status?: string;
     month?: string;
+    branch?: string;
   }): Promise<IdentifierPerformance[]> => {
     const q = new URLSearchParams();
     if (params?.search) q.append('search', params.search);
     if (params?.status) q.append('status', params.status);
     if (params?.month) q.append('month', params.month);
+    if (params?.branch && params.branch !== 'all') q.append('branch', params.branch);
 
     const res = await targetFetch(`${API_BASE_URL}/target/identifiers?${q.toString()}`, {
       headers: getHeaders(),
@@ -150,10 +154,12 @@ export const targetApi = {
   listDrivers: async (params?: {
     search?: string;
     month?: string;
+    branch?: string;
   }): Promise<DriverPerformance[]> => {
     const q = new URLSearchParams();
     if (params?.search) q.append('search', params.search);
     if (params?.month) q.append('month', params.month);
+    if (params?.branch && params.branch !== 'all') q.append('branch', params.branch);
 
     const res = await targetFetch(`${API_BASE_URL}/target/drivers?${q.toString()}`, {
       headers: getHeaders(),
@@ -170,10 +176,12 @@ export const targetApi = {
   listAlerts: async (params?: {
     date?: string;
     unresolved_only?: boolean;
+    branch?: string;
   }): Promise<TargetAlertItem[]> => {
     const q = new URLSearchParams();
     if (params?.date) q.append('date', params.date);
     if (params?.unresolved_only) q.append('unresolved_only', 'true');
+    if (params?.branch && params.branch !== 'all') q.append('branch', params.branch);
 
     const res = await targetFetch(`${API_BASE_URL}/target/alerts?${q.toString()}`, {
       headers: getHeaders(),

@@ -27,6 +27,7 @@ import { TargetSettingsModal } from './TargetSettingsModal';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { TargetLogsScreen } from './TargetLogsScreen';
 import { DateFilterModal, DateFilterValue, getDefaultMonthFilter } from './DateFilterModal';
+import { BranchFilterModal } from './BranchFilterModal';
 
 interface SupervisorTargetDashboardProps {
   user: any;
@@ -50,6 +51,10 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
 
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getDefaultMonthFilter);
   const [showDateFilterModal, setShowDateFilterModal] = useState(false);
+
+  // Branch Selection Filter: 'all', '1', or '2'
+  const [branchFilter, setBranchFilter] = useState<'all' | '1' | '2'>('all');
+  const [showBranchModal, setShowBranchModal] = useState(false);
 
   const [summary, setSummary] = useState<TargetDashboardSummary | null>(null);
   const [identifiers, setIdentifiers] = useState<IdentifierPerformance[]>([]);
@@ -109,10 +114,10 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       setLoading(true);
       const queryMonth = dateFilter.type === 'day' && dateFilter.date ? dateFilter.date : dateFilter.month;
       const [sumData, identsData, driversData, alertsData] = await Promise.all([
-        targetApi.getDashboard(queryMonth).catch(() => null),
-        targetApi.listIdentifiers({ month: queryMonth }).catch(() => []),
-        targetApi.listDrivers({ month: queryMonth }).catch(() => []),
-        targetApi.listAlerts({ unresolved_only: false, date: dateFilter.type === 'day' ? dateFilter.date : undefined }).catch(() => []),
+        targetApi.getDashboard(queryMonth, branchFilter).catch(() => null),
+        targetApi.listIdentifiers({ month: queryMonth, branch: branchFilter }).catch(() => []),
+        targetApi.listDrivers({ month: queryMonth, branch: branchFilter }).catch(() => []),
+        targetApi.listAlerts({ unresolved_only: false, date: dateFilter.type === 'day' ? dateFilter.date : undefined, branch: branchFilter }).catch(() => []),
       ]);
       setSummary(sumData || null);
       setIdentifiers(Array.isArray(identsData) ? identsData : []);
@@ -127,7 +132,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       setLoading(false);
       setRefreshing(false);
     }
-  }, [dateFilter]);
+  }, [dateFilter, branchFilter]);
 
   useEffect(() => {
     loadData();
@@ -315,7 +320,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
           <>
             <TouchableOpacity
               style={[styles.headerBrandContainer, { flexDirection: 'row-reverse' }]}
-              onPress={() => setShowDateFilterModal(true)}
+              onPress={() => setShowBranchModal(true)}
               activeOpacity={0.7}
             >
               <Image
@@ -324,12 +329,61 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 resizeMode="contain"
               />
               <View style={styles.headerBrandTextCol}>
-                <Text
-                  style={[styles.headerBrandTitle, { color: colors.textPrimary }]}
-                  numberOfLines={1}
-                >
-                  AAMS
-                </Text>
+                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                  <Text
+                    style={[styles.headerBrandTitle, { color: colors.textPrimary }]}
+                    numberOfLines={1}
+                  >
+                    AAMS
+                  </Text>
+                  <View
+                    style={[
+                      styles.headerBranchPill,
+                      {
+                        backgroundColor:
+                          branchFilter === 'all'
+                            ? colors.primaryLight
+                            : branchFilter === '1'
+                            ? '#3b82f620'
+                            : '#10b98120',
+                        borderColor:
+                          branchFilter === 'all'
+                            ? colors.primary
+                            : branchFilter === '1'
+                            ? '#3b82f6'
+                            : '#10b981',
+                        flexDirection: 'row-reverse',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.headerBranchPillText,
+                        {
+                          color:
+                            branchFilter === 'all'
+                              ? colors.primary
+                              : branchFilter === '1'
+                              ? '#3b82f6'
+                              : '#10b981',
+                        },
+                      ]}
+                    >
+                      {branchFilter === 'all' ? 'الكل' : `فرع ${branchFilter}`}
+                    </Text>
+                    <Ionicons
+                      name="chevron-down"
+                      size={10}
+                      color={
+                        branchFilter === 'all'
+                          ? colors.primary
+                          : branchFilter === '1'
+                          ? '#3b82f6'
+                          : '#10b981'
+                      }
+                    />
+                  </View>
+                </View>
                 <Text
                   style={[styles.headerBrandSubtitle, { color: colors.textPrimary }]}
                   numberOfLines={1}
@@ -339,7 +393,14 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               </View>
             </TouchableOpacity>
 
-            <View style={styles.headerActions}>
+            <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity
+                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                onPress={() => setShowDateFilterModal(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setCurrentView('profile')}
@@ -999,6 +1060,16 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         onClose={() => setShowDateFilterModal(false)}
         isDarkMode={isDarkMode}
       />
+
+      <BranchFilterModal
+        visible={showBranchModal}
+        selectedBranch={branchFilter}
+        onSelectBranch={(b) => setBranchFilter(b)}
+        onClose={() => setShowBranchModal(false)}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+      />
     </SafeAreaView>
   );
 };
@@ -1021,6 +1092,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     flex: 1,
+  },
+  headerBranchPill: {
+    alignItems: 'center',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 3,
+  },
+  headerBranchPillText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  rowBranchBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignSelf: 'center',
+  },
+  rowBranchBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   headerDateBadge: {
     flexDirection: 'row',

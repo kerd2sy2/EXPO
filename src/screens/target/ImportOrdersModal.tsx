@@ -498,6 +498,13 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
                             {row.app || 'غير محدد'}
                           </Text>
                         </View>
+                        {row.branch ? (
+                          <View style={[styles.appBadge, { backgroundColor: '#e0f2fe' }]}>
+                            <Text style={[styles.appBadgeText, { color: '#0369a1' }]}>
+                              فرع {row.branch}
+                            </Text>
+                          </View>
+                        ) : null}
                         {row.plate_number ? <Text style={styles.rowSub}>اللوحة: {row.plate_number}</Text> : null}
                         {row.notes ? <Text style={styles.rowSub}>ملاحظات: {row.notes}</Text> : null}
                         {row.is_duplicate ? (

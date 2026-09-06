@@ -2,6 +2,7 @@ export interface ParsedExcelRow {
   serial: string;
   identifier: string;
   app: string;
+  branch?: string;
   driver_name: string;
   ninja_orders: number;
   keeta_orders: number;
@@ -42,6 +43,7 @@ export interface IdentifierPerformance {
   id: string;
   name: string;
   app_name?: string;
+  branch?: string;
   code?: string;
   today_orders: number;
   week_orders: number;
@@ -84,6 +86,7 @@ export interface DriverPerformance {
   id: string;
   name: string;
   phone?: string;
+  branch?: string;
   month_orders: number;
   today_orders: number;
   identifiers: string[];
