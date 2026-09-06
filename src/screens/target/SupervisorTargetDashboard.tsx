@@ -264,22 +264,25 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       {/* Dynamic Header matching Delegate App exactly */}
       <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         {currentView === 'home' ? (
-          /* Home Header: Company Logo + AAMS + LOGISTICS + Profile Screen Button */
+          /* Home Header: Company Logo + AAMS + LOGISTICS (Perfect Horizontal Alignment) + Profile Screen Button */
           <>
-            <View style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={styles.headerBrandContainer}>
               <Image
                 source={require('../../../assets/images/logo.png')}
                 style={styles.headerLogoImage}
                 resizeMode="contain"
               />
-              <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <View style={styles.headerBrandTextCol}>
                 <Text
-                  style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                  style={[styles.headerBrandTitle, { color: colors.textPrimary }]}
                   numberOfLines={1}
                 >
                   AAMS
                 </Text>
-                <Text style={[styles.headerUserRole, { color: colors.primary }]}>
+                <Text
+                  style={[styles.headerBrandSubtitle, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                >
                   LOGISTICS
                 </Text>
               </View>
@@ -816,38 +819,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  headerUserInfo: {
+  headerBrandContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    flex: 1,
+    gap: 10,
   },
   headerLogoImage: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
   },
-  headerUserText: {
-    flex: 1,
+  headerBrandTextCol: {
     justifyContent: 'center',
-    gap: 2,
+    alignItems: 'flex-start',
   },
-  headerNameRow: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  headerUserName: {
-    fontSize: 19,
+  headerBrandTitle: {
+    fontSize: 20,
     fontWeight: '900',
-    letterSpacing: 1.5,
+    letterSpacing: 4.8,
+    textAlign: 'left',
+    includeFontPadding: false,
   },
-  headerIdBadgeRow: {
-    alignItems: 'center',
-    gap: 5,
-  },
-  headerUserRole: {
-    fontSize: 11,
+  headerBrandSubtitle: {
+    fontSize: 9.5,
     fontWeight: '800',
-    letterSpacing: 2.2,
+    letterSpacing: 3.2,
+    textAlign: 'left',
     marginTop: 1,
+    includeFontPadding: false,
   },
   headerActions: {
     alignItems: 'center',
