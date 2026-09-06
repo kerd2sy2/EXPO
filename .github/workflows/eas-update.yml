@@ -1,0 +1,32 @@
+name: EAS Update on Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update:
+    name: Publish EAS Update to Production
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🏗 Check out repository
+        uses: actions/checkout@v4
+
+      - name: 🏗 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 🏗 Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🚀 Publish EAS Update
+        run: npx eas-cli update --channel production --environment production --message "Auto update: ${{ github.event.head_commit.message }}" --non-interactive
