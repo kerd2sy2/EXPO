@@ -24,6 +24,8 @@ export interface ExcelImportPreview {
   drivers: string[];
   duplicates_count: number;
   has_duplicates: boolean;
+  empty_identifiers_count?: number;
+  warnings?: string[];
   rows: ParsedExcelRow[];
 }
 

@@ -332,41 +332,78 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
                   </View>
                 )}
 
+                {/* Empty Identifiers Warnings */}
+                {((preview.empty_identifiers_count ?? 0) > 0 || (preview.warnings && preview.warnings.length > 0)) && (
+                  <View style={styles.emptyIdentWarningCard}>
+                    <View style={styles.emptyIdentWarningHeader}>
+                      <Ionicons name="alert-circle-outline" size={22} color="#c2410c" />
+                      <Text style={styles.emptyIdentWarningTitle}>
+                        تنبيه: يوجد {preview.empty_identifiers_count || preview.warnings?.length} صف بدون اسم معرف!
+                      </Text>
+                    </View>
+                    <Text style={styles.emptyIdentWarningSub}>
+                      تم ترك المعرف فارغاً كما هو في ملف الإكسل دون استبداله باسم المندوب.
+                    </Text>
+                  </View>
+                )}
+
                 {/* Rows Preview Table */}
                 <Text style={[styles.tableSectionTitle, isDarkMode && styles.darkText]}>
                   معاينة البيانات المستخرجة ({preview.rows.length} صف):
                 </Text>
-                {preview.rows.map((row, idx) => (
-                  <View
-                    key={idx}
-                    style={[
-                      styles.rowCard,
-                      isDarkMode && styles.darkCard,
-                      row.is_duplicate && styles.dupRowCard,
-                    ]}
-                  >
-                    <View style={styles.rowTop}>
-                      <View style={styles.rowMeta}>
-                        <Text style={[styles.rowIdent, isDarkMode && styles.darkText]}>
-                          المعرف: {row.identifier}
-                        </Text>
-                        <Text style={styles.rowDriver}>المندوب: {row.driver_name}</Text>
-                      </View>
-                      <View style={styles.ordersBadge}>
-                        <Text style={styles.ordersBadgeText}>{row.total_orders} طلب</Text>
-                      </View>
-                    </View>
+                {preview.rows.map((row, idx) => {
+                  const isNinja = row.app?.includes('نينجا');
+                  const isKeeta = row.app?.includes('كيتا') || row.app?.includes('كينتا');
+                  const isToyo = row.app?.includes('تويو');
+                  const hasEmptyIdent = !row.identifier || row.identifier.trim() === '';
 
-                    <View style={styles.rowBottom}>
-                      <Text style={styles.rowSub}>التطبيق: {row.app}</Text>
-                      {row.plate_number ? <Text style={styles.rowSub}>اللوحة: {row.plate_number}</Text> : null}
-                      {row.notes ? <Text style={styles.rowSub}>ملاحظات: {row.notes}</Text> : null}
-                      {row.is_duplicate ? (
-                        <Text style={styles.dupTag}>⚠️ مكرر مسجل مسبقاً</Text>
-                      ) : null}
+                  return (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.rowCard,
+                        isDarkMode && styles.darkCard,
+                        row.is_duplicate && styles.dupRowCard,
+                        hasEmptyIdent && styles.emptyIdentRowCard,
+                      ]}
+                    >
+                      <View style={styles.rowTop}>
+                        <View style={styles.rowMeta}>
+                          <Text style={[styles.rowIdent, isDarkMode && styles.darkText, hasEmptyIdent && styles.emptyIdentText]}>
+                            {hasEmptyIdent ? '⚠️ المعرف: (فارغ)' : `المعرف: ${row.identifier}`}
+                          </Text>
+                          <Text style={styles.rowDriver}>المندوب: {row.driver_name}</Text>
+                        </View>
+                        <View style={styles.ordersBadge}>
+                          <Text style={styles.ordersBadgeText}>{row.total_orders} طلب</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.rowBottom}>
+                        <View style={[
+                          styles.appBadge,
+                          isNinja && styles.appBadgeNinja,
+                          isKeeta && styles.appBadgeKeeta,
+                          isToyo && styles.appBadgeToyo,
+                        ]}>
+                          <Text style={[
+                            styles.appBadgeText,
+                            isNinja && styles.appBadgeNinjaText,
+                            isKeeta && styles.appBadgeKeetaText,
+                            isToyo && styles.appBadgeToyoText,
+                          ]}>
+                            {row.app || 'غير محدد'}
+                          </Text>
+                        </View>
+                        {row.plate_number ? <Text style={styles.rowSub}>اللوحة: {row.plate_number}</Text> : null}
+                        {row.notes ? <Text style={styles.rowSub}>ملاحظات: {row.notes}</Text> : null}
+                        {row.is_duplicate ? (
+                          <Text style={styles.dupTag}>⚠️ مكرر مسجل مسبقاً</Text>
+                        ) : null}
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
 
                 {/* Confirm Import Button */}
                 <TouchableOpacity
@@ -721,6 +758,69 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#ea580c',
+  },
+  emptyIdentWarningCard: {
+    backgroundColor: '#fff7ed',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#ffedd5',
+  },
+  emptyIdentWarningHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyIdentWarningTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#c2410c',
+    flex: 1,
+    textAlign: 'right',
+  },
+  emptyIdentWarningSub: {
+    fontSize: 11,
+    color: '#9a3412',
+    marginTop: 4,
+    textAlign: 'right',
+  },
+  emptyIdentRowCard: {
+    borderColor: '#fdba74',
+    backgroundColor: '#fffaf5',
+  },
+  emptyIdentText: {
+    color: '#ea580c',
+    fontWeight: '800',
+  },
+  appBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#f1f5f9',
+  },
+  appBadgeNinja: {
+    backgroundColor: '#ecfdf5',
+  },
+  appBadgeKeeta: {
+    backgroundColor: '#fef3c7',
+  },
+  appBadgeToyo: {
+    backgroundColor: '#eff6ff',
+  },
+  appBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  appBadgeNinjaText: {
+    color: '#059669',
+  },
+  appBadgeKeetaText: {
+    color: '#d97706',
+  },
+  appBadgeToyoText: {
+    color: '#2563eb',
   },
   confirmBtn: {
     flexDirection: 'row-reverse',
