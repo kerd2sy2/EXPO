@@ -58,6 +58,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [platformTab, setPlatformTab] = useState<'all' | 'keeta' | 'ninja' | 'toyou'>('all');
   const [selectedIdentifierId, setSelectedIdentifierId] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
@@ -200,9 +201,24 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     return 'keeta';
   };
 
+  const keetaCount = useMemo(() => {
+    return (identifiers || []).filter((i) => getIdentifierPlatform(i) === 'keeta').length;
+  }, [identifiers]);
+
+  const ninjaCount = useMemo(() => {
+    return (identifiers || []).filter((i) => getIdentifierPlatform(i) === 'ninja').length;
+  }, [identifiers]);
+
+  const toyouCount = useMemo(() => {
+    return (identifiers || []).filter((i) => getIdentifierPlatform(i) === 'toyou').length;
+  }, [identifiers]);
+
   // Fast In-Memory Local Filtering (Zero network lag, zero UI freeze)
   const identsList = useMemo(() => {
     let list = Array.isArray(identifiers) ? identifiers : [];
+    if (platformTab !== 'all') {
+      list = list.filter((i) => getIdentifierPlatform(i) === platformTab);
+    }
     if (statusFilter === 'TARGET_ACHIEVED') {
       list = list.filter((i) => i.status === 'TARGET_ACHIEVED');
     } else if (statusFilter === 'ON_TRACK') {
@@ -221,7 +237,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       );
     }
     return list;
-  }, [identifiers, statusFilter, searchQuery]);
+  }, [identifiers, platformTab, statusFilter, searchQuery]);
 
   const driversList = useMemo(() => {
     let list = Array.isArray(drivers) ? drivers : [];
@@ -585,15 +601,96 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 <Text style={[styles.loadingText, { color: colors.textSecondary }]}>جارٍ جلب البيانات ومطابقة الأداء...</Text>
               </View>
             ) : activeTab === 'identifiers' ? (
-              identsList.length === 0 ? (
-                <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Ionicons name="search-outline" size={44} color={colors.textSecondary} />
-                  <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد معرفات مسجلة</Text>
-                  <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-                    لا توجد بيانات مطابقة لخيارات البحث الحالية
-                  </Text>
+              <View>
+                {/* Platform Filter Tabs (All / Keeta / Ninja) */}
+                <View style={[styles.platformTabsBar, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.platformTabItem,
+                      platformTab === 'all' && [styles.platformTabItemActive, { backgroundColor: colors.primary }],
+                    ]}
+                    onPress={() => setPlatformTab('all')}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.platformTabItemText,
+                        { color: platformTab === 'all' ? '#ffffff' : colors.textSecondary },
+                        platformTab === 'all' && styles.platformTabItemTextActive,
+                      ]}
+                    >
+                      الكل ({identifiers.length})
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.platformTabItem,
+                      platformTab === 'keeta' && [styles.platformTabItemActive, { backgroundColor: '#eab308' }],
+                    ]}
+                    onPress={() => setPlatformTab('keeta')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                      <Image
+                        source={require('../../../assets/images/keeta.png')}
+                        style={styles.platformTabLogo}
+                        resizeMode="cover"
+                      />
+                      <Text
+                        style={[
+                          styles.platformTabItemText,
+                          { color: platformTab === 'keeta' ? '#ffffff' : colors.textSecondary },
+                          platformTab === 'keeta' && styles.platformTabItemTextActive,
+                        ]}
+                      >
+                        كيتا ({keetaCount})
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.platformTabItem,
+                      platformTab === 'ninja' && [styles.platformTabItemActive, { backgroundColor: isDarkMode ? '#7c3aed' : '#0f172a' }],
+                    ]}
+                    onPress={() => setPlatformTab('ninja')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                      <Image
+                        source={require('../../../assets/images/ninja.png')}
+                        style={styles.platformTabLogo}
+                        resizeMode="contain"
+                      />
+                      <Text
+                        style={[
+                          styles.platformTabItemText,
+                          { color: platformTab === 'ninja' ? '#ffffff' : colors.textSecondary },
+                          platformTab === 'ninja' && styles.platformTabItemTextActive,
+                        ]}
+                      >
+                        نينجا ({ninjaCount})
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
-              ) : (
+
+                {identsList.length === 0 ? (
+                  <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Ionicons name="search-outline" size={44} color={colors.textSecondary} />
+                    <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                      {platformTab === 'keeta'
+                        ? 'لا توجد معرفات لتطبيق كيتا'
+                        : platformTab === 'ninja'
+                        ? 'لا توجد معرفات لتطبيق نينجا'
+                        : 'لا توجد معرفات مسجلة'}
+                    </Text>
+                    <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+                      لا توجد بيانات مطابقة لخيارات البحث الحالية
+                    </Text>
+                  </View>
+                ) : (
                 identsList.map((ident) => {
                   const badge = getStatusBadge(ident.status);
                   const platform = getIdentifierPlatform(ident);
@@ -774,7 +871,8 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                     </TouchableOpacity>
                   );
                 })
-              )
+              )}
+            </View>
             ) : activeTab === 'drivers' ? (
               driversList.length === 0 ? (
                 <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -1382,5 +1480,40 @@ const styles = StyleSheet.create({
   appBadgeText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  platformTabsBar: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 4,
+    marginBottom: 12,
+    gap: 4,
+  },
+  platformTabItem: {
+    flex: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  platformTabItemActive: {
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  platformTabItemText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  platformTabItemTextActive: {
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  platformTabLogo: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
   },
 });
