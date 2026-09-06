@@ -61,7 +61,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [platformTab, setPlatformTab] = useState<'all' | 'keeta' | 'ninja' | 'toyou'>('all');
+  const [platformTab, setPlatformTab] = useState<'keeta' | 'ninja' | 'toyou'>('keeta');
 
   // Modals
   const [selectedIdentifierId, setSelectedIdentifierId] = useState<string | null>(null);
@@ -242,7 +242,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   // Fast In-Memory Local Filtering (Zero network lag, zero UI freeze)
   const identsList = useMemo(() => {
     let list = Array.isArray(identifiers) ? identifiers : [];
-    if (platformTab !== 'all') {
+    if (platformTab) {
       list = list.filter((i) => getIdentifierPlatform(i) === platformTab);
     }
     if (statusFilter === 'TARGET_ACHIEVED') {
@@ -660,40 +660,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               </View>
             ) : activeTab === 'identifiers' ? (
               <View>
-                {/* Platform Filter Tabs (All / Keeta / Ninja) */}
+                {/* Platform Filter Tabs (Keeta / Ninja) */}
                 <View style={[styles.platformTabsBar, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <TouchableOpacity
-                    style={[
-                      styles.platformTabItem,
-                      platformTab === 'all' && [styles.platformTabItemActive, { backgroundColor: colors.primary }],
-                    ]}
-                    onPress={() => setPlatformTab('all')}
-                    activeOpacity={0.75}
-                  >
-                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 5 }}>
-                      <Text
-                        style={[
-                          styles.platformTabItemText,
-                          { color: platformTab === 'all' ? '#ffffff' : colors.textPrimary },
-                          platformTab === 'all' && styles.platformTabItemTextActive,
-                        ]}
-                      >
-                        الكل
-                      </Text>
-                      <View style={[
-                        styles.platformCountBadge,
-                        { backgroundColor: platformTab === 'all' ? 'rgba(255,255,255,0.28)' : isDarkMode ? '#334155' : '#e2e8f0' }
-                      ]}>
-                        <Text style={[
-                          styles.platformCountText,
-                          { color: platformTab === 'all' ? '#ffffff' : colors.textPrimary }
-                        ]}>
-                          {identifiers.length}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-
                   <TouchableOpacity
                     style={[
                       styles.platformTabItem,
