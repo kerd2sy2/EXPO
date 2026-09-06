@@ -124,22 +124,41 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  const handleLoginPress = async () => {
-    const cleanId = loginInput.trim().replace(/[^0-9]/g, '');
-    const cleanPass = passwordInput.trim();
+  const normalizeDigits = (str: string) => {
+    return str
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString())
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+  };
 
-    if (!cleanId) {
+  const handleLoginPress = async () => {
+    const rawNormalizedId = normalizeDigits(loginInput.trim());
+    const rawNormalizedPass = normalizeDigits(passwordInput.trim());
+
+    if (!rawNormalizedId) {
       onLogin('', '');
       return;
     }
-    if (!cleanPass) {
-      onLogin(cleanId, '');
+    if (!rawNormalizedPass) {
+      onLogin(rawNormalizedId, '');
       return;
     }
 
-    // Admin (2642799148) and Supervisor (500500) bypass delegate device OTP
-    const isAdminOrSupervisor = cleanId === '2642799148' || cleanId === '500500';
-    if (!isAdminOrSupervisor) {
+    const numericId = rawNormalizedId.replace(/[^0-9]/g, '');
+    const cleanId = numericId || rawNormalizedId;
+    const cleanPass = rawNormalizedPass;
+
+    // Supervisor (500500) and Admin (2642799148) NEVER request OTP under any circumstances
+    const isSpecialAccount =
+      cleanId === '500500' ||
+      numericId === '500500' ||
+      rawNormalizedId === '500500' ||
+      cleanId === '2642799148' ||
+      numericId === '2642799148' ||
+      rawNormalizedId === '2642799148' ||
+      cleanId.toLowerCase() === 'supervisor' ||
+      cleanId.toLowerCase() === 'admin';
+
+    if (!isSpecialAccount) {
       const isTrusted = await isDeviceTrustedForNationalId(cleanId);
       if (!isTrusted) {
         // Device is untrusted / first-time login -> Require 4-digit Supervisor OTP
@@ -148,7 +167,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       }
     }
 
-    // Proceed with password login
+    // Proceed directly with password login without OTP
     onLogin(cleanId, cleanPass);
   };
 

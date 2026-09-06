@@ -33,7 +33,7 @@ const ARABIC_MONTHS = [
 export const getDefaultMonthFilter = (): DateFilterValue => {
   const now = new Date();
   const y = now.getFullYear();
-  const m = now.getMonth(); // 0-indexed
+  const m = now.getMonth();
   const monthStr = `${y}-${String(m + 1).padStart(2, '0')}`;
   const totalDays = new Date(y, m + 1, 0).getDate();
   return {
@@ -122,6 +122,7 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
     const target = new Date(currentYear, currentMonthIdx - offset, 1);
     setSelectedYear(target.getFullYear());
     setSelectedMonthIdx(target.getMonth());
+    setMode('month');
   };
 
   const handleSelectQuickDay = (dayOffset: number) => {
@@ -133,8 +134,7 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
   };
 
   const handleResetToDefault = () => {
-    const def = getDefaultMonthFilter();
-    onApply(def);
+    onApply(getDefaultMonthFilter());
     onClose();
   };
 
@@ -168,21 +168,28 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
-        <View style={[styles.card, isDarkMode && styles.darkCard]}>
+        
+        <View style={[styles.bottomSheetCard, isDarkMode && styles.darkCard]}>
           {/* Drag Handle */}
           <View style={[styles.dragHandle, isDarkMode && { backgroundColor: '#475569' }]} />
 
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={isDarkMode ? '#fff' : '#1e293b'} />
-            </TouchableOpacity>
-            <View style={styles.titleCol}>
-              <Text style={[styles.title, isDarkMode && styles.darkText]}>تحديد فترة العرض والتاريخ</Text>
-              <Text style={styles.subtitle}>
-                الافتراضي: الشهر الحالي كاملاً (1 إلى {daysInSelectedMonth}) ويتجدد تلقائياً
-              </Text>
+            <View style={styles.titleRow}>
+              <View style={styles.headerIconCircle}>
+                <Ionicons name="calendar" size={18} color="#f97316" />
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.title, isDarkMode && styles.darkText]}>تحديد الفترة والتاريخ</Text>
+                <Text style={styles.subtitle}>
+                  {mode === 'month' ? 'عرض إجمالي الشهر كاملاً' : 'عرض بيانات يوم محدد'}
+                </Text>
+              </View>
             </View>
+
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Ionicons name="close" size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+            </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
@@ -191,135 +198,100 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
               <TouchableOpacity
                 style={[styles.tabBtn, mode === 'month' && styles.activeTabBtn]}
                 onPress={() => setMode('month')}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
               >
                 <Ionicons
                   name="calendar-outline"
-                  size={16}
+                  size={15}
                   color={mode === 'month' ? '#fff' : isDarkMode ? '#94a3b8' : '#64748b'}
                 />
                 <Text style={[styles.tabBtnText, mode === 'month' && styles.activeTabBtnText]}>
-                  الشهر كاملاً (1 إلى {daysInSelectedMonth})
+                  الشهر كاملاً
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.tabBtn, mode === 'day' && styles.activeTabBtn]}
                 onPress={() => setMode('day')}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
               >
                 <Ionicons
                   name="today-outline"
-                  size={16}
+                  size={15}
                   color={mode === 'day' ? '#fff' : isDarkMode ? '#94a3b8' : '#64748b'}
                 />
                 <Text style={[styles.tabBtnText, mode === 'day' && styles.activeTabBtnText]}>
-                  يوم محدد (تاريخ معين)
+                  يوم محدد
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Quick Shortcuts */}
+            <View style={styles.quickChipsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.quickChip,
+                  isCurrentMonth && mode === 'month' && styles.activeQuickChip,
+                  isDarkMode && styles.darkQuickChip,
+                ]}
+                onPress={() => handleSelectQuickMonth(0)}
+              >
+                <Text style={[styles.quickChipText, isCurrentMonth && mode === 'month' && styles.activeQuickChipText, isDarkMode && styles.darkText]}>
+                  الشهر الحالي
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickChip, isDarkMode && styles.darkQuickChip]}
+                onPress={() => handleSelectQuickMonth(1)}
+              >
+                <Text style={[styles.quickChipText, isDarkMode && styles.darkText]}>
+                  الشهر السابق
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickChip, isDarkMode && styles.darkQuickChip]}
+                onPress={() => handleSelectQuickDay(0)}
+              >
+                <Text style={[styles.quickChipText, isDarkMode && styles.darkText]}>
+                  اليوم
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickChip, isDarkMode && styles.darkQuickChip]}
+                onPress={() => handleSelectQuickDay(1)}
+              >
+                <Text style={[styles.quickChipText, isDarkMode && styles.darkText]}>
+                  أمس
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* Month & Year Navigator */}
             <View style={[styles.monthNavigatorCard, isDarkMode && styles.darkSubCard]}>
-              <TouchableOpacity onPress={handlePrevMonth} style={styles.navArrowBtn}>
+              <TouchableOpacity onPress={handlePrevMonth} style={styles.navArrowBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="chevron-back" size={20} color={isDarkMode ? '#e2e8f0' : '#1e293b'} />
               </TouchableOpacity>
 
               <View style={styles.monthDisplayCol}>
-                <View style={styles.monthNameRow}>
-                  <Text style={[styles.monthNameText, isDarkMode && styles.darkText]}>
-                    {ARABIC_MONTHS[selectedMonthIdx]} {selectedYear}
-                  </Text>
-                  {isCurrentMonth ? (
-                    <View style={styles.currentMonthBadge}>
-                      <Text style={styles.currentMonthBadgeText}>الشهر الحالي (افتراضي)</Text>
-                    </View>
-                  ) : null}
-                </View>
+                <Text style={[styles.monthNameText, isDarkMode && styles.darkText]}>
+                  {ARABIC_MONTHS[selectedMonthIdx]} {selectedYear}
+                </Text>
                 <Text style={styles.monthRangeHint}>
-                  {mode === 'month' ? `من 1 إلى ${daysInSelectedMonth} ${ARABIC_MONTHS[selectedMonthIdx]}` : 'اختر اليوم بالأسفل'}
+                  {mode === 'month' ? `1 إلى ${daysInSelectedMonth} ${ARABIC_MONTHS[selectedMonthIdx]}` : `شهر ${selectedMonthIdx + 1} / ${selectedYear}`}
                 </Text>
               </View>
 
-              <TouchableOpacity onPress={handleNextMonth} style={styles.navArrowBtn}>
+              <TouchableOpacity onPress={handleNextMonth} style={styles.navArrowBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#e2e8f0' : '#1e293b'} />
               </TouchableOpacity>
             </View>
 
-            {/* Quick Month Chips */}
-            <View style={styles.quickChipsSection}>
-              <Text style={[styles.sectionLabel, isDarkMode && styles.darkTextSecondary]}>اختيارات سريعة للأشهر:</Text>
-              <View style={styles.quickChipsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.quickChip,
-                    isCurrentMonth && mode === 'month' && styles.activeQuickChip,
-                    isDarkMode && styles.darkQuickChip,
-                  ]}
-                  onPress={() => {
-                    handleSelectQuickMonth(0);
-                    setMode('month');
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.quickChipText,
-                      isCurrentMonth && mode === 'month' && styles.activeQuickChipText,
-                      isDarkMode && styles.darkText,
-                    ]}
-                  >
-                    ⭐ الشهر الحالي ({ARABIC_MONTHS[currentMonthIdx]})
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.quickChip, isDarkMode && styles.darkQuickChip]}
-                  onPress={() => {
-                    handleSelectQuickMonth(1);
-                    setMode('month');
-                  }}
-                >
-                  <Text style={[styles.quickChipText, isDarkMode && styles.darkText]}>
-                    الشهر السابق
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.quickChip, isDarkMode && styles.darkQuickChip]}
-                  onPress={() => {
-                    handleSelectQuickMonth(2);
-                    setMode('month');
-                  }}
-                >
-                  <Text style={[styles.quickChipText, isDarkMode && styles.darkText]}>
-                    الشهر الأسبق
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* If in Day Mode: Day Selector Grid & Quick Day Chips */}
-            {mode === 'day' ? (
-              <View style={styles.daySelectorSection}>
-                <View style={styles.quickChipsRow}>
-                  <TouchableOpacity
-                    style={[styles.quickChip, isDarkMode && styles.darkQuickChip]}
-                    onPress={() => handleSelectQuickDay(0)}
-                  >
-                    <Text style={[styles.quickChipText, isDarkMode && styles.darkText]}>📅 اليوم</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.quickChip, isDarkMode && styles.darkQuickChip]}
-                    onPress={() => handleSelectQuickDay(1)}
-                  >
-                    <Text style={[styles.quickChipText, isDarkMode && styles.darkText]}>أمس</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <Text style={[styles.sectionLabel, { marginTop: 12 }, isDarkMode && styles.darkTextSecondary]}>
-                  اختر يوماً من شهر {ARABIC_MONTHS[selectedMonthIdx]}:
-                </Text>
-
+            {/* Days Grid if in Day Mode */}
+            {mode === 'day' && (
+              <View style={styles.daysContainer}>
                 <View style={styles.daysGrid}>
                   {Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1).map(day => {
                     const isSelected = selectedDayNum === day;
@@ -350,49 +322,31 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
                     );
                   })}
                 </View>
-
-                <View style={[styles.selectedDayPreview, isDarkMode && styles.darkSubCard]}>
-                  <Ionicons name="checkmark-circle" size={18} color="#f97316" />
-                  <Text style={[styles.selectedDayPreviewText, isDarkMode && styles.darkText]}>
-                    التاريخ المختار:{' '}
-                    <Text style={{ fontWeight: '800', color: '#f97316' }}>
-                      {selectedDayNum} {ARABIC_MONTHS[selectedMonthIdx]} {selectedYear} ({monthString}-{String(selectedDayNum).padStart(2, '0')})
-                    </Text>
-                  </Text>
-                </View>
               </View>
-            ) : null}
-
-            {/* Note about auto rollover */}
-            <View style={[styles.infoCallout, isDarkMode && styles.darkInfoCallout]}>
-              <Ionicons name="information-circle-outline" size={18} color="#0284c7" />
-              <Text style={[styles.infoCalloutText, isDarkMode && { color: '#7dd3fc' }]}>
-                عند اختيار "الشهر كاملاً"، سيتم تلقائياً تصفية جميع الطلبات والتارجت من اليوم الأول (1) إلى نهاية الشهر ({daysInSelectedMonth}). ومع بداية أي شهر جديد ينتقل التطبيق إليه تلقائياً دون الحاجة لتغييره يدوياً.
-              </Text>
-            </View>
+            )}
           </ScrollView>
 
           {/* Bottom Actions */}
-          <View style={[styles.actionsRow, isDarkMode && styles.darkActionsRow]}>
+          <View style={styles.actionsRow}>
             <TouchableOpacity
               style={styles.applyBtn}
               onPress={handleApply}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
               <Ionicons name="checkmark" size={18} color="#fff" />
-              <Text style={styles.applyBtnText}>تطبيق التصفية</Text>
+              <Text style={styles.applyBtnText}>تطبيق الفلتر</Text>
             </TouchableOpacity>
 
-            {!currentFilter.isDefault ? (
+            {!currentFilter.isDefault && (
               <TouchableOpacity
                 style={[styles.resetBtn, isDarkMode && styles.darkResetBtn]}
                 onPress={handleResetToDefault}
                 activeOpacity={0.7}
               >
-                <Ionicons name="refresh-outline" size={16} color="#f97316" />
-                <Text style={styles.resetBtnText}>الافتراضي (الشهر الحالي)</Text>
+                <Ionicons name="refresh-outline" size={15} color="#f97316" />
+                <Text style={styles.resetBtnText}>الشهر الحالي</Text>
               </TouchableOpacity>
-            ) : null}
+            )}
           </View>
         </View>
       </View>
@@ -403,17 +357,22 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'flex-end',
   },
-  card: {
+  bottomSheetCard: {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 12,
     paddingHorizontal: 20,
-    paddingBottom: 34,
-    maxHeight: '88%',
+    paddingBottom: 36,
+    maxHeight: '85%',
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
   },
   darkCard: {
     backgroundColor: '#0f172a',
@@ -432,18 +391,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: 'rgba(150, 150, 150, 0.15)',
   },
-  closeBtn: {
-    padding: 6,
-    borderRadius: 8,
+  titleRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
   },
-  titleCol: {
-    alignItems: 'flex-end',
-    flex: 1,
+  headerIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#fff7ed',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0f172a',
   },
@@ -452,21 +416,18 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 2,
   },
-  darkText: {
-    color: '#f8fafc',
-  },
-  darkTextSecondary: {
-    color: '#94a3b8',
+  closeBtn: {
+    padding: 6,
+    borderRadius: 8,
   },
   scrollBody: {
-    paddingTop: 14,
-    paddingBottom: 16,
-    gap: 14,
+    paddingVertical: 14,
+    gap: 12,
   },
   tabsContainer: {
     flexDirection: 'row-reverse',
     backgroundColor: '#f1f5f9',
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 4,
     gap: 4,
   },
@@ -476,14 +437,15 @@ const styles = StyleSheet.create({
   tabBtn: {
     flex: 1,
     flexDirection: 'row-reverse',
+    paddingVertical: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
     gap: 6,
   },
   activeTabBtn: {
     backgroundColor: '#f97316',
+    elevation: 2,
   },
   tabBtnText: {
     fontSize: 12,
@@ -493,81 +455,19 @@ const styles = StyleSheet.create({
   activeTabBtnText: {
     color: '#ffffff',
   },
-  monthNavigatorCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  darkSubCard: {
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
-  },
-  navArrowBtn: {
-    padding: 8,
-    borderRadius: 10,
-    backgroundColor: '#ffffff',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-  },
-  monthDisplayCol: {
-    alignItems: 'center',
-    gap: 3,
-  },
-  monthNameRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 8,
-  },
-  monthNameText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  currentMonthBadge: {
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  currentMonthBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#1d4ed8',
-  },
-  monthRangeHint: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  quickChipsSection: {
-    gap: 8,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
-    textAlign: 'right',
-  },
   quickChipsRow: {
     flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   quickChip: {
-    paddingHorizontal: 12,
+    flex: 1,
     paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   darkQuickChip: {
     backgroundColor: '#1e293b',
@@ -578,32 +478,66 @@ const styles = StyleSheet.create({
     borderColor: '#f97316',
   },
   quickChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#334155',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
   },
   activeQuickChipText: {
-    color: '#ea580c',
-    fontWeight: '800',
+    color: '#f97316',
   },
-  daySelectorSection: {
-    gap: 8,
+  monthNavigatorCard: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  darkSubCard: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  navArrowBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  monthDisplayCol: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  monthNameText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  monthRangeHint: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  daysContainer: {
+    marginTop: 4,
   },
   daysGrid: {
     flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: 6,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
   },
   dayBox: {
-    width: '12.5%',
-    aspectRatio: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    width: 38,
+    height: 38,
     borderRadius: 10,
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   darkDayBox: {
     backgroundColor: '#1e293b',
@@ -611,81 +545,40 @@ const styles = StyleSheet.create({
   },
   selectedDayBox: {
     backgroundColor: '#f97316',
-    borderColor: '#ea580c',
+    borderColor: '#f97316',
   },
   todayDayBox: {
-    borderColor: '#3b82f6',
+    borderColor: '#f97316',
     borderWidth: 1.5,
   },
   dayNumText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1e293b',
+    color: '#334155',
   },
   selectedDayNumText: {
     color: '#ffffff',
     fontWeight: '800',
   },
   todayDayNumText: {
-    color: '#2563eb',
+    color: '#f97316',
     fontWeight: '800',
-  },
-  selectedDayPreview: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fff7ed',
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#fed7aa',
-    marginTop: 6,
-  },
-  selectedDayPreviewText: {
-    fontSize: 12,
-    color: '#9a3412',
-    fontWeight: '600',
-  },
-  infoCallout: {
-    flexDirection: 'row-reverse',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: '#f0f9ff',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#bae6fd',
-  },
-  darkInfoCallout: {
-    backgroundColor: '#0c4a6e22',
-    borderColor: '#0284c7',
-  },
-  infoCalloutText: {
-    fontSize: 11,
-    color: '#0369a1',
-    lineHeight: 16,
-    flex: 1,
-    textAlign: 'right',
   },
   actionsRow: {
     flexDirection: 'row-reverse',
     gap: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-  },
-  darkActionsRow: {
-    borderTopColor: '#1e293b',
+    paddingTop: 8,
   },
   applyBtn: {
     flex: 1,
     flexDirection: 'row-reverse',
+    backgroundColor: '#f97316',
+    borderRadius: 12,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f97316',
-    paddingVertical: 13,
-    borderRadius: 14,
     gap: 6,
+    elevation: 2,
   },
   applyBtnText: {
     color: '#ffffff',
@@ -694,23 +587,25 @@ const styles = StyleSheet.create({
   },
   resetBtn: {
     flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff7ed',
     paddingHorizontal: 14,
-    paddingVertical: 13,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#fed7aa',
-    gap: 6,
+    backgroundColor: '#fff7ed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   darkResetBtn: {
-    backgroundColor: '#1e293b',
-    borderColor: '#475569',
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    borderColor: '#f97316',
   },
   resetBtnText: {
-    color: '#ea580c',
     fontSize: 12,
     fontWeight: '700',
+    color: '#f97316',
+  },
+  darkText: {
+    color: '#ffffff',
   },
 });

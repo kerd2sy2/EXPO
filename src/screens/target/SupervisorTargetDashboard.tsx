@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -55,6 +55,29 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
   // Branch Selection Filter: 'all', '1', or '2'
   const [branchFilter, setBranchFilter] = useState<'all' | '1' | '2'>('all');
   const [showBranchModal, setShowBranchModal] = useState(false);
+
+  // Multi-tap handler on Logo: 2 taps = Branch Filter, 3 taps = Date Filter
+  const logoTapRef = useRef<{ count: number; timer: any }>({ count: 0, timer: null });
+  const handleLogoTap = useCallback(() => {
+    if (logoTapRef.current.timer) {
+      clearTimeout(logoTapRef.current.timer);
+    }
+    logoTapRef.current.count += 1;
+
+    if (logoTapRef.current.count === 3) {
+      // 3 taps: Date Filter
+      logoTapRef.current.count = 0;
+      setShowDateFilterModal(true);
+    } else {
+      logoTapRef.current.timer = setTimeout(() => {
+        if (logoTapRef.current.count === 2) {
+          // 2 taps: Branch Filter
+          setShowBranchModal(true);
+        }
+        logoTapRef.current.count = 0;
+      }, 350);
+    }
+  }, []);
 
   const [summary, setSummary] = useState<TargetDashboardSummary | null>(null);
   const [identifiers, setIdentifiers] = useState<IdentifierPerformance[]>([]);
@@ -320,7 +343,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
           <>
             <TouchableOpacity
               style={[styles.headerBrandContainer, { flexDirection: 'row-reverse' }]}
-              onPress={() => setShowBranchModal(true)}
+              onPress={handleLogoTap}
               activeOpacity={0.7}
             >
               <Image
@@ -329,61 +352,12 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 resizeMode="contain"
               />
               <View style={styles.headerBrandTextCol}>
-                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
-                  <Text
-                    style={[styles.headerBrandTitle, { color: colors.textPrimary }]}
-                    numberOfLines={1}
-                  >
-                    AAMS
-                  </Text>
-                  <View
-                    style={[
-                      styles.headerBranchPill,
-                      {
-                        backgroundColor:
-                          branchFilter === 'all'
-                            ? colors.primaryLight
-                            : branchFilter === '1'
-                            ? '#3b82f620'
-                            : '#10b98120',
-                        borderColor:
-                          branchFilter === 'all'
-                            ? colors.primary
-                            : branchFilter === '1'
-                            ? '#3b82f6'
-                            : '#10b981',
-                        flexDirection: 'row-reverse',
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.headerBranchPillText,
-                        {
-                          color:
-                            branchFilter === 'all'
-                              ? colors.primary
-                              : branchFilter === '1'
-                              ? '#3b82f6'
-                              : '#10b981',
-                        },
-                      ]}
-                    >
-                      {branchFilter === 'all' ? 'الكل' : `فرع ${branchFilter}`}
-                    </Text>
-                    <Ionicons
-                      name="chevron-down"
-                      size={10}
-                      color={
-                        branchFilter === 'all'
-                          ? colors.primary
-                          : branchFilter === '1'
-                          ? '#3b82f6'
-                          : '#10b981'
-                      }
-                    />
-                  </View>
-                </View>
+                <Text
+                  style={[styles.headerBrandTitle, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                >
+                  AAMS
+                </Text>
                 <Text
                   style={[styles.headerBrandSubtitle, { color: colors.textPrimary }]}
                   numberOfLines={1}
@@ -394,13 +368,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
             </TouchableOpacity>
 
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <TouchableOpacity
-                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-                onPress={() => setShowDateFilterModal(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setCurrentView('profile')}
@@ -1065,6 +1032,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         visible={showBranchModal}
         selectedBranch={branchFilter}
         onSelectBranch={(b) => setBranchFilter(b)}
+        dateFilter={dateFilter}
+        onOpenDateFilter={() => setShowDateFilterModal(true)}
+        onResetDateFilter={(newDefault) => setDateFilter(newDefault)}
         onClose={() => setShowBranchModal(false)}
         colors={colors}
         isDarkMode={isDarkMode}
