@@ -707,6 +707,14 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                onPress={() => setShowSettingsModal(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="settings-outline" size={20} color={colors.primary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setCurrentView('profile')}
                 activeOpacity={0.7}
               >
@@ -1137,6 +1145,29 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                   </Text>
                   <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                     رفع كشف الطلبات ومطابقة التارچت آلياً
+                  </Text>
+                </View>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+
+              {/* Card 3: Operations: Target Settings & Reset Card */}
+              <TouchableOpacity
+                style={[
+                  styles.quickCardRow,
+                  { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+                ]}
+                onPress={() => setShowSettingsModal(true)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickCardIconCircle, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.16)' : '#fee2e2' }]}>
+                  <Ionicons name="settings-outline" size={22} color="#dc2626" />
+                </View>
+                <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    إعدادات التارچت وإعادة التعيين
+                  </Text>
+                  <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    تعديل التارچت ومسح المعرفات للبدء من الصفر
                   </Text>
                 </View>
                 <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />

@@ -399,4 +399,17 @@ export const targetApi = {
     }
     return res.json();
   },
+
+  // 13. Delete All Identifiers & Associated Data (Wipe all data to start fresh)
+  deleteAllIdentifiers: async (): Promise<{ message: string }> => {
+    const res = await targetFetch(`${API_BASE_URL}/target/identifiers`, {
+      method: 'DELETE',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'فشل في مسح المعرفات');
+    }
+    return res.json();
+  },
 };

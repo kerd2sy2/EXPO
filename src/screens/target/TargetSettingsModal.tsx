@@ -90,6 +90,35 @@ export const TargetSettingsModal: React.FC<TargetSettingsModalProps> = ({
     }
   };
 
+  const [deletingAll, setDeletingAll] = useState(false);
+
+  const handleDeleteAllIdentifiers = () => {
+    Alert.alert(
+      'تأكيد مسح كافة المعرفات',
+      'هل أنت متأكد من رغبتك في مسح كافة المعرفات والبيانات المسجلة بالكامل؟\n\nستتمكن بعد ذلك من رفع شيتات وبيانات جديدة تماماً من الصفر.\n\n⚠️ هذا الإجراء نهائي ولا يمكن التراجع عنه.',
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'نعم، مسح الكل الآن',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeletingAll(true);
+              await targetApi.deleteAllIdentifiers();
+              Alert.alert('تم بنجاح', 'تم مسح كافة المعرفات والبيانات بنجاح. يمكنك الآن رفع الداتا الجديدة.');
+              onSaved();
+              onClose();
+            } catch (err: any) {
+              Alert.alert('خطأ', err.message || 'فشل في مسح المعرفات');
+            } finally {
+              setDeletingAll(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (!visible) return null;
 
   return (
@@ -151,6 +180,33 @@ export const TargetSettingsModal: React.FC<TargetSettingsModalProps> = ({
                   <Text style={styles.saveBtnText}>حفظ الإعدادات</Text>
                 )}
               </TouchableOpacity>
+
+              {/* قسم إعادة تعيين وبدء داتا جديدة */}
+              <View style={[styles.dangerSection, isDarkMode && styles.darkDangerSection]}>
+                <View style={styles.dangerHeaderRow}>
+                  <Ionicons name="trash-bin-outline" size={18} color="#ef4444" />
+                  <Text style={styles.dangerTitle}>إعادة تعيين وبدء داتا جديدة</Text>
+                </View>
+                <Text style={styles.dangerHint}>
+                  إذا كنت ترغب في إدخال بيانات من أول وجديد ورفع شيتات جديدة، يمكنك مسح كافة المعرفات والبيانات الحالية بضغطة زر.
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.deleteAllBtn, deletingAll && styles.disabledBtn]}
+                  onPress={handleDeleteAllIdentifiers}
+                  disabled={deletingAll}
+                  activeOpacity={0.8}
+                >
+                  {deletingAll ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <View style={styles.deleteAllBtnContent}>
+                      <Ionicons name="trash" size={16} color="#fff" />
+                      <Text style={styles.deleteAllBtnText}>مسح كافة المعرفات والبيانات</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -275,6 +331,54 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: '800',
+  },
+  dangerSection: {
+    marginTop: 18,
+    backgroundColor: '#fff1f2',
+    borderWidth: 1.5,
+    borderColor: '#fecdd3',
+    borderRadius: 14,
+    padding: 14,
+  },
+  darkDangerSection: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: 'rgba(239, 68, 68, 0.28)',
+  },
+  dangerHeaderRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  dangerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#e11d48',
+    textAlign: 'right',
+  },
+  dangerHint: {
+    fontSize: 11,
+    color: '#64748b',
+    textAlign: 'right',
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  deleteAllBtn: {
+    backgroundColor: '#dc2626',
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteAllBtnContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteAllBtnText: {
+    color: '#fff',
+    fontSize: 13,
     fontWeight: '800',
   },
 });
