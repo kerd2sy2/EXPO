@@ -131,6 +131,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   const handleLoginPress = async () => {
+    if (submitting || biometricLoading) return;
+
     const rawNormalizedId = normalizeDigits(loginInput.trim());
     const rawNormalizedPass = normalizeDigits(passwordInput.trim());
 

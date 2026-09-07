@@ -15,3 +15,6 @@ declare module '*.svg' {
   export default value;
 }
 declare var require: any;
+
+declare module 'react-native-safe-area-context';
+declare module '@expo/vector-icons';

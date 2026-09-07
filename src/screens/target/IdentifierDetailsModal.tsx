@@ -71,7 +71,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
         return {
           bg: isDarkMode ? 'rgba(245, 158, 11, 0.22)' : '#fef3c7',
           text: isDarkMode ? '#fbbf24' : '#b45309',
-          label: '🟡 في خطر',
+          label: '🟡 على وشك المعدل',
         };
       case 'BEHIND_TARGET':
       default:

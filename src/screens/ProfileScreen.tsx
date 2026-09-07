@@ -352,7 +352,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     outputRange: ['-22deg', '0deg', '22deg'],
   });
 
-  const cardStyle = {
+  const cardStyle: any = {
     transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }],
   };
 

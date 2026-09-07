@@ -28,7 +28,7 @@ export const TargetSettingsModal: React.FC<TargetSettingsModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [monthlyTarget, setMonthlyTarget] = useState('460');
-  const [dailyTarget, setDailyTarget] = useState('15');
+  const [dailyTarget, setDailyTarget] = useState('18');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export const TargetSettingsModal: React.FC<TargetSettingsModalProps> = ({
       setError('');
       const res = await targetApi.getTargetSettings();
       setMonthlyTarget(String(res.default_monthly_target || 460));
-      setDailyTarget(String(res.default_daily_target || 15));
+      setDailyTarget(String(res.default_daily_target || 18));
     } catch (err: any) {
       setError(err.message || 'فشل في تحميل إعدادات التارچت');
     } finally {
@@ -54,15 +54,6 @@ export const TargetSettingsModal: React.FC<TargetSettingsModalProps> = ({
   const handleMonthlyTargetChange = (val: string) => {
     const clean = val.replace(/[^0-9]/g, '');
     setMonthlyTarget(clean);
-    if (clean) {
-      const num = parseInt(clean, 10);
-      if (!isNaN(num) && num > 0) {
-        const daily = Math.round(num / 30);
-        setDailyTarget(String(daily));
-      }
-    } else {
-      setDailyTarget('');
-    }
   };
 
   const handleDailyTargetChange = (val: string) => {

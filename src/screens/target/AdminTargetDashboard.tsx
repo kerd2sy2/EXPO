@@ -46,13 +46,16 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   colors: propColors,
   isRTL = true,
 }) => {
-  const [currentView, setCurrentView] = useState<'home' | 'data' | 'logs' | 'profile'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'data' | 'logs' | 'profile' | 'platforms'>('home');
   const [activeTab, setActiveTab] = useState<'identifiers' | 'drivers' | 'alerts'>('identifiers');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getDefaultMonthFilter);
   const [showDateFilterModal, setShowDateFilterModal] = useState(false);
+  const [rangeOrdersMap, setRangeOrdersMap] = useState<Record<string, number> | null>(null);
+  const [rangeTotalOrders, setRangeTotalOrders] = useState<number | null>(null);
+  const [rangeIdentOrdersMap, setRangeIdentOrdersMap] = useState<Record<string, number> | null>(null);
 
   // Branch Selection Filter: 'all', '1', or '2'
   const [branchFilter, setBranchFilter] = useState<'all' | '1' | '2'>('all');
@@ -139,25 +142,132 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         errorText: '#b91c1c',
       });
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const queryMonth = dateFilter.type === 'day' && dateFilter.date ? dateFilter.date : dateFilter.month;
       const [sumData, identsData, driversData, alertsData] = await Promise.all([
-        targetApi.getDashboard(queryMonth, branchFilter).catch(() => null),
-        targetApi.listIdentifiers({ month: queryMonth, branch: branchFilter }).catch(() => []),
-        targetApi.listDrivers({ month: queryMonth, branch: branchFilter }).catch(() => []),
+        targetApi.getDashboard(dateFilter.month, branchFilter, dateFilter.startDate, dateFilter.endDate).catch((err) => {
+          console.log('Notice loading target dashboard:', err?.message || err);
+          return null;
+        }),
+        targetApi.listIdentifiers({
+          month: queryMonth,
+          startDate: dateFilter.startDate,
+          endDate: dateFilter.endDate,
+          branch: branchFilter,
+        }).catch((err) => {
+          console.log('Notice loading target identifiers:', err?.message || err);
+          return null;
+        }),
+        targetApi.listDrivers({
+          month: queryMonth,
+          startDate: dateFilter.startDate,
+          endDate: dateFilter.endDate,
+          branch: branchFilter,
+        }).catch((err) => {
+          console.log('Notice loading target drivers:', err?.message || err);
+          return null;
+        }),
         targetApi.listAlerts({ unresolved_only: false, date: dateFilter.type === 'day' ? dateFilter.date : undefined, branch: branchFilter }).catch(() => []),
       ]);
-      setSummary(sumData || null);
-      setIdentifiers(Array.isArray(identsData) ? identsData : []);
-      setDrivers(Array.isArray(driversData) ? driversData : []);
-      setAlerts(Array.isArray(alertsData) ? alertsData : []);
+
+      if (sumData) {
+        setSummary(sumData);
+      }
+      if (Array.isArray(identsData) && identsData.length > 0) {
+        setIdentifiers(identsData);
+      } else if (Array.isArray(identsData) && identsData.length === 0 && !sumData) {
+        // Only set empty if server explicitly confirmed 0
+        setIdentifiers([]);
+      }
+
+      if (Array.isArray(driversData) && driversData.length > 0) {
+        setDrivers(driversData);
+      }
+      if (Array.isArray(alertsData)) {
+        setAlerts(alertsData);
+      }
+
+      // Handle Date Range / Single Day Calculations
+      if (dateFilter.type === 'month') {
+        setRangeOrdersMap(null);
+        setRangeTotalOrders(null);
+        setRangeIdentOrdersMap(null);
+      } else if (dateFilter.type === 'day') {
+        const platMap: Record<string, number> = { ninja: 0, keeta: 0, toyou: 0 };
+        const identMap: Record<string, number> = {};
+        let total = 0;
+        (identsData || []).forEach((item) => {
+          const plat = getIdentifierPlatform(item);
+          const ords = Number(item.today_orders) || 0;
+          platMap[plat] = (platMap[plat] || 0) + ords;
+          if (item.id) identMap[item.id] = ords;
+          total += ords;
+        });
+        setRangeOrdersMap(platMap);
+        setRangeTotalOrders(total);
+        setRangeIdentOrdersMap(identMap);
+      } else if (dateFilter.type === 'range') {
+        const sDay = Math.min(dateFilter.startDay || 1, dateFilter.endDay || 30);
+        const eDay = Math.max(dateFilter.startDay || 1, dateFilter.endDay || 30);
+        const monthPrefix = dateFilter.month || '2026-09';
+
+        let daysToQuery: number[] = [];
+        if (sumData?.daily_trend && sumData.daily_trend.length > 0) {
+          daysToQuery = sumData.daily_trend
+            .filter((t) => t.day >= sDay && t.day <= eDay && Number(t.orders) > 0)
+            .map((t) => t.day);
+        } else {
+          for (let d = sDay; d <= eDay; d++) {
+            daysToQuery.push(d);
+          }
+        }
+
+        if (daysToQuery.length === 0) {
+          setRangeOrdersMap({ ninja: 0, keeta: 0, toyou: 0 });
+          setRangeTotalOrders(0);
+          setRangeIdentOrdersMap({});
+        } else {
+          const dayResults = await Promise.all(
+            daysToQuery.map((d) =>
+              targetApi.listIdentifiers({
+                month: `${monthPrefix}-${String(d).padStart(2, '0')}`,
+                branch: branchFilter,
+              }).catch(() => [])
+            )
+          );
+          const platMap: Record<string, number> = { ninja: 0, keeta: 0, toyou: 0 };
+          const identMap: Record<string, number> = {};
+          let total = 0;
+          dayResults.forEach((list) => {
+            if (Array.isArray(list)) {
+              list.forEach((item) => {
+                const plat = getIdentifierPlatform(item);
+                const ords = Number(item.today_orders) || 0;
+                platMap[plat] = (platMap[plat] || 0) + ords;
+                if (item.id) {
+                  identMap[item.id] = (identMap[item.id] || 0) + ords;
+                }
+                total += ords;
+              });
+            }
+          });
+          setRangeOrdersMap(platMap);
+          setRangeTotalOrders(total);
+          setRangeIdentOrdersMap(identMap);
+        }
+      }
+
+      if (!sumData && (!identsData || identsData.length === 0)) {
+        setLoadError('تعذر تحديث بعض البيانات بسبب بطء الاتصال، اضغط لإعادة المحاولة');
+      }
     } catch (err: any) {
       console.log('Error loading admin dashboard data:', err);
-      setIdentifiers([]);
-      setDrivers([]);
-      setAlerts([]);
+      setLoadError('تعذر الاتصال بالخادم، اضغط لإعادة المحاولة');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -221,7 +331,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           bg: isDarkMode ? 'rgba(245, 158, 11, 0.22)' : '#fef3c7',
           text: isDarkMode ? '#fbbf24' : '#b45309',
           border: isDarkMode ? 'rgba(245, 158, 11, 0.5)' : '#fcd34d',
-          label: 'في خطر',
+          label: 'على وشك المعدل',
           dot: '#f59e0b',
         };
       case 'BEHIND_TARGET':
@@ -236,11 +346,14 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     }
   };
 
-  const getIdentifierPlatform = (ident: any): 'keeta' | 'ninja' | 'toyou' => {
+  const getIdentifierPlatform = (ident: any): string => {
     const app = (ident?.app_name || '').toLowerCase();
     if (app.includes('ninja') || app.includes('نينجا')) return 'ninja';
     if (app.includes('toyou') || app.includes('to you') || app.includes('تويو')) return 'toyou';
     if (app.includes('keeta') || app.includes('كيتا') || app.includes('كينتا')) return 'keeta';
+    if (app.includes('hunger') || app.includes('هنقر')) return 'hungerstation';
+    if (app.includes('jahez') || app.includes('جاهز')) return 'jahez';
+    if (app.includes('mrsool') || app.includes('مرسول')) return 'mrsool';
 
     const str = `${ident?.name || ''} ${ident?.code || ''}`.toLowerCase();
     if (str.includes('ninja') || str.includes('نينجا') || str.includes('فردين')) {
@@ -249,17 +362,35 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     if (str.includes('toyou') || str.includes('to you') || str.includes('تويو')) {
       return 'toyou';
     }
+    if (str.includes('hunger') || str.includes('هنقر')) {
+      return 'hungerstation';
+    }
+    if (str.includes('jahez') || str.includes('جاهز')) {
+      return 'jahez';
+    }
+    if (str.includes('mrsool') || str.includes('مرسول')) {
+      return 'mrsool';
+    }
+    if (ident?.app_name && ident.app_name.trim()) {
+      return ident.app_name.trim().toLowerCase();
+    }
     return 'keeta';
   };
 
   const formatIdentifierDisplayName = (name?: string) => {
     if (!name) return '';
-    return name.replace(/\s*\((كيتا|نينجا|تويو|كينتا|Keeta|Ninja|Toyou)\)/gi, '').trim();
+    return name.replace(/\s*\((كيتا|نينجا|تويو|كينتا|هنقرستيشن|جاهز|مرسول|Keeta|Ninja|Toyou)\)/gi, '').trim();
   };
 
   // Base list filtered by status and search (before platform partition)
   const filteredBaseIdents = useMemo(() => {
     let list = Array.isArray(identifiers) ? identifiers : [];
+    if (rangeIdentOrdersMap) {
+      list = list.map((i) => ({
+        ...i,
+        month_orders: rangeIdentOrdersMap[i.id] !== undefined ? rangeIdentOrdersMap[i.id] : 0,
+      }));
+    }
     if (statusFilter === 'TARGET_ACHIEVED') {
       list = list.filter((i) => i.status === 'TARGET_ACHIEVED');
     } else if (statusFilter === 'ON_TRACK') {
@@ -278,7 +409,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
       );
     }
     return list;
-  }, [identifiers, statusFilter, searchQuery]);
+  }, [identifiers, statusFilter, searchQuery, rangeIdentOrdersMap]);
 
   const keetaCount = useMemo(() => {
     return filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === 'keeta').length;
@@ -291,6 +422,160 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   const toyouCount = useMemo(() => {
     return filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === 'toyou').length;
   }, [filteredBaseIdents]);
+
+  // Total Orders across all platforms in the selected period
+  const totalMonthOrders = useMemo(() => {
+    if (rangeTotalOrders !== null) {
+      return rangeTotalOrders;
+    }
+    if (summary?.total_month_orders && summary.total_month_orders > 0) {
+      return summary.total_month_orders;
+    }
+    return filteredBaseIdents.reduce((sum, i) => sum + (Number(i.month_orders) || 0), 0);
+  }, [summary, filteredBaseIdents, rangeTotalOrders]);
+
+  // Per-application breakdown with counts and orders
+  const appStats = useMemo(() => {
+    let ninjaOrders = rangeOrdersMap ? (rangeOrdersMap['ninja'] || 0) : 0;
+    let keetaOrders = rangeOrdersMap ? (rangeOrdersMap['keeta'] || 0) : 0;
+    let toyouOrders = rangeOrdersMap ? (rangeOrdersMap['toyou'] || 0) : 0;
+    let ninjaIdents = 0;
+    let keetaIdents = 0;
+    let toyouIdents = 0;
+
+    filteredBaseIdents.forEach((item) => {
+      const plat = getIdentifierPlatform(item);
+      const orders = Number(item.month_orders) || 0;
+      if (plat === 'ninja') {
+        ninjaIdents += 1;
+        if (!rangeOrdersMap) ninjaOrders += orders;
+      } else if (plat === 'keeta') {
+        keetaIdents += 1;
+        if (!rangeOrdersMap) keetaOrders += orders;
+      } else if (plat === 'toyou') {
+        toyouIdents += 1;
+        if (!rangeOrdersMap) toyouOrders += orders;
+      }
+    });
+
+    const sumOrders = ninjaOrders + keetaOrders + toyouOrders;
+    const calcTotal = rangeTotalOrders !== null ? rangeTotalOrders : (sumOrders > 0 ? sumOrders : (totalMonthOrders || 1));
+
+    return {
+      ninja: {
+        name: 'نينجا',
+        idents: ninjaIdents,
+        orders: ninjaOrders,
+        percent: calcTotal > 0 ? Math.round((ninjaOrders / calcTotal) * 100) : 0,
+      },
+      keeta: {
+        name: 'كيتا',
+        idents: keetaIdents,
+        orders: keetaOrders,
+        percent: calcTotal > 0 ? Math.round((keetaOrders / calcTotal) * 100) : 0,
+      },
+      toyou: {
+        name: 'تويو',
+        idents: toyouIdents,
+        orders: toyouOrders,
+        percent: calcTotal > 0 ? Math.round((toyouOrders / calcTotal) * 100) : 0,
+      },
+      totalOrders: calcTotal,
+    };
+  }, [filteredBaseIdents, totalMonthOrders, rangeOrdersMap, rangeTotalOrders]);
+
+  // Platforms list with: Logo, App Name, Orders Count, and Identifiers Count ONLY
+  const platformsList = useMemo(() => {
+    const platIdents = (platKey: string) => {
+      const total = filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === platKey).length;
+      if (rangeTotalOrders === 0) return 0;
+      if (rangeOrdersMap) {
+        const active = filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === platKey && (Number(i.month_orders) || 0) > 0).length;
+        return active > 0 ? active : total;
+      }
+      return total;
+    };
+
+    const map: Record<
+      string,
+      {
+        key: string;
+        name: string;
+        orders: number;
+        idents: number;
+        image?: any;
+        color: string;
+        bgColor: string;
+        borderColor: string;
+        accentColor?: string;
+      }
+    > = {
+      ninja: {
+        key: 'ninja',
+        name: 'نينجا',
+        orders: rangeOrdersMap ? (rangeOrdersMap['ninja'] || 0) : 0,
+        idents: platIdents('ninja'),
+        image: require('../../../assets/images/ninja.png'),
+        color: colors.textPrimary,
+        bgColor: '#000000',
+        borderColor: '#334155',
+        accentColor: colors.textPrimary,
+      },
+      keeta: {
+        key: 'keeta',
+        name: 'كيتا',
+        orders: rangeOrdersMap ? (rangeOrdersMap['keeta'] || 0) : 0,
+        idents: platIdents('keeta'),
+        image: require('../../../assets/images/keeta.png'),
+        color: '#d97706',
+        bgColor: '#fde047',
+        borderColor: '#eab308',
+        accentColor: '#d97706',
+      },
+      toyou: {
+        key: 'toyou',
+        name: 'تويو',
+        orders: rangeOrdersMap ? (rangeOrdersMap['toyou'] || 0) : 0,
+        idents: platIdents('toyou'),
+        image: require('../../../assets/images/toyou.png'),
+        color: '#0891b2',
+        bgColor: '#ffffff',
+        borderColor: '#06b6d4',
+        accentColor: '#0891b2',
+      },
+    };
+
+    if (!rangeOrdersMap) {
+      filteredBaseIdents.forEach((item) => {
+        const platKey = getIdentifierPlatform(item);
+        const orders = Number(item.month_orders) || 0;
+        if (map[platKey]) {
+          map[platKey].orders += orders;
+        } else {
+          const rawName = (item.app_name || '').trim();
+          let displayName = rawName;
+          if (!displayName) {
+            if (platKey === 'hungerstation') displayName = 'هنقرستيشن';
+            else if (platKey === 'jahez') displayName = 'جاهز';
+            else if (platKey === 'mrsool') displayName = 'مرسول';
+            else displayName = platKey;
+          }
+          map[platKey] = {
+            key: platKey,
+            name: displayName,
+            orders: orders,
+            idents: 1,
+            color: colors.primary,
+            bgColor: colors.primaryLight,
+            borderColor: colors.primary,
+            accentColor: colors.primary,
+          };
+        }
+      });
+    }
+
+    return Object.values(map);
+  }, [filteredBaseIdents, colors, rangeOrdersMap, rangeTotalOrders]);
 
   // Fast In-Memory Local Filtering (Zero network lag, zero UI freeze)
   const identsList = useMemo(() => {
@@ -309,6 +594,14 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     }
     return list;
   }, [drivers, searchQuery]);
+
+  const totalDriversMonthOrders = useMemo(() => {
+    return (drivers || []).reduce((sum, d) => sum + (Number(d.month_orders) || 0), 0);
+  }, [drivers]);
+
+  const totalDriversTodayOrders = useMemo(() => {
+    return (drivers || []).reduce((sum, d) => sum + (Number(d.today_orders) || 0), 0);
+  }, [drivers]);
 
   const alertsList = useMemo(() => {
     let list = Array.isArray(alerts) ? alerts : [];
@@ -337,18 +630,39 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     setCurrentView('data');
   };
 
+  const getAssignedDriverName = useCallback((alert: TargetAlertItem) => {
+    if ((alert as any).driver_name) return (alert as any).driver_name;
+    if ((alert as any).driver) return (alert as any).driver;
+    const idName = (alert.identifier_name || '').trim().toLowerCase();
+    const idId = (alert.identifier_id || '').trim();
+    if (!idName && !idId) return 'غير محدد';
+    const matched = drivers.find((d) =>
+      Array.isArray(d.identifiers) &&
+      d.identifiers.some((ident) => {
+        const normalized = (ident || '').trim().toLowerCase();
+        return (
+          (idName && normalized === idName) ||
+          (idId && normalized === idId) ||
+          (idName && (normalized.includes(idName) || idName.includes(normalized)))
+        );
+      })
+    );
+    return matched?.name || 'غير محدد';
+  }, [drivers]);
+
   // Sub-Page Title (Displayed with orange underline like Delegate screens)
   const getSubPageTitle = () => {
     if (currentView === 'profile') return 'الملف الشخصي';
     if (currentView === 'logs') return 'سجل العمليات والمتابعة';
+    if (currentView === 'platforms') return 'المنصات وتطبيقات التوصيل';
     if (currentView === 'data') {
       if (activeTab === 'identifiers') {
         if (statusFilter === 'TARGET_ACHIEVED') return 'المعرفين - حققوا التارچت';
         if (statusFilter === 'ON_TRACK') return 'المعرفين - يسير بالمعدل';
-        if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') return 'المعرفين - في خطر / متأخر';
+        if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') return 'المعرفين - على وشك المعدل / متأخر';
         return 'قائمة المعرفين';
       }
-      if (activeTab === 'drivers') return 'بيانات المناديب وطلبات اليوم';
+      if (activeTab === 'drivers') return 'بيانات المناديب - طلبات الشهر (1 - 31)';
       if (activeTab === 'alerts') return 'تنبيهات العجز والمتابعة';
       return 'صفحة البيانات';
     }
@@ -424,6 +738,24 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               </Text>
               <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
             </View>
+
+            {currentView === 'platforms' ? (
+              <TouchableOpacity
+                style={[
+                  styles.headerActionBtn,
+                  {
+                    backgroundColor: !dateFilter.isDefault ? colors.primaryLight : colors.inputBg,
+                    borderColor: !dateFilter.isDefault ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => setShowDateFilterModal(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar" size={18} color={colors.primary} />
+              </TouchableOpacity>
+            ) : (
+              <View style={{ width: 44, height: 44 }} />
+            )}
           </View>
         )}
       </View>
@@ -445,6 +777,122 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           isDarkMode={isDarkMode}
           isRTL={isRTL}
         />
+      ) : currentView === 'platforms' ? (
+        /* VIEW 2.5: DEDICATED PLATFORMS VIEW ("صفحة المنصات") - 3 CLEAN FULL-PAGE CARDS */
+        <ScrollView
+          contentContainerStyle={styles.platformsCleanScrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          <View style={styles.platformsCleanList}>
+            {platformsList.map((plat) => {
+              const isKeeta = plat.key === 'keeta';
+              const isNinja = plat.key === 'ninja';
+              const isToyou = plat.key === 'toyou';
+
+              const cardBorder = isDarkMode
+                ? (isNinja ? '#374151' : isKeeta ? '#854d0e' : isToyou ? '#155e75' : colors.border)
+                : (isNinja ? '#cbd5e1' : isKeeta ? '#fde047' : isToyou ? '#a5f3fc' : colors.border);
+
+              const brandColor = isNinja ? colors.textPrimary : (isKeeta ? '#d97706' : '#0891b2');
+
+              return (
+                <View
+                  key={plat.key}
+                  style={[
+                    styles.platformCleanCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: cardBorder,
+                    },
+                  ]}
+                >
+                  {/* Top: Logo + App Name */}
+                  <View style={[styles.platformCleanHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View
+                      style={[
+                        styles.platformCleanLogoBox,
+                        {
+                          backgroundColor: plat.bgColor,
+                          borderColor: plat.borderColor || colors.border,
+                        },
+                      ]}
+                    >
+                      {plat.image ? (
+                        <Image
+                          source={plat.image}
+                          style={isKeeta ? styles.platformCleanKeetaImg : styles.platformCleanLogoImg}
+                          resizeMode={isKeeta ? 'cover' : 'contain'}
+                        />
+                      ) : (
+                        <Ionicons name="cube-outline" size={32} color={plat.color} />
+                      )}
+                    </View>
+
+                    <Text style={[styles.platformCleanTitle, { color: colors.textPrimary }]}>
+                      {plat.name}
+                    </Text>
+                  </View>
+
+                  {/* Divider line */}
+                  <View style={[styles.platformCleanDivider, { backgroundColor: isDarkMode ? '#27272e' : '#f1f5f9' }]} />
+
+                  {/* Bottom: 2 Clean Metric Boxes (عدد الطلبات و عدد المعرفات) */}
+                  <View style={[styles.platformCleanMetricsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    {/* Metric 1: عدد الطلبات */}
+                    <View
+                      style={[
+                        styles.platformCleanMetricTile,
+                        {
+                          backgroundColor: isDarkMode ? '#1a1a20' : '#f8fafc',
+                          borderColor: isDarkMode ? '#27272e' : '#e2e8f0',
+                        },
+                      ]}
+                    >
+                      <View style={[styles.platformCleanMetricLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <Ionicons name="bag-handle-outline" size={15} color={brandColor} />
+                        <Text style={[styles.platformCleanMetricLabel, { color: colors.textSecondary }]}>
+                          عدد الطلبات
+                        </Text>
+                      </View>
+                      <Text style={[styles.platformCleanMetricValue, { color: brandColor }]}>
+                        {plat.orders.toLocaleString('en-US')}
+                      </Text>
+                    </View>
+
+                    {/* Metric 2: عدد المعرفات */}
+                    <View
+                      style={[
+                        styles.platformCleanMetricTile,
+                        {
+                          backgroundColor: isDarkMode ? '#1a1a20' : '#f8fafc',
+                          borderColor: isDarkMode ? '#27272e' : '#e2e8f0',
+                        },
+                      ]}
+                    >
+                      <View style={[styles.platformCleanMetricLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <Ionicons name="person-circle-outline" size={15} color={colors.primary} />
+                        <Text style={[styles.platformCleanMetricLabel, { color: colors.textSecondary }]}>
+                          عدد المعرفات
+                        </Text>
+                      </View>
+                      <Text style={[styles.platformCleanMetricValue, { color: colors.textPrimary }]}>
+                        {plat.idents}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
       ) : currentView === 'home' ? (
         /* VIEW 3: HOME DASHBOARD (KPIs & Quick Cards) */
         <ScrollView
@@ -460,7 +908,33 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           }
         >
           <View style={styles.tabContainer}>
-            {/* 1. Quick KPI Stats - Clickable Cards leading to Data Page */}
+            {/* Network / Load Error Banner with Instant Retry */}
+            {loadError && (
+              <TouchableOpacity
+                style={[
+                  styles.errorRetryBanner,
+                  {
+                    backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+                    borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.4)' : '#fca5a5',
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+                onPress={loadData}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="refresh-circle" size={22} color="#ef4444" />
+                <Text style={[styles.errorRetryBannerText, { color: isDarkMode ? '#fca5a5' : '#b91c1c', textAlign: isRTL ? 'right' : 'left' }]}>
+                  {loadError}
+                </Text>
+                <View style={styles.errorRetryBtnWrap}>
+                  <Text style={styles.errorRetryBtnText}>إعادة المحاولة</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+
+
+            {/* Quick KPI Stats - Clickable Cards leading to Data Page */}
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                 مؤشرات الأداء الرئيسية
@@ -490,7 +964,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 </View>
               </TouchableOpacity>
 
-              {/* Card 2: حققوا التارچت */}
+
+              {/* Card 3: حققوا التارچت */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('identifiers', 'TARGET_ACHIEVED')}
@@ -509,7 +984,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 </View>
               </TouchableOpacity>
 
-              {/* Card 3: بالمعدل المطلوب */}
+              {/* Card 4: بالمعدل المطلوب */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('identifiers', 'ON_TRACK')}
@@ -528,7 +1003,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 </View>
               </TouchableOpacity>
 
-              {/* Card 4: في خطر / متأخرين */}
+              {/* Card 5: على وشك المعدل / متأخرين */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('identifiers', 'AT_RISK')}
@@ -540,33 +1015,33 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 <Text style={[styles.statNumber, { color: '#dc2626' }]}>
                   {(summary?.at_risk ?? 0) + (summary?.behind_target ?? 0)}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>في خطر / متأخرين</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>على وشك المعدل / متأخرين</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text style={[styles.statTapHintText, { color: '#dc2626' }]}>عرض المتأخرين</Text>
                   <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#dc2626" />
                 </View>
               </TouchableOpacity>
 
-              {/* Card 5: طلبات اليوم */}
+              {/* Card 6: طلبات كافة المناديب */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('drivers')}
                 activeOpacity={0.75}
               >
                 <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-                  <Ionicons name="flash" size={22} color={colors.primary} />
+                  <Ionicons name="people" size={22} color={colors.primary} />
                 </View>
                 <Text style={[styles.statNumber, { color: colors.primary }]}>
-                  {summary?.today_total_orders ?? 0}
+                  {totalDriversMonthOrders}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>طلبات اليوم</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>طلبات كافة المناديب</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text style={[styles.statTapHintText, { color: colors.primary }]}>بيانات المناديب</Text>
                   <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color={colors.primary} />
                 </View>
               </TouchableOpacity>
 
-              {/* Card 6: تنبيهات العجز النشطة */}
+              {/* Card 7: تنبيهات العجز النشطة */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('alerts')}
@@ -586,68 +1061,87 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* 2. Prominent "سجل" Card */}
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                سجل العمليات والمتابعة
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.historyHeroCard,
-                { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-              ]}
-              onPress={() => setCurrentView('logs')}
-              activeOpacity={0.75}
-            >
-              <View style={[styles.historyIconCircle, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : '#dbeafe' }]}>
-                <Ionicons name="time-outline" size={26} color="#2563eb" />
-              </View>
-              <View style={[styles.historyTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                <View style={[styles.historyTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text style={[styles.historyCardTitle, { color: colors.textPrimary }]}>
-                    سجل العمليات والأداء
-                  </Text>
-                  <View style={[styles.historyBadge, { backgroundColor: colors.primaryLight }]}>
-                    <Text style={[styles.historyBadgeText, { color: colors.primary }]}>السجل التاريخي</Text>
-                  </View>
+            {/* The Operations Cards (المنصات، سجل العمليات، استيراد إكسل) */}
+            <View style={styles.operationsCardsContainer}>
+              {/* Card 1: المنصات وتطبيقات التوصيل */}
+              <TouchableOpacity
+                style={[
+                  styles.quickCardRow,
+                  { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+                ]}
+                onPress={() => setCurrentView('platforms')}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.quickCardIconCircle, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5' }]}>
+                  <Ionicons name="grid-outline" size={22} color={colors.primary} />
                 </View>
-                <Text style={[styles.historyCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  استعراض سجل استيراد الطلبات، تنبيهات العجز، والتسويات
-                </Text>
-              </View>
-              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
+                <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <View style={[styles.historyTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      المنصات وتطبيقات التوصيل
+                    </Text>
+                    <View style={[styles.historyBadge, { backgroundColor: colors.primaryLight }]}>
+                      <Text style={[styles.historyBadgeText, { color: colors.primary }]}>3 تطبيقات</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    استعراض تفاصيل طلبات وأداء نينجا، كيتا، وتويو
+                  </Text>
+                </View>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
 
-            {/* 3. Operations: Import Excel Card */}
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                العمليات والاستيراد
-              </Text>
+              {/* Card 2: سجل العمليات والأداء */}
+              <TouchableOpacity
+                style={[
+                  styles.historyHeroCard,
+                  { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+                ]}
+                onPress={() => setCurrentView('logs')}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.historyIconCircle, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : '#dbeafe' }]}>
+                  <Ionicons name="time-outline" size={26} color="#2563eb" />
+                </View>
+                <View style={[styles.historyTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <View style={[styles.historyTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Text style={[styles.historyCardTitle, { color: colors.textPrimary }]}>
+                      سجل العمليات والأداء
+                    </Text>
+                    <View style={[styles.historyBadge, { backgroundColor: colors.primaryLight }]}>
+                      <Text style={[styles.historyBadgeText, { color: colors.primary }]}>السجل التاريخي</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.historyCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    استعراض سجل استيراد الطلبات، تنبيهات العجز، والتسويات
+                  </Text>
+                </View>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+
+              {/* Card 2: Operations: Import Excel Card */}
+              <TouchableOpacity
+                style={[
+                  styles.quickCardRow,
+                  { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+                ]}
+                onPress={() => setShowImportModal(true)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickCardIconCircle, { backgroundColor: colors.primaryLight }]}>
+                  <Feather name="upload-cloud" size={22} color={colors.primary} />
+                </View>
+                <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    استيراد ملف إكسل اليومي
+                  </Text>
+                  <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    رفع كشف الطلبات ومطابقة التارچت آلياً
+                  </Text>
+                </View>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={[
-                styles.quickCardRow,
-                { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-              ]}
-              onPress={() => setShowImportModal(true)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.quickCardIconCircle, { backgroundColor: colors.primaryLight }]}>
-                <Feather name="upload-cloud" size={22} color={colors.primary} />
-              </View>
-              <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  استيراد ملف إكسل اليومي
-                </Text>
-                <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  رفع كشف الطلبات ومطابقة التارچت آلياً
-                </Text>
-              </View>
-              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
           </View>
         </ScrollView>
       ) : (
@@ -696,7 +1190,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               </View>
             ) : activeTab === 'identifiers' ? (
               <View>
-                {/* Platform Filter Tabs (Ninja / Keeta) */}
+                {/* Platform Filter Tabs (Ninja / Keeta / Toyou) */}
                 <View style={[styles.platformTabsBar, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   {/* 1. NINJA (First) */}
                   <TouchableOpacity
@@ -773,6 +1267,44 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                       </View>
                     </View>
                   </TouchableOpacity>
+
+                  {/* 3. TOYOU (Third) */}
+                  <TouchableOpacity
+                    style={[
+                      styles.platformTabItem,
+                      platformTab === 'toyou' && [styles.platformTabItemActive, { backgroundColor: '#06b6d4' }],
+                    ]}
+                    onPress={() => setPlatformTab('toyou')}
+                    activeOpacity={0.75}
+                  >
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 5 }}>
+                      <Image
+                        source={require('../../../assets/images/toyou.png')}
+                        style={styles.platformTabLogo}
+                        resizeMode="contain"
+                      />
+                      <Text
+                        style={[
+                          styles.platformTabItemText,
+                          { color: platformTab === 'toyou' ? '#ffffff' : colors.textPrimary },
+                          platformTab === 'toyou' && styles.platformTabItemTextActive,
+                        ]}
+                      >
+                        تويو
+                      </Text>
+                      <View style={[
+                        styles.platformCountBadge,
+                        { backgroundColor: platformTab === 'toyou' ? 'rgba(255,255,255,0.28)' : isDarkMode ? '#334155' : '#e2e8f0' }
+                      ]}>
+                        <Text style={[
+                          styles.platformCountText,
+                          { color: platformTab === 'toyou' ? '#ffffff' : colors.textPrimary }
+                        ]}>
+                          {toyouCount}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
                 </View>
 
                 {identsList.length === 0 ? (
@@ -781,6 +1313,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                     <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
                       {platformTab === 'keeta'
                         ? 'لا توجد معرفات لتطبيق كيتا'
+                        : platformTab === 'toyou'
+                        ? 'لا توجد معرفات لتطبيق تويو'
                         : platformTab === 'ninja'
                         ? 'لا توجد معرفات لتطبيق نينجا'
                         : 'لا توجد معرفات مسجلة'}
@@ -953,47 +1487,143 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                   </Text>
                 </View>
               ) : (
-                driversList.map((drv) => (
+                <View>
+                  {/* Summary Card for All Drivers (إجمالي كافة المناديب) */}
                   <View
-                    key={drv.id}
-                    style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    style={{
+                      backgroundColor: colors.card,
+                      borderRadius: 18,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      padding: 16,
+                      marginBottom: 14,
+                    }}
                   >
-                    <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <View style={[styles.driverAvatarRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <View style={[styles.driverAvatarCircle, { backgroundColor: colors.primaryLight }]}>
-                          <Ionicons name="person" size={20} color={colors.primary} />
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 10 }}>
+                        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="people" size={22} color={colors.primary} />
                         </View>
                         <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                          <Text style={[styles.itemName, { color: colors.textPrimary }]}>{drv.name}</Text>
-                          {drv.phone ? (
-                            <Text style={[styles.itemCode, { color: colors.textSecondary }]}>{drv.phone}</Text>
-                          ) : null}
+                          <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>إجمالي طلبات كافة المناديب</Text>
+                          <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                            الشهر بالكامل (من 1 إلى 31)
+                          </Text>
                         </View>
                       </View>
-
-                      <View style={[styles.driverBadge, { backgroundColor: colors.primaryLight }]}>
-                        <Text style={[styles.driverBadgeNum, { color: colors.primary }]}>
-                          {drv.today_orders !== undefined ? drv.today_orders : (drv.month_orders || 0)}
+                      <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: colors.primary }}>
+                          {driversList.length} مندوب
                         </Text>
-                        <Text style={[styles.driverBadgeLbl, { color: colors.textSecondary }]}>طلب اليوم</Text>
                       </View>
                     </View>
 
-                    {Array.isArray(drv.identifiers) && drv.identifiers.length > 0 && (
-                      <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>المعرفات:</Text>
-                        <Text style={[styles.tagValue, { color: colors.textPrimary }]}>{drv.identifiers.join('، ')}</Text>
+                    {/* Stats Tiles */}
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: 10 }}>
+                      {/* Month Orders (1 - 31) */}
+                      <View
+                        style={{
+                          flex: 1,
+                          backgroundColor: isDarkMode ? 'rgba(255, 107, 0, 0.08)' : '#fff7ed',
+                          borderRadius: 14,
+                          borderWidth: 1.5,
+                          borderColor: colors.primary,
+                          paddingVertical: 12,
+                          paddingHorizontal: 8,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary, marginBottom: 2 }}>
+                          طلبات الشهر (1 - 31)
+                        </Text>
+                        <Text style={{ fontSize: 24, fontWeight: '900', color: colors.primary }}>
+                          {totalDriversMonthOrders}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: colors.textSecondary, marginTop: 2 }}>
+                          طلب لكافة المناديب
+                        </Text>
                       </View>
-                    )}
 
-                    {Array.isArray(drv.apps) && drv.apps.length > 0 && (
-                      <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>التطبيقات:</Text>
-                        <Text style={[styles.tagValue, { color: colors.primary }]}>{drv.apps.join('، ')}</Text>
+                      {/* Today Orders */}
+                      <View
+                        style={{
+                          flex: 1,
+                          backgroundColor: colors.inputBg,
+                          borderRadius: 14,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          paddingVertical: 12,
+                          paddingHorizontal: 8,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 2 }}>
+                          طلبات اليوم
+                        </Text>
+                        <Text style={{ fontSize: 24, fontWeight: '900', color: colors.textPrimary }}>
+                          {totalDriversTodayOrders}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: colors.textSecondary, marginTop: 2 }}>
+                          طلب مسجل اليوم
+                        </Text>
                       </View>
-                    )}
+                    </View>
                   </View>
-                ))
+
+                  {/* Individual Driver Cards */}
+                  {driversList.map((drv) => (
+                    <View
+                      key={drv.id}
+                      style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    >
+                      <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <View style={[styles.driverAvatarRow, { flexDirection: isRTL ? 'row-reverse' : 'row', flex: 1 }]}>
+                          <View style={[styles.driverAvatarCircle, { backgroundColor: colors.primaryLight }]}>
+                            <Ionicons name="person" size={20} color={colors.primary} />
+                          </View>
+                          <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1, marginHorizontal: 6 }}>
+                            <Text style={[styles.itemName, { color: colors.textPrimary }]} numberOfLines={1}>{drv.name}</Text>
+                            {drv.phone ? (
+                              <Text style={[styles.itemCode, { color: colors.textSecondary }]}>{drv.phone}</Text>
+                            ) : null}
+                          </View>
+                        </View>
+
+                        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={[styles.driverBadge, { backgroundColor: colors.primaryLight, borderColor: colors.primary, borderWidth: 1, minWidth: 72 }]}>
+                            <Text style={[styles.driverBadgeNum, { color: colors.primary, fontSize: 15 }]}>
+                              {drv.month_orders ?? 0}
+                            </Text>
+                            <Text style={[styles.driverBadgeLbl, { color: colors.primary, fontWeight: '700' }]}>
+                              الشهر (1-31)
+                            </Text>
+                          </View>
+
+                          <View style={[styles.driverBadge, { backgroundColor: colors.inputBg, borderColor: colors.border, borderWidth: 1, minWidth: 50 }]}>
+                            <Text style={[styles.driverBadgeNum, { color: colors.textPrimary, fontSize: 13 }]}>
+                              {drv.today_orders ?? 0}
+                            </Text>
+                            <Text style={[styles.driverBadgeLbl, { color: colors.textSecondary }]}>اليوم</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {Array.isArray(drv.identifiers) && drv.identifiers.length > 0 && (
+                        <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                          <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>المعرفات:</Text>
+                          <Text style={[styles.tagValue, { color: colors.textPrimary }]}>{drv.identifiers.join('، ')}</Text>
+                        </View>
+                      )}
+
+                      {Array.isArray(drv.apps) && drv.apps.length > 0 && (
+                        <View style={[styles.tagRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                          <Text style={[styles.tagLabel, { color: colors.textSecondary }]}>التطبيقات:</Text>
+                          <Text style={[styles.tagValue, { color: colors.primary }]}>{drv.apps.join('، ')}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
               )
             ) : (
               alertsList.length === 0 ? (
@@ -1015,13 +1645,16 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                       style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
                     >
                       <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                        <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
                           <Text style={[styles.itemName, { color: colors.textPrimary }]}>
-                            المعرف: {alert.identifier_name || 'معرف'}
+                            {formatIdentifierDisplayName(alert.identifier_name) || 'معرف'}
                           </Text>
-                          <Text style={[styles.itemCode, { color: colors.textSecondary }]}>
-                            تاريخ التنبيه: {alert.alert_date || '-'}
-                          </Text>
+                          <View style={[styles.alertDriverRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                            <Ionicons name="person-outline" size={13} color={colors.primary} />
+                            <Text style={[styles.alertDriverText, { color: colors.primary }]}>
+                              المندوب المسؤول اليوم: {getAssignedDriverName(alert)}
+                            </Text>
+                          </View>
                         </View>
 
                         <View
@@ -1700,5 +2333,461 @@ const styles = StyleSheet.create({
   platformCountText: {
     fontSize: 11,
     fontWeight: '800',
+  },
+  errorRetryBanner: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+    gap: 10,
+  },
+  errorRetryBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  errorRetryBtnWrap: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  errorRetryBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  dateFilterPillBar: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 12,
+  },
+  dateFilterIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateFilterTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  dateFilterTitleRow: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateFilterTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  dateFilterActiveBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  dateFilterActiveBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  dateFilterSub: {
+    fontSize: 11,
+  },
+  dateFilterChangeBtn: {
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  dateFilterChangeBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  appStatsCard: {
+    borderRadius: 18,
+    borderWidth: 1.5,
+    padding: 14,
+    marginBottom: 16,
+  },
+  appStatsHeader: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 8,
+  },
+  appStatsTitleGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  appStatsTitleRow: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  appStatsHeaderIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  appStatsTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  appStatsSubtitle: {
+    fontSize: 11,
+  },
+  appStatsMonthBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  appStatsMonthBadgeLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  appStatsMonthBadgeVal: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  appStatsGrid: {
+    gap: 8,
+  },
+  appStatTile: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 10,
+    gap: 6,
+  },
+  appStatTileTop: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  appStatLogoCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  appStatLogoImg: {
+    width: 22,
+    height: 22,
+  },
+  appStatNameBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  appStatNameText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  appStatMetrics: {
+    marginVertical: 2,
+  },
+  appStatOrdersNum: {
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  appStatOrdersUnit: {
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  appStatBarTrack: {
+    height: 5,
+    borderRadius: 2.5,
+    overflow: 'hidden',
+  },
+  appStatBarFill: {
+    height: '100%',
+    borderRadius: 2.5,
+  },
+  appStatBottomRow: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 2,
+  },
+  appStatIdentsCount: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  appStatPercentText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  operationsCardsContainer: {
+    marginTop: 4,
+    marginBottom: 8,
+    gap: 4,
+  },
+  platformsSummaryCard: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 14,
+    marginBottom: 16,
+  },
+  platformsCardHeader: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 8,
+  },
+  platformsCardIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  platformsCardTitleGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  platformsCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  platformsCardSubtitle: {
+    fontSize: 11,
+  },
+  platformsCardActionBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    alignItems: 'center',
+    gap: 2,
+  },
+  platformsCardActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  platformsChipsRow: {
+    gap: 8,
+  },
+  platformMiniChip: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  miniLogoCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  miniLogoImg: {
+    width: 18,
+    height: 18,
+  },
+  miniChipName: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  miniChipVal: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  platformDateTextCol: {
+    flex: 1,
+    gap: 1,
+  },
+  platformDateSubTitle: {
+    fontSize: 11,
+    marginBottom: 1,
+  },
+  platformDatePillBar: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 8,
+  },
+  platformDateIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  platformDateText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  platformDateChangeBadge: {
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  platformDateChangeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  alertDriverRow: {
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  alertDriverText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  platformVerticalList: {
+    gap: 12,
+    marginTop: 6,
+  },
+  platformVerticalCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  platformCardLogoCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  platformCardLogoImg: {
+    width: 36,
+    height: 36,
+  },
+  platformKeetaImg: {
+    width: 52,
+    height: 52,
+  },
+  platformCardInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  platformCardTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  platformCardSub: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  platformCardOrdersCol: {
+    alignItems: 'center',
+    minWidth: 70,
+  },
+  platformCardOrdersNum: {
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  platformCardOrdersLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  platformsCleanScrollContent: {
+    flexGrow: 1,
+    padding: 16,
+    paddingBottom: 28,
+  },
+  platformsCleanList: {
+    flex: 1,
+    gap: 16,
+    justifyContent: 'space-between',
+  },
+  platformCleanCard: {
+    flex: 1,
+    minHeight: 165,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    padding: 18,
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  platformCleanHeader: {
+    alignItems: 'center',
+    gap: 14,
+  },
+  platformCleanLogoBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  platformCleanLogoImg: {
+    width: 44,
+    height: 44,
+  },
+  platformCleanKeetaImg: {
+    width: 56,
+    height: 56,
+  },
+  platformCleanTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  platformCleanDivider: {
+    height: 1,
+    width: '100%',
+    marginVertical: 12,
+  },
+  platformCleanMetricsRow: {
+    gap: 12,
+  },
+  platformCleanMetricTile: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    gap: 4,
+  },
+  platformCleanMetricLabelRow: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  platformCleanMetricLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  platformCleanMetricValue: {
+    fontSize: 24,
+    fontWeight: '900',
   },
 });

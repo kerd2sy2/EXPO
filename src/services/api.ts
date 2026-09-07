@@ -130,61 +130,84 @@ export const clearSavedBiometrics = async (): Promise<void> => {
 
 export async function apiRequest<T = any>(
   endpoint: string,
-  options: RequestInit & { timeoutMs?: number } = {}
+  options: RequestInit & { timeoutMs?: number; retries?: number } = {}
 ): Promise<T> {
-  const { timeoutMs = 12000, ...fetchOptions } = options;
+  const { timeoutMs = 30000, retries = 1, ...fetchOptions } = options;
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-  
-  // Ensure token is loaded if not already in memory
-  let token = getStoredToken();
-  if (!token) {
-    token = await loadStoredToken();
-  }
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-    ...(fetchOptions.headers as Record<string, string>),
-  };
+  let lastError: any = null;
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    // Ensure token is loaded if not already in memory
+    let token = getStoredToken();
+    if (!token) {
+      token = await loadStoredToken();
+    }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(fetchOptions.headers as Record<string, string>),
+    };
 
-  try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-      signal: fetchOptions.signal || controller.signal,
-    });
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
-    const text = await response.text();
-    let data: any;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+
     try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      data = { message: text };
-    }
+      const response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+        signal: fetchOptions.signal || controller.signal,
+      });
 
-    if (!response.ok) {
-      const errorMsg = data?.error || data?.message || `خطأ في الخادم (${response.status})`;
-      throw new Error(errorMsg);
-    }
+      const text = await response.text();
+      let data: any;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { message: text };
+      }
 
-    return data;
-  } catch (err: any) {
-    if (err?.name === 'AbortError') {
-      throw new Error('انتهت مهلة الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
+      if (!response.ok) {
+        const errorMsg = data?.error || data?.message || `خطأ في الخادم (${response.status})`;
+        throw new Error(errorMsg);
+      }
+
+      return data;
+    } catch (err: any) {
+      lastError = err;
+      const errMsg = (err?.message || '').toLowerCase();
+      const isNetworkOrAbort =
+        err?.name === 'AbortError' ||
+        errMsg.includes('canceled') ||
+        errMsg.includes('cancelled') ||
+        errMsg.includes('abort') ||
+        errMsg.includes('timeout') ||
+        errMsg.includes('fetch failed') ||
+        errMsg.includes('network request failed');
+
+      if (attempt < retries && isNetworkOrAbort) {
+        // Brief pause before retry
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        continue;
+      }
+
+      if (isNetworkOrAbort) {
+        throw new Error('تعذر الاتصال بالخادم، يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw lastError;
 }
 
 // ------------------------------------------------------------------

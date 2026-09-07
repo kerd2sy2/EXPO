@@ -73,6 +73,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
     uri: string;
     name: string;
     mimeType?: string;
+    file?: any;
   } | null>(null);
 
   const [customDate, setCustomDate] = useState(getYesterdayFormatted());
@@ -88,6 +89,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
   const [analyzing, setAnalyzing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [preview, setPreview] = useState<ExcelImportPreview | null>(null);
+  const [showRowsPreview, setShowRowsPreview] = useState(false);
   const [dedupAction, setDedupAction] = useState<
     'IGNORE_DUPLICATES' | 'REPLACE_DUPLICATES' | 'CANCEL'
   >('IGNORE_DUPLICATES');
@@ -109,6 +111,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
                 uri: URL.createObjectURL(file),
                 name: file.name,
                 mimeType: file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                file: file,
               };
               setSelectedFile(fileObj);
               setPreview(null);
@@ -142,6 +145,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
           uri: file.uri,
           name: file.name,
           mimeType: file.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          file: (file as any).file,
         };
         setSelectedFile(fileObj);
         setPreview(null);
@@ -162,6 +166,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
       setAnalyzing(true);
       const res = await targetApi.previewExcel(fileToAnalyze, dateOverride);
       setPreview(res);
+      setShowRowsPreview(false);
       if (res.order_date && !customDate) {
         setCustomDate(res.order_date);
       }
@@ -253,6 +258,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
   const resetState = () => {
     setSelectedFile(null);
     setPreview(null);
+    setShowRowsPreview(false);
     setCustomDate(getYesterdayFormatted());
     setDedupAction('IGNORE_DUPLICATES');
   };
@@ -450,86 +456,146 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
                   </View>
                 )}
 
-                {/* Rows Preview Table */}
-                <Text style={[styles.tableSectionTitle, isDarkMode && styles.darkText]}>
-                  معاينة البيانات المستخرجة ({preview.rows.length} صف):
-                </Text>
-                {preview.rows.map((row, idx) => {
-                  const isNinja = row.app?.includes('نينجا');
-                  const isKeeta = row.app?.includes('كيتا') || row.app?.includes('كينتا');
-                  const isToyo = row.app?.includes('تويو');
-                  const hasEmptyIdent = !row.identifier || row.identifier.trim() === '';
+                {/* Actions & Preview Dropdown Section */}
+                <View style={styles.actionButtonsContainer}>
+                  {/* Primary Save Button: Directly available without scrolling */}
+                  <TouchableOpacity
+                    style={[styles.confirmBtn, confirming && styles.disabledBtn]}
+                    onPress={handleConfirm}
+                    disabled={confirming}
+                    activeOpacity={0.8}
+                  >
+                    {confirming ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="cloud-upload" size={20} color="#fff" />
+                        <Text style={styles.confirmBtnText}>حفظ في قاعدة البيانات</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
 
-                  return (
-                    <View
-                      key={idx}
-                      style={[
-                        styles.rowCard,
-                        isDarkMode && styles.darkCard,
-                        row.is_duplicate && styles.dupRowCard,
-                        hasEmptyIdent && styles.emptyIdentRowCard,
-                      ]}
-                    >
-                      <View style={styles.rowTop}>
-                        <View style={styles.rowMeta}>
-                          <Text style={[styles.rowIdent, isDarkMode && styles.darkText, hasEmptyIdent && styles.emptyIdentText]}>
-                            {hasEmptyIdent ? '⚠️ المعرف: (فارغ)' : `المعرف: ${row.identifier}`}
-                          </Text>
-                          <Text style={styles.rowDriver}>المندوب: {row.driver_name}</Text>
-                        </View>
-                        <View style={styles.ordersBadge}>
-                          <Text style={styles.ordersBadgeText}>{row.total_orders} طلب</Text>
-                        </View>
+                  {/* Dropdown Toggle Button for Preview */}
+                  <TouchableOpacity
+                    style={[
+                      styles.previewDropdownBtn,
+                      isDarkMode && styles.darkPreviewDropdownBtn,
+                      showRowsPreview && styles.previewDropdownBtnActive,
+                    ]}
+                    onPress={() => setShowRowsPreview(!showRowsPreview)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.previewDropdownContent}>
+                      <View style={styles.previewDropdownLeft}>
+                        <Ionicons
+                          name={showRowsPreview ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color={showRowsPreview ? '#f97316' : (isDarkMode ? '#94a3b8' : '#64748b')}
+                        />
+                        <Text style={[styles.previewDropdownHint, isDarkMode && styles.darkTextSecondary]}>
+                          {showRowsPreview ? 'إغلاق المعاينة' : 'اضغط للعرض'}
+                        </Text>
                       </View>
 
-                      <View style={styles.rowBottom}>
-                        <View style={[
-                          styles.appBadge,
-                          isNinja && styles.appBadgeNinja,
-                          isKeeta && styles.appBadgeKeeta,
-                          isToyo && styles.appBadgeToyo,
-                        ]}>
-                          <Text style={[
-                            styles.appBadgeText,
-                            isNinja && styles.appBadgeNinjaText,
-                            isKeeta && styles.appBadgeKeetaText,
-                            isToyo && styles.appBadgeToyoText,
-                          ]}>
-                            {row.app || 'غير محدد'}
-                          </Text>
-                        </View>
-                        {row.branch ? (
-                          <View style={[styles.appBadge, { backgroundColor: '#e0f2fe' }]}>
-                            <Text style={[styles.appBadgeText, { color: '#0369a1' }]}>
-                              فرع {row.branch}
-                            </Text>
-                          </View>
-                        ) : null}
-                        {row.plate_number ? <Text style={styles.rowSub}>اللوحة: {row.plate_number}</Text> : null}
-                        {row.notes ? <Text style={styles.rowSub}>ملاحظات: {row.notes}</Text> : null}
-                        {row.is_duplicate ? (
-                          <Text style={styles.dupTag}>⚠️ مكرر مسجل مسبقاً</Text>
-                        ) : null}
+                      <View style={styles.previewDropdownRight}>
+                        <Ionicons
+                          name={showRowsPreview ? 'eye-off-outline' : 'eye-outline'}
+                          size={20}
+                          color={showRowsPreview ? '#f97316' : (isDarkMode ? '#f8fafc' : '#1e293b')}
+                        />
+                        <Text style={[styles.previewDropdownTitle, isDarkMode && styles.darkText, showRowsPreview && { color: '#f97316' }]}>
+                          معاينة تفاصيل البيانات ({preview.rows.length} صف)
+                        </Text>
                       </View>
                     </View>
-                  );
-                })}
+                  </TouchableOpacity>
+                </View>
 
-                {/* Confirm Import Button */}
-                <TouchableOpacity
-                  style={[styles.confirmBtn, confirming && styles.disabledBtn]}
-                  onPress={handleConfirm}
-                  disabled={confirming}
-                >
-                  {confirming ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
-                      <Text style={styles.confirmBtnText}>حفظ في قاعدة البيانات</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                {/* Collapsible Rows Preview (قائمة منسدلة للمعاينة) */}
+                {showRowsPreview && (
+                  <View style={styles.collapsibleRowsWrapper}>
+                    <Text style={[styles.tableSectionTitle, isDarkMode && styles.darkText]}>
+                      الصفوف المستخرجة من الإكسل:
+                    </Text>
+                    {preview.rows.map((row, idx) => {
+                      const isNinja = row.app?.includes('نينجا');
+                      const isKeeta = row.app?.includes('كيتا') || row.app?.includes('كينتا');
+                      const isToyo = row.app?.includes('تويو');
+                      const hasEmptyIdent = !row.identifier || row.identifier.trim() === '';
+
+                      return (
+                        <View
+                          key={idx}
+                          style={[
+                            styles.rowCard,
+                            isDarkMode && styles.darkCard,
+                            row.is_duplicate && styles.dupRowCard,
+                            hasEmptyIdent && styles.emptyIdentRowCard,
+                          ]}
+                        >
+                          <View style={styles.rowTop}>
+                            <View style={styles.rowMeta}>
+                              <Text style={[styles.rowIdent, isDarkMode && styles.darkText, hasEmptyIdent && styles.emptyIdentText]}>
+                                {hasEmptyIdent ? '⚠️ المعرف: (فارغ)' : `المعرف: ${row.identifier}`}
+                              </Text>
+                              <Text style={styles.rowDriver}>المندوب: {row.driver_name}</Text>
+                            </View>
+                            <View style={styles.ordersBadge}>
+                              <Text style={styles.ordersBadgeText}>{row.total_orders} طلب</Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.rowBottom}>
+                            <View style={[
+                              styles.appBadge,
+                              isNinja && styles.appBadgeNinja,
+                              isKeeta && styles.appBadgeKeeta,
+                              isToyo && styles.appBadgeToyo,
+                            ]}>
+                              <Text style={[
+                                styles.appBadgeText,
+                                isNinja && styles.appBadgeNinjaText,
+                                isKeeta && styles.appBadgeKeetaText,
+                                isToyo && styles.appBadgeToyoText,
+                              ]}>
+                                {row.app || 'غير محدد'}
+                              </Text>
+                            </View>
+                            {row.branch ? (
+                              <View style={[styles.appBadge, { backgroundColor: '#e0f2fe' }]}>
+                                <Text style={[styles.appBadgeText, { color: '#0369a1' }]}>
+                                  فرع {row.branch}
+                                </Text>
+                              </View>
+                            ) : null}
+                            {row.plate_number ? <Text style={styles.rowSub}>اللوحة: {row.plate_number}</Text> : null}
+                            {row.notes ? <Text style={styles.rowSub}>ملاحظات: {row.notes}</Text> : null}
+                            {row.is_duplicate ? (
+                              <Text style={styles.dupTag}>⚠️ مكرر مسجل مسبقاً</Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      );
+                    })}
+
+                    {/* Bottom Save Button when expanded for convenience */}
+                    <TouchableOpacity
+                      style={[styles.confirmBtn, { marginTop: 14, marginBottom: 16 }, confirming && styles.disabledBtn]}
+                      onPress={handleConfirm}
+                      disabled={confirming}
+                      activeOpacity={0.8}
+                    >
+                      {confirming ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <>
+                          <Ionicons name="cloud-upload" size={20} color="#fff" />
+                          <Text style={styles.confirmBtnText}>حفظ في قاعدة البيانات</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
           </ScrollView>
@@ -1152,8 +1218,61 @@ const styles = StyleSheet.create({
     backgroundColor: '#10b981',
     paddingVertical: 14,
     borderRadius: 14,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  actionButtonsContainer: {
     marginTop: 14,
-    marginBottom: 20,
+    marginBottom: 10,
+    gap: 10,
+  },
+  previewDropdownBtn: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    borderRadius: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+  },
+  darkPreviewDropdownBtn: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  previewDropdownBtnActive: {
+    borderColor: '#f97316',
+    backgroundColor: '#fff7ed',
+  },
+  previewDropdownContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  previewDropdownRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  previewDropdownTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  previewDropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  previewDropdownHint: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  collapsibleRowsWrapper: {
+    marginTop: 6,
+    marginBottom: 12,
   },
   disabledBtn: {
     opacity: 0.6,
