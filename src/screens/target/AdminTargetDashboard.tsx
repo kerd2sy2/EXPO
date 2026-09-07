@@ -395,10 +395,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
       list = list.filter((i) => i.status === 'TARGET_ACHIEVED');
     } else if (statusFilter === 'ON_TRACK') {
       list = list.filter((i) => i.status === 'ON_TRACK');
-    } else if (statusFilter === 'AT_RISK') {
+    } else if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') {
       list = list.filter((i) => i.status === 'AT_RISK' || i.status === 'BEHIND_TARGET');
-    } else if (statusFilter === 'BEHIND_TARGET') {
-      list = list.filter((i) => i.status === 'BEHIND_TARGET' || i.status === 'AT_RISK');
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -407,6 +405,13 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           i.name?.toLowerCase().includes(q) ||
           i.code?.toLowerCase().includes(q)
       );
+    }
+    if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') {
+      list = [...list].sort((a, b) => {
+        if (a.status === 'AT_RISK' && b.status !== 'AT_RISK') return -1;
+        if (a.status !== 'AT_RISK' && b.status === 'AT_RISK') return 1;
+        return (b.month_orders || 0) - (a.month_orders || 0);
+      });
     }
     return list;
   }, [identifiers, statusFilter, searchQuery, rangeIdentOrdersMap]);

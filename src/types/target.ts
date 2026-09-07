@@ -65,6 +65,8 @@ export interface DriverContribution {
   driver_name: string;
   orders: number;
   percentage: number;
+  daily_orders?: Record<string, number>;
+  days_active?: number;
 }
 
 export interface DayTrend {

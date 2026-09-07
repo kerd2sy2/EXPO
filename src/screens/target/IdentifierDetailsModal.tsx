@@ -31,6 +31,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [details, setDetails] = useState<IdentifierDetails | null>(null);
   const [error, setError] = useState('');
+  const [expandedDriverId, setExpandedDriverId] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible && identifierId) {
@@ -267,27 +268,133 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
               {driversBreakdown.length === 0 ? (
                 <Text style={styles.emptyText}>لا يوجد مناديب مسجلين لهذا المعرف في هذا الشهر</Text>
               ) : (
-                driversBreakdown.map((drv, idx) => (
-                  <View key={idx} style={[styles.driverCard, isDarkMode && styles.darkCard]}>
-                    <View style={styles.driverInfo}>
-                      <Text style={[styles.driverName, isDarkMode && styles.darkText]}>
-                        {idx + 1}. {drv.driver_name}
-                      </Text>
-                      <Text style={styles.driverOrders}>{drv.orders} طلب</Text>
-                    </View>
-                    <View style={styles.driverBarWrapper}>
-                      <View style={styles.driverBarBg}>
-                        <View
-                          style={[
-                            styles.driverBarFill,
-                            { width: `${Math.min(100, Math.max(0, drv.percentage))}%` },
-                          ]}
-                        />
+                driversBreakdown.map((drv, idx) => {
+                  const isExpanded = expandedDriverId === drv.driver_id;
+                  const dailyOrders = drv.daily_orders || {};
+                  
+                  // Extract available days from dailyTimeline or build 1-31
+                  const timeline = details?.daily_timeline || [];
+                  const daysList = timeline.length > 0
+                    ? timeline
+                    : Array.from({ length: 31 }, (_, i) => ({
+                        day: i + 1,
+                        date: `${(month || new Date().toISOString().slice(0, 7))}-${String(i + 1).padStart(2, '0')}`,
+                        orders: 0,
+                        target: 15,
+                      }));
+
+                  // Calculate active days vs absent days
+                  const activeDaysCount = Object.keys(dailyOrders).filter(d => (dailyOrders[d] || 0) > 0).length;
+
+                  return (
+                    <TouchableOpacity
+                      key={drv.driver_id || idx}
+                      style={[
+                        styles.driverCard,
+                        isDarkMode && styles.darkCard,
+                        isExpanded && { borderColor: '#f97316', borderWidth: 1.5 },
+                      ]}
+                      onPress={() => setExpandedDriverId(isExpanded ? null : drv.driver_id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.driverInfo}>
+                        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, flex: 1 }}>
+                          <Text style={[styles.driverName, isDarkMode && styles.darkText]}>
+                            {idx + 1}. {drv.driver_name}
+                          </Text>
+                          <Ionicons
+                            name={isExpanded ? 'chevron-up-circle' : 'chevron-down-circle-outline'}
+                            size={18}
+                            color={isExpanded ? '#f97316' : '#94a3b8'}
+                          />
+                        </View>
+                        <View style={{ alignItems: 'flex-start' }}>
+                          <Text style={styles.driverOrders}>{drv.orders} طلب</Text>
+                          <Text style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
+                            {activeDaysCount} يوم عمل
+                          </Text>
+                        </View>
                       </View>
-                      <Text style={styles.driverPercent}>{drv.percentage}%</Text>
-                    </View>
-                  </View>
-                ))
+                      <View style={styles.driverBarWrapper}>
+                        <View style={styles.driverBarBg}>
+                          <View
+                            style={[
+                              styles.driverBarFill,
+                              { width: `${Math.min(100, Math.max(0, drv.percentage))}%` },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.driverPercent}>{drv.percentage}%</Text>
+                      </View>
+
+                      {/* Click hint / indicator */}
+                      {!isExpanded && (
+                        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: isDarkMode ? '#334155' : '#f1f5f9' }}>
+                          <Text style={{ fontSize: 11, color: '#f97316', fontWeight: '600' }}>
+                            اضغط لعرض تفاصيل الأيام اليومية والغياب 👈
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Daily Details Breakdown when expanded */}
+                      {isExpanded && (
+                        <View style={[styles.dailyBreakdownContainer, isDarkMode && styles.dailyBreakdownDark]}>
+                          <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                            <Text style={{ fontSize: 12, fontWeight: '800', color: isDarkMode ? '#f8fafc' : '#0f172a' }}>
+                              تفاصيل الطلبات اليومية للمندوب:
+                            </Text>
+                            <View style={{ flexDirection: 'row-reverse', gap: 10 }}>
+                              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
+                                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981' }} />
+                                <Text style={{ fontSize: 10, color: '#64748b' }}>حاضر</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
+                                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' }} />
+                                <Text style={{ fontSize: 10, color: '#64748b' }}>غائب</Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          <View style={styles.dailyGrid}>
+                            {daysList.map((dItem) => {
+                              const dayOrders = dailyOrders[dItem.date] || 0;
+                              const isAbsent = dayOrders === 0;
+
+                              return (
+                                <View
+                                  key={dItem.day}
+                                  style={[
+                                    styles.dayBox,
+                                    isAbsent
+                                      ? (isDarkMode ? styles.dayBoxAbsentDark : styles.dayBoxAbsentLight)
+                                      : (isDarkMode ? styles.dayBoxActiveDark : styles.dayBoxActiveLight),
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.dayBoxDayNum,
+                                      { color: isAbsent ? '#ef4444' : '#10b981' },
+                                    ]}
+                                  >
+                                    يوم {dItem.day}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.dayBoxOrders,
+                                      { color: isAbsent ? (isDarkMode ? '#fca5a5' : '#dc2626') : (isDarkMode ? '#6ee7b7' : '#059669') },
+                                    ]}
+                                  >
+                                    {isAbsent ? 'غائب' : `${dayOrders} طلب`}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
               )}
 
               {/* Apps Breakdown */}
@@ -630,5 +737,54 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#f97316',
     marginTop: 2,
+  },
+  dailyBreakdownContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  dailyBreakdownDark: {
+    borderTopColor: '#334155',
+  },
+  dailyGrid: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'flex-start',
+  },
+  dayBox: {
+    width: '18%',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  dayBoxActiveLight: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+  },
+  dayBoxActiveDark: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderColor: '#059669',
+  },
+  dayBoxAbsentLight: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  dayBoxAbsentDark: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: '#dc2626',
+  },
+  dayBoxDayNum: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  dayBoxOrders: {
+    fontSize: 10,
+    fontWeight: '800',
   },
 });
