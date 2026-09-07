@@ -89,7 +89,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [platformTab, setPlatformTab] = useState<'ninja' | 'keeta' | 'toyou'>('ninja');
+  const [platformTab, setPlatformTab] = useState<'ninja' | 'keeta'>('ninja');
   const [selectedIdentifierId, setSelectedIdentifierId] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
@@ -514,17 +514,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         bgColor: '#fde047',
         borderColor: '#eab308',
         accentColor: '#d97706',
-      },
-      toyou: {
-        key: 'toyou',
-        name: 'تويو',
-        orders: rangeOrdersMap ? (rangeOrdersMap['toyou'] || 0) : 0,
-        idents: platIdents('toyou'),
-        image: require('../../../assets/images/toyou.png'),
-        color: '#0891b2',
-        bgColor: '#ffffff',
-        borderColor: '#06b6d4',
-        accentColor: '#0891b2',
       },
     };
 
@@ -1223,43 +1212,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                     </View>
                   </TouchableOpacity>
 
-                  {/* 3. TOYOU (Third) */}
-                  <TouchableOpacity
-                    style={[
-                      styles.platformTabItem,
-                      platformTab === 'toyou' && [styles.platformTabItemActive, { backgroundColor: '#06b6d4' }],
-                    ]}
-                    onPress={() => setPlatformTab('toyou')}
-                    activeOpacity={0.75}
-                  >
-                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
-                      <Image
-                        source={require('../../../assets/images/toyou.png')}
-                        style={styles.platformTabLogo}
-                        resizeMode="contain"
-                      />
-                      <Text
-                        style={[
-                          styles.platformTabItemText,
-                          { color: platformTab === 'toyou' ? '#ffffff' : colors.textPrimary },
-                          platformTab === 'toyou' && styles.platformTabItemTextActive,
-                        ]}
-                      >
-                        تويو
-                      </Text>
-                      <View style={[
-                        styles.platformCountBadge,
-                        { backgroundColor: platformTab === 'toyou' ? 'rgba(255,255,255,0.3)' : isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }
-                      ]}>
-                        <Text style={[
-                          styles.platformCountText,
-                          { color: platformTab === 'toyou' ? '#ffffff' : colors.textPrimary }
-                        ]}>
-                          {toyouCount}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
                 </View>
 
                 {identsList.length === 0 ? (
@@ -1268,8 +1220,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                     <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
                       {platformTab === 'keeta'
                         ? 'لا توجد معرفات لتطبيق كيتا'
-                        : platformTab === 'toyou'
-                        ? 'لا توجد معرفات لتطبيق تويو'
                         : platformTab === 'ninja'
                         ? 'لا توجد معرفات لتطبيق نينجا'
                         : 'لا توجد معرفات مسجلة'}
