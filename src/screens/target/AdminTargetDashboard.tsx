@@ -1702,6 +1702,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         visible={!!selectedDriver}
         driver={selectedDriver}
         month={dateFilter.month}
+        maxElapsedDays={summary?.days_elapsed}
         onClose={() => setSelectedDriver(null)}
         isDarkMode={isDarkMode}
       />

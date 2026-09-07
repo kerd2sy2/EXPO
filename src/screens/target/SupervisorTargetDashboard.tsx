@@ -1656,6 +1656,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         visible={!!selectedDriver}
         driver={selectedDriver}
         month={dateFilter.month}
+        maxElapsedDays={summary?.days_elapsed}
         onClose={() => setSelectedDriver(null)}
         isDarkMode={isDarkMode}
       />

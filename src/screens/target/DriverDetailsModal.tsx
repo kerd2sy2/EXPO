@@ -14,6 +14,7 @@ interface DriverDetailsModalProps {
   visible: boolean;
   driver: DriverPerformance | null;
   month?: string;
+  maxElapsedDays?: number;
   onClose: () => void;
   isDarkMode?: boolean;
 }
@@ -22,6 +23,7 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
   visible,
   driver,
   month,
+  maxElapsedDays,
   onClose,
   isDarkMode = false,
 }) => {
@@ -30,23 +32,30 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
   const dailyOrders = driver.daily_orders || {};
   const dailyTarget = driver.daily_target || 15;
 
-  // Calculate elapsed days up to current date or max recorded day
+  // Calculate elapsed days up to max recorded day or closed shift day
   const todayStr = new Date().toISOString().slice(0, 10);
   const currentMonthPrefix = todayStr.slice(0, 7);
   const isCurrentMonth = !month || month === currentMonthPrefix;
 
-  let maxDayNumber = 31;
-  if (isCurrentMonth) {
-    maxDayNumber = parseInt(todayStr.slice(8, 10), 10);
-  }
-
   const allRecordedDates = Object.keys(dailyOrders);
+  let maxDriverDay = 0;
   if (allRecordedDates.length > 0) {
-    const maxRecordedDay = Math.max(
+    maxDriverDay = Math.max(
       ...allRecordedDates.map((d) => parseInt(d.slice(8, 10), 10) || 0)
     );
-    if (maxRecordedDay > maxDayNumber) {
-      maxDayNumber = maxRecordedDay;
+  }
+
+  let maxDayNumber = 31;
+  if (isCurrentMonth) {
+    const todayDay = parseInt(todayStr.slice(8, 10), 10);
+    // Use maxElapsedDays from summary (which matches latest uploaded orders date)
+    // or driver's max recorded day, avoiding counting today's ongoing shift as absence
+    if (typeof maxElapsedDays === 'number' && maxElapsedDays > 0) {
+      maxDayNumber = Math.max(maxElapsedDays, maxDriverDay);
+    } else if (maxDriverDay > 0) {
+      maxDayNumber = maxDriverDay;
+    } else {
+      maxDayNumber = Math.max(1, todayDay - 1);
     }
   }
 
