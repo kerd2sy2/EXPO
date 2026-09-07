@@ -299,16 +299,21 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   }, [currentView]);
 
   const handleResolveAlert = async (alertId: string) => {
+    // Immediate optimistic update (instantly turns to 'تمت التسوية' and hides button)
+    setAlerts((prev) =>
+      Array.isArray(prev)
+        ? prev.map((a) => (a.id === alertId ? { ...a, is_resolved: true } : a))
+        : []
+    );
     try {
       await targetApi.resolveAlert(alertId);
+    } catch (e: any) {
+      // Revert if failed
       setAlerts((prev) =>
         Array.isArray(prev)
-          ? prev.map((a) => (a.id === alertId ? { ...a, is_resolved: true } : a))
+          ? prev.map((a) => (a.id === alertId ? { ...a, is_resolved: false } : a))
           : []
       );
-      Alert.alert('تم', 'تمت تسوية التنبيه بنجاح');
-    } catch (e: any) {
-      Alert.alert('خطأ', e.message || 'فشل في تسوية التنبيه');
     }
   };
 

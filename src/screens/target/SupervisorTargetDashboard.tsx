@@ -290,6 +290,23 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     return () => backHandler.remove();
   }, [currentView]);
 
+  const handleResolveAlert = async (alertId: string) => {
+    setAlerts((prev) =>
+      Array.isArray(prev)
+        ? prev.map((a) => (a.id === alertId ? { ...a, is_resolved: true } : a))
+        : []
+    );
+    try {
+      await targetApi.resolveAlert(alertId);
+    } catch (e: any) {
+      setAlerts((prev) =>
+        Array.isArray(prev)
+          ? prev.map((a) => (a.id === alertId ? { ...a, is_resolved: false } : a))
+          : []
+      );
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'TARGET_ACHIEVED':
