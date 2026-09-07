@@ -8,6 +8,7 @@ import {
   Alert,
   Modal,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
@@ -20,10 +21,12 @@ import {
   saveLastCredentialsForBiometrics,
   getStoredToken,
 } from '../../services/api';
+import { targetApi } from '../../services/targetApi';
 
 interface AdminProfileScreenProps {
   user: any;
   onOpenTargetSettings?: () => void;
+  onResetData?: () => void;
   onLogout: () => void;
   colors: ThemeColors;
   isDarkMode?: boolean;
@@ -33,6 +36,7 @@ interface AdminProfileScreenProps {
 export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   user,
   onOpenTargetSettings,
+  onResetData,
   onLogout,
   colors,
   isDarkMode = false,
@@ -50,6 +54,35 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   // Biometrics State
   const [biometricsAvailable, setBiometricsAvailable] = useState(false);
   const [biometricsOn, setBiometricsOn] = useState(false);
+
+  // Delete All Identifiers State & Handler
+  const [deletingAll, setDeletingAll] = useState(false);
+
+  const handleDeleteAllIdentifiers = () => {
+    Alert.alert(
+      'تأكيد مسح كافة المعرفات',
+      'هل أنت متأكد من رغبتك في مسح كافة المعرفات والبيانات المسجلة بالكامل؟\n\nستتمكن بعد ذلك من رفع شيتات وبيانات جديدة تماماً من الصفر.\n\n⚠️ هذا الإجراء نهائي ولا يمكن التراجع عنه.',
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'نعم، مسح الكل الآن',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeletingAll(true);
+              await targetApi.deleteAllIdentifiers();
+              Alert.alert('تم بنجاح', 'تم مسح كافة المعرفات والبيانات بنجاح. يمكنك الآن رفع الداتا الجديدة.');
+              onResetData?.();
+            } catch (err: any) {
+              Alert.alert('خطأ', err.message || 'فشل في مسح المعرفات');
+            } finally {
+              setDeletingAll(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     const checkBio = async () => {
@@ -225,32 +258,61 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
           </View>
         </View>
 
-        {/* 2. Target Settings Card (تعديل التارجت - يظهر للمدير فقط) */}
-        {isAdmin && onOpenTargetSettings && (
+        {/* 2. Target Settings Card (تعديل التارجت ومسح المعرفات - يظهر للمدير فقط) */}
+        {isAdmin && (
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }]}>
               إدارة وقواعد التارچت
             </Text>
 
+            {onOpenTargetSettings && (
+              <TouchableOpacity
+                style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                onPress={onOpenTargetSettings}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={[styles.settingIconBox, { backgroundColor: colors.primaryLight }]}>
+                    <Ionicons name="options-outline" size={20} color={colors.primary} />
+                  </View>
+                  <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
+                    <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+                      تعديل التارچت وقواعد الإنجاز
+                    </Text>
+                    <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
+                      ضبط حدود التارچت اليومي والشهري للمعرفين
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+
+            {/* مسح كافة المعرفات للبدء من الصفر */}
             <TouchableOpacity
               style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={onOpenTargetSettings}
+              onPress={handleDeleteAllIdentifiers}
+              disabled={deletingAll}
               activeOpacity={0.75}
             >
               <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.settingIconBox, { backgroundColor: colors.primaryLight }]}>
-                  <Ionicons name="options-outline" size={20} color={colors.primary} />
+                <View style={[styles.settingIconBox, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.16)' : '#fee2e2' }]}>
+                  {deletingAll ? (
+                    <ActivityIndicator size="small" color="#dc2626" />
+                  ) : (
+                    <Ionicons name="trash-outline" size={20} color="#dc2626" />
+                  )}
                 </View>
                 <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
-                  <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                    تعديل التارچت وقواعد الإنجاز
+                  <Text style={[styles.settingRowText, { color: '#dc2626', fontWeight: '800' }]}>
+                    مسح كافة المعرفات والبيانات
                   </Text>
                   <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
-                    ضبط حدود التارچت اليومي والشهري للمعرفين
+                    إعادة تعيين وحذف كافة المعرفات للبدء برفع داتا جديدة
                   </Text>
                 </View>
               </View>
-              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.primary} />
+              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color="#dc2626" />
             </TouchableOpacity>
           </View>
         )}

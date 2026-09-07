@@ -662,7 +662,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') return 'المعرفين - على وشك المعدل / متأخر';
         return 'قائمة المعرفين';
       }
-      if (activeTab === 'drivers') return 'بيانات المناديب - طلبات الشهر (1 - 31)';
+      if (activeTab === 'drivers') return 'طلبات المناديب';
       if (activeTab === 'alerts') return 'تنبيهات العجز والمتابعة';
       return 'صفحة البيانات';
     }
@@ -705,14 +705,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             </TouchableOpacity>
 
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <TouchableOpacity
-                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-                onPress={() => setShowSettingsModal(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="settings-outline" size={20} color={colors.primary} />
-              </TouchableOpacity>
-
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setCurrentView('profile')}
@@ -773,6 +765,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         <AdminProfileScreen
           user={user}
           onOpenTargetSettings={() => setShowSettingsModal(true)}
+          onResetData={loadData}
           onLogout={onLogout}
           colors={colors}
           isDarkMode={isDarkMode}
@@ -1149,29 +1142,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 </View>
                 <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
               </TouchableOpacity>
-
-              {/* Card 3: Operations: Target Settings & Reset Card */}
-              <TouchableOpacity
-                style={[
-                  styles.quickCardRow,
-                  { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-                ]}
-                onPress={() => setShowSettingsModal(true)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.quickCardIconCircle, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.16)' : '#fee2e2' }]}>
-                  <Ionicons name="settings-outline" size={22} color="#dc2626" />
-                </View>
-                <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    إعدادات التارچت وإعادة التعيين
-                  </Text>
-                  <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    تعديل التارچت ومسح المعرفات للبدء من الصفر
-                  </Text>
-                </View>
-                <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
@@ -1519,88 +1489,6 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 </View>
               ) : (
                 <View>
-                  {/* Summary Card for All Drivers (إجمالي كافة المناديب) */}
-                  <View
-                    style={{
-                      backgroundColor: colors.card,
-                      borderRadius: 18,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      padding: 16,
-                      marginBottom: 14,
-                    }}
-                  >
-                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 10 }}>
-                        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="people" size={22} color={colors.primary} />
-                        </View>
-                        <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                          <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>إجمالي طلبات كافة المناديب</Text>
-                          <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                            الشهر بالكامل (من 1 إلى 31)
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}>
-                        <Text style={{ fontSize: 12, fontWeight: '800', color: colors.primary }}>
-                          {driversList.length} مندوب
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Stats Tiles */}
-                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: 10 }}>
-                      {/* Month Orders (1 - 31) */}
-                      <View
-                        style={{
-                          flex: 1,
-                          backgroundColor: isDarkMode ? 'rgba(255, 107, 0, 0.08)' : '#fff7ed',
-                          borderRadius: 14,
-                          borderWidth: 1.5,
-                          borderColor: colors.primary,
-                          paddingVertical: 12,
-                          paddingHorizontal: 8,
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary, marginBottom: 2 }}>
-                          طلبات الشهر (1 - 31)
-                        </Text>
-                        <Text style={{ fontSize: 24, fontWeight: '900', color: colors.primary }}>
-                          {totalDriversMonthOrders}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: colors.textSecondary, marginTop: 2 }}>
-                          طلب لكافة المناديب
-                        </Text>
-                      </View>
-
-                      {/* Today Orders */}
-                      <View
-                        style={{
-                          flex: 1,
-                          backgroundColor: colors.inputBg,
-                          borderRadius: 14,
-                          borderWidth: 1,
-                          borderColor: colors.border,
-                          paddingVertical: 12,
-                          paddingHorizontal: 8,
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 2 }}>
-                          طلبات اليوم
-                        </Text>
-                        <Text style={{ fontSize: 24, fontWeight: '900', color: colors.textPrimary }}>
-                          {totalDriversTodayOrders}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: colors.textSecondary, marginTop: 2 }}>
-                          طلب مسجل اليوم
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
                   {/* Individual Driver Cards */}
                   {driversList.map((drv) => (
                     <View
@@ -1626,15 +1514,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                               {drv.month_orders ?? 0}
                             </Text>
                             <Text style={[styles.driverBadgeLbl, { color: colors.primary, fontWeight: '700' }]}>
-                              الشهر (1-31)
+                              الشهر
                             </Text>
-                          </View>
-
-                          <View style={[styles.driverBadge, { backgroundColor: colors.inputBg, borderColor: colors.border, borderWidth: 1, minWidth: 50 }]}>
-                            <Text style={[styles.driverBadgeNum, { color: colors.textPrimary, fontSize: 13 }]}>
-                              {drv.today_orders ?? 0}
-                            </Text>
-                            <Text style={[styles.driverBadgeLbl, { color: colors.textSecondary }]}>اليوم</Text>
                           </View>
                         </View>
                       </View>
