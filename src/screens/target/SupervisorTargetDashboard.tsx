@@ -23,6 +23,7 @@ import {
 import { ThemeColors } from '../../types/delegate';
 import { targetApi } from '../../services/targetApi';
 import { IdentifierDetailsModal } from './IdentifierDetailsModal';
+import { DriverDetailsModal } from './DriverDetailsModal';
 import { TargetSettingsModal } from './TargetSettingsModal';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { TargetLogsScreen } from './TargetLogsScreen';
@@ -91,6 +92,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
   const [statusFilter, setStatusFilter] = useState('');
   const [platformTab, setPlatformTab] = useState<'ninja' | 'keeta'>('ninja');
   const [selectedIdentifierId, setSelectedIdentifierId] = useState<string | null>(null);
+  const [selectedDriver, setSelectedDriver] = useState<DriverPerformance | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const colors: ThemeColors = propColors || (isDarkMode
@@ -1395,9 +1397,11 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 <View>
                   {/* Individual Driver Cards */}
                   {driversList.map((drv) => (
-                    <View
+                    <TouchableOpacity
                       key={drv.id}
                       style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => setSelectedDriver(drv)}
+                      activeOpacity={0.7}
                     >
                       <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <View style={[styles.driverAvatarRow, { flexDirection: isRTL ? 'row-reverse' : 'row', flex: 1 }]}>
@@ -1421,6 +1425,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                               الشهر
                             </Text>
                           </View>
+                          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textSecondary} />
                         </View>
                       </View>
 
@@ -1437,7 +1442,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                           <Text style={[styles.tagValue, { color: colors.primary }]}>{drv.apps.join('، ')}</Text>
                         </View>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               )
@@ -1520,6 +1525,14 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         identifierId={selectedIdentifierId}
         month={dateFilter.month}
         onClose={() => setSelectedIdentifierId(null)}
+        isDarkMode={isDarkMode}
+      />
+
+      <DriverDetailsModal
+        visible={!!selectedDriver}
+        driver={selectedDriver}
+        month={dateFilter.month}
+        onClose={() => setSelectedDriver(null)}
         isDarkMode={isDarkMode}
       />
 

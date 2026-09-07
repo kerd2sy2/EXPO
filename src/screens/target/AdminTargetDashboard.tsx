@@ -24,6 +24,7 @@ import {
 import { ThemeColors } from '../../types/delegate';
 import { targetApi } from '../../services/targetApi';
 import { IdentifierDetailsModal } from './IdentifierDetailsModal';
+import { DriverDetailsModal } from './DriverDetailsModal';
 import { TargetSettingsModal } from './TargetSettingsModal';
 import { ImportOrdersModal } from './ImportOrdersModal';
 import { AdminProfileScreen } from './AdminProfileScreen';
@@ -96,6 +97,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
 
   // Modals
   const [selectedIdentifierId, setSelectedIdentifierId] = useState<string | null>(null);
+  const [selectedDriver, setSelectedDriver] = useState<DriverPerformance | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
@@ -1445,9 +1447,11 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 <View>
                   {/* Individual Driver Cards */}
                   {driversList.map((drv) => (
-                    <View
+                    <TouchableOpacity
                       key={drv.id}
                       style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => setSelectedDriver(drv)}
+                      activeOpacity={0.7}
                     >
                       <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <View style={[styles.driverAvatarRow, { flexDirection: isRTL ? 'row-reverse' : 'row', flex: 1 }]}>
@@ -1471,6 +1475,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                               الشهر
                             </Text>
                           </View>
+                          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textSecondary} />
                         </View>
                       </View>
 
@@ -1487,7 +1492,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                           <Text style={[styles.tagValue, { color: colors.primary }]}>{drv.apps.join('، ')}</Text>
                         </View>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               )
@@ -1578,6 +1583,14 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         identifierId={selectedIdentifierId}
         month={dateFilter.month}
         onClose={() => setSelectedIdentifierId(null)}
+        isDarkMode={isDarkMode}
+      />
+
+      <DriverDetailsModal
+        visible={!!selectedDriver}
+        driver={selectedDriver}
+        month={dateFilter.month}
+        onClose={() => setSelectedDriver(null)}
         isDarkMode={isDarkMode}
       />
 

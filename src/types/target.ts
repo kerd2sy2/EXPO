@@ -93,6 +93,9 @@ export interface DriverPerformance {
   today_orders: number;
   identifiers: string[];
   apps: string[];
+  daily_orders?: Record<string, number>;
+  daily_target?: number;
+  days_active?: number;
 }
 
 export interface TargetAlertItem {
