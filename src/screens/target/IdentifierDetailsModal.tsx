@@ -272,19 +272,40 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                   const isExpanded = expandedDriverId === drv.driver_id;
                   const dailyOrders = drv.daily_orders || {};
                   
-                  // Extract available days from dailyTimeline or build 1-31
-                  const timeline = details?.daily_timeline || [];
-                  const daysList = timeline.length > 0
-                    ? timeline
-                    : Array.from({ length: 31 }, (_, i) => ({
-                        day: i + 1,
-                        date: `${(month || new Date().toISOString().slice(0, 7))}-${String(i + 1).padStart(2, '0')}`,
-                        orders: 0,
-                        target: 15,
-                      }));
+                  // Find the maximum recorded date across all daily orders in this identifier
+                  const allRecordedDates = Object.keys(dailyOrders);
+                  (details?.daily_timeline || []).forEach(t => {
+                    if (t.orders > 0) allRecordedDates.push(t.date);
+                  });
+                  
+                  // Today's date string YYYY-MM-DD
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  const currentMonthPrefix = todayStr.slice(0, 7);
+                  const isCurrentMonth = !month || month === currentMonthPrefix;
+                  
+                  // Find the max day that has actually occurred / has data
+                  let maxDayNumber = 31;
+                  if (isCurrentMonth) {
+                    // Up to today's day of month
+                    maxDayNumber = parseInt(todayStr.slice(8, 10), 10);
+                  }
+                  if (allRecordedDates.length > 0) {
+                    const maxRecordedDay = Math.max(...allRecordedDates.map(d => parseInt(d.slice(8, 10), 10) || 0));
+                    if (maxRecordedDay > maxDayNumber) {
+                      maxDayNumber = maxRecordedDay;
+                    }
+                  }
+
+                  // Build days list only up to maxDayNumber (days that actually occurred)
+                  const monthPrefix = month || currentMonthPrefix;
+                  const daysList = Array.from({ length: maxDayNumber }, (_, i) => ({
+                    day: i + 1,
+                    date: `${monthPrefix}-${String(i + 1).padStart(2, '0')}`,
+                  }));
 
                   // Calculate active days vs absent days
                   const activeDaysCount = Object.keys(dailyOrders).filter(d => (dailyOrders[d] || 0) > 0).length;
+                  const absentDaysCount = Math.max(0, daysList.length - activeDaysCount);
 
                   return (
                     <TouchableOpacity
@@ -311,7 +332,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                         <View style={{ alignItems: 'flex-start' }}>
                           <Text style={styles.driverOrders}>{drv.orders} طلب</Text>
                           <Text style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
-                            {activeDaysCount} يوم عمل
+                            {activeDaysCount} يوم عمل • {absentDaysCount} غياب
                           </Text>
                         </View>
                       </View>
@@ -331,7 +352,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                       {!isExpanded && (
                         <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: isDarkMode ? '#334155' : '#f1f5f9' }}>
                           <Text style={{ fontSize: 11, color: '#f97316', fontWeight: '600' }}>
-                            اضغط لعرض تفاصيل الأيام اليومية والغياب 👈
+                            اضغط لعرض تفاصيل الأيام المنقضية وحالات الغياب ({daysList.length} يوم) 👈
                           </Text>
                         </View>
                       )}
@@ -341,16 +362,16 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                         <View style={[styles.dailyBreakdownContainer, isDarkMode && styles.dailyBreakdownDark]}>
                           <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                             <Text style={{ fontSize: 12, fontWeight: '800', color: isDarkMode ? '#f8fafc' : '#0f172a' }}>
-                              تفاصيل الطلبات اليومية للمندوب:
+                              سجل الأيام حتى تاريخ اليوم (1 إلى {maxDayNumber}):
                             </Text>
                             <View style={{ flexDirection: 'row-reverse', gap: 10 }}>
                               <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
                                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981' }} />
-                                <Text style={{ fontSize: 10, color: '#64748b' }}>حاضر</Text>
+                                <Text style={{ fontSize: 10, color: '#64748b' }}>حاضر ({activeDaysCount})</Text>
                               </View>
                               <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
                                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' }} />
-                                <Text style={{ fontSize: 10, color: '#64748b' }}>غائب</Text>
+                                <Text style={{ fontSize: 10, color: '#64748b' }}>غائب ({absentDaysCount})</Text>
                               </View>
                             </View>
                           </View>
