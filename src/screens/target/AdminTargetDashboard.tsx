@@ -498,15 +498,38 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
 
   // Platforms list with: Logo, App Name, Orders Count, and Identifiers Count ONLY
   const platformsList = useMemo(() => {
-    const platIdents = (platKey: string) => {
-      const total = filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === platKey).length;
-      if (rangeTotalOrders === 0) return 0;
-      if (rangeOrdersMap) {
-        const active = filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === platKey && (Number(i.month_orders) || 0) > 0).length;
-        return active > 0 ? active : total;
+    const platMetrics = (platKey: string) => {
+      const items = filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === platKey);
+      const total = items.length;
+      let active = total;
+      if (rangeTotalOrders === 0) active = 0;
+      else if (rangeOrdersMap) {
+        const countActive = items.filter((i) => (Number(i.month_orders) || 0) > 0).length;
+        active = countActive > 0 ? countActive : total;
       }
-      return total;
+
+      // Projected total orders for this platform
+      const projectedOrders = items.reduce((sum, i) => sum + (Number(i.projected_monthly_orders) || Number(i.month_orders) || 0), 0);
+
+      // Status breakdown:
+      // يسير بالمعدل (ON_TRACK or TARGET_ACHIEVED)
+      const onTrackCount = items.filter((i) => i.status === 'ON_TRACK' || i.status === 'TARGET_ACHIEVED').length;
+      // على وشك المعدل (AT_RISK)
+      const atRiskCount = items.filter((i) => i.status === 'AT_RISK').length;
+      // متأخرين (BEHIND_TARGET)
+      const behindCount = items.filter((i) => i.status === 'BEHIND_TARGET').length;
+
+      return {
+        totalIdents: active,
+        projectedOrders,
+        onTrackCount,
+        atRiskCount,
+        behindCount,
+      };
     };
+
+    const ninjaMetrics = platMetrics('ninja');
+    const keetaMetrics = platMetrics('keeta');
 
     const map: Record<
       string,
@@ -515,6 +538,10 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         name: string;
         orders: number;
         idents: number;
+        projected: number;
+        onTrack: number;
+        atRisk: number;
+        behind: number;
         image?: any;
         color: string;
         bgColor: string;
@@ -526,7 +553,11 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         key: 'ninja',
         name: 'نينجا',
         orders: rangeOrdersMap ? (rangeOrdersMap['ninja'] || 0) : 0,
-        idents: platIdents('ninja'),
+        idents: ninjaMetrics.totalIdents,
+        projected: ninjaMetrics.projectedOrders,
+        onTrack: ninjaMetrics.onTrackCount,
+        atRisk: ninjaMetrics.atRiskCount,
+        behind: ninjaMetrics.behindCount,
         image: require('../../../assets/images/ninja.png'),
         color: colors.textPrimary,
         bgColor: '#000000',
@@ -537,7 +568,11 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         key: 'keeta',
         name: 'كيتا',
         orders: rangeOrdersMap ? (rangeOrdersMap['keeta'] || 0) : 0,
-        idents: platIdents('keeta'),
+        idents: keetaMetrics.totalIdents,
+        projected: keetaMetrics.projectedOrders,
+        onTrack: keetaMetrics.onTrackCount,
+        atRisk: keetaMetrics.atRiskCount,
+        behind: keetaMetrics.behindCount,
         image: require('../../../assets/images/keeta.png'),
         color: '#d97706',
         bgColor: '#fde047',
@@ -549,6 +584,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     if (!rangeOrdersMap) {
       filteredBaseIdents.forEach((item) => {
         const platKey = getIdentifierPlatform(item);
+        if (platKey === 'toyou') return; // Do not include Toyou
         const orders = Number(item.month_orders) || 0;
         if (map[platKey]) {
           map[platKey].orders += orders;
@@ -561,11 +597,16 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
             else if (platKey === 'mrsool') displayName = 'مرسول';
             else displayName = platKey;
           }
+          const m = platMetrics(platKey);
           map[platKey] = {
             key: platKey,
             name: displayName,
             orders: orders,
             idents: 1,
+            projected: m.projectedOrders,
+            onTrack: m.onTrackCount,
+            atRisk: m.atRiskCount,
+            behind: m.behindCount,
             color: colors.primary,
             bgColor: colors.primaryLight,
             borderColor: colors.primary,
@@ -655,7 +696,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
   const getSubPageTitle = () => {
     if (currentView === 'profile') return 'الملف الشخصي';
     if (currentView === 'logs') return 'سجل العمليات والمتابعة';
-    if (currentView === 'platforms') return 'المنصات وتطبيقات التوصيل';
+    if (currentView === 'platforms') return 'تطبيقات التوصيل';
     if (currentView === 'data') {
       if (activeTab === 'identifiers') {
         if (statusFilter === 'TARGET_ACHIEVED') return 'المعرفين - حققوا التارچت';
@@ -846,9 +887,9 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                   {/* Divider line */}
                   <View style={[styles.platformCleanDivider, { backgroundColor: isDarkMode ? '#27272e' : '#f1f5f9' }]} />
 
-                  {/* Bottom: 2 Clean Metric Boxes (عدد الطلبات و عدد المعرفات) */}
+                  {/* Metrics Row 1: طلبات الشهر والمتوقع */}
                   <View style={[styles.platformCleanMetricsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    {/* Metric 1: عدد الطلبات */}
+                    {/* Metric 1: عدد الطلبات المنفذة */}
                     <View
                       style={[
                         styles.platformCleanMetricTile,
@@ -861,7 +902,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                       <View style={[styles.platformCleanMetricLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Ionicons name="bag-handle-outline" size={15} color={brandColor} />
                         <Text style={[styles.platformCleanMetricLabel, { color: colors.textSecondary }]}>
-                          عدد الطلبات
+                          الطلبات المنفذة
                         </Text>
                       </View>
                       <Text style={[styles.platformCleanMetricValue, { color: brandColor }]}>
@@ -869,7 +910,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                       </Text>
                     </View>
 
-                    {/* Metric 2: عدد المعرفات */}
+                    {/* Metric 2: متوقع التارجت */}
                     <View
                       style={[
                         styles.platformCleanMetricTile,
@@ -880,9 +921,75 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                       ]}
                     >
                       <View style={[styles.platformCleanMetricLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Ionicons name="person-circle-outline" size={15} color={colors.primary} />
+                        <Ionicons name="trending-up-outline" size={15} color="#3b82f6" />
                         <Text style={[styles.platformCleanMetricLabel, { color: colors.textSecondary }]}>
-                          عدد المعرفات
+                          متوقع التارچت
+                        </Text>
+                      </View>
+                      <Text style={[styles.platformCleanMetricValue, { color: '#3b82f6' }]}>
+                        {(plat.projected ?? 0).toLocaleString('en-US')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Metrics Row 2: يسير بالمعدل والمتأخرين وإجمالي المعرفات */}
+                  <View style={[styles.platformCleanMetricsRow, { flexDirection: isRTL ? 'row-reverse' : 'row', marginTop: 10 }]}>
+                    {/* يسير بالمعدل */}
+                    <View
+                      style={[
+                        styles.platformCleanMetricTile,
+                        {
+                          backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.12)' : '#ecfdf5',
+                          borderColor: isDarkMode ? '#166534' : '#a7f3d0',
+                        },
+                      ]}
+                    >
+                      <View style={[styles.platformCleanMetricLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <Ionicons name="checkmark-circle-outline" size={15} color="#16a34a" />
+                        <Text style={[styles.platformCleanMetricLabel, { color: '#16a34a' }]}>
+                          يسير بالمعدل
+                        </Text>
+                      </View>
+                      <Text style={[styles.platformCleanMetricValue, { color: '#16a34a' }]}>
+                        {plat.onTrack ?? 0}
+                      </Text>
+                    </View>
+
+                    {/* المتأخرين */}
+                    <View
+                      style={[
+                        styles.platformCleanMetricTile,
+                        {
+                          backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                          borderColor: isDarkMode ? '#991b1b' : '#fecaca',
+                        },
+                      ]}
+                    >
+                      <View style={[styles.platformCleanMetricLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <Ionicons name="alert-circle-outline" size={15} color="#dc2626" />
+                        <Text style={[styles.platformCleanMetricLabel, { color: '#dc2626' }]}>
+                          المتأخرين
+                        </Text>
+                      </View>
+                      <Text style={[styles.platformCleanMetricValue, { color: '#dc2626' }]}>
+                        {plat.behind ?? 0}
+                      </Text>
+                    </View>
+
+                    {/* إجمالي المعرفات */}
+                    <View
+                      style={[
+                        styles.platformCleanMetricTile,
+                        {
+                          backgroundColor: isDarkMode ? '#1a1a20' : '#f8fafc',
+                          borderColor: isDarkMode ? '#27272e' : '#e2e8f0',
+                        },
+                      ]}
+                    >
+                      <View style={[styles.platformCleanMetricLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                        <Ionicons name="people-outline" size={15} color={colors.primary} />
+                        <Text style={[styles.platformCleanMetricLabel, { color: colors.textSecondary }]}>
+                          المعرفات
                         </Text>
                       </View>
                       <Text style={[styles.platformCleanMetricValue, { color: colors.textPrimary }]}>
@@ -1065,7 +1172,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
 
             {/* The Operations Cards (المنصات، سجل العمليات، استيراد إكسل) */}
             <View style={styles.operationsCardsContainer}>
-              {/* Card 1: المنصات وتطبيقات التوصيل */}
+              {/* Card 1: تطبيقات التوصيل */}
               <TouchableOpacity
                 style={[
                   styles.quickCardRow,
@@ -1080,14 +1187,14 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                   <View style={[styles.historyTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      المنصات وتطبيقات التوصيل
+                      تطبيقات التوصيل
                     </Text>
                     <View style={[styles.historyBadge, { backgroundColor: colors.primaryLight }]}>
-                      <Text style={[styles.historyBadgeText, { color: colors.primary }]}>3 تطبيقات</Text>
+                      <Text style={[styles.historyBadgeText, { color: colors.primary }]}>{platformsList.length} تطبيقات</Text>
                     </View>
                   </View>
                   <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    استعراض تفاصيل طلبات وأداء نينجا، كيتا، وتويو
+                    استعراض تفاصيل طلبات وأداء نينجا وكيتا
                   </Text>
                 </View>
                 <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
