@@ -307,6 +307,17 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     }
   };
 
+  const handleResolveAllAlerts = async () => {
+    setAlerts((prev) =>
+      Array.isArray(prev) ? prev.map((a) => ({ ...a, is_resolved: true })) : []
+    );
+    try {
+      await targetApi.resolveAllAlerts(branchFilter);
+    } catch (e: any) {
+      loadData();
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'TARGET_ACHIEVED':
@@ -792,6 +803,24 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 activeOpacity={0.7}
               >
                 <Ionicons name="calendar" size={18} color={colors.primary} />
+              </TouchableOpacity>
+            ) : currentView === 'data' && activeTab === 'alerts' ? (
+              <TouchableOpacity
+                style={[
+                  styles.resolveAllHeaderBtn,
+                  {
+                    backgroundColor: colors.primaryLight,
+                    borderColor: colors.primary,
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+                onPress={handleResolveAllAlerts}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="checkmark-done-circle" size={17} color={colors.primary} />
+                <Text style={[styles.resolveAllHeaderBtnText, { color: colors.primary }]}>
+                  تمت التسوية للجميع
+                </Text>
               </TouchableOpacity>
             ) : (
               <View style={{ width: 44, height: 44 }} />
@@ -1591,6 +1620,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               ) : (
                 alertsList.map((alert, idx) => {
                   const isResolved = Boolean(alert.is_resolved);
+                  const targetOrders = (alert.target_orders && alert.target_orders !== 15) ? alert.target_orders : 18;
+                  const actualOrders = alert.actual_orders ?? 0;
+                  const deficit = isResolved ? 0 : Math.max(0, targetOrders - actualOrders);
                   return (
                     <View
                       key={alert.id || `alert-${idx}`}
@@ -1628,17 +1660,17 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                               { color: isResolved ? '#16a34a' : '#dc2626' },
                             ]}
                           >
-                            {isResolved ? 'تمت التسوية' : `عجز ${alert.deficit ?? 0} طلب`}
+                            {isResolved ? 'تمت التسوية' : `عجز ${deficit} طلب`}
                           </Text>
                         </View>
                       </View>
 
                       <View style={[styles.alertNumsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Text style={[styles.alertNumText, { color: colors.textSecondary }]}>
-                          التارچت اليومي: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{alert.target_orders ?? 0}</Text>
+                          التارچت اليومي: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{targetOrders}</Text>
                         </Text>
                         <Text style={[styles.alertNumText, { color: colors.textSecondary }]}>
-                          المنفذ فعلياً: <Text style={{ color: colors.primary, fontWeight: '700' }}>{alert.actual_orders ?? 0}</Text>
+                          المنفذ فعلياً: <Text style={{ color: colors.primary, fontWeight: '700' }}>{actualOrders}</Text>
                         </Text>
                       </View>
                     </View>
@@ -1789,6 +1821,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  resolveAllHeaderBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 5,
+  },
+  resolveAllHeaderBtnText: {
+    fontSize: 11.5,
+    fontWeight: '800',
   },
   subPageHeaderRow: {
     flex: 1,

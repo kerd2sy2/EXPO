@@ -266,6 +266,26 @@ export const targetApi = {
     return res.json();
   },
 
+  // 9b. Resolve All Alerts
+  resolveAllAlerts: async (branch?: string, date?: string): Promise<any> => {
+    const q = new URLSearchParams();
+    if (branch && branch !== 'all') q.append('branch', branch);
+    if (date) q.append('date', date);
+    const queryString = q.toString();
+    const url = queryString
+      ? `${API_BASE_URL}/target/alerts/resolve-all?${queryString}`
+      : `${API_BASE_URL}/target/alerts/resolve-all`;
+    const res = await targetFetch(url, {
+      method: 'PATCH',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'فشل في تسوية جميع التنبيهات');
+    }
+    return res.json();
+  },
+
   // 10. Excel Import Preview
   previewExcel: async (
     file: { uri: string; name: string; type?: string; mimeType?: string; file?: any },

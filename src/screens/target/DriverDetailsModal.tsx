@@ -30,7 +30,7 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
   if (!visible || !driver) return null;
 
   const dailyOrders = driver.daily_orders || {};
-  const dailyTarget = driver.daily_target || 15;
+  const dailyTarget = (driver.daily_target && driver.daily_target !== 15) ? driver.daily_target : 18;
 
   // Calculate elapsed days up to max recorded day or closed shift day
   const todayStr = new Date().toISOString().slice(0, 10);
