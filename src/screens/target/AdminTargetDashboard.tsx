@@ -786,6 +786,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
               onPress={() => {
                 setCurrentView('home');
                 setPlatformTab('ninja');
+                setStatusFilter('');
+                setSearchQuery('');
               }}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
@@ -1215,7 +1217,11 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                   styles.quickCardRow,
                   { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
                 ]}
-                onPress={() => setCurrentView('platforms')}
+                onPress={() => {
+                  setStatusFilter('');
+                  setSearchQuery('');
+                  setCurrentView('platforms');
+                }}
                 activeOpacity={0.75}
               >
                 <View style={[styles.quickCardIconCircle, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5' }]}>
