@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   update:
@@ -30,4 +31,5 @@ jobs:
       - name: 🚀 Publish EAS Update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas update --channel production --environment production --message "Auto update: ${{ github.event.head_commit.message }}" --non-interactive
+        run: |
+          eas update --channel production --environment production --auto --non-interactive
