@@ -391,9 +391,11 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     if (statusFilter === 'TARGET_ACHIEVED') {
       list = list.filter((i) => i.status === 'TARGET_ACHIEVED');
     } else if (statusFilter === 'ON_TRACK') {
-      list = list.filter((i) => i.status === 'ON_TRACK');
-    } else if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') {
-      list = list.filter((i) => i.status === 'AT_RISK' || i.status === 'BEHIND_TARGET');
+      list = list.filter((i) => i.status === 'ON_TRACK' || i.status === 'AT_RISK' || i.status === 'TARGET_ACHIEVED');
+    } else if (statusFilter === 'BEHIND_TARGET') {
+      list = list.filter((i) => i.status === 'BEHIND_TARGET');
+    } else if (statusFilter === 'AT_RISK') {
+      list = list.filter((i) => i.status === 'AT_RISK');
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -403,7 +405,14 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
           i.code?.toLowerCase().includes(q)
       );
     }
-    if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') {
+    if (statusFilter === 'ON_TRACK') {
+      list = [...list].sort((a, b) => {
+        // "على وشك" (AT_RISK) appears FIRST ("وخليهم يظهروا الاول")
+        if (a.status === 'AT_RISK' && b.status !== 'AT_RISK') return -1;
+        if (a.status !== 'AT_RISK' && b.status === 'AT_RISK') return 1;
+        return (b.month_orders || 0) - (a.month_orders || 0);
+      });
+    } else if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') {
       list = [...list].sort((a, b) => {
         if (a.status === 'AT_RISK' && b.status !== 'AT_RISK') return -1;
         if (a.status !== 'AT_RISK' && b.status === 'AT_RISK') return 1;
@@ -545,9 +554,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         orders: rangeOrdersMap ? (rangeOrdersMap['ninja'] || 0) : 0,
         idents: ninjaMetrics.totalIdents,
         projected: ninjaMetrics.projectedOrders,
-        onTrack: ninjaMetrics.onTrackCount,
+        onTrack: ninjaMetrics.onTrackCount + ninjaMetrics.atRiskCount,
         atRisk: ninjaMetrics.atRiskCount,
-        behind: ninjaMetrics.behindCount + ninjaMetrics.atRiskCount,
+        behind: ninjaMetrics.behindCount,
         image: require('../../../assets/images/ninja.png'),
         color: colors.textPrimary,
         bgColor: '#000000',
@@ -560,9 +569,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         orders: rangeOrdersMap ? (rangeOrdersMap['keeta'] || 0) : 0,
         idents: keetaMetrics.totalIdents,
         projected: keetaMetrics.projectedOrders,
-        onTrack: keetaMetrics.onTrackCount,
+        onTrack: keetaMetrics.onTrackCount + keetaMetrics.atRiskCount,
         atRisk: keetaMetrics.atRiskCount,
-        behind: keetaMetrics.behindCount + keetaMetrics.atRiskCount,
+        behind: keetaMetrics.behindCount,
         image: require('../../../assets/images/keeta.png'),
         color: '#d97706',
         bgColor: '#fde047',
@@ -688,8 +697,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     if (currentView === 'data') {
       if (activeTab === 'identifiers') {
         if (statusFilter === 'TARGET_ACHIEVED') return 'المعرفين - حققوا التارچت';
-        if (statusFilter === 'ON_TRACK') return 'المعرفين - يسير بالمعدل';
-        if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') return 'المعرفين - على وشك المعدل / متأخر';
+        if (statusFilter === 'ON_TRACK') return 'المعرفين - يسير بالمعدل / على وشك';
+        if (statusFilter === 'BEHIND_TARGET') return 'المعرفين - متأخرين عن التارچت';
+        if (statusFilter === 'AT_RISK') return 'المعرفين - على وشك المعدل';
         return 'قائمة المعرفين';
       }
       if (activeTab === 'drivers') return 'طلبات المناديب';
@@ -916,7 +926,12 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                       {/* Row 2: Status Breakdown (يسير بالمعدل & المتأخرين) */}
                       <View style={[styles.platformStatusRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         {/* يسير بالمعدل */}
-                        <View
+                        <TouchableOpacity
+                          activeOpacity={0.75}
+                          onPress={() => {
+                            handleCardPress('identifiers', 'ON_TRACK');
+                            setPlatformTab(plat.key as any);
+                          }}
                           style={[
                             styles.platformStatusCard,
                             {
@@ -937,10 +952,15 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                               يسير بالمعدل
                             </Text>
                           </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {/* المتأخرين */}
-                        <View
+                        <TouchableOpacity
+                          activeOpacity={0.75}
+                          onPress={() => {
+                            handleCardPress('identifiers', 'BEHIND_TARGET');
+                            setPlatformTab(plat.key as any);
+                          }}
                           style={[
                             styles.platformStatusCard,
                             {
@@ -961,7 +981,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                               المتأخرين
                             </Text>
                           </View>
-                        </View>
+                        </TouchableOpacity>
                       </View>
                     </View>
                   </View>
@@ -1074,7 +1094,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                   <Ionicons name="trending-up" size={22} color="#0d9488" />
                 </View>
                 <Text style={[styles.statNumber, { color: '#0d9488' }]}>
-                  {summary?.on_track ?? 0}
+                  {(summary?.on_track ?? 0) + (summary?.at_risk ?? 0)}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>بالمعدل المطلوب</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -1083,19 +1103,19 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 </View>
               </TouchableOpacity>
 
-              {/* Card 5: على وشك المعدل / متأخرين */}
+              {/* Card 5: متأخرين عن التارچت */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => handleCardPress('identifiers', 'AT_RISK')}
+                onPress={() => handleCardPress('identifiers', 'BEHIND_TARGET')}
                 activeOpacity={0.75}
               >
                 <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.16)' : '#fee2e2' }]}>
                   <Ionicons name="warning" size={22} color="#dc2626" />
                 </View>
                 <Text style={[styles.statNumber, { color: '#dc2626' }]}>
-                  {(summary?.at_risk ?? 0) + (summary?.behind_target ?? 0)}
+                  {summary?.behind_target ?? 0}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>على وشك المعدل / متأخرين</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>متأخرين عن التارچت</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text style={[styles.statTapHintText, { color: '#dc2626' }]}>عرض المتأخرين</Text>
                   <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#dc2626" />
