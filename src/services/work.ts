@@ -85,12 +85,13 @@ export const workApi = {
     });
 
     if (data.access_token) {
-      await setAuthToken(data.access_token);
+      await setAuthToken(data.access_token, data.refresh_token);
       if (data.employee) {
         await saveCachedUser(data.employee);
-        await saveLastCredentialsForBiometrics(login.trim(), data.access_token, data.employee);
+        await saveLastCredentialsForBiometrics(login.trim(), data.access_token, data.employee, data.refresh_token);
       } else if (data.admin) {
         await saveCachedUser({ ...data.admin, is_admin: true });
+        await saveLastCredentialsForBiometrics(login.trim(), data.access_token, { ...data.admin, is_admin: true }, data.refresh_token);
       }
     }
     return data;

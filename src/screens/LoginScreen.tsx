@@ -25,6 +25,7 @@ import {
   isBiometricEnabled,
   getSavedCredentialsForBiometrics,
   setAuthToken,
+  refreshAuthToken,
   saveCachedUser,
 } from '../services/api';
 
@@ -96,13 +97,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       if (result.success) {
         const saved = await getSavedCredentialsForBiometrics();
         if (saved && saved.user) {
-          if (saved.token) {
+          let tokenToUse = saved.token;
+          if (saved.refreshToken) {
+            await setAuthToken(saved.token, saved.refreshToken);
+          } else if (saved.token) {
             await setAuthToken(saved.token);
           }
+
+          // Ensure session is fresh
+          try {
+            const refreshed = await refreshAuthToken();
+            if (refreshed) {
+              tokenToUse = refreshed;
+            }
+          } catch {}
+
           await saveCachedUser(saved.user);
           const isAdmin = saved.user.role === 'ADMIN' || saved.user.role === 'SUPER_ADMIN' || saved.user.role === 'SUPERVISOR';
           await onOtpSuccess({
-            access_token: saved.token,
+            access_token: tokenToUse,
+            refresh_token: saved.refreshToken,
             employee: isAdmin ? undefined : saved.user,
             admin: isAdmin ? saved.user : undefined,
           });

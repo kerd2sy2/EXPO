@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -18,6 +18,12 @@ import {
   getSystemDiagnostics,
   DebugErrorLog,
 } from '../../services/errorLogger';
+import {
+  getStoredToken,
+  getStoredRefreshToken,
+  refreshAuthToken,
+  API_BASE_URL,
+} from '../../services/api';
 
 interface DiagnosticsModalProps {
   visible: boolean;
@@ -25,6 +31,53 @@ interface DiagnosticsModalProps {
   isDarkMode: boolean;
   isRTL: boolean;
   onClose: () => void;
+}
+
+function decodeBase64Safe(input: string): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  const str = input.replace(/=+$/, '');
+  let output = '';
+  if (str.length % 4 === 1) return '';
+  let bc = 0;
+  let bs = 0;
+  for (let idx = 0; idx < str.length; idx++) {
+    const char = str.charAt(idx);
+    const b = chars.indexOf(char);
+    if (b === -1) continue;
+    bs = bc % 4 ? bs * 64 + b : b;
+    if (bc++ % 4) {
+      output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6)));
+    }
+  }
+  return output;
+}
+
+function inspectJwt(token: string | null): { isExpired: boolean; label: string; details: string } {
+  if (!token) {
+    return { isExpired: true, label: 'غير متوفر', details: 'لا يوجد توكن مخزن' };
+  }
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) {
+      return { isExpired: false, label: 'نشط', details: 'توكن قياسي' };
+    }
+    const jsonStr = decodeBase64Safe(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(jsonStr);
+    if (!payload.exp) {
+      return { isExpired: false, label: 'دائم', details: 'بدون تاريخ انتهاء' };
+    }
+    const expMs = payload.exp * 1000;
+    const isExpired = Date.now() >= expMs;
+    const expDate = new Date(expMs);
+    const timeStr = expDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return {
+      isExpired,
+      label: isExpired ? 'منتهي الصلاحية' : 'نشط وصالح',
+      details: isExpired ? `انتهى في (${timeStr})` : `ينتهي في (${timeStr})`,
+    };
+  } catch {
+    return { isExpired: false, label: 'نشط', details: 'صالح' };
+  }
 }
 
 export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
@@ -38,6 +91,18 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
   const [logs, setLogs] = useState<DebugErrorLog[]>([]);
   const [systemInfo, setSystemInfo] = useState<Record<string, any>>({});
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [logFilter, setLogFilter] = useState<'ALL' | 'CRASH' | 'NETWORK'>('ALL');
+
+  // Live Token & Ping State
+  const [tokenInfo, setTokenInfo] = useState<{ isExpired: boolean; label: string; details: string }>({
+    isExpired: false,
+    label: 'جاري الفحص...',
+    details: '',
+  });
+  const [hasRefreshToken, setHasRefreshToken] = useState(false);
+  const [refreshingToken, setRefreshingToken] = useState(false);
+  const [pingStatus, setPingStatus] = useState<string | null>(null);
+  const [pinging, setPinging] = useState(false);
 
   const loadDiagnostics = async () => {
     setLoading(true);
@@ -46,8 +111,14 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
         getErrorLogs(),
         getSystemDiagnostics(),
       ]);
-      setLogs(fetchedLogs);
-      setSystemInfo(sys);
+      setLogs(fetchedLogs || []);
+      setSystemInfo(sys || {});
+
+      // Check current auth token status
+      const curToken = getStoredToken();
+      const rToken = getStoredRefreshToken();
+      setTokenInfo(inspectJwt(curToken));
+      setHasRefreshToken(Boolean(rToken));
     } catch (e) {
       console.log('Error loading diagnostics:', e);
     } finally {
@@ -60,6 +131,52 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
       loadDiagnostics();
     }
   }, [visible]);
+
+  const handleManualRefreshToken = async () => {
+    setRefreshingToken(true);
+    try {
+      const newToken = await refreshAuthToken();
+      if (newToken) {
+        setTokenInfo(inspectJwt(newToken));
+        setHasRefreshToken(true);
+        Alert.alert(
+          isRTL ? 'نجاح التجديد' : 'Success',
+          isRTL ? 'تم تجديد رمز الجلسة والتوكن بنجاح!' : 'Session token refreshed successfully!'
+        );
+      } else {
+        Alert.alert(
+          isRTL ? 'تنبيه' : 'Notice',
+          isRTL ? 'تعذر التجديد، يرجى تسجيل الخروج والدخول مجدداً' : 'Failed to refresh, please re-login.'
+        );
+      }
+    } catch (err: any) {
+      Alert.alert(isRTL ? 'خطأ' : 'Error', err?.message || 'فشل التجديد');
+    } finally {
+      setRefreshingToken(false);
+    }
+  };
+
+  const handlePingServer = async () => {
+    setPinging(true);
+    setPingStatus(null);
+    const start = Date.now();
+    try {
+      const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET' }).catch(async () => {
+        return fetch(`${API_BASE_URL}`, { method: 'GET' });
+      });
+      const latency = Date.now() - start;
+      if (res && res.status < 500) {
+        setPingStatus(`متصل بالسيرفر (${latency}ms) - الحالة: ${res.status}`);
+      } else {
+        setPingStatus(`استجابة غير طبيعية (${latency}ms) - الحالة: ${res?.status}`);
+      }
+    } catch (err: any) {
+      const latency = Date.now() - start;
+      setPingStatus(`تعذر الاتصال (${latency}ms): ${err?.message || 'انقطاع شبكة'}`);
+    } finally {
+      setPinging(false);
+    }
+  };
 
   const handleClearLogs = () => {
     Alert.alert(
@@ -85,6 +202,12 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
         title: 'AAMS Mobile App Diagnostics Report',
         generatedAt: new Date().toISOString(),
         system: systemInfo,
+        authStatus: {
+          tokenStatus: tokenInfo.label,
+          tokenDetails: tokenInfo.details,
+          hasRefreshToken,
+          apiBaseUrl: API_BASE_URL,
+        },
         totalErrors: logs.length,
         logs: logs.map((l) => ({
           time: l.timestamp,
@@ -96,13 +219,23 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
       };
 
       await Share.share({
-        title: 'AAMS Diagnostics Report',
+        title: 'AAMS Diagnostics & Crash Report',
         message: JSON.stringify(report, null, 2),
       });
     } catch (err) {
       console.log('Share report error:', err);
     }
   };
+
+  const filteredLogs = useMemo(() => {
+    if (logFilter === 'CRASH') {
+      return logs.filter((l) => l.source === 'UNHANDLED_EXCEPTION' || l.source === 'REACT_ERROR_BOUNDARY');
+    }
+    if (logFilter === 'NETWORK') {
+      return logs.filter((l) => l.source === 'API_NETWORK' || l.source === 'PROMISE_REJECTION');
+    }
+    return logs;
+  }, [logs, logFilter]);
 
   const getSourceBadgeColor = (source: DebugErrorLog['source']) => {
     switch (source) {
@@ -133,10 +266,10 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
               </View>
               <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
                 <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                  {isRTL ? 'سجل تشخيص وفحص الأخطاء' : 'Diagnostics & Error Logs'}
+                  {isRTL ? 'سجل تشخيص وفحص الأخطاء والانهيار' : 'Diagnostics & Error/Crash Logs'}
                 </Text>
                 <Text style={{ fontSize: 11, color: colors.textSecondary }}>
-                  {isRTL ? 'تتبع الأعطال وأسباب إغلاق التطبيق' : 'Crash tracing and error monitoring'}
+                  {isRTL ? 'تتبع الأعطال، حالة الجلسة، واختبار الاتصال بالسيرفر' : 'Crash tracing, session status & API ping'}
                 </Text>
               </View>
             </View>
@@ -155,7 +288,80 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
             </View>
           ) : (
             <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-              {/* System Overview Card */}
+              {/* 1. Live Auth & Connection Health Card */}
+              <View style={[styles.sysCard, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.cardHeading, { color: colors.textPrimary }]}>
+                    {isRTL ? 'حالة التوثيق والاتصال بالسيرفر' : 'Auth & Server Health'}
+                  </Text>
+                  <View style={[styles.tokenStatusPill, { backgroundColor: tokenInfo.isExpired ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)' }]}>
+                    <Text style={{ color: tokenInfo.isExpired ? '#ef4444' : '#10b981', fontSize: 11, fontWeight: '700' }}>
+                      {tokenInfo.label}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.gridRow}>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.statLabel}>{isRTL ? 'صلاحية التوكن' : 'Token Validity'}</Text>
+                    <Text style={[styles.statVal, { color: colors.textPrimary }]}>{tokenInfo.details || 'نشط'}</Text>
+                  </View>
+                  <View style={styles.gridCol}>
+                    <Text style={styles.statLabel}>{isRTL ? 'رمز التحديث (Refresh)' : 'Refresh Token'}</Text>
+                    <Text style={[styles.statVal, { color: hasRefreshToken ? '#10b981' : '#f59e0b' }]}>
+                      {hasRefreshToken ? (isRTL ? 'متوفر (صالح 7 أيام)' : 'Available') : (isRTL ? 'غير متوفر' : 'Missing')}
+                    </Text>
+                  </View>
+                </View>
+
+                {pingStatus && (
+                  <View style={[styles.pingBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Ionicons name="wifi-outline" size={14} color={colors.primary} />
+                    <Text style={[styles.pingText, { color: colors.textPrimary }]}>{pingStatus}</Text>
+                  </View>
+                )}
+
+                {/* Quick Diagnostics Actions */}
+                <View style={[styles.miniActionRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <TouchableOpacity
+                    style={[styles.miniActionBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+                    onPress={handleManualRefreshToken}
+                    disabled={refreshingToken}
+                    activeOpacity={0.8}
+                  >
+                    {refreshingToken ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <>
+                        <Ionicons name="key-outline" size={14} color={colors.primary} />
+                        <Text style={[styles.miniActionBtnText, { color: colors.primary }]}>
+                          {isRTL ? 'تجديد الجلسة الآن' : 'Refresh Token'}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.miniActionBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#e2e8f0', borderColor: colors.border }]}
+                    onPress={handlePingServer}
+                    disabled={pinging}
+                    activeOpacity={0.8}
+                  >
+                    {pinging ? (
+                      <ActivityIndicator size="small" color={colors.textPrimary} />
+                    ) : (
+                      <>
+                        <Ionicons name="pulse-outline" size={14} color={colors.textPrimary} />
+                        <Text style={[styles.miniActionBtnText, { color: colors.textPrimary }]}>
+                          {isRTL ? 'فحص الاتصال (Ping)' : 'Ping Server'}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* 2. System Overview Card */}
               <View style={[styles.sysCard, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                 <Text style={[styles.cardHeading, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {isRTL ? 'معلومات النظام والجهاز' : 'System & Device'}
@@ -165,13 +371,13 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
                   <View style={styles.gridCol}>
                     <Text style={styles.statLabel}>{isRTL ? 'الجهاز' : 'Device'}</Text>
                     <Text style={[styles.statVal, { color: colors.textPrimary }]}>
-                      {systemInfo.brand} {systemInfo.modelName}
+                      {systemInfo.brand || 'Device'} {systemInfo.modelName || ''}
                     </Text>
                   </View>
                   <View style={styles.gridCol}>
                     <Text style={styles.statLabel}>{isRTL ? 'النظام' : 'OS'}</Text>
                     <Text style={[styles.statVal, { color: colors.textPrimary }]}>
-                      {systemInfo.platform} v{String(systemInfo.platformVersion)}
+                      {systemInfo.platform || ''} v{String(systemInfo.platformVersion || '')}
                     </Text>
                   </View>
                 </View>
@@ -180,19 +386,19 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
                   <View style={styles.gridCol}>
                     <Text style={styles.statLabel}>{isRTL ? 'إصدار التطبيق' : 'App Version'}</Text>
                     <Text style={[styles.statVal, { color: colors.textPrimary }]}>
-                      {systemInfo.appVersion} ({systemInfo.runtimeVersion})
+                      {systemInfo.appVersion || '1.0.0'}
                     </Text>
                   </View>
                   <View style={styles.gridCol}>
                     <Text style={styles.statLabel}>{isRTL ? 'الأخطاء المسجلة' : 'Errors Logged'}</Text>
                     <Text style={[styles.statVal, { color: logs.length > 0 ? '#ef4444' : '#10b981', fontWeight: '800' }]}>
-                      {logs.length} {isRTL ? 'خطأ' : 'events'}
+                      {logs.length} {isRTL ? 'حدث مسجل' : 'events'}
                     </Text>
                   </View>
                 </View>
               </View>
 
-              {/* Action Buttons Row */}
+              {/* 3. Action Buttons Row */}
               <View style={[styles.actionRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity
                   style={[styles.actionBtn, { backgroundColor: colors.primary }]}
@@ -224,16 +430,46 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
                 )}
               </View>
 
-              {/* Logs List */}
+              {/* 4. Filter Chips */}
+              <View style={[styles.filterChipsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <TouchableOpacity
+                  style={[styles.filterChip, logFilter === 'ALL' && { backgroundColor: colors.primary }]}
+                  onPress={() => setLogFilter('ALL')}
+                >
+                  <Text style={[styles.filterChipText, logFilter === 'ALL' ? { color: '#ffffff' } : { color: colors.textSecondary }]}>
+                    {isRTL ? `الكل (${logs.length})` : `All (${logs.length})`}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.filterChip, logFilter === 'CRASH' && { backgroundColor: '#ef4444' }]}
+                  onPress={() => setLogFilter('CRASH')}
+                >
+                  <Text style={[styles.filterChipText, logFilter === 'CRASH' ? { color: '#ffffff' } : { color: colors.textSecondary }]}>
+                    {isRTL ? 'الانهيارات (Crashes)' : 'Crashes'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.filterChip, logFilter === 'NETWORK' && { backgroundColor: '#3b82f6' }]}
+                  onPress={() => setLogFilter('NETWORK')}
+                >
+                  <Text style={[styles.filterChipText, logFilter === 'NETWORK' ? { color: '#ffffff' } : { color: colors.textSecondary }]}>
+                    {isRTL ? 'أخطاء الشبكة والـ API' : 'Network/API'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 5. Logs List */}
               <Text style={[styles.sectionHeading, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                 {isRTL ? 'سجل تفاصيل الأخطاء والانهيارات' : 'Detailed Crash & Error Logs'}
               </Text>
 
-              {logs.length === 0 ? (
+              {filteredLogs.length === 0 ? (
                 <View style={[styles.emptyBox, { borderColor: colors.border }]}>
                   <Ionicons name="checkmark-circle-outline" size={44} color="#10b981" />
                   <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                    {isRTL ? 'لا توجد أخطاء مسجلة' : 'No Recorded Errors'}
+                    {isRTL ? 'لا توجد أخطاء مسجلة في هذا القسم' : 'No Recorded Errors in this section'}
                   </Text>
                   <Text style={styles.emptySub}>
                     {isRTL
@@ -242,7 +478,7 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
                   </Text>
                 </View>
               ) : (
-                logs.map((log) => {
+                filteredLogs.map((log) => {
                   const isExpanded = expandedLogId === log.id;
                   const badgeColor = getSourceBadgeColor(log.source);
                   const timeStr = new Date(log.timestamp).toLocaleTimeString([], {
@@ -311,7 +547,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   container: {
-    height: '86%',
+    height: '88%',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
@@ -358,10 +594,19 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
   },
+  cardHeaderRow: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   cardHeading: {
     fontSize: 13,
     fontWeight: '700',
-    marginBottom: 10,
+  },
+  tokenStatusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   gridRow: {
     flexDirection: 'row',
@@ -380,10 +625,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  pingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginVertical: 6,
+  },
+  pingText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  miniActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  miniActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  miniActionBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   actionRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   actionBtn: {
     flex: 1,
@@ -396,6 +673,21 @@ const styles = StyleSheet.create({
   actionBtnText: {
     color: '#ffffff',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 12,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+  },
+  filterChipText: {
+    fontSize: 11,
     fontWeight: '700',
   },
   sectionHeading: {
@@ -490,3 +782,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+

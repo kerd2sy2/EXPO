@@ -45,6 +45,7 @@ import {
   saveCachedUser,
   isBiometricEnabled,
   saveLastCredentialsForBiometrics,
+  onSessionExpired,
 } from '../services/api';
 import {
   startGpsTracking,
@@ -186,6 +187,30 @@ export default function DelegateApp() {
   useEffect(() => {
     checkSession();
   }, []);
+
+  // Listen for unrecoverable session expiry (when token refresh fails)
+  useEffect(() => {
+    const unsub = onSessionExpired(() => {
+      setAlertConfig({
+        type: 'warning',
+        title: lang === 'ar' ? 'انتهت الجلسة' : 'Session Expired',
+        message: lang === 'ar' ? 'انتهت صلاحية جلسة الدخول بالكامل، يرجى تسجيل الدخول مجدداً.' : 'Your session has expired. Please log in again.',
+        primaryButtonText: lang === 'ar' ? 'تسجيل الدخول' : 'Log In',
+        onPrimaryPress: async () => {
+          try {
+            await setAuthToken(null);
+            await saveCachedUser(null);
+          } catch {}
+          setAdminUser(null);
+          setEmployee(null);
+          setActiveSession(null);
+          setHistorySessions([]);
+          setCurrentTab('home');
+        },
+      });
+    });
+    return unsub;
+  }, [lang]);
 
   // Hardware Back Button (Android)
   useEffect(() => {
@@ -669,10 +694,10 @@ export default function DelegateApp() {
         setEmployee(null);
         await saveCachedUser(res.admin);
         if (res.access_token) {
-          await setAuthToken(res.access_token);
+          await setAuthToken(res.access_token, res.refresh_token);
           const bioOn = await isBiometricEnabled();
           if (bioOn) {
-            await saveLastCredentialsForBiometrics(inputVal, res.access_token, res.admin);
+            await saveLastCredentialsForBiometrics(inputVal, res.access_token, res.admin, res.refresh_token);
           }
         }
         return;
@@ -698,7 +723,7 @@ export default function DelegateApp() {
                   branch_name: fresh.branch_name || prev?.branch_name || '',
                 } as EmployeeProfile));
                 if (res.access_token && fresh.national_id) {
-                  saveLastCredentialsForBiometrics(fresh.national_id, res.access_token, fresh);
+                  saveLastCredentialsForBiometrics(fresh.national_id, res.access_token, fresh, res.refresh_token);
                 }
               }
             })
@@ -721,7 +746,7 @@ export default function DelegateApp() {
   // Immediate Login via OTP Success or Biometrics
   const handleOtpSuccess = async (loginResp?: any) => {
     if (loginResp?.access_token) {
-      await setAuthToken(loginResp.access_token);
+      await setAuthToken(loginResp.access_token, loginResp.refresh_token);
     }
     if (loginResp?.admin) {
       setAdminUser(loginResp.admin);
@@ -730,7 +755,7 @@ export default function DelegateApp() {
       const bioOn = await isBiometricEnabled();
       if (bioOn) {
         const idVal = loginResp.admin.phone || loginResp.admin.username || 'admin';
-        await saveLastCredentialsForBiometrics(idVal, loginResp.access_token, loginResp.admin);
+        await saveLastCredentialsForBiometrics(idVal, loginResp.access_token, loginResp.admin, loginResp.refresh_token);
       }
       setCurrentTab('home');
       return;

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
+import { logDebugError } from './errorLogger';
 
 // Hosted Backend API URL (Cloudflare Enterprise Custom Domain)
 export const API_BASE_URL =
@@ -8,42 +9,200 @@ export const API_BASE_URL =
   'https://api.kerd2sy.com/api/v1';
 
 const TOKEN_KEY = 'aams_delegate_token';
+const REFRESH_TOKEN_KEY = 'aams_delegate_refresh_token';
 const USER_KEY = 'aams_delegate_user';
 
 let storedToken: string | null = null;
+let storedRefreshToken: string | null = null;
+let refreshPromise: Promise<string | null> | null = null;
 
-// Initialize token from AsyncStorage
+// Initialize token & refresh token from AsyncStorage
 export const loadStoredToken = async (): Promise<string | null> => {
   try {
-    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    const [token, rToken] = await Promise.all([
+      AsyncStorage.getItem(TOKEN_KEY),
+      AsyncStorage.getItem(REFRESH_TOKEN_KEY),
+    ]);
     if (token) {
       storedToken = token;
-      return token;
     }
+    if (rToken) {
+      storedRefreshToken = rToken;
+    }
+    return storedToken;
   } catch (e) {
     console.log('Error reading token from AsyncStorage:', e);
   }
   return null;
 };
 
-// Set / Remove Auth Token
-export const setAuthToken = async (token: string | null): Promise<void> => {
+export const loadStoredRefreshToken = async (): Promise<string | null> => {
+  try {
+    const rToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    if (rToken) {
+      storedRefreshToken = rToken;
+      return rToken;
+    }
+  } catch (e) {
+    console.log('Error reading refresh token from AsyncStorage:', e);
+  }
+  return null;
+};
+
+// Set / Remove Auth Token & Refresh Token
+export const setAuthToken = async (
+  token: string | null,
+  refreshToken?: string | null
+): Promise<void> => {
   storedToken = token;
+  if (refreshToken !== undefined) {
+    storedRefreshToken = refreshToken;
+  }
   try {
     if (token) {
       await AsyncStorage.setItem(TOKEN_KEY, token);
+      if (refreshToken) {
+        await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      }
     } else {
-      await AsyncStorage.removeItem(TOKEN_KEY);
-      await AsyncStorage.removeItem(USER_KEY);
+      storedRefreshToken = null;
+      await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY]);
     }
   } catch (e) {
     console.log('Error saving token to AsyncStorage:', e);
   }
 };
 
-// Synchronous getter for in-flight requests
+// Synchronous getters for in-flight requests
 export const getStoredToken = (): string | null => {
   return storedToken;
+};
+
+export const getStoredRefreshToken = (): string | null => {
+  return storedRefreshToken;
+};
+
+type SessionExpiredListener = () => void;
+const sessionExpiredListeners = new Set<SessionExpiredListener>();
+
+export const onSessionExpired = (listener: SessionExpiredListener) => {
+  sessionExpiredListeners.add(listener);
+  return () => {
+    sessionExpiredListeners.delete(listener);
+  };
+};
+
+let lastExpiredTrigger = 0;
+export const triggerSessionExpired = () => {
+  const now = Date.now();
+  if (now - lastExpiredTrigger < 4000) return; // debounce 4s
+  lastExpiredTrigger = now;
+  sessionExpiredListeners.forEach((cb) => {
+    try {
+      cb();
+    } catch (e) {
+      console.error('Error in sessionExpired listener:', e);
+    }
+  });
+};
+
+/**
+ * Centrally refresh the auth token using the stored refresh_token.
+ * Uses a promise lock to ensure concurrent requests share the same refresh call.
+ */
+export const refreshAuthToken = async (): Promise<string | null> => {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = (async () => {
+    try {
+      let rToken = storedRefreshToken;
+      if (!rToken) {
+        rToken = await loadStoredRefreshToken();
+      }
+
+      if (!rToken) {
+        console.log('[Auth] No refresh token available to refresh session');
+        return null;
+      }
+
+      console.log('[Auth] Attempting token refresh via /auth/refresh...');
+      let response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: rToken }),
+      });
+
+      // Fallback: if /auth/refresh returned 404, try /refresh
+      if (response.status === 404) {
+        console.log('[Auth] /auth/refresh returned 404, trying /refresh fallback...');
+        const altUrl = API_BASE_URL.endsWith('/api/v1')
+          ? `${API_BASE_URL}/refresh`
+          : `${API_BASE_URL}/api/v1/refresh`;
+        response = await fetch(altUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({ refresh_token: rToken }),
+        });
+      }
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        console.warn('[Auth] Token refresh failed with status', response.status, errData);
+        // Only clear tokens if the refresh token itself is definitively expired / unauthorized (401 / 403)
+        // Never wipe session on 404 or 5xx server issues!
+        if (response.status === 401 || response.status === 403) {
+          await setAuthToken(null, null);
+          await logDebugError(
+            'API_NETWORK',
+            `انتهت صلاحية جلسة الدخول بالكامل (${response.status})، يرجى تسجيل الدخول مجدداً.`,
+            undefined,
+            { url: `${API_BASE_URL}/auth/refresh`, status: response.status, error: errData }
+          );
+          triggerSessionExpired();
+        }
+        return null;
+      }
+
+      const data = await response.json();
+      if (data?.access_token) {
+        const newAccess = data.access_token;
+        const newRefresh = data.refresh_token || rToken;
+        await setAuthToken(newAccess, newRefresh);
+
+        // Update biometrics if enabled
+        const bioOn = await isBiometricEnabled();
+        if (bioOn) {
+          const saved = await getSavedCredentialsForBiometrics();
+          if (saved) {
+            await saveLastCredentialsForBiometrics(
+              saved.nationalId,
+              newAccess,
+              saved.user,
+              newRefresh
+            );
+          }
+        }
+        console.log('[Auth] Token refreshed successfully!');
+        return newAccess;
+      }
+      return null;
+    } catch (e: any) {
+      console.error('[Auth] Exception during refreshAuthToken:', e);
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 };
 
 // Persist / Retrieve Cached User Profile
@@ -96,10 +255,18 @@ export const setBiometricEnabled = async (enabled: boolean): Promise<void> => {
 export const saveLastCredentialsForBiometrics = async (
   nationalId: string,
   token: string,
-  user: any
+  user: any,
+  refreshToken?: string
 ): Promise<void> => {
   try {
-    const data = { nationalId, token, user, timestamp: Date.now() };
+    const rToken = refreshToken || storedRefreshToken;
+    const data = {
+      nationalId,
+      token,
+      refreshToken: rToken,
+      user,
+      timestamp: Date.now(),
+    };
     await AsyncStorage.setItem(LAST_SAVED_CREDENTIALS_KEY, JSON.stringify(data));
     await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
   } catch (e) {
@@ -110,6 +277,7 @@ export const saveLastCredentialsForBiometrics = async (
 export const getSavedCredentialsForBiometrics = async (): Promise<{
   nationalId: string;
   token: string;
+  refreshToken?: string;
   user: any;
 } | null> => {
   try {
@@ -160,11 +328,35 @@ export async function apiRequest<T = any>(
     }, timeoutMs);
 
     try {
-      const response = await fetch(url, {
+      let response = await fetch(url, {
         ...fetchOptions,
         headers,
         signal: fetchOptions.signal || controller.signal,
       });
+
+      // Intercept 401 Unauthorized and attempt token refresh
+      const isAuthEndpoint =
+        endpoint.includes('/login') ||
+        endpoint.includes('/auth/login') ||
+        endpoint.includes('/refresh') ||
+        endpoint.includes('/auth/refresh') ||
+        endpoint.includes('/auth/verify-otp');
+
+      if (response.status === 401 && !isAuthEndpoint) {
+        console.log(`[apiRequest] 401 on ${endpoint}, attempting automatic token refresh...`);
+        const newToken = await refreshAuthToken();
+        if (newToken) {
+          headers['Authorization'] = `Bearer ${newToken}`;
+          response = await fetch(url, {
+            ...fetchOptions,
+            headers,
+            signal: fetchOptions.signal || controller.signal,
+          });
+        } else {
+          // Refresh failed
+          triggerSessionExpired();
+        }
+      }
 
       const text = await response.text();
       let data: any;
@@ -176,6 +368,14 @@ export async function apiRequest<T = any>(
 
       if (!response.ok) {
         const errorMsg = data?.error || data?.message || `خطأ في الخادم (${response.status})`;
+        // Log to diagnostics if severe
+        if (response.status >= 500 || response.status === 401) {
+          logDebugError('API_NETWORK', `[API ${response.status}] ${endpoint}: ${errorMsg}`, undefined, {
+            url,
+            status: response.status,
+            endpoint,
+          }).catch(() => {});
+        }
         throw new Error(errorMsg);
       }
 
@@ -199,6 +399,11 @@ export async function apiRequest<T = any>(
       }
 
       if (isNetworkOrAbort) {
+        logDebugError('API_NETWORK', `انقطاع اتصال أثناء استدعاء ${endpoint}`, err?.stack, {
+          url,
+          endpoint,
+          attempt,
+        }).catch(() => {});
         throw new Error('تعذر الاتصال بالخادم، يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.');
       }
       throw err;
@@ -303,11 +508,11 @@ export const verifyOtpApi = async (nationalId: string, otpCode: string): Promise
     }),
   });
   if (res?.access_token) {
-    await setAuthToken(res.access_token);
+    await setAuthToken(res.access_token, res.refresh_token);
     await setDeviceTrustedForNationalId(nationalId);
     if (res.employee) {
       await saveCachedUser(res.employee);
-      await saveLastCredentialsForBiometrics(nationalId, res.access_token, res.employee);
+      await saveLastCredentialsForBiometrics(nationalId, res.access_token, res.employee, res.refresh_token);
     }
   }
   return res;

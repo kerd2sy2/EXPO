@@ -23,6 +23,7 @@ import {
 } from '../../types/target';
 import { ThemeColors } from '../../types/delegate';
 import { targetApi } from '../../services/targetApi';
+import { refreshAuthToken } from '../../services/api';
 import { IdentifierDetailsModal } from './IdentifierDetailsModal';
 import { DriverDetailsModal } from './DriverDetailsModal';
 import { TargetSettingsModal } from './TargetSettingsModal';
@@ -145,14 +146,17 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
       });
 
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
+      let lastApiErr = '';
       const queryMonth = dateFilter.type === 'day' && dateFilter.date ? dateFilter.date : dateFilter.month;
       const [sumData, identsData, driversData, alertsData] = await Promise.all([
         targetApi.getDashboard(dateFilter.month, branchFilter, dateFilter.startDate, dateFilter.endDate).catch((err) => {
+          lastApiErr = err?.message || '';
           console.log('Notice loading target dashboard:', err?.message || err);
           return null;
         }),
@@ -162,6 +166,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           endDate: dateFilter.endDate,
           branch: branchFilter,
         }).catch((err) => {
+          if (!lastApiErr) lastApiErr = err?.message || '';
           console.log('Notice loading target identifiers:', err?.message || err);
           return null;
         }),
@@ -265,16 +270,34 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
       }
 
       if (!sumData && (!identsData || identsData.length === 0)) {
-        setLoadError('تعذر تحديث بعض البيانات بسبب بطء الاتصال، اضغط لإعادة المحاولة');
+        if (lastApiErr && (lastApiErr.includes('جلسة') || lastApiErr.includes('منتهية') || lastApiErr.includes('401') || lastApiErr.includes('مصرح'))) {
+          setLoadError('انتهت صلاحية جلسة الدخول، اضغط لإعادة المحاولة والتجديد التلقائي');
+        } else if (lastApiErr && !lastApiErr.includes('شبكة')) {
+          setLoadError(`${lastApiErr}، اضغط لإعادة المحاولة`);
+        } else {
+          setLoadError('تعذر تحديث بعض البيانات بسبب بطء الاتصال، اضغط لإعادة المحاولة');
+        }
       }
     } catch (err: any) {
       console.log('Error loading admin dashboard data:', err);
-      setLoadError('تعذر الاتصال بالخادم، اضغط لإعادة المحاولة');
+      setLoadError(err?.message || 'تعذر الاتصال بالخادم، اضغط لإعادة المحاولة');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [dateFilter, branchFilter]);
+
+  const handleRetry = useCallback(async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      // First attempt to refresh token if expired
+      await refreshAuthToken().catch(() => null);
+      await loadData();
+    } finally {
+      setRetrying(false);
+    }
+  }, [loadData, retrying]);
 
   useEffect(() => {
     loadData();
@@ -413,7 +436,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     if (statusFilter === 'TARGET_ACHIEVED') {
       list = list.filter((i) => i.status === 'TARGET_ACHIEVED');
     } else if (statusFilter === 'ON_TRACK') {
-      list = list.filter((i) => i.status === 'ON_TRACK' || i.status === 'AT_RISK' || i.status === 'TARGET_ACHIEVED');
+      list = list.filter((i) => i.status === 'ON_TRACK' || i.status === 'TARGET_ACHIEVED');
     } else if (statusFilter === 'BEHIND_TARGET') {
       list = list.filter((i) => i.status === 'BEHIND_TARGET');
     } else if (statusFilter === 'AT_RISK') {
@@ -427,20 +450,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           i.code?.toLowerCase().includes(q)
       );
     }
-    if (statusFilter === 'ON_TRACK') {
-      list = [...list].sort((a, b) => {
-        // "على وشك" (AT_RISK) appears FIRST ("وخليهم يظهروا الاول")
-        if (a.status === 'AT_RISK' && b.status !== 'AT_RISK') return -1;
-        if (a.status !== 'AT_RISK' && b.status === 'AT_RISK') return 1;
-        return (b.month_orders || 0) - (a.month_orders || 0);
-      });
-    } else if (statusFilter === 'AT_RISK' || statusFilter === 'BEHIND_TARGET') {
-      list = [...list].sort((a, b) => {
-        if (a.status === 'AT_RISK' && b.status !== 'AT_RISK') return -1;
-        if (a.status !== 'AT_RISK' && b.status === 'AT_RISK') return 1;
-        return (b.month_orders || 0) - (a.month_orders || 0);
-      });
-    }
+    list = [...list].sort((a, b) => (b.month_orders || 0) - (a.month_orders || 0));
     return list;
   }, [identifiers, statusFilter, searchQuery, rangeIdentOrdersMap]);
 
@@ -721,9 +731,9 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
     if (currentView === 'data') {
       if (activeTab === 'identifiers') {
         if (statusFilter === 'TARGET_ACHIEVED') return 'المعرفين - حققوا التارچت';
-        if (statusFilter === 'ON_TRACK') return 'المعرفين - يسير بالمعدل / على وشك';
-        if (statusFilter === 'BEHIND_TARGET') return 'المعرفين - متأخرين عن التارچت';
-        if (statusFilter === 'AT_RISK') return 'المعرفين - على وشك المعدل';
+        if (statusFilter === 'ON_TRACK') return 'المعرفين - بالمعدل المطلوب';
+        if (statusFilter === 'AT_RISK') return 'المعرفين - على وشك';
+        if (statusFilter === 'BEHIND_TARGET') return 'المعرفين - متأخرين';
         return 'قائمة المعرفين';
       }
       if (activeTab === 'drivers') return 'طلبات المناديب';
@@ -1056,7 +1066,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           }
         >
           <View style={styles.tabContainer}>
-            {/* Network / Load Error Banner with Instant Retry */}
+            {/* Network / Load Error Banner with Instant Retry & Loading Feedback */}
             {loadError && (
               <TouchableOpacity
                 style={[
@@ -1067,15 +1077,24 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                     flexDirection: isRTL ? 'row-reverse' : 'row',
                   },
                 ]}
-                onPress={loadData}
+                onPress={handleRetry}
+                disabled={retrying}
                 activeOpacity={0.8}
               >
-                <Ionicons name="refresh-circle" size={22} color="#ef4444" />
+                {retrying ? (
+                  <ActivityIndicator size="small" color="#ef4444" style={{ marginHorizontal: 4 }} />
+                ) : (
+                  <Ionicons name="refresh-circle" size={22} color="#ef4444" />
+                )}
                 <Text style={[styles.errorRetryBannerText, { color: isDarkMode ? '#fca5a5' : '#b91c1c', textAlign: isRTL ? 'right' : 'left' }]}>
                   {loadError}
                 </Text>
-                <View style={styles.errorRetryBtnWrap}>
-                  <Text style={styles.errorRetryBtnText}>إعادة المحاولة</Text>
+                <View style={[styles.errorRetryBtnWrap, retrying && { opacity: 0.7 }]}>
+                  {retrying ? (
+                    <Text style={styles.errorRetryBtnText}>جارٍ المحاولة...</Text>
+                  ) : (
+                    <Text style={styles.errorRetryBtnText}>إعادة المحاولة</Text>
+                  )}
                 </View>
               </TouchableOpacity>
             )}
@@ -1112,46 +1131,45 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 </View>
               </TouchableOpacity>
 
-
-              {/* Card 3: حققوا التارچت */}
-              <TouchableOpacity
-                style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => handleCardPress('identifiers', 'TARGET_ACHIEVED')}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.16)' : '#dcfce7' }]}>
-                  <Ionicons name="trophy" size={22} color="#16a34a" />
-                </View>
-                <Text style={[styles.statNumber, { color: '#16a34a' }]}>
-                  {summary?.target_achieved ?? 0}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>حققوا التارچت</Text>
-                <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text style={[styles.statTapHintText, { color: '#16a34a' }]}>عرض المحققين</Text>
-                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#16a34a" />
-                </View>
-              </TouchableOpacity>
-
-              {/* Card 4: بالمعدل المطلوب */}
+              {/* Card 2: بالمعدل المطلوب */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('identifiers', 'ON_TRACK')}
                 activeOpacity={0.75}
               >
-                <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(168, 85, 247, 0.16)' : '#ccfbf1' }]}>
-                  <Ionicons name="trending-up" size={22} color="#0d9488" />
+                <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.16)' : '#dcfce7' }]}>
+                  <Ionicons name="trending-up" size={22} color="#16a34a" />
                 </View>
-                <Text style={[styles.statNumber, { color: '#0d9488' }]}>
-                  {(summary?.on_track ?? 0) + (summary?.at_risk ?? 0)}
+                <Text style={[styles.statNumber, { color: '#16a34a' }]}>
+                  {summary?.on_track ?? 0}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>بالمعدل المطلوب</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text style={[styles.statTapHintText, { color: '#0d9488' }]}>عرض السائرين</Text>
-                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#0d9488" />
+                  <Text style={[styles.statTapHintText, { color: '#16a34a' }]}>عرض السائرين</Text>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#16a34a" />
                 </View>
               </TouchableOpacity>
 
-              {/* Card 5: متأخرين عن التارچت */}
+              {/* Card 2: على وشك */}
+              <TouchableOpacity
+                style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => handleCardPress('identifiers', 'AT_RISK')}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.statIconCircle, { backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.16)' : '#fef3c7' }]}>
+                  <Ionicons name="time" size={22} color="#d97706" />
+                </View>
+                <Text style={[styles.statNumber, { color: '#d97706' }]}>
+                  {summary?.at_risk ?? 0}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>على وشك</Text>
+                <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Text style={[styles.statTapHintText, { color: '#d97706' }]}>عرض على وشك</Text>
+                  <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#d97706" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Card 3: متأخرين */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('identifiers', 'BEHIND_TARGET')}
@@ -1163,14 +1181,14 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 <Text style={[styles.statNumber, { color: '#dc2626' }]}>
                   {summary?.behind_target ?? 0}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>متأخرين عن التارچت</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>متأخرين</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text style={[styles.statTapHintText, { color: '#dc2626' }]}>عرض المتأخرين</Text>
                   <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#dc2626" />
                 </View>
               </TouchableOpacity>
 
-              {/* Card 6: طلبات كافة المناديب */}
+              {/* Card 4: طلبات المناديب */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('drivers')}
@@ -1182,14 +1200,14 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 <Text style={[styles.statNumber, { color: colors.primary }]}>
                   {totalDriversMonthOrders}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>طلبات كافة المناديب</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>طلبات المناديب</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text style={[styles.statTapHintText, { color: colors.primary }]}>بيانات المناديب</Text>
                   <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color={colors.primary} />
                 </View>
               </TouchableOpacity>
 
-              {/* Card 7: تنبيهات العجز النشطة */}
+              {/* Card 5: تنبيهات */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('alerts')}
@@ -1201,7 +1219,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 <Text style={[styles.statNumber, { color: unresolvedAlertsCount > 0 ? '#dc2626' : colors.textPrimary }]}>
                   {unresolvedAlertsCount}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>تنبيهات العجز النشطة</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>تنبيهات</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text style={[styles.statTapHintText, { color: '#9333ea' }]}>عرض التنبيهات</Text>
                   <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#9333ea" />

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import { API_BASE_URL, getStoredToken, loadStoredToken } from './api';
+import { API_BASE_URL, getStoredToken, loadStoredToken, refreshAuthToken, triggerSessionExpired } from './api';
+import { logDebugError } from './errorLogger';
 import {
   TargetDashboardSummary,
   IdentifierPerformance,
@@ -56,11 +57,43 @@ async function targetFetch(
     }
 
     try {
-      const res = await fetch(url, {
+      let res = await fetch(url, {
         ...options,
         headers,
         signal: options.signal || controller.signal,
       });
+
+      // Intercept 401 and attempt automatic token refresh
+      if (res.status === 401) {
+        console.log(`[targetFetch] 401 Unauthorized for ${url}, attempting auto-refresh...`);
+        const newToken = await refreshAuthToken();
+        if (newToken) {
+          headers['Authorization'] = `Bearer ${newToken}`;
+          res = await fetch(url, {
+            ...options,
+            headers,
+            signal: options.signal || controller.signal,
+          });
+        } else {
+          // Token expired and no valid refresh token available - notify app to prompt login
+          triggerSessionExpired();
+        }
+      }
+
+      if (!res.ok && (res.status === 401 || res.status >= 500)) {
+        try {
+          const clone = res.clone();
+          clone.json().then((body) => {
+            logDebugError(
+              'API_NETWORK',
+              `[Target API ${res.status}] ${url}: ${body?.error || body?.message || 'Server error'}`,
+              undefined,
+              { url, status: res.status, body }
+            ).catch(() => {});
+          }).catch(() => {});
+        } catch {}
+      }
+
       return res;
     } catch (err: any) {
       lastError = err;
@@ -80,6 +113,7 @@ async function targetFetch(
       }
 
       if (isNetworkOrAbort) {
+        logDebugError('API_NETWORK', `تعذر الاتصال بخادم التارچت: ${url}`, err?.stack, { url }).catch(() => {});
         throw new Error('تعذر الاتصال بخادم التارچت، يرجى التحقق من اتصال الإنترنت والمحاولة مجدداً.');
       }
       throw err;
