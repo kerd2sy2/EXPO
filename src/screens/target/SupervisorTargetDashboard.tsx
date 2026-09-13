@@ -377,34 +377,26 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
   };
 
   const getIdentifierPlatform = (ident: any): string => {
-    const app = (ident?.app_name || '').toLowerCase();
+    const app = (ident?.app_name || '').trim().toLowerCase();
     if (app.includes('ninja') || app.includes('نينجا')) return 'ninja';
-    if (app.includes('toyou') || app.includes('to you') || app.includes('تويو')) return 'toyou';
     if (app.includes('keeta') || app.includes('كيتا') || app.includes('كينتا')) return 'keeta';
+    if (app.includes('toyou') || app.includes('to you') || app.includes('تويو')) return 'toyou';
     if (app.includes('hunger') || app.includes('هنقر')) return 'hungerstation';
     if (app.includes('jahez') || app.includes('جاهز')) return 'jahez';
     if (app.includes('mrsool') || app.includes('مرسول')) return 'mrsool';
 
     const str = `${ident?.name || ''} ${ident?.code || ''}`.toLowerCase();
-    if (str.includes('ninja') || str.includes('نينجا') || str.includes('فردين')) {
-      return 'ninja';
-    }
-    if (str.includes('toyou') || str.includes('to you') || str.includes('تويو')) {
-      return 'toyou';
-    }
-    if (str.includes('hunger') || str.includes('هنقر')) {
-      return 'hungerstation';
-    }
-    if (str.includes('jahez') || str.includes('جاهز')) {
-      return 'jahez';
-    }
-    if (str.includes('mrsool') || str.includes('مرسول')) {
-      return 'mrsool';
-    }
+    if (str.includes('ninja') || str.includes('نينجا')) return 'ninja';
+    if (str.includes('keeta') || str.includes('كيتا') || str.includes('كينتا')) return 'keeta';
+    if (str.includes('toyou') || str.includes('to you') || str.includes('تويو')) return 'toyou';
+    if (str.includes('hunger') || str.includes('هنقر')) return 'hungerstation';
+    if (str.includes('jahez') || str.includes('جاهز')) return 'jahez';
+    if (str.includes('mrsool') || str.includes('مرسول')) return 'mrsool';
+
     if (ident?.app_name && ident.app_name.trim()) {
       return ident.app_name.trim().toLowerCase();
     }
-    return 'keeta';
+    return 'ninja';
   };
 
   const formatIdentifierDisplayName = (name?: string) => {
@@ -455,6 +447,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
   }, [filteredBaseIdents]);
 
   // Total Orders across all platforms in the selected period
+  // Total Orders across all platforms in the selected period
   const totalMonthOrders = useMemo(() => {
     if (rangeTotalOrders !== null) {
       return rangeTotalOrders;
@@ -462,76 +455,41 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     if (summary?.total_month_orders && summary.total_month_orders > 0) {
       return summary.total_month_orders;
     }
-    return filteredBaseIdents.reduce((sum, i) => sum + (Number(i.month_orders) || 0), 0);
-  }, [summary, filteredBaseIdents, rangeTotalOrders]);
+    return (identifiers || []).reduce((sum, i) => sum + (Number(i.month_orders) || 0), 0);
+  }, [summary, identifiers, rangeTotalOrders]);
 
-  // Per-application breakdown with counts and orders
-  const appStats = useMemo(() => {
-    let ninjaOrders = rangeOrdersMap ? (rangeOrdersMap['ninja'] || 0) : 0;
-    let keetaOrders = rangeOrdersMap ? (rangeOrdersMap['keeta'] || 0) : 0;
-    let toyouOrders = rangeOrdersMap ? (rangeOrdersMap['toyou'] || 0) : 0;
-    let ninjaIdents = 0;
-    let keetaIdents = 0;
-    let toyouIdents = 0;
-
-    filteredBaseIdents.forEach((item) => {
-      const plat = getIdentifierPlatform(item);
-      const orders = Number(item.month_orders) || 0;
-      if (plat === 'ninja') {
-        ninjaIdents += 1;
-        if (!rangeOrdersMap) ninjaOrders += orders;
-      } else if (plat === 'keeta') {
-        keetaIdents += 1;
-        if (!rangeOrdersMap) keetaOrders += orders;
-      } else if (plat === 'toyou') {
-        toyouIdents += 1;
-        if (!rangeOrdersMap) toyouOrders += orders;
-      }
-    });
-
-    const sumOrders = ninjaOrders + keetaOrders + toyouOrders;
-    const calcTotal = rangeTotalOrders !== null ? rangeTotalOrders : (sumOrders > 0 ? sumOrders : (totalMonthOrders || 1));
-
-    return {
-      ninja: {
-        name: 'نينجا',
-        idents: ninjaIdents,
-        orders: ninjaOrders,
-        percent: calcTotal > 0 ? Math.round((ninjaOrders / calcTotal) * 100) : 0,
-      },
-      keeta: {
-        name: 'كيتا',
-        idents: keetaIdents,
-        orders: keetaOrders,
-        percent: calcTotal > 0 ? Math.round((keetaOrders / calcTotal) * 100) : 0,
-      },
-      toyou: {
-        name: 'تويو',
-        idents: toyouIdents,
-        orders: toyouOrders,
-        percent: calcTotal > 0 ? Math.round((toyouOrders / calcTotal) * 100) : 0,
-      },
-      totalOrders: calcTotal,
-    };
-  }, [filteredBaseIdents, totalMonthOrders, rangeOrdersMap, rangeTotalOrders]);
-
-  // Platforms list with: Logo, App Name, Orders Count, and Identifiers Count ONLY
+  // Platforms list with accurate metrics computed from full identifiers list
   const platformsList = useMemo(() => {
+    let baseList = Array.isArray(identifiers) ? identifiers : [];
+    if (rangeIdentOrdersMap) {
+      baseList = baseList.map((i) => ({
+        ...i,
+        month_orders: rangeIdentOrdersMap[i.id] !== undefined ? rangeIdentOrdersMap[i.id] : 0,
+      }));
+    }
+
     const platMetrics = (platKey: string) => {
-      const items = filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === platKey);
+      const items = baseList.filter((i) => getIdentifierPlatform(i) === platKey);
       const total = items.length;
       let active = total;
-      if (rangeTotalOrders === 0) active = 0;
-      else if (rangeOrdersMap) {
+      if (rangeTotalOrders === 0) {
+        active = 0;
+      } else if (rangeOrdersMap) {
         const countActive = items.filter((i) => (Number(i.month_orders) || 0) > 0).length;
         active = countActive > 0 ? countActive : total;
       }
 
+      // Orders for this platform
+      const ordersCount = items.reduce((sum, i) => sum + (Number(i.month_orders) || 0), 0);
+
       // Projected total orders for this platform
-      const projectedOrders = items.reduce((sum, i) => sum + (Number(i.projected_monthly_orders) || Number(i.month_orders) || 0), 0);
+      const projectedOrders = items.reduce(
+        (sum, i) => sum + (Number(i.projected_monthly_orders) || Number(i.month_orders) || 0),
+        0
+      );
 
       // Status breakdown:
-      // يسير بالمعدل (ON_TRACK or TARGET_ACHIEVED)
+      // يسير بالمعدل أو حقق التارچت (ON_TRACK or TARGET_ACHIEVED)
       const onTrackCount = items.filter((i) => i.status === 'ON_TRACK' || i.status === 'TARGET_ACHIEVED').length;
       // على وشك المعدل (AT_RISK)
       const atRiskCount = items.filter((i) => i.status === 'AT_RISK').length;
@@ -540,6 +498,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
 
       return {
         totalIdents: active,
+        ordersCount,
         projectedOrders,
         onTrackCount,
         atRiskCount,
@@ -549,6 +508,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
 
     const ninjaMetrics = platMetrics('ninja');
     const keetaMetrics = platMetrics('keeta');
+
+    const ninjaOrders = rangeOrdersMap ? (rangeOrdersMap['ninja'] || 0) : ninjaMetrics.ordersCount;
+    const keetaOrders = rangeOrdersMap ? (rangeOrdersMap['keeta'] || 0) : keetaMetrics.ordersCount;
 
     const map: Record<
       string,
@@ -571,10 +533,10 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       ninja: {
         key: 'ninja',
         name: 'نينجا',
-        orders: rangeOrdersMap ? (rangeOrdersMap['ninja'] || 0) : 0,
+        orders: ninjaOrders,
         idents: ninjaMetrics.totalIdents,
         projected: ninjaMetrics.projectedOrders,
-        onTrack: ninjaMetrics.onTrackCount + ninjaMetrics.atRiskCount,
+        onTrack: ninjaMetrics.onTrackCount,
         atRisk: ninjaMetrics.atRiskCount,
         behind: ninjaMetrics.behindCount,
         image: require('../../../assets/images/ninja.png'),
@@ -586,10 +548,10 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       keeta: {
         key: 'keeta',
         name: 'كيتا',
-        orders: rangeOrdersMap ? (rangeOrdersMap['keeta'] || 0) : 0,
+        orders: keetaOrders,
         idents: keetaMetrics.totalIdents,
         projected: keetaMetrics.projectedOrders,
-        onTrack: keetaMetrics.onTrackCount + keetaMetrics.atRiskCount,
+        onTrack: keetaMetrics.onTrackCount,
         atRisk: keetaMetrics.atRiskCount,
         behind: keetaMetrics.behindCount,
         image: require('../../../assets/images/keeta.png'),
@@ -601,9 +563,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     };
 
     if (!rangeOrdersMap) {
-      filteredBaseIdents.forEach((item) => {
+      baseList.forEach((item) => {
         const platKey = getIdentifierPlatform(item);
-        if (platKey === 'toyou') return; // Do not include Toyou
+        if (platKey === 'ninja' || platKey === 'keeta' || platKey === 'toyou') return;
         const orders = Number(item.month_orders) || 0;
         if (map[platKey]) {
           map[platKey].orders += orders;
@@ -636,7 +598,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     }
 
     return Object.values(map);
-  }, [filteredBaseIdents, colors, rangeOrdersMap, rangeTotalOrders]);
+  }, [identifiers, colors, rangeOrdersMap, rangeIdentOrdersMap, rangeTotalOrders]);
 
   // Fast In-Memory Local Filtering (Zero network lag, zero UI freeze)
   const identsList = useMemo(() => {
@@ -963,9 +925,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                         </View>
                       </View>
 
-                      {/* Row 2: Status Breakdown (يسير بالمعدل & المتأخرين) */}
+                      {/* Row 2: Status Breakdown (بالمعدل & على وشك & متأخرين) */}
                       <View style={[styles.platformStatusRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        {/* يسير بالمعدل */}
+                        {/* 1. بالمعدل */}
                         <TouchableOpacity
                           activeOpacity={0.75}
                           onPress={() => {
@@ -982,19 +944,48 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                           ]}
                         >
                           <View style={[styles.statusIconCircle, { backgroundColor: isDarkMode ? '#14532d' : '#dcfce7' }]}>
-                            <Ionicons name="checkmark" size={16} color="#16a34a" />
+                            <Ionicons name="checkmark" size={15} color="#16a34a" />
                           </View>
                           <View style={[styles.statusTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                             <Text style={[styles.statusCountText, { color: '#16a34a' }]}>
                               {plat.onTrack ?? 0}
                             </Text>
                             <Text style={[styles.statusNameText, { color: isDarkMode ? '#86efac' : '#15803d' }]}>
-                              يسير بالمعدل
+                              بالمعدل
                             </Text>
                           </View>
                         </TouchableOpacity>
 
-                        {/* المتأخرين */}
+                        {/* 2. على وشك */}
+                        <TouchableOpacity
+                          activeOpacity={0.75}
+                          onPress={() => {
+                            handleCardPress('identifiers', 'AT_RISK');
+                            setPlatformTab(plat.key as any);
+                          }}
+                          style={[
+                            styles.platformStatusCard,
+                            {
+                              backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.08)' : '#fffbeb',
+                              borderColor: isDarkMode ? 'rgba(245, 158, 11, 0.25)' : '#fef3c7',
+                              flexDirection: isRTL ? 'row-reverse' : 'row',
+                            },
+                          ]}
+                        >
+                          <View style={[styles.statusIconCircle, { backgroundColor: isDarkMode ? '#78350f' : '#fef3c7' }]}>
+                            <Ionicons name="time-outline" size={15} color="#d97706" />
+                          </View>
+                          <View style={[styles.statusTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                            <Text style={[styles.statusCountText, { color: '#d97706' }]}>
+                              {plat.atRisk ?? 0}
+                            </Text>
+                            <Text style={[styles.statusNameText, { color: isDarkMode ? '#fde68a' : '#b45309' }]}>
+                              على وشك
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* 3. المتأخرين */}
                         <TouchableOpacity
                           activeOpacity={0.75}
                           onPress={() => {
@@ -1011,14 +1002,14 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                           ]}
                         >
                           <View style={[styles.statusIconCircle, { backgroundColor: isDarkMode ? '#7f1d1d' : '#fee2e2' }]}>
-                            <Ionicons name="alert" size={16} color="#dc2626" />
+                            <Ionicons name="alert" size={15} color="#dc2626" />
                           </View>
                           <View style={[styles.statusTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                             <Text style={[styles.statusCountText, { color: '#dc2626' }]}>
                               {plat.behind ?? 0}
                             </Text>
                             <Text style={[styles.statusNameText, { color: isDarkMode ? '#fca5a5' : '#b91c1c' }]}>
-                              المتأخرين
+                              متأخرين
                             </Text>
                           </View>
                         </TouchableOpacity>
@@ -1084,10 +1075,65 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
             )}
 
 
+            {/* Executive Monthly Target & Orders Hero */}
+            <View style={[styles.heroSummaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.heroHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.heroIconCircle, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5' }]}>
+                  <Ionicons name="stats-chart" size={22} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                  <Text style={[styles.heroCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    إجمالي طلبات الشهر
+                  </Text>
+                  <Text style={[styles.heroCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    متابعة الإنجاز لـ {summary?.days_elapsed ?? 12} يوم عمل ({summary?.remaining_days ?? 18} متبقي)
+                  </Text>
+                </View>
+                <View style={[styles.heroBadge, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}>
+                  <Text style={[styles.heroBadgeText, { color: colors.primary }]}>
+                    {summary?.current_month ?? '2026-09'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.heroStatsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                {/* Total Orders */}
+                <View style={[styles.heroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={[styles.heroStatLabel, { color: colors.textSecondary }]}>إجمالي الطلبات</Text>
+                  <Text style={[styles.heroStatValue, { color: colors.primary }]}>
+                    {(summary?.total_month_orders ?? totalMonthOrders).toLocaleString('en-US')}
+                  </Text>
+                  <Text style={[styles.heroStatUnit, { color: colors.textSecondary }]}>طلب منفذ</Text>
+                </View>
+
+                <View style={[styles.heroDivider, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
+
+                {/* Today Orders */}
+                <View style={[styles.heroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={[styles.heroStatLabel, { color: colors.textSecondary }]}>طلبات اليوم</Text>
+                  <Text style={[styles.heroStatValue, { color: '#16a34a' }]}>
+                    {(summary?.today_total_orders ?? 0).toLocaleString('en-US')}
+                  </Text>
+                  <Text style={[styles.heroStatUnit, { color: colors.textSecondary }]}>آخر يوم عمل</Text>
+                </View>
+
+                <View style={[styles.heroDivider, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
+
+                {/* Daily Pace */}
+                <View style={[styles.heroStatItem, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={[styles.heroStatLabel, { color: colors.textSecondary }]}>معدل الإنجاز</Text>
+                  <Text style={[styles.heroStatValue, { color: '#3b82f6' }]}>
+                    {summary?.days_elapsed ? Math.round((summary?.total_month_orders ?? totalMonthOrders) / summary.days_elapsed).toLocaleString('en-US') : 0}
+                  </Text>
+                  <Text style={[styles.heroStatUnit, { color: colors.textSecondary }]}>طلب / يوم</Text>
+                </View>
+              </View>
+            </View>
+
             {/* Quick KPI Stats */}
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                مؤشرات الأداء الرئيسية
+                مؤشرات أداء المعرفين
               </Text>
               <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                 اضغط على أي مؤشر لعرض تفاصيل البيانات ومطابقة الأداء
@@ -1105,7 +1151,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                   <Ionicons name="people" size={22} color="#2563eb" />
                 </View>
                 <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-                  {summary?.total_identifiers ?? identsList.length}
+                  {summary?.total_identifiers ?? identifiers.length}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>إجمالي المعرفين</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -1114,7 +1160,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 </View>
               </TouchableOpacity>
 
-              {/* Card 2: بالمعدل المطلوب */}
+              {/* Card 2: بالمعدل المطلوب ومحققين */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('identifiers', 'ON_TRACK')}
@@ -1124,16 +1170,18 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                   <Ionicons name="trending-up" size={22} color="#16a34a" />
                 </View>
                 <Text style={[styles.statNumber, { color: '#16a34a' }]}>
-                  {summary?.on_track ?? 0}
+                  {(summary?.on_track ?? 0) + (summary?.target_achieved ?? 0)}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>بالمعدل المطلوب</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>بالمعدل والمحققين</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text style={[styles.statTapHintText, { color: '#16a34a' }]}>عرض السائرين</Text>
+                  <Text style={[styles.statTapHintText, { color: '#16a34a' }]}>
+                    {(summary?.target_achieved ?? 0) > 0 ? `${summary?.target_achieved} حقق التارچت 🏆` : 'عرض السائرين'}
+                  </Text>
                   <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#16a34a" />
                 </View>
               </TouchableOpacity>
 
-              {/* Card 2: على وشك */}
+              {/* Card 3: على وشك */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('identifiers', 'AT_RISK')}
@@ -1152,7 +1200,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 </View>
               </TouchableOpacity>
 
-              {/* Card 3: متأخرين */}
+              {/* Card 4: متأخرين */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('identifiers', 'BEHIND_TARGET')}
@@ -1171,26 +1219,28 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 </View>
               </TouchableOpacity>
 
-              {/* Card 4: طلبات المناديب */}
+              {/* Card 5: المناديب المسجلين */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('drivers')}
                 activeOpacity={0.75}
               >
                 <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-                  <Ionicons name="people" size={22} color={colors.primary} />
+                  <Ionicons name="bicycle" size={22} color={colors.primary} />
                 </View>
                 <Text style={[styles.statNumber, { color: colors.primary }]}>
-                  {totalDriversMonthOrders}
+                  {drivers.length}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>طلبات المناديب</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>المناديب المسجلين</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text style={[styles.statTapHintText, { color: colors.primary }]}>بيانات المناديب</Text>
+                  <Text style={[styles.statTapHintText, { color: colors.primary }]}>
+                    {totalDriversMonthOrders.toLocaleString('en-US')} طلب
+                  </Text>
                   <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color={colors.primary} />
                 </View>
               </TouchableOpacity>
 
-              {/* Card 5: تنبيهات */}
+              {/* Card 6: تنبيهات العجز */}
               <TouchableOpacity
                 style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => handleCardPress('alerts')}
@@ -1202,7 +1252,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 <Text style={[styles.statNumber, { color: unresolvedAlertsCount > 0 ? '#dc2626' : colors.textPrimary }]}>
                   {unresolvedAlertsCount}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>تنبيهات</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>تنبيهات العجز</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text style={[styles.statTapHintText, { color: '#9333ea' }]}>عرض التنبيهات</Text>
                   <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color="#9333ea" />
@@ -1320,6 +1370,89 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               </View>
             ) : activeTab === 'identifiers' ? (
               <View>
+                {/* Status Filter Chips Bar */}
+                <View style={[styles.statusChipsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.statusChip,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                      statusFilter === '' && [styles.statusChipActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
+                    ]}
+                    onPress={() => setStatusFilter('')}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.statusChipText,
+                        { color: colors.textPrimary },
+                        statusFilter === '' && styles.statusChipTextActive,
+                      ]}
+                    >
+                      الكل ({summary?.total_identifiers ?? identifiers.length})
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.statusChip,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                      statusFilter === 'ON_TRACK' && [styles.statusChipActive, { backgroundColor: '#16a34a', borderColor: '#16a34a' }],
+                    ]}
+                    onPress={() => setStatusFilter('ON_TRACK')}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.statusChipText,
+                        { color: '#16a34a' },
+                        statusFilter === 'ON_TRACK' && styles.statusChipTextActive,
+                      ]}
+                    >
+                      بالمعدل ({(summary?.on_track ?? 0) + (summary?.target_achieved ?? 0)})
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.statusChip,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                      statusFilter === 'AT_RISK' && [styles.statusChipActive, { backgroundColor: '#d97706', borderColor: '#d97706' }],
+                    ]}
+                    onPress={() => setStatusFilter('AT_RISK')}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.statusChipText,
+                        { color: '#d97706' },
+                        statusFilter === 'AT_RISK' && styles.statusChipTextActive,
+                      ]}
+                    >
+                      على وشك ({summary?.at_risk ?? 0})
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.statusChip,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                      statusFilter === 'BEHIND_TARGET' && [styles.statusChipActive, { backgroundColor: '#dc2626', borderColor: '#dc2626' }],
+                    ]}
+                    onPress={() => setStatusFilter('BEHIND_TARGET')}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.statusChipText,
+                        { color: '#dc2626' },
+                        statusFilter === 'BEHIND_TARGET' && styles.statusChipTextActive,
+                      ]}
+                    >
+                      متأخرين ({summary?.behind_target ?? 0})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
                 {/* Platform Filter Tabs (Ninja / Keeta / Toyou) */}
                 <View style={[styles.platformTabsBar, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   {/* 1. NINJA (First) */}
@@ -1544,7 +1677,16 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                           <Text
                             style={[
                               styles.itemMetricVal,
-                              { color: ident.is_qualified ? '#16a34a' : '#dc2626' },
+                              {
+                                color:
+                                  ident.status === 'TARGET_ACHIEVED'
+                                    ? '#2563eb'
+                                    : ident.status === 'ON_TRACK'
+                                    ? '#16a34a'
+                                    : ident.status === 'AT_RISK'
+                                    ? '#d97706'
+                                    : '#dc2626',
+                              },
                             ]}
                           >
                             {ident.projected_monthly_orders || 0}
@@ -1556,17 +1698,48 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                       <View style={[styles.itemBottomRow, { borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <View style={[styles.qualificationRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                           <Ionicons
-                            name={ident.is_qualified ? 'checkmark-circle' : 'close-circle'}
+                            name={
+                              ident.status === 'TARGET_ACHIEVED'
+                                ? 'trophy'
+                                : ident.status === 'ON_TRACK'
+                                ? 'checkmark-circle'
+                                : ident.status === 'AT_RISK'
+                                ? 'time-outline'
+                                : 'close-circle'
+                            }
                             size={15}
-                            color={ident.is_qualified ? '#16a34a' : '#dc2626'}
+                            color={
+                              ident.status === 'TARGET_ACHIEVED'
+                                ? '#2563eb'
+                                : ident.status === 'ON_TRACK'
+                                ? '#16a34a'
+                                : ident.status === 'AT_RISK'
+                                ? '#d97706'
+                                : '#dc2626'
+                            }
                           />
                           <Text
                             style={[
                               styles.qualificationText,
-                              { color: ident.is_qualified ? '#16a34a' : '#dc2626' },
+                              {
+                                color:
+                                  ident.status === 'TARGET_ACHIEVED'
+                                    ? '#2563eb'
+                                    : ident.status === 'ON_TRACK'
+                                    ? '#16a34a'
+                                    : ident.status === 'AT_RISK'
+                                    ? '#d97706'
+                                    : '#dc2626',
+                              },
                             ]}
                           >
-                            {ident.is_qualified ? 'مؤهل للتارچت' : 'غير مؤهل'}
+                            {ident.status === 'TARGET_ACHIEVED'
+                              ? 'حقق التارچت 🏆'
+                              : ident.status === 'ON_TRACK'
+                              ? 'مؤهل للتارچت'
+                              : ident.status === 'AT_RISK'
+                              ? 'فرصة قائمة (في المتناول)'
+                              : 'غير مؤهل (متأخر)'}
                           </Text>
                         </View>
 
@@ -2472,120 +2645,87 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginBottom: 1,
   },
-  appStatsCard: {
+  heroSummaryCard: {
     borderRadius: 18,
     borderWidth: 1.5,
-    padding: 14,
+    padding: 16,
     marginBottom: 16,
   },
-  appStatsHeader: {
+  heroHeaderRow: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 14,
+    gap: 10,
   },
-  appStatsTitleGroup: {
-    flex: 1,
-    gap: 2,
-  },
-  appStatsTitleRow: {
+  heroIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     alignItems: 'center',
-    gap: 8,
-  },
-  appStatsHeaderIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  appStatsTitle: {
-    fontSize: 15,
+  heroCardTitle: {
+    fontSize: 16,
     fontWeight: '800',
   },
-  appStatsSubtitle: {
+  heroCardSub: {
     fontSize: 11,
+    marginTop: 2,
   },
-  appStatsMonthBadge: {
+  heroBadge: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 10,
-    alignItems: 'center',
   },
-  appStatsMonthBadgeLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  appStatsMonthBadgeVal: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  appStatsGrid: {
-    gap: 8,
-  },
-  appStatTile: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    padding: 10,
-    gap: 6,
-  },
-  appStatTileTop: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  appStatLogoCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  appStatLogoImg: {
-    width: 22,
-    height: 22,
-  },
-  appStatNameBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  appStatNameText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  appStatMetrics: {
-    marginVertical: 2,
-  },
-  appStatOrdersNum: {
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  appStatOrdersUnit: {
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  appStatBarTrack: {
-    height: 5,
-    borderRadius: 2.5,
-    overflow: 'hidden',
-  },
-  appStatBarFill: {
-    height: '100%',
-    borderRadius: 2.5,
-  },
-  appStatBottomRow: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 2,
-  },
-  appStatIdentsCount: {
-    fontSize: 10,
+  heroBadgeText: {
+    fontSize: 12,
     fontWeight: '700',
   },
-  appStatPercentText: {
+  heroStatsRow: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 4,
+  },
+  heroStatItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  heroStatLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  heroStatValue: {
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  heroStatUnit: {
     fontSize: 10,
+  },
+  heroDivider: {
+    width: 1,
+    height: 38,
+    marginHorizontal: 4,
+  },
+  statusChipsContainer: {
+    gap: 8,
+    marginBottom: 12,
+    paddingVertical: 2,
+  },
+  statusChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  statusChipActive: {
+    borderWidth: 1,
+  },
+  statusChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statusChipTextActive: {
+    color: '#ffffff',
     fontWeight: '800',
   },
   operationsCardsContainer: {

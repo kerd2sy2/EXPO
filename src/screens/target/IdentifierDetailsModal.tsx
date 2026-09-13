@@ -88,13 +88,13 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
   };
 
   const getIdentifierPlatform = (name?: string, code?: string, appName?: string): 'keeta' | 'ninja' | 'toyou' => {
-    const app = (appName || '').toLowerCase();
+    const app = (appName || '').trim().toLowerCase();
     if (app.includes('ninja') || app.includes('نينجا')) return 'ninja';
     if (app.includes('toyou') || app.includes('to you') || app.includes('تويو')) return 'toyou';
     if (app.includes('keeta') || app.includes('كيتا') || app.includes('كينتا')) return 'keeta';
 
     const str = `${name || ''} ${code || ''}`.toLowerCase();
-    if (str.includes('ninja') || str.includes('نينجا') || str.includes('فردين')) return 'ninja';
+    if (str.includes('ninja') || str.includes('نينجا')) return 'ninja';
     if (str.includes('toyou') || str.includes('to you') || str.includes('تويو')) return 'toyou';
     return 'keeta';
   };
@@ -331,16 +331,40 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                 <View
                   style={[
                     styles.badge,
-                    { backgroundColor: p.is_qualified ? '#ecfdf5' : '#fff1f2' },
+                    {
+                      backgroundColor:
+                        p.status === 'TARGET_ACHIEVED'
+                          ? '#dbeafe'
+                          : p.status === 'ON_TRACK'
+                          ? '#ecfdf5'
+                          : p.status === 'AT_RISK'
+                          ? (isDarkMode ? 'rgba(245, 158, 11, 0.22)' : '#fef3c7')
+                          : '#fff1f2',
+                    },
                   ]}
                 >
                   <Text
                     style={[
                       styles.badgeText,
-                      { color: p.is_qualified ? '#047857' : '#be123c' },
+                      {
+                        color:
+                          p.status === 'TARGET_ACHIEVED'
+                            ? '#1d4ed8'
+                            : p.status === 'ON_TRACK'
+                            ? '#047857'
+                            : p.status === 'AT_RISK'
+                            ? (isDarkMode ? '#fbbf24' : '#b45309')
+                            : '#be123c',
+                      },
                     ]}
                   >
-                    {p.is_qualified ? '✅ مؤهل (Qualified)' : '❌ غير مؤهل (Not Qualified)'}
+                    {p.status === 'TARGET_ACHIEVED'
+                      ? '🏆 حقق التارچت المطلوب'
+                      : p.status === 'ON_TRACK'
+                      ? '✅ مؤهل (يسير بالمعدل)'
+                      : p.status === 'AT_RISK'
+                      ? '⏳ فرصة قائمة (في المتناول)'
+                      : '❌ غير مؤهل (متأخر)'}
                   </Text>
                 </View>
               </View>
@@ -383,7 +407,21 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
 
                 <View style={[styles.statBox, isDarkMode && styles.darkCard]}>
                   <Text style={styles.statLabel}>توقع الإجمالي</Text>
-                  <Text style={[styles.statValue, { color: p.is_qualified ? '#10b981' : '#ef4444' }]}>
+                  <Text
+                    style={[
+                      styles.statValue,
+                      {
+                        color:
+                          p.status === 'TARGET_ACHIEVED'
+                            ? '#2563eb'
+                            : p.status === 'ON_TRACK'
+                            ? '#10b981'
+                            : p.status === 'AT_RISK'
+                            ? '#f59e0b'
+                            : '#ef4444',
+                      },
+                    ]}
+                  >
                     {p.projected_monthly_orders}
                   </Text>
                   <Text style={styles.statHint}>بنهاية الشهر</Text>
