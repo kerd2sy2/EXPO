@@ -196,35 +196,75 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
     );
   };
 
-  const handleShareReport = async () => {
-    try {
-      const report = {
-        title: 'AAMS Mobile App Diagnostics Report',
-        generatedAt: new Date().toISOString(),
-        system: systemInfo,
-        authStatus: {
-          tokenStatus: tokenInfo.label,
-          tokenDetails: tokenInfo.details,
-          hasRefreshToken,
-          apiBaseUrl: API_BASE_URL,
-        },
-        totalErrors: logs.length,
-        logs: logs.map((l) => ({
-          time: l.timestamp,
-          source: l.source,
-          message: l.message,
-          stack: l.stack,
-          details: l.details,
-        })),
-      };
+  const formatSingleLogText = (l: DebugErrorLog) => {
+    let out = `• المصدر (Source): ${l.source}\n`;
+    out += `• التوقيت: ${new Date(l.timestamp).toLocaleString('ar-EG')}\n`;
+    out += `• الرسالة: ${l.message}\n`;
+    if (l.details) {
+      try {
+        out += `• تفاصيل إضافية: ${typeof l.details === 'string' ? l.details : JSON.stringify(l.details, null, 2)}\n`;
+      } catch {
+        out += `• تفاصيل إضافية: ${String(l.details)}\n`;
+      }
+    }
+    if (l.stack) {
+      out += `• المسار الفني (Stack Trace):\n${l.stack}\n`;
+    }
+    return out;
+  };
 
+  const handleCopySingleLog = async (log: DebugErrorLog) => {
+    try {
+      const formatted = `📋 [تقرير خطأ AAMS للمطور / الأجينت]\n------------------------------------\n${formatSingleLogText(log)}------------------------------------`;
+      if (typeof navigator !== 'undefined' && (navigator as any).clipboard?.writeText) {
+        await (navigator as any).clipboard.writeText(formatted);
+      }
       await Share.share({
-        title: 'AAMS Diagnostics & Crash Report',
-        message: JSON.stringify(report, null, 2),
+        title: 'تفاصيل الخطأ للأجينت',
+        message: formatted,
       });
     } catch (err) {
-      console.log('Share report error:', err);
+      console.log('Error sharing single log:', err);
     }
+  };
+
+  const handleCopyAllForAgent = async () => {
+    try {
+      let reportText = `📋 [تقرير تشخيص وأخطاء AAMS الشامل لإرساله للأجينت]\n`;
+      reportText += `تاريخ التقرير: ${new Date().toLocaleString('ar-EG')}\n`;
+      reportText += `إصدار التطبيق: ${systemInfo.appVersion || '1.0.0'}\n`;
+      reportText += `الجهاز: ${systemInfo.brand || ''} ${systemInfo.modelName || ''} (${systemInfo.platform} v${systemInfo.platformVersion || ''})\n`;
+      reportText += `حالة التوكن: ${tokenInfo.label} (${tokenInfo.details})\n`;
+      reportText += `رمز التحديث (Refresh Token): ${hasRefreshToken ? 'متوفر' : 'غير متوفر'}\n`;
+      reportText += `رابط السيرفر: ${API_BASE_URL}\n`;
+      reportText += `إجمالي الأخطاء المسجلة: ${logs.length}\n`;
+      reportText += `====================================\n\n`;
+
+      if (logs.length === 0) {
+        reportText += `لا توجد أخطاء مسجلة حالياً، التطبيق يعمل باستقرار تام.\n`;
+      } else {
+        logs.forEach((l, idx) => {
+          reportText += `🔴 الخطأ (${idx + 1} من ${logs.length}):\n`;
+          reportText += formatSingleLogText(l);
+          reportText += `------------------------------------\n\n`;
+        });
+      }
+
+      if (typeof navigator !== 'undefined' && (navigator as any).clipboard?.writeText) {
+        await (navigator as any).clipboard.writeText(reportText);
+      }
+
+      await Share.share({
+        title: 'تقرير أخطاء AAMS للأجينت',
+        message: reportText,
+      });
+    } catch (err) {
+      console.log('Copy all report error:', err);
+    }
+  };
+
+  const handleShareReport = async () => {
+    await handleCopyAllForAgent();
   };
 
   const filteredLogs = useMemo(() => {
@@ -401,12 +441,12 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
               {/* 3. Action Buttons Row */}
               <View style={[styles.actionRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                  onPress={handleShareReport}
+                  style={[styles.actionBtn, { backgroundColor: '#10b981', flex: 1.4 }]}
+                  onPress={handleCopyAllForAgent}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="share-social-outline" size={16} color="#ffffff" style={{ marginHorizontal: 4 }} />
-                  <Text style={styles.actionBtnText}>{isRTL ? 'مشاركة التقرير' : 'Share Report'}</Text>
+                  <Ionicons name="copy-outline" size={16} color="#ffffff" style={{ marginHorizontal: 4 }} />
+                  <Text style={styles.actionBtnText}>{isRTL ? 'نسخ كافة الأخطاء للأجينت' : 'Copy All For Agent'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -488,47 +528,81 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
                   });
 
                   return (
-                    <TouchableOpacity
+                    <View
                       key={log.id}
                       style={[styles.logCard, { backgroundColor: colors.inputBg, borderColor: isExpanded ? badgeColor : colors.border }]}
-                      onPress={() => setExpandedLogId(isExpanded ? null : log.id)}
-                      activeOpacity={0.8}
                     >
                       <View style={[styles.logCardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <View style={[styles.sourceBadge, { backgroundColor: badgeColor + '20', borderColor: badgeColor }]}>
-                          <Text style={[styles.sourceBadgeText, { color: badgeColor }]}>{log.source}</Text>
+                        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={[styles.sourceBadge, { backgroundColor: badgeColor + '20', borderColor: badgeColor }]}>
+                            <Text style={[styles.sourceBadgeText, { color: badgeColor }]}>{log.source}</Text>
+                          </View>
+                          <Text style={styles.logTime}>{timeStr}</Text>
                         </View>
-                        <Text style={styles.logTime}>{timeStr}</Text>
+
+                        <TouchableOpacity
+                          style={[styles.miniCopyBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+                          onPress={() => handleCopySingleLog(log)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="copy-outline" size={13} color={colors.primary} />
+                          <Text style={[styles.miniCopyBtnText, { color: colors.primary }]}>
+                            {isRTL ? 'نسخ الخطأ' : 'Copy'}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
 
-                      <Text style={[styles.logMessage, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                        {log.message}
-                      </Text>
+                      <TouchableOpacity
+                        onPress={() => setExpandedLogId(isExpanded ? null : log.id)}
+                        activeOpacity={0.85}
+                      >
+                        <Text
+                          selectable={true}
+                          style={[styles.logMessage, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                        >
+                          {log.message}
+                        </Text>
+                      </TouchableOpacity>
 
                       {isExpanded && (
                         <View style={styles.expandedBox}>
                           {log.stack && (
                             <View style={styles.stackBox}>
                               <Text style={styles.stackTitle}>Stack Trace:</Text>
-                              <Text style={styles.stackText}>{log.stack}</Text>
+                              <Text selectable={true} style={styles.stackText}>{log.stack}</Text>
                             </View>
                           )}
                           {log.details && (
                             <View style={styles.detailsBox}>
                               <Text style={styles.stackTitle}>Details:</Text>
-                              <Text style={styles.stackText}>{JSON.stringify(log.details, null, 2)}</Text>
+                              <Text selectable={true} style={styles.stackText}>{JSON.stringify(log.details, null, 2)}</Text>
                             </View>
                           )}
+
+                          <TouchableOpacity
+                            style={[styles.fullCopyBtn, { backgroundColor: colors.card, borderColor: colors.primary }]}
+                            onPress={() => handleCopySingleLog(log)}
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons name="copy-outline" size={15} color={colors.primary} />
+                            <Text style={[styles.fullCopyBtnText, { color: colors.primary }]}>
+                              {isRTL ? 'نسخ تفاصيل هذا الخطأ لإرسالها للأجينت' : 'Copy Error Details for Agent'}
+                            </Text>
+                          </TouchableOpacity>
                         </View>
                       )}
 
-                      <View style={[styles.expandHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <TouchableOpacity
+                        style={[styles.expandHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                        onPress={() => setExpandedLogId(isExpanded ? null : log.id)}
+                        activeOpacity={0.7}
+                      >
                         <Text style={{ fontSize: 11, color: colors.textSecondary }}>
                           {isExpanded ? (isRTL ? 'إخفاء التفاصيل' : 'Hide Details') : (isRTL ? 'اضغط لعرض المسار الفني والـ Stack' : 'Tap for Stack Trace')}
                         </Text>
                         <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textSecondary} />
-                      </View>
-                    </TouchableOpacity>
+                      </TouchableOpacity>
+                    </View>
                   );
                 })
               )}
@@ -780,6 +854,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 4,
+  },
+  miniCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  miniCopyBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  fullCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  fullCopyBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
 

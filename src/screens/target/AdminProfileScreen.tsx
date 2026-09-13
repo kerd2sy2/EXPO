@@ -16,7 +16,6 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors } from '../../types/delegate';
 import { AppUpdateBottomSheet, UpdateModalState } from '../../components/modals/AppUpdateBottomSheet';
 import { DiagnosticsModal } from '../../components/modals/DiagnosticsModal';
-import { getErrorLogs } from '../../services/errorLogger';
 import {
   isBiometricEnabled,
   setBiometricEnabled,
@@ -53,32 +52,8 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   const [updateState, setUpdateState] = useState<UpdateModalState>('CHECKING');
   const [updateError, setUpdateError] = useState('');
 
-  // Diagnostics & Crash Modal State (Opened via 3 taps on Admin Avatar)
+  // Diagnostics & Crash Modal State
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
-  const [errorLogsCount, setErrorLogsCount] = useState(0);
-  const avatarTapRef = useRef<{ count: number; timer: any }>({ count: 0, timer: null });
-
-  useEffect(() => {
-    getErrorLogs()
-      .then((logs) => setErrorLogsCount(logs?.length || 0))
-      .catch(() => {});
-  }, [showDiagnosticsModal]);
-
-  const handleAvatarTap = () => {
-    if (avatarTapRef.current.timer) {
-      clearTimeout(avatarTapRef.current.timer);
-    }
-    avatarTapRef.current.count += 1;
-
-    if (avatarTapRef.current.count >= 3) {
-      avatarTapRef.current.count = 0;
-      setShowDiagnosticsModal(true);
-    } else {
-      avatarTapRef.current.timer = setTimeout(() => {
-        avatarTapRef.current.count = 0;
-      }, 500);
-    }
-  };
 
   // Biometrics State
   const [biometricsAvailable, setBiometricsAvailable] = useState(false);
@@ -232,27 +207,20 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
           <View style={styles.profileAvatarSection}>
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={handleAvatarTap}
+              onPress={() => setShowDiagnosticsModal(true)}
               style={[
                 styles.profileAvatar,
                 {
                   backgroundColor: colors.primaryLight,
-                  borderColor: errorLogsCount > 0 ? '#ef4444' : colors.primary,
+                  borderColor: colors.primary,
                 },
               ]}
             >
               <Ionicons
                 name={isSupervisor ? 'shield-outline' : 'shield-checkmark'}
                 size={44}
-                color={errorLogsCount > 0 ? '#ef4444' : colors.primary}
+                color={colors.primary}
               />
-              {errorLogsCount > 0 && (
-                <View style={styles.avatarErrorBadge}>
-                  <Text style={styles.avatarErrorBadgeText}>
-                    {errorLogsCount > 99 ? '99+' : errorLogsCount}
-                  </Text>
-                </View>
-              )}
             </TouchableOpacity>
 
             <Text style={[styles.profileName, { color: colors.textPrimary }]}>
@@ -264,31 +232,6 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
                 {roleLabel}
               </Text>
             </View>
-
-            {/* Error / System Status Indicator (Tapping or 3-tap on Avatar opens Diagnostics) */}
-            <TouchableOpacity
-              style={[
-                styles.systemHealthPill,
-                {
-                  backgroundColor: errorLogsCount > 0 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                  borderColor: errorLogsCount > 0 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)',
-                  flexDirection: isRTL ? 'row-reverse' : 'row',
-                },
-              ]}
-              onPress={() => setShowDiagnosticsModal(true)}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={errorLogsCount > 0 ? 'warning-outline' : 'shield-checkmark-outline'}
-                size={13}
-                color={errorLogsCount > 0 ? '#ef4444' : '#10b981'}
-              />
-              <Text style={{ fontSize: 11, fontWeight: '700', color: errorLogsCount > 0 ? '#ef4444' : '#10b981' }}>
-                {errorLogsCount > 0
-                  ? (isRTL ? `تم رصد ${errorLogsCount} أخطاء - اضغط 3 مرات على الأفاتار للتقرير` : `${errorLogsCount} errors - 3 taps to view`)
-                  : (isRTL ? 'النظام مستقر (اضغط 3 مرات على الأفاتار للتشخيص)' : 'System healthy (3 taps to diagnose)')}
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* User Info List */}
@@ -441,6 +384,28 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
                 </Text>
                 <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
                   التحقق من توفر تحديث هوائي جديد (OTA Update)
+                </Text>
+              </View>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          {/* Diagnostics & Error Logs Row */}
+          <TouchableOpacity
+            style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+            onPress={() => setShowDiagnosticsModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.settingIconBox, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : '#eff6ff' }]}>
+                <Ionicons name="bug-outline" size={20} color="#3b82f6" />
+              </View>
+              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
+                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+                  سجل فحص وتشخيص الأخطاء
+                </Text>
+                <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
+                  فحص الاتصال والتوكن ونسخ تفاصيل الأعطال
                 </Text>
               </View>
             </View>
