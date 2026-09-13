@@ -16,6 +16,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors } from '../../types/delegate';
 import { AppUpdateBottomSheet, UpdateModalState } from '../../components/modals/AppUpdateBottomSheet';
 import { DiagnosticsModal } from '../../components/modals/DiagnosticsModal';
+import { TargetRulesModal } from '../../components/modals/TargetRulesModal';
 import {
   isBiometricEnabled,
   setBiometricEnabled,
@@ -46,6 +47,9 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   const isSupervisor = user?.role === 'SUPERVISOR';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const roleLabel = isSupervisor ? 'مشرف التوصيل (Supervisor)' : 'مدير النظام (Admin)';
+
+  // Target Rules & Governance Document State
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   // Updates BottomSheet State
   const [updateModalVisible, setUpdateModalVisible] = useState(false);
@@ -384,6 +388,28 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
             </View>
           )}
 
+          {/* Target Rules & Governance Document Row */}
+          <TouchableOpacity
+            style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+            onPress={() => setShowRulesModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.settingIconBox, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : '#eff6ff' }]}>
+                <Ionicons name="document-text-outline" size={20} color="#3b82f6" />
+              </View>
+              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
+                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+                  وثيقة وقواعد احتساب التارچت
+                </Text>
+                <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
+                  فكرة التارچت، معادلة التوقع، ومعايير الحالات الأربعة
+                </Text>
+              </View>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
           {/* Check for Updates Row - Triggers Updates BottomSheet */}
           <TouchableOpacity
             style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
@@ -451,6 +477,15 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
         isDarkMode={isDarkMode}
         isRTL={isRTL}
         onClose={() => setShowDiagnosticsModal(false)}
+      />
+
+      {/* 6. Target Rules & Governance Document Modal */}
+      <TargetRulesModal
+        visible={showRulesModal}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onClose={() => setShowRulesModal(false)}
       />
     </View>
   );
