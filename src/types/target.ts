@@ -39,6 +39,8 @@ export interface ConfirmImportResponse {
   message: string;
 }
 
+export type AccountStatus = 'ACTIVE' | 'SUSPENDED_TEMP' | 'SUSPENDED_PERM';
+
 export interface IdentifierPerformance {
   id: string;
   name: string;
@@ -58,6 +60,7 @@ export interface IdentifierPerformance {
   estimated_achievement_date?: string;
   is_qualified: boolean;
   is_active: boolean;
+  account_status?: AccountStatus;
 }
 
 export interface DriverContribution {

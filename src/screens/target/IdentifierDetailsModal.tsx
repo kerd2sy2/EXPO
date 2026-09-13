@@ -8,9 +8,10 @@ import {
   ActivityIndicator,
   StyleSheet,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { IdentifierDetails } from '../../types/target';
+import { IdentifierDetails, AccountStatus } from '../../types/target';
 import { targetApi } from '../../services/targetApi';
 
 interface IdentifierDetailsModalProps {
@@ -19,6 +20,8 @@ interface IdentifierDetailsModalProps {
   month?: string;
   onClose: () => void;
   isDarkMode?: boolean;
+  isAdmin?: boolean;
+  onUpdated?: () => void;
 }
 
 export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
@@ -27,11 +30,15 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
   month,
   onClose,
   isDarkMode = false,
+  isAdmin = true,
+  onUpdated,
 }) => {
   const [loading, setLoading] = useState(false);
   const [details, setDetails] = useState<IdentifierDetails | null>(null);
   const [error, setError] = useState('');
   const [expandedDriverId, setExpandedDriverId] = useState<string | null>(null);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   useEffect(() => {
     if (visible && identifierId) {
@@ -99,6 +106,97 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
 
   const statusBadge = p ? getStatusBadge(p.status) : null;
   const platform = getIdentifierPlatform(p?.name, p?.code, p?.app_name);
+
+  const currentAccountStatus: AccountStatus = p?.account_status || 'ACTIVE';
+
+  const getAccountStatusInfo = (status?: AccountStatus) => {
+    switch (status) {
+      case 'SUSPENDED_TEMP':
+        return {
+          title: 'موقوف مؤقتاً',
+          badgeText: '⏸️ موقوف مؤقتاً',
+          bg: isDarkMode ? 'rgba(245, 158, 11, 0.18)' : '#fef3c7',
+          border: isDarkMode ? '#b45309' : '#fde68a',
+          text: isDarkMode ? '#fbbf24' : '#b45309',
+          desc: 'هذا الحساب موقوف مؤقتاً عن العمل، ولن يتم احتساب نشاطه حتى تقوم الإدارة بإعادة استئناف العمل.',
+        };
+      case 'SUSPENDED_PERM':
+        return {
+          title: 'موقوف نهائياً',
+          badgeText: '🛑 موقوف نهائياً',
+          bg: isDarkMode ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2',
+          border: isDarkMode ? '#b91c1c' : '#fecaca',
+          text: isDarkMode ? '#f87171' : '#dc2626',
+          desc: 'هذا الحساب موقوف نهائياً؛ ولن يتم ربط أو إضافة أي طلبات جديدة لهذا المعرف في المستقبل.',
+        };
+      case 'ACTIVE':
+      default:
+        return {
+          title: 'نشط',
+          badgeText: '🟢 نشط وقيد العمل',
+          bg: isDarkMode ? 'rgba(16, 185, 129, 0.18)' : '#ecfdf5',
+          border: isDarkMode ? '#059669' : '#a7f3d0',
+          text: isDarkMode ? '#34d399' : '#047857',
+          desc: 'الحساب نشط ويستقبل الطلبات وتُحتسب إنجازاته بشكل طبيعي في التارچت والإحصائيات.',
+        };
+    }
+  };
+
+  const accountStatusInfo = getAccountStatusInfo(currentAccountStatus);
+
+  const confirmChangeStatus = (newStatus: AccountStatus) => {
+    if (newStatus === currentAccountStatus) {
+      setShowStatusModal(false);
+      return;
+    }
+
+    let title = '';
+    let msg = '';
+    if (newStatus === 'ACTIVE') {
+      title = 'تفعيل المعرف';
+      msg = 'هل أنت متأكد من تفعيل هذا المعرف وعودته لاستقبال الطلبات بشكل طبيعي؟';
+    } else if (newStatus === 'SUSPENDED_TEMP') {
+      title = 'إيقاف مؤقت للمعرف';
+      msg = 'هل أنت متأكد من إيقاف هذا المعرف مؤقتاً لحين استئناف العمل من الإدارة؟\n\n💡 ملاحظة: المناديب يمكنهم العمل تحت أي معرف آخر بحرية.';
+    } else {
+      title = 'إيقاف نهائي للمعرف';
+      msg = 'هل أنت متأكد من إيقاف هذا المعرف نهائياً؟\nلن يتم إضافة أو احتساب أي طلبات جديدة لهذا المعرف في المستقبل.\n\n💡 ملاحظة: المناديب المرتبطين يمكنهم العمل على أي معرف آخر بحرية تامة.';
+    }
+
+    Alert.alert(title, msg, [
+      { text: 'إلغاء', style: 'cancel' },
+      {
+        text: 'تأكيد الحفظ',
+        style: newStatus === 'SUSPENDED_PERM' ? 'destructive' : 'default',
+        onPress: () => performUpdateStatus(newStatus),
+      },
+    ]);
+  };
+
+  const performUpdateStatus = async (newStatus: AccountStatus) => {
+    if (!identifierId) return;
+    try {
+      setStatusUpdating(true);
+      await targetApi.updateIdentifier(identifierId, { account_status: newStatus });
+      setDetails((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          performance: {
+            ...prev.performance,
+            account_status: newStatus,
+          },
+        };
+      });
+      setShowStatusModal(false);
+      Alert.alert('تم بنجاح', 'تم تحديث حالة تشغيل المعرف بنجاح');
+      onUpdated?.();
+    } catch (err: any) {
+      Alert.alert('خطأ', err.message || 'فشل في تحديث حالة المعرف');
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -169,6 +267,58 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
             </View>
           ) : p && details ? (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+              {/* Account Operational Status Card */}
+              <View
+                style={[
+                  styles.accountStatusCard,
+                  {
+                    backgroundColor: accountStatusInfo.bg,
+                    borderColor: accountStatusInfo.border,
+                  },
+                ]}
+              >
+                <View style={styles.accountStatusTopRow}>
+                  <View style={styles.accountStatusTitleGroup}>
+                    <Text style={[styles.accountStatusTitle, { color: accountStatusInfo.text }]}>
+                      حالة الحساب: {accountStatusInfo.badgeText}
+                    </Text>
+                  </View>
+                  {isAdmin && (
+                    <TouchableOpacity
+                      style={[
+                        styles.changeStatusBtn,
+                        {
+                          borderColor: accountStatusInfo.border,
+                          backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                        },
+                      ]}
+                      onPress={() => setShowStatusModal(true)}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name="edit-3" size={13} color={accountStatusInfo.text} />
+                      <Text style={[styles.changeStatusBtnText, { color: accountStatusInfo.text }]}>
+                        تعديل الحالة
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <Text style={[styles.accountStatusDesc, { color: isDarkMode ? '#cbd5e1' : '#475569' }]}>
+                  {accountStatusInfo.desc}
+                </Text>
+
+                {/* Driver Independence Notice */}
+                <View style={[styles.driverNoticeBox, isDarkMode && styles.driverNoticeBoxDark]}>
+                  <Ionicons name="information-circle-outline" size={17} color={isDarkMode ? '#38bdf8' : '#0284c7'} />
+                  <Text style={[styles.driverNoticeText, isDarkMode && styles.driverNoticeTextDark]}>
+                    <Text style={{ fontWeight: '800', color: isDarkMode ? '#38bdf8' : '#0369a1' }}>
+                      💡 تنبيه استقلالية المناديب:{' '}
+                    </Text>
+                    إيقاف الحساب يخص هذا المعرف (اليوزر) فقط. المناديب مستقلون تماماً، ويمكن للمندوب العمل تحت أي معرف آخر بحرية تامة دون أي قيود.
+                  </Text>
+                </View>
+              </View>
+
               {/* Status & Qualification Banners */}
               <View style={styles.bannerRow}>
                 {statusBadge && (
@@ -441,6 +591,131 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
           ) : null}
         </View>
       </View>
+
+      {/* Status Selection Modal */}
+      <Modal
+        visible={showStatusModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !statusUpdating && setShowStatusModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.statusDialogBox, isDarkMode && styles.darkDialogBox]}>
+            <View style={styles.dialogHeader}>
+              <Text style={[styles.dialogTitle, isDarkMode && styles.darkText]}>
+                تعديل حالة تشغيل المعرف
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowStatusModal(false)}
+                disabled={statusUpdating}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={22} color={isDarkMode ? '#fff' : '#475569'} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.dialogSubTitle, isDarkMode && styles.darkSubText]}>
+              اختر الحالة التشغيلية للمعرف ({p?.name ? formatIdentifierDisplayName(p.name) : ''})
+            </Text>
+
+            {/* Option 1: ACTIVE */}
+            <TouchableOpacity
+              style={[
+                styles.statusOptionCard,
+                currentAccountStatus === 'ACTIVE' && styles.statusOptionCardSelected,
+                isDarkMode && styles.darkOptionCard,
+              ]}
+              onPress={() => confirmChangeStatus('ACTIVE')}
+              disabled={statusUpdating}
+              activeOpacity={0.7}
+            >
+              <View style={styles.optionHeaderRow}>
+                <View style={styles.optionLeftGroup}>
+                  <View style={[styles.optionDot, { backgroundColor: '#10b981' }]} />
+                  <Text style={[styles.optionTitle, isDarkMode && styles.darkText]}>
+                    🟢 نشط (ACTIVE)
+                  </Text>
+                </View>
+                {currentAccountStatus === 'ACTIVE' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                )}
+              </View>
+              <Text style={[styles.optionDesc, isDarkMode && styles.darkSubText]}>
+                الحساب نشط ويستقبل الطلبات وتُحتسب إنجازاته بشكل طبيعي في التارچت.
+              </Text>
+            </TouchableOpacity>
+
+            {/* Option 2: SUSPENDED_TEMP */}
+            <TouchableOpacity
+              style={[
+                styles.statusOptionCard,
+                currentAccountStatus === 'SUSPENDED_TEMP' && styles.statusOptionCardSelectedTemp,
+                isDarkMode && styles.darkOptionCard,
+              ]}
+              onPress={() => confirmChangeStatus('SUSPENDED_TEMP')}
+              disabled={statusUpdating}
+              activeOpacity={0.7}
+            >
+              <View style={styles.optionHeaderRow}>
+                <View style={styles.optionLeftGroup}>
+                  <View style={[styles.optionDot, { backgroundColor: '#f59e0b' }]} />
+                  <Text style={[styles.optionTitle, isDarkMode && styles.darkText]}>
+                    ⏸️ موقوف مؤقتاً (SUSPENDED_TEMP)
+                  </Text>
+                </View>
+                {currentAccountStatus === 'SUSPENDED_TEMP' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#f59e0b" />
+                )}
+              </View>
+              <Text style={[styles.optionDesc, isDarkMode && styles.darkSubText]}>
+                تجميد المعرف مؤقتاً لحين استئناف العمل لاحقاً بقرار الإدارة.
+              </Text>
+            </TouchableOpacity>
+
+            {/* Option 3: SUSPENDED_PERM */}
+            <TouchableOpacity
+              style={[
+                styles.statusOptionCard,
+                currentAccountStatus === 'SUSPENDED_PERM' && styles.statusOptionCardSelectedPerm,
+                isDarkMode && styles.darkOptionCard,
+              ]}
+              onPress={() => confirmChangeStatus('SUSPENDED_PERM')}
+              disabled={statusUpdating}
+              activeOpacity={0.7}
+            >
+              <View style={styles.optionHeaderRow}>
+                <View style={styles.optionLeftGroup}>
+                  <View style={[styles.optionDot, { backgroundColor: '#ef4444' }]} />
+                  <Text style={[styles.optionTitle, isDarkMode && styles.darkText]}>
+                    🛑 موقوف نهائياً (SUSPENDED_PERM)
+                  </Text>
+                </View>
+                {currentAccountStatus === 'SUSPENDED_PERM' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#ef4444" />
+                )}
+              </View>
+              <Text style={[styles.optionDesc, isDarkMode && styles.darkSubText]}>
+                إيقاف الحساب نهائياً؛ لن يتم إضافة أو احتساب أي طلبات جديدة لهذا المعرف مستقبلاً.
+              </Text>
+            </TouchableOpacity>
+
+            {/* Modal Driver Independence Reminder */}
+            <View style={[styles.modalNoticeBox, isDarkMode && styles.modalNoticeBoxDark]}>
+              <Ionicons name="shield-checkmark-outline" size={17} color={isDarkMode ? '#34d399' : '#059669'} />
+              <Text style={[styles.modalNoticeText, isDarkMode && styles.modalNoticeTextDark]}>
+                تنبيه: الإيقاف ينطبق على حساب المعرف فقط، ولا يؤثر على المناديب حيث يمكنهم العمل على أي حسابات أخرى.
+              </Text>
+            </View>
+
+            {statusUpdating && (
+              <View style={styles.updatingLoader}>
+                <ActivityIndicator size="small" color="#f97316" />
+                <Text style={styles.updatingText}>جارٍ حفظ التغييرات...</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
@@ -807,5 +1082,196 @@ const styles = StyleSheet.create({
   dayBoxOrders: {
     fontSize: 10,
     fontWeight: '800',
+  },
+  accountStatusCard: {
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1.5,
+  },
+  accountStatusTopRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  accountStatusTitleGroup: {
+    flex: 1,
+  },
+  accountStatusTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+  changeStatusBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  changeStatusBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  accountStatusDesc: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'right',
+    marginBottom: 10,
+  },
+  driverNoticeBox: {
+    flexDirection: 'row-reverse',
+    alignItems: 'flex-start',
+    backgroundColor: '#f0f9ff',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    gap: 8,
+  },
+  driverNoticeBoxDark: {
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+    borderColor: '#0284c7',
+  },
+  driverNoticeText: {
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 17,
+    color: '#0369a1',
+    textAlign: 'right',
+  },
+  driverNoticeTextDark: {
+    color: '#bae6fd',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  statusDialogBox: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  darkDialogBox: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  dialogHeader: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  dialogTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  dialogSubTitle: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'right',
+    marginBottom: 16,
+  },
+  darkSubText: {
+    color: '#94a3b8',
+  },
+  statusOptionCard: {
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    marginBottom: 10,
+  },
+  statusOptionCardSelected: {
+    borderColor: '#10b981',
+    backgroundColor: '#f0fdf4',
+  },
+  statusOptionCardSelectedTemp: {
+    borderColor: '#f59e0b',
+    backgroundColor: '#fffbeb',
+  },
+  statusOptionCardSelectedPerm: {
+    borderColor: '#ef4444',
+    backgroundColor: '#fef2f2',
+  },
+  darkOptionCard: {
+    backgroundColor: '#0f172a',
+    borderColor: '#334155',
+  },
+  optionHeaderRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  optionLeftGroup: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  optionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  optionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  optionDesc: {
+    fontSize: 11,
+    color: '#64748b',
+    lineHeight: 16,
+    textAlign: 'right',
+  },
+  modalNoticeBox: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10b981',
+    marginTop: 4,
+    gap: 6,
+  },
+  modalNoticeBoxDark: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#059669',
+  },
+  modalNoticeText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#047857',
+    textAlign: 'right',
+    fontWeight: '600',
+  },
+  modalNoticeTextDark: {
+    color: '#34d399',
+  },
+  updatingLoader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  updatingText: {
+    fontSize: 12,
+    color: '#f97316',
+    fontWeight: '700',
   },
 });

@@ -10,6 +10,7 @@ import {
   ExcelImportPreview,
   ConfirmImportResponse,
   TargetSettings,
+  AccountStatus,
 } from '../types/target';
 
 const getHeaders = async (isMultipart = false): Promise<Record<string, string>> => {
@@ -212,6 +213,7 @@ export const targetApi = {
       monthly_target?: number;
       daily_target?: number;
       is_active?: boolean;
+      account_status?: AccountStatus;
     }
   ): Promise<any> => {
     const res = await targetFetch(`${API_BASE_URL}/target/identifiers/${id}`, {

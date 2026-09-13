@@ -1505,9 +1505,21 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                           </View>
 
                           <View style={[styles.itemTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                            <Text style={[styles.itemName, { color: colors.textPrimary }]}>
-                              {formatIdentifierDisplayName(ident.name)}
-                            </Text>
+                            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <Text style={[styles.itemName, { color: colors.textPrimary }]}>
+                                {formatIdentifierDisplayName(ident.name)}
+                              </Text>
+                              {ident.account_status === 'SUSPENDED_TEMP' && (
+                                <View style={{ backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#fde68a' }}>
+                                  <Text style={{ color: isDarkMode ? '#fbbf24' : '#b45309', fontSize: 10, fontWeight: '700' }}>⏸️ موقوف مؤقتاً</Text>
+                                </View>
+                              )}
+                              {ident.account_status === 'SUSPENDED_PERM' && (
+                                <View style={{ backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#fecaca' }}>
+                                  <Text style={{ color: isDarkMode ? '#f87171' : '#dc2626', fontSize: 10, fontWeight: '700' }}>🛑 موقوف نهائياً</Text>
+                                </View>
+                              )}
+                            </View>
                             {ident.code ? (
                               <Text style={[styles.itemCode, { color: colors.textSecondary }]}>كود: {ident.code}</Text>
                             ) : null}
@@ -1760,6 +1772,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         month={dateFilter.month}
         onClose={() => setSelectedIdentifierId(null)}
         isDarkMode={isDarkMode}
+        isAdmin={true}
+        onUpdated={loadData}
       />
 
       <DriverDetailsModal
