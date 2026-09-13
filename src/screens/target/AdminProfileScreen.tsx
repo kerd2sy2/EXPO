@@ -52,8 +52,24 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   const [updateState, setUpdateState] = useState<UpdateModalState>('CHECKING');
   const [updateError, setUpdateError] = useState('');
 
-  // Diagnostics & Crash Modal State
+  // Diagnostics & Crash Modal State (Opened strictly via 3 taps on Admin Avatar)
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
+  const tapCountRef = useRef(0);
+  const lastTapRef = useRef(0);
+
+  const handleAvatarTap = () => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 600) {
+      tapCountRef.current += 1;
+      if (tapCountRef.current >= 3) {
+        tapCountRef.current = 0;
+        setShowDiagnosticsModal(true);
+      }
+    } else {
+      tapCountRef.current = 1;
+    }
+    lastTapRef.current = now;
+  };
 
   // Biometrics State
   const [biometricsAvailable, setBiometricsAvailable] = useState(false);
@@ -207,7 +223,7 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
           <View style={styles.profileAvatarSection}>
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => setShowDiagnosticsModal(true)}
+              onPress={handleAvatarTap}
               style={[
                 styles.profileAvatar,
                 {
@@ -384,28 +400,6 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
                 </Text>
                 <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
                   التحقق من توفر تحديث هوائي جديد (OTA Update)
-                </Text>
-              </View>
-            </View>
-            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          {/* Diagnostics & Error Logs Row */}
-          <TouchableOpacity
-            style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-            onPress={() => setShowDiagnosticsModal(true)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <View style={[styles.settingIconBox, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : '#eff6ff' }]}>
-                <Ionicons name="bug-outline" size={20} color="#3b82f6" />
-              </View>
-              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
-                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                  سجل فحص وتشخيص الأخطاء
-                </Text>
-                <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
-                  فحص الاتصال والتوكن ونسخ تفاصيل الأعطال
                 </Text>
               </View>
             </View>
