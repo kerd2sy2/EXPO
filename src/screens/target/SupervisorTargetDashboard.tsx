@@ -309,8 +309,20 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
 
   useEffect(() => {
     const backAction = () => {
+      if (currentView === 'driver_details') {
+        setCurrentView('data');
+        setActiveTab('drivers');
+        return true;
+      }
+      if (currentView === 'rules') {
+        setCurrentView('profile');
+        return true;
+      }
       if (currentView !== 'home') {
         setCurrentView('home');
+        setPlatformTab('ninja');
+        setStatusFilter('');
+        setSearchQuery('');
         return true;
       }
       return false;
