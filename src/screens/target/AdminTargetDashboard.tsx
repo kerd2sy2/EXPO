@@ -872,43 +872,29 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         )}
       </View>
 
-      {/* VIEW 1: PROFILE SCREEN (PAGE NOT MODAL) */}
-      {currentView === 'profile' ? (
-        <AdminProfileScreen
-          user={user}
-          onOpenTargetSettings={() => setShowSettingsModal(true)}
-          onOpenTargetRules={() => setCurrentView('rules')}
-          onResetData={loadData}
-          onLogout={onLogout}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-        />
-      ) : currentView === 'driver_details' ? (
-        /* VIEW 1.2: DRIVER DETAILS SCREEN (PAGE NOT MODAL) */
-        <DriverDetailsScreen
-          driver={selectedDriver}
-          month={dateFilter.month || summary?.current_month}
-          dateFilter={dateFilter}
-          maxElapsedDays={summary?.days_elapsed}
-          onBack={() => {
-            setCurrentView('data');
-            setActiveTab('drivers');
-          }}
-          isDarkMode={isDarkMode}
-          colors={colors}
-          isRTL={isRTL}
-        />
-      ) : currentView === 'rules' ? (
-        /* VIEW 1.5: TARGET RULES SCREEN (PAGE NOT MODAL) */
-        <TargetRulesScreen
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          onOpenTargetSettings={() => setShowSettingsModal(true)}
-          onBack={() => setCurrentView('profile')}
-        />
-      ) : currentView === 'logs' ? (
+      <View style={{ flex: 1 }}>
+        {/* VIEW 1: PROFILE SCREEN (PAGE NOT MODAL) */}
+        {currentView === 'profile' ? (
+          <AdminProfileScreen
+            user={user}
+            onOpenTargetSettings={() => setShowSettingsModal(true)}
+            onOpenTargetRules={() => setCurrentView('rules')}
+            onResetData={loadData}
+            onLogout={onLogout}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+          />
+        ) : currentView === 'rules' ? (
+          /* VIEW 1.5: TARGET RULES SCREEN (PAGE NOT MODAL) */
+          <TargetRulesScreen
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            onOpenTargetSettings={() => setShowSettingsModal(true)}
+            onBack={() => setCurrentView('profile')}
+          />
+        ) : currentView === 'logs' ? (
         /* VIEW 2: LOGS SCREEN */
         <TargetLogsScreen
           colors={colors}
@@ -1858,6 +1844,26 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
           </View>
         </ScrollView>
       )}
+
+      {/* DRIVER DETAILS SCREEN (Overlay over DATA VIEW so DATA VIEW scroll position is 100% preserved) */}
+      {currentView === 'driver_details' && (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }]}>
+          <DriverDetailsScreen
+            driver={selectedDriver}
+            month={dateFilter.month || summary?.current_month}
+            dateFilter={dateFilter}
+            maxElapsedDays={summary?.days_elapsed}
+            onBack={() => {
+              setCurrentView('data');
+              setActiveTab('drivers');
+            }}
+            isDarkMode={isDarkMode}
+            colors={colors}
+            isRTL={isRTL}
+          />
+        </View>
+      )}
+    </View>
 
       {/* Sub-Modals */}
       <IdentifierDetailsModal
