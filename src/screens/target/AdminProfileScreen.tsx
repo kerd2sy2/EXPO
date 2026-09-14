@@ -16,7 +16,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors } from '../../types/delegate';
 import { AppUpdateBottomSheet, UpdateModalState } from '../../components/modals/AppUpdateBottomSheet';
 import { DiagnosticsModal } from '../../components/modals/DiagnosticsModal';
-import { TargetRulesModal } from '../../components/modals/TargetRulesModal';
+import { TargetRulesScreen } from './TargetRulesScreen';
 import {
   isBiometricEnabled,
   setBiometricEnabled,
@@ -28,6 +28,7 @@ import { targetApi } from '../../services/targetApi';
 interface AdminProfileScreenProps {
   user: any;
   onOpenTargetSettings?: () => void;
+  onOpenTargetRules?: () => void;
   onResetData?: () => void;
   onLogout: () => void;
   colors: ThemeColors;
@@ -38,6 +39,7 @@ interface AdminProfileScreenProps {
 export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   user,
   onOpenTargetSettings,
+  onOpenTargetRules,
   onResetData,
   onLogout,
   colors,
@@ -48,8 +50,8 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const roleLabel = isSupervisor ? 'مشرف التوصيل (Supervisor)' : 'مدير النظام (Admin)';
 
-  // Target Rules & Governance Document State
-  const [showRulesModal, setShowRulesModal] = useState(false);
+  // Dedicated Target Rules Page State (Sub-view fallback if not routed externally)
+  const [currentSubView, setCurrentSubView] = useState<'profile' | 'rules'>('profile');
 
   // Updates BottomSheet State
   const [updateModalVisible, setUpdateModalVisible] = useState(false);
@@ -215,6 +217,18 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
       ]
     );
   };
+
+  if (currentSubView === 'rules') {
+    return (
+      <TargetRulesScreen
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onBack={() => setCurrentSubView('profile')}
+        onOpenTargetSettings={onOpenTargetSettings}
+      />
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -388,10 +402,16 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
             </View>
           )}
 
-          {/* Target Rules & Governance Document Row */}
+          {/* Target Rules & Governance Page Row */}
           <TouchableOpacity
             style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-            onPress={() => setShowRulesModal(true)}
+            onPress={() => {
+              if (onOpenTargetRules) {
+                onOpenTargetRules();
+              } else {
+                setCurrentSubView('rules');
+              }
+            }}
             activeOpacity={0.7}
           >
             <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -400,10 +420,10 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
               </View>
               <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
                 <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                  وثيقة وقواعد احتساب التارچت
+                  قواعد ومعايير احتساب التارچت
                 </Text>
                 <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
-                  فكرة التارچت، معادلة التوقع، ومعايير الحالات الأربعة
+                  الضوابط الرياضية، نموذج التوقع التراكمي، ومعايير تقييم الأداء
                 </Text>
               </View>
             </View>
@@ -477,15 +497,6 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
         isDarkMode={isDarkMode}
         isRTL={isRTL}
         onClose={() => setShowDiagnosticsModal(false)}
-      />
-
-      {/* 6. Target Rules & Governance Document Modal */}
-      <TargetRulesModal
-        visible={showRulesModal}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        onClose={() => setShowRulesModal(false)}
       />
     </View>
   );

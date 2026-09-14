@@ -446,7 +446,7 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
                   activeOpacity={0.8}
                 >
                   <Ionicons name="copy-outline" size={16} color="#ffffff" style={{ marginHorizontal: 4 }} />
-                  <Text style={styles.actionBtnText}>{isRTL ? 'نسخ كافة الأخطاء للأجينت' : 'Copy All For Agent'}</Text>
+                  <Text style={styles.actionBtnText}>{isRTL ? 'نسخ كافة سجلات الأخطاء' : 'Copy All Logs'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -586,7 +586,7 @@ export const DiagnosticsModal: React.FC<DiagnosticsModalProps> = ({
                           >
                             <Ionicons name="copy-outline" size={15} color={colors.primary} />
                             <Text style={[styles.fullCopyBtnText, { color: colors.primary }]}>
-                              {isRTL ? 'نسخ تفاصيل هذا الخطأ لإرسالها للأجينت' : 'Copy Error Details for Agent'}
+                              {isRTL ? 'نسخ تفاصيل هذا السجل' : 'Copy Log Details'}
                             </Text>
                           </TouchableOpacity>
                         </View>

@@ -27,6 +27,7 @@ import { IdentifierDetailsModal } from './IdentifierDetailsModal';
 import { DriverDetailsModal } from './DriverDetailsModal';
 import { TargetSettingsModal } from './TargetSettingsModal';
 import { AdminProfileScreen } from './AdminProfileScreen';
+import { TargetRulesScreen } from './TargetRulesScreen';
 import { TargetLogsScreen } from './TargetLogsScreen';
 import { DateFilterModal, DateFilterValue, getDefaultMonthFilter } from './DateFilterModal';
 import { BranchFilterModal } from './BranchFilterModal';
@@ -46,7 +47,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
   colors: propColors,
   isRTL = true,
 }) => {
-  const [currentView, setCurrentView] = useState<'home' | 'data' | 'logs' | 'profile' | 'platforms'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'data' | 'logs' | 'profile' | 'platforms' | 'rules'>('home');
   const [activeTab, setActiveTab] = useState<'identifiers' | 'drivers' | 'alerts'>('identifiers');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -674,6 +675,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
 
   const getSubPageTitle = () => {
     if (currentView === 'profile') return 'الملف الشخصي';
+    if (currentView === 'rules') return 'قواعد ومعايير التارچت';
     if (currentView === 'logs') return 'سجل العمليات والمتابعة';
     if (currentView === 'platforms') return 'تطبيقات التوصيل';
     if (currentView === 'data') {
@@ -742,6 +744,10 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
             <TouchableOpacity
               style={styles.headerBackBtn}
               onPress={() => {
+                if (currentView === 'rules') {
+                  setCurrentView('profile');
+                  return;
+                }
                 setCurrentView('home');
                 setPlatformTab('ninja');
                 setStatusFilter('');
@@ -806,10 +812,19 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
       {currentView === 'profile' ? (
         <AdminProfileScreen
           user={user}
+          onOpenTargetRules={() => setCurrentView('rules')}
           onLogout={onLogout}
           colors={colors}
           isDarkMode={isDarkMode}
           isRTL={isRTL}
+        />
+      ) : currentView === 'rules' ? (
+        /* VIEW 1.5: TARGET RULES SCREEN (PAGE NOT MODAL) */
+        <TargetRulesScreen
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          onBack={() => setCurrentView('profile')}
         />
       ) : currentView === 'logs' ? (
         /* VIEW 2: LOGS SCREEN */
