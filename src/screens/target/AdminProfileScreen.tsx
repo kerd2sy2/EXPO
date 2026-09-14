@@ -16,6 +16,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors } from '../../types/delegate';
 import { AppUpdateBottomSheet, UpdateModalState } from '../../components/modals/AppUpdateBottomSheet';
 import { DiagnosticsModal } from '../../components/modals/DiagnosticsModal';
+import { LogoutBottomSheet } from '../../components/modals/LogoutBottomSheet';
 import { TargetRulesScreen } from './TargetRulesScreen';
 import {
   isBiometricEnabled,
@@ -49,6 +50,9 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   const isSupervisor = user?.role === 'SUPERVISOR';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const roleLabel = isSupervisor ? 'مشرف التوصيل (Supervisor)' : 'مدير النظام (Admin)';
+
+  // Logout BottomSheet State
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Dedicated Target Rules Page State (Sub-view fallback if not routed externally)
   const [currentSubView, setCurrentSubView] = useState<'profile' | 'rules'>('profile');
@@ -208,14 +212,7 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   };
 
   const handleConfirmLogout = () => {
-    Alert.alert(
-      isRTL ? 'تسجيل الخروج' : 'Logout',
-      isRTL ? 'هل أنت متأكد من رغبتك في تسجيل الخروج من لوحة التحكم؟' : 'Are you sure you want to log out?',
-      [
-        { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
-        { text: isRTL ? 'تأكيد الخروج' : 'Log Out', style: 'destructive', onPress: onLogout },
-      ]
-    );
+    setShowLogoutModal(true);
   };
 
   if (currentSubView === 'rules') {
@@ -497,6 +494,17 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
         isDarkMode={isDarkMode}
         isRTL={isRTL}
         onClose={() => setShowDiagnosticsModal(false)}
+      />
+
+      {/* 6. Logout Confirmation Bottom Sheet */}
+      <LogoutBottomSheet
+        visible={showLogoutModal}
+        user={user}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onConfirm={onLogout}
+        onClose={() => setShowLogoutModal(false)}
       />
     </View>
   );
