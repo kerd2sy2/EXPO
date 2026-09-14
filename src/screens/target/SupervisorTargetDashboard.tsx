@@ -24,13 +24,14 @@ import { ThemeColors } from '../../types/delegate';
 import { targetApi } from '../../services/targetApi';
 import { refreshAuthToken } from '../../services/api';
 import { IdentifierDetailsModal } from './IdentifierDetailsModal';
-import { DriverDetailsModal } from './DriverDetailsModal';
+import { DriverDetailsScreen } from './DriverDetailsScreen';
 import { TargetSettingsModal } from './TargetSettingsModal';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { TargetRulesScreen } from './TargetRulesScreen';
 import { TargetLogsScreen } from './TargetLogsScreen';
 import { DateFilterModal, DateFilterValue, getDefaultMonthFilter } from './DateFilterModal';
 import { BranchFilterModal } from './BranchFilterModal';
+import { sortDriversByMasterOrder } from './driverOrderHelper';
 
 interface SupervisorTargetDashboardProps {
   user: any;
@@ -47,7 +48,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
   colors: propColors,
   isRTL = true,
 }) => {
-  const [currentView, setCurrentView] = useState<'home' | 'data' | 'logs' | 'profile' | 'platforms' | 'rules'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'data' | 'logs' | 'profile' | 'platforms' | 'rules' | 'driver_details'>('home');
   const [activeTab, setActiveTab] = useState<'identifiers' | 'drivers' | 'alerts'>('identifiers');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,27 +63,9 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
   const [branchFilter, setBranchFilter] = useState<'all' | '1' | '2'>('all');
   const [showBranchModal, setShowBranchModal] = useState(false);
 
-  // Multi-tap handler on Logo: 2 taps = Branch Filter, 3 taps = Date Filter
-  const logoTapRef = useRef<{ count: number; timer: any }>({ count: 0, timer: null });
+  // Logo Press Handler: Tap logo to open Date Filter Modal directly
   const handleLogoTap = useCallback(() => {
-    if (logoTapRef.current.timer) {
-      clearTimeout(logoTapRef.current.timer);
-    }
-    logoTapRef.current.count += 1;
-
-    if (logoTapRef.current.count === 3) {
-      // 3 taps: Date Filter
-      logoTapRef.current.count = 0;
-      setShowDateFilterModal(true);
-    } else {
-      logoTapRef.current.timer = setTimeout(() => {
-        if (logoTapRef.current.count === 2) {
-          // 2 taps: Branch Filter
-          setShowBranchModal(true);
-        }
-        logoTapRef.current.count = 0;
-      }, 350);
-    }
+    setShowDateFilterModal(true);
   }, []);
 
   const [summary, setSummary] = useState<TargetDashboardSummary | null>(null);
@@ -165,9 +148,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
           return null;
         }),
         targetApi.listDrivers({
-          month: queryMonth,
-          startDate: dateFilter.startDate,
-          endDate: dateFilter.endDate,
+          month: dateFilter.month,
           branch: branchFilter,
         }).catch((err) => {
           console.log('Notice loading supervisor target drivers:', err?.message || err);
@@ -208,6 +189,16 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
           if (item.id) identMap[item.id] = ords;
           total += ords;
         });
+
+        // Also cross check driver orders for this day if identsData total was 0
+        if (total === 0 && Array.isArray(driversData) && dateFilter.date) {
+          driversData.forEach((drv) => {
+            if (drv.daily_orders && drv.daily_orders[dateFilter.date!]) {
+              total += Number(drv.daily_orders[dateFilter.date!]) || 0;
+            }
+          });
+        }
+
         setRangeOrdersMap(platMap);
         setRangeTotalOrders(total);
         setRangeIdentOrdersMap(identMap);
@@ -215,6 +206,8 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         const sDay = Math.min(dateFilter.startDay || 1, dateFilter.endDay || 30);
         const eDay = Math.max(dateFilter.startDay || 1, dateFilter.endDay || 30);
         const monthPrefix = dateFilter.month || '2026-09';
+        const startStr = dateFilter.startDate || `${monthPrefix}-${String(sDay).padStart(2, '0')}`;
+        const endStr = dateFilter.endDate || `${monthPrefix}-${String(eDay).padStart(2, '0')}`;
 
         let daysToQuery: number[] = [];
         if (sumData?.daily_trend && sumData.daily_trend.length > 0) {
@@ -256,6 +249,20 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               });
             }
           });
+
+          // Fallback if dayResults is 0 but drivers have daily_orders
+          if (total === 0 && Array.isArray(driversData) && driversData.length > 0) {
+            driversData.forEach((drv) => {
+              if (drv.daily_orders) {
+                Object.entries(drv.daily_orders).forEach(([dateStr, cnt]) => {
+                  if (dateStr >= startStr && dateStr <= endStr) {
+                    total += Number(cnt) || 0;
+                  }
+                });
+              }
+            });
+          }
+
           setRangeOrdersMap(platMap);
           setRangeTotalOrders(total);
           setRangeIdentOrdersMap(identMap);
@@ -448,7 +455,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
   }, [filteredBaseIdents]);
 
   // Total Orders across all platforms in the selected period
-  // Total Orders across all platforms in the selected period
   const totalMonthOrders = useMemo(() => {
     if (rangeTotalOrders !== null) {
       return rangeTotalOrders;
@@ -606,6 +612,41 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     return filteredBaseIdents.filter((i) => getIdentifierPlatform(i) === platformTab);
   }, [filteredBaseIdents, platformTab]);
 
+  const getDriverPeriodOrders = useCallback(
+    (drv: DriverPerformance): number => {
+      if (!drv) return 0;
+      if (dateFilter.type === 'month') {
+        return Number(drv.month_orders) || 0;
+      }
+      if (dateFilter.type === 'day' && dateFilter.date) {
+        if (drv.daily_orders && drv.daily_orders[dateFilter.date] !== undefined) {
+          return Number(drv.daily_orders[dateFilter.date]) || 0;
+        }
+        return 0;
+      }
+      if (dateFilter.type === 'range') {
+        const s = Math.min(dateFilter.startDay || 1, dateFilter.endDay || 30);
+        const e = Math.max(dateFilter.startDay || 1, dateFilter.endDay || 30);
+        const mPrefix = dateFilter.month || '2026-09';
+        const startStr = dateFilter.startDate || `${mPrefix}-${String(s).padStart(2, '0')}`;
+        const endStr = dateFilter.endDate || `${mPrefix}-${String(e).padStart(2, '0')}`;
+
+        let sum = 0;
+        if (drv.daily_orders && Object.keys(drv.daily_orders).length > 0) {
+          Object.entries(drv.daily_orders).forEach(([dateStr, count]) => {
+            if (dateStr >= startStr && dateStr <= endStr) {
+              sum += Number(count) || 0;
+            }
+          });
+          return sum;
+        }
+        return 0;
+      }
+      return Number(drv.month_orders) || 0;
+    },
+    [dateFilter]
+  );
+
   const driversList = useMemo(() => {
     let list = Array.isArray(drivers) ? drivers : [];
     if (searchQuery.trim()) {
@@ -616,8 +657,12 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
           d.phone?.includes(q)
       );
     }
-    return list;
+    return sortDriversByMasterOrder(list);
   }, [drivers, searchQuery]);
+
+  const totalDriversPeriodOrders = useMemo(() => {
+    return (drivers || []).reduce((sum, d) => sum + getDriverPeriodOrders(d), 0);
+  }, [drivers, getDriverPeriodOrders]);
 
   const totalDriversMonthOrders = useMemo(() => {
     return (drivers || []).reduce((sum, d) => sum + (Number(d.month_orders) || 0), 0);
@@ -678,6 +723,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
     if (currentView === 'rules') return 'قواعد ومعايير التارچت';
     if (currentView === 'logs') return 'سجل العمليات والمتابعة';
     if (currentView === 'platforms') return 'تطبيقات التوصيل';
+    if (currentView === 'driver_details') return `سجل أيام: ${selectedDriver?.name || 'المندوب'}`;
     if (currentView === 'data') {
       if (activeTab === 'identifiers') {
         if (statusFilter === 'TARGET_ACHIEVED') return 'المعرفين - حققوا التارچت';
@@ -705,6 +751,8 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
             <TouchableOpacity
               style={[styles.headerBrandContainer, { flexDirection: 'row-reverse' }]}
               onPress={handleLogoTap}
+              onLongPress={() => setShowBranchModal(true)}
+              delayLongPress={500}
               activeOpacity={0.7}
             >
               <View style={styles.headerBrandTextCol}>
@@ -748,6 +796,11 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                   setCurrentView('profile');
                   return;
                 }
+                if (currentView === 'driver_details') {
+                  setCurrentView('data');
+                  setActiveTab('drivers');
+                  return;
+                }
                 setCurrentView('home');
                 setPlatformTab('ninja');
                 setStatusFilter('');
@@ -769,21 +822,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
               <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
             </View>
 
-            {currentView === 'platforms' ? (
-              <TouchableOpacity
-                style={[
-                  styles.headerActionBtn,
-                  {
-                    backgroundColor: !dateFilter.isDefault ? colors.primaryLight : colors.inputBg,
-                    borderColor: !dateFilter.isDefault ? colors.primary : colors.border,
-                  },
-                ]}
-                onPress={() => setShowDateFilterModal(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="calendar" size={18} color={colors.primary} />
-              </TouchableOpacity>
-            ) : currentView === 'data' && activeTab === 'alerts' ? (
+            {currentView === 'data' && activeTab === 'alerts' ? (
               <TouchableOpacity
                 style={[
                   styles.resolveAllHeaderBtn,
@@ -816,6 +855,21 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
           onLogout={onLogout}
           colors={colors}
           isDarkMode={isDarkMode}
+          isRTL={isRTL}
+        />
+      ) : currentView === 'driver_details' ? (
+        /* VIEW 1.2: DRIVER DETAILS SCREEN (PAGE NOT MODAL) */
+        <DriverDetailsScreen
+          driver={selectedDriver}
+          month={dateFilter.month || summary?.current_month}
+          dateFilter={dateFilter}
+          maxElapsedDays={summary?.days_elapsed}
+          onBack={() => {
+            setCurrentView('data');
+            setActiveTab('drivers');
+          }}
+          isDarkMode={isDarkMode}
+          colors={colors}
           isRTL={isRTL}
         />
       ) : currentView === 'rules' ? (
@@ -1167,7 +1221,7 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>المناديب المسجلين</Text>
                 <View style={[styles.statTapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text style={[styles.statTapHintText, { color: colors.primary }]}>
-                    {totalDriversMonthOrders.toLocaleString('en-US')} طلب
+                    {totalDriversPeriodOrders.toLocaleString('en-US')} طلب {dateFilter.type === 'month' ? 'بالشهر' : dateFilter.type === 'day' ? 'باليوم' : 'بالفترة'}
                   </Text>
                   <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={12} color={colors.primary} />
                 </View>
@@ -1619,7 +1673,10 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                     <TouchableOpacity
                       key={drv.id}
                       style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                      onPress={() => setSelectedDriver(drv)}
+                      onPress={() => {
+                        setSelectedDriver(drv);
+                        setCurrentView('driver_details');
+                      }}
                       activeOpacity={0.7}
                     >
                       <View style={[styles.itemTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -1636,12 +1693,12 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
                         </View>
 
                         <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
-                          <View style={[styles.driverBadge, { backgroundColor: colors.primaryLight, borderColor: colors.primary, borderWidth: 1, minWidth: 72 }]}>
-                            <Text style={[styles.driverBadgeNum, { color: colors.primary, fontSize: 15 }]}>
-                              {drv.month_orders ?? 0}
+                          <View style={[styles.driverBadge, { backgroundColor: colors.primaryLight, borderColor: colors.primary, borderWidth: 1, minWidth: 76 }]}>
+                            <Text style={[styles.driverBadgeNum, { color: colors.primary, fontSize: 16 }]}>
+                              {getDriverPeriodOrders(drv)}
                             </Text>
                             <Text style={[styles.driverBadgeLbl, { color: colors.primary, fontWeight: '700' }]}>
-                              الشهر
+                              {dateFilter.type === 'month' ? 'الشهر' : dateFilter.type === 'day' ? 'اليوم' : 'الفترة'}
                             </Text>
                           </View>
                           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textSecondary} />
@@ -1750,15 +1807,6 @@ export const SupervisorTargetDashboard: React.FC<SupervisorTargetDashboardProps>
         isDarkMode={isDarkMode}
         isAdmin={false}
         onUpdated={loadData}
-      />
-
-      <DriverDetailsModal
-        visible={!!selectedDriver}
-        driver={selectedDriver}
-        month={dateFilter.month}
-        maxElapsedDays={summary?.days_elapsed}
-        onClose={() => setSelectedDriver(null)}
-        isDarkMode={isDarkMode}
       />
 
       <DateFilterModal
@@ -2413,6 +2461,14 @@ const styles = StyleSheet.create({
   dateFilterChangeBtnText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  dateFilterResetBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   platformsSummaryCard: {
     borderRadius: 18,

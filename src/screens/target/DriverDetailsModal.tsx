@@ -7,13 +7,15 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { DriverPerformance } from '../../types/target';
+import { DateFilterValue } from './DateFilterModal';
 
 interface DriverDetailsModalProps {
   visible: boolean;
   driver: DriverPerformance | null;
   month?: string;
+  dateFilter?: DateFilterValue;
   maxElapsedDays?: number;
   onClose: () => void;
   isDarkMode?: boolean;
@@ -23,6 +25,7 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
   visible,
   driver,
   month,
+  dateFilter,
   maxElapsedDays,
   onClose,
   isDarkMode = false,
@@ -48,8 +51,6 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
   let maxDayNumber = 31;
   if (isCurrentMonth) {
     const todayDay = parseInt(todayStr.slice(8, 10), 10);
-    // Use maxElapsedDays from summary (which matches latest uploaded orders date)
-    // or driver's max recorded day, avoiding counting today's ongoing shift as absence
     if (typeof maxElapsedDays === 'number' && maxElapsedDays > 0) {
       maxDayNumber = Math.max(maxElapsedDays, maxDriverDay);
     } else if (maxDriverDay > 0) {
@@ -74,6 +75,41 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
   const totalOrders = driver.month_orders || 0;
   const totalRequiredTargetSoFar = daysList.length * dailyTarget;
   const targetDiff = totalOrders - totalRequiredTargetSoFar;
+
+  // Filtered period orders calculation
+  let periodOrders: number | null = null;
+  let isFilteredPeriod = false;
+  if (dateFilter && !dateFilter.isDefault) {
+    isFilteredPeriod = true;
+    if (dateFilter.type === 'day' && dateFilter.date) {
+      periodOrders = Number(dailyOrders[dateFilter.date]) || 0;
+    } else if (dateFilter.type === 'range') {
+      const s = Math.min(dateFilter.startDay || 1, dateFilter.endDay || 30);
+      const e = Math.max(dateFilter.startDay || 1, dateFilter.endDay || 30);
+      const startStr = dateFilter.startDate || `${monthPrefix}-${String(s).padStart(2, '0')}`;
+      const endStr = dateFilter.endDate || `${monthPrefix}-${String(e).padStart(2, '0')}`;
+      let sum = 0;
+      Object.entries(dailyOrders).forEach(([dateStr, count]) => {
+        if (dateStr >= startStr && dateStr <= endStr) {
+          sum += Number(count) || 0;
+        }
+      });
+      periodOrders = sum;
+    }
+  }
+
+  const isDayInPeriod = (dayNum: number, dateStr: string) => {
+    if (!dateFilter || dateFilter.isDefault) return false;
+    if (dateFilter.type === 'day') {
+      return dateFilter.date === dateStr;
+    }
+    if (dateFilter.type === 'range') {
+      const s = Math.min(dateFilter.startDay || 1, dateFilter.endDay || 30);
+      const e = Math.max(dateFilter.startDay || 1, dateFilter.endDay || 30);
+      return dayNum >= s && dayNum <= e;
+    }
+    return false;
+  };
 
   return (
     <Modal
@@ -114,9 +150,18 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
 
           {/* Quick Summary Cards */}
           <View style={styles.summaryRow}>
-            <View style={[styles.summaryCard, isDarkMode && styles.darkCard, { borderColor: '#f97316', borderWidth: 1.5 }]}>
+            {isFilteredPeriod && periodOrders !== null ? (
+              <View style={[styles.summaryCard, isDarkMode && styles.darkCard, { borderColor: '#f97316', borderWidth: 2, backgroundColor: '#fff7ed' }]}>
+                <Text style={[styles.summaryCardNum, { color: '#ea580c', fontSize: 20 }]}>{periodOrders}</Text>
+                <Text style={[styles.summaryCardLabel, { color: '#c2410c', fontWeight: '800' }]}>
+                  {dateFilter?.type === 'day' ? 'طلبات اليوم المختار' : 'طلبات الفترة المحددة'}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={[styles.summaryCard, isDarkMode && styles.darkCard, { borderColor: '#f97316', borderWidth: isFilteredPeriod ? 1 : 1.5 }]}>
               <Text style={styles.summaryCardNum}>{totalOrders}</Text>
-              <Text style={styles.summaryCardLabel}>إجمالي طلبات الشهر</Text>
+              <Text style={styles.summaryCardLabel}>إجمالي الشهر</Text>
             </View>
 
             <View style={[styles.summaryCard, isDarkMode && styles.darkCard]}>
@@ -139,8 +184,8 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
                 : isDarkMode ? styles.bannerRedDark : styles.bannerRedLight,
             ]}
           >
-            <Feather
-              name={targetDiff >= 0 ? 'check-circle' : 'alert-circle'}
+            <Ionicons
+              name={targetDiff >= 0 ? 'checkmark-circle' : 'alert-circle'}
               size={18}
               color={targetDiff >= 0 ? '#10b981' : '#ef4444'}
             />
@@ -170,6 +215,7 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
                 const dayOrders = dailyOrders[dItem.date] || 0;
                 const isAbsent = dayOrders === 0;
                 const achieved = dayOrders >= dailyTarget;
+                const inPeriod = isDayInPeriod(dItem.day, dItem.date);
 
                 return (
                   <View
@@ -181,23 +227,31 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
                         : achieved
                         ? (isDarkMode ? styles.dayCardAchievedDark : styles.dayCardAchievedLight)
                         : (isDarkMode ? styles.dayCardActiveDark : styles.dayCardActiveLight),
+                      inPeriod && styles.dayCardInPeriodHighlight,
                     ]}
                   >
                     {/* Day Number */}
-                    <Text
-                      style={[
-                        styles.dayCardNum,
-                        {
-                          color: isAbsent
-                            ? '#ef4444'
-                            : achieved
-                            ? '#10b981'
-                            : '#f59e0b',
-                        },
-                      ]}
-                    >
-                      يوم {dItem.day}
-                    </Text>
+                    <View style={styles.dayHeaderRow}>
+                      <Text
+                        style={[
+                          styles.dayCardNum,
+                          {
+                            color: isAbsent
+                              ? '#ef4444'
+                              : achieved
+                              ? '#10b981'
+                              : '#f59e0b',
+                          },
+                        ]}
+                      >
+                        يوم {dItem.day}
+                      </Text>
+                      {inPeriod && (
+                        <View style={styles.periodBadgeDot}>
+                          <Text style={styles.periodBadgeDotText}>فترة</Text>
+                        </View>
+                      )}
+                    </View>
 
                     {/* Actual Orders */}
                     <Text
@@ -281,7 +335,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: '85%',
+    maxHeight: '88%',
     minHeight: '55%',
     paddingTop: 12,
     paddingHorizontal: 20,
@@ -300,11 +354,16 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 14,
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: 'rgba(150, 150, 150, 0.15)',
+  },
+  closeBtn: {
+    padding: 6,
+    borderRadius: 8,
   },
   driverTitleBox: {
     flex: 1,
@@ -312,12 +371,9 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   driverName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0f172a',
-  },
-  darkText: {
-    color: '#f8fafc',
   },
   driverSubText: {
     fontSize: 12,
@@ -325,29 +381,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   driverAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: '#fff7ed',
-    alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeBtn: {
-    padding: 6,
-    borderRadius: 10,
-    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
   },
   summaryRow: {
     flexDirection: 'row-reverse',
-    gap: 10,
-    marginTop: 14,
+    gap: 8,
+    marginBottom: 12,
   },
   summaryCard: {
     flex: 1,
     backgroundColor: '#f8fafc',
     borderRadius: 14,
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -364,29 +415,36 @@ const styles = StyleSheet.create({
   summaryCardLabel: {
     fontSize: 10,
     color: '#64748b',
-    marginTop: 2,
-    fontWeight: '600',
+    marginTop: 3,
+    textAlign: 'center',
   },
   targetBanner: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    padding: 10,
     borderRadius: 12,
-    marginTop: 12,
+    marginBottom: 14,
   },
   bannerGreenLight: {
     backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
   },
   bannerGreenDark: {
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   bannerRedLight: {
     backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
   },
   bannerRedDark: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   targetBannerText: {
     fontSize: 12,
@@ -398,13 +456,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#334155',
   },
   targetBadge: {
     fontSize: 11,
@@ -416,63 +473,86 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   scrollArea: {
-    flex: 1,
+    maxHeight: 280,
   },
   scrollContent: {
-    paddingBottom: 16,
+    paddingBottom: 10,
   },
   daysGrid: {
     flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: 8,
+    justifyContent: 'flex-start',
+    marginBottom: 14,
   },
   dayCard: {
     width: '31%',
     borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
+    padding: 8,
     alignItems: 'center',
     borderWidth: 1,
-    marginBottom: 4,
   },
-  dayCardActiveLight: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#cbd5e1',
+  dayCardInPeriodHighlight: {
+    borderColor: '#f97316',
+    borderWidth: 2,
+    backgroundColor: '#fff7ed',
   },
-  dayCardActiveDark: {
-    backgroundColor: '#1e293b',
-    borderColor: '#475569',
+  dayHeaderRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  periodBadgeDot: {
+    backgroundColor: '#f97316',
+    borderRadius: 4,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+  },
+  periodBadgeDotText: {
+    color: '#ffffff',
+    fontSize: 8,
+    fontWeight: '800',
   },
   dayCardAchievedLight: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#6ee7b7',
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
   },
   dayCardAchievedDark: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: '#059669',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  dayCardActiveLight: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+  },
+  dayCardActiveDark: {
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   dayCardAbsentLight: {
     backgroundColor: '#fef2f2',
-    borderColor: '#fca5a5',
+    borderColor: '#fecaca',
   },
   dayCardAbsentDark: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: '#dc2626',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   dayCardNum: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 2,
+    fontSize: 12,
+    fontWeight: '800',
   },
   dayCardOrders: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '900',
+    marginVertical: 2,
   },
   dayTargetTag: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 6,
-    marginTop: 4,
+    marginTop: 2,
   },
   dayTargetTagText: {
     fontSize: 9,
@@ -481,17 +561,22 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 14,
+    gap: 8,
+    marginTop: 8,
   },
   metaLabel: {
     fontSize: 12,
+    fontWeight: '700',
     color: '#64748b',
-    fontWeight: '600',
   },
   metaValue: {
     fontSize: 12,
     fontWeight: '700',
     color: '#0f172a',
+    flex: 1,
+    textAlign: 'right',
+  },
+  darkText: {
+    color: '#ffffff',
   },
 });

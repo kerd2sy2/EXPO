@@ -87,6 +87,13 @@ export interface IdentifierDetails {
   active_drivers_count: number;
 }
 
+export interface DriverDailyShift {
+  identifier_name: string;
+  app_name: string;
+  orders_count: number;
+  label: string;
+}
+
 export interface DriverPerformance {
   id: string;
   name: string;
@@ -97,6 +104,8 @@ export interface DriverPerformance {
   identifiers: string[];
   apps: string[];
   daily_orders?: Record<string, number>;
+  daily_identifiers?: Record<string, string[]>;
+  daily_shifts?: Record<string, DriverDailyShift[]>;
   daily_target?: number;
   days_active?: number;
 }
