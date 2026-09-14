@@ -2,10 +2,8 @@ import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Share,
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,70 +21,9 @@ export const TargetRulesScreen: React.FC<TargetRulesScreenProps> = ({
   colors,
   isDarkMode = false,
   isRTL = true,
-  onBack,
-  onOpenTargetSettings,
 }) => {
-  const handleShareSummary = async () => {
-    try {
-      const summaryText = `معايير وقواعد احتساب التارچت - منظومة AAMS
---------------------------------------------
-1. المستهدفات الأساسية:
-• التارچت الشهري المعتمد: 460 طلباً / شهر للمعرف.
-• المعدل اليومي المعياري: 18 طلباً / يوم (بناءً على 25-26 يوم عمل فعلي شهرياً).
-• احتساب الأيام: الربط آلياً مع أحدث تاريخ شيت مسجل ومرفوع في الشهر.
-
-2. معادلة التوقع التراكمي لنهاية الشهر:
-• المعدل اليومي الموزون = (65% × معدل الشهر التراكمي) + (35% × معدل آخر 7 أيام).
-• التوقع بنهاية الشهر = المنفذ الفعلي + (المعدل الموزون × الأيام المتبقية في الشهر).
-
-3. معايير تصنيف الحالات:
-• حقق التارچت: إجمالي الطلبات المنفذة ≥ 460 طلباً.
-• يسير بالمعدل: التوقع بنهاية الشهر ≥ 460 طلباً، أو المطلوب يومياً ≤ 18 طلباً.
-• على وشك التارچت: التوقع بين 390 و 459 طلباً (أكثر من 85%)، أو المطلوب يومياً ≤ 20.5 طلب.
-• متأخر عن التارچت: التوقع أقل من 390 طلباً، والمطلوب يومياً يفوق 21 طلباً.
---------------------------------------------
-المرجع الإداري والتشغيلي الرسمي المعتمد في منظومة AAMS`;
-
-      if (typeof navigator !== 'undefined' && (navigator as any).clipboard?.writeText) {
-        await (navigator as any).clipboard.writeText(summaryText);
-      }
-      await Share.share({
-        title: 'معايير وقواعد احتساب التارچت - AAMS',
-        message: summaryText,
-      });
-    } catch (err) {
-      console.log('Share error:', err);
-    }
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Optional Standalone Header with Back Button if onBack is provided */}
-      {onBack && (
-        <View style={[styles.subHeader, { backgroundColor: colors.card, borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name={isRTL ? 'chevron-forward' : 'chevron-back'}
-              size={24}
-              color={colors.textPrimary}
-            />
-          </TouchableOpacity>
-          <View style={[styles.subHeaderTitleCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <Text style={[styles.subHeaderTitle, { color: colors.textPrimary }]}>
-              قواعد ومعايير التارچت
-            </Text>
-            <Text style={[styles.subHeaderSubtitle, { color: colors.textSecondary }]}>
-              العودة إلى الملف الشخصي
-            </Text>
-          </View>
-        </View>
-      )}
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -259,25 +196,54 @@ export const TargetRulesScreen: React.FC<TargetRulesScreenProps> = ({
             </View>
           </View>
 
-          {/* Explanation Box */}
-          <View
-            style={[
-              styles.benefitBox,
-              {
-                backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.08)' : '#f0fdf4',
-                borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.25)' : '#bbf7d0',
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-              },
-            ]}
-          >
-            <Ionicons name="checkmark-circle" size={18} color="#10b981" style={{ marginTop: 2 }} />
-            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-              <Text style={[styles.benefitTitle, { color: isDarkMode ? '#86efac' : '#166534' }]}>
-                مزايا النموذج التراكمي:
-              </Text>
-              <Text style={[styles.benefitBody, { color: isDarkMode ? '#86efac' : '#166534', textAlign: isRTL ? 'right' : 'left' }]}>
-                يمنح النموذج وزناً أكبر للاستقرار التراكمي (65%) مما يحمي المعرف من انهيار توقعه عند أخذ إجازات أسبوعية، مع احتساب زخم الأسبوع الأخير (35%) ليعكس الوتيرة الحالية بدقة.
-              </Text>
+          {/* Explanation of Weights */}
+          <View style={styles.weightsExplanationBlock}>
+            {/* Weight 1: 65% Cumulative */}
+            <View
+              style={[
+                styles.weightItemBox,
+                {
+                  backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                  borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+            >
+              <View style={[styles.weightBadge, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                <Text style={[styles.weightBadgeText, { color: '#3b82f6' }]}>65%</Text>
+              </View>
+              <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                <Text style={[styles.weightItemTitle, { color: colors.textPrimary }]}>
+                  المعدل التراكمي للشهر (مؤشر الاستقرار والعدالة)
+                </Text>
+                <Text style={[styles.weightItemBody, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  يحسب متوسط إنتاجية المعرف على مدار كافة أيام الشهر المنقضية. الهدف منه: حماية المعرف؛ فحين يأخذ يوم أو يومين راحة أسبوعية مستحقة، يمنع هذا الوزن الثقيل توقعه من الانهيار المفاجئ، ويعكس التزامه الإجمالي طوال الشهر.
+                </Text>
+              </View>
+            </View>
+
+            {/* Weight 2: 35% Recent Momentum */}
+            <View
+              style={[
+                styles.weightItemBox,
+                {
+                  backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                  borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+            >
+              <View style={[styles.weightBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                <Text style={[styles.weightBadgeText, { color: '#10b981' }]}>35%</Text>
+              </View>
+              <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                <Text style={[styles.weightItemTitle, { color: colors.textPrimary }]}>
+                  معدل الزخم لآخر 7 أيام (مؤشر الاستجابة والتعويض)
+                </Text>
+                <Text style={[styles.weightItemBody, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  يحسب وتيرة الأداء والنشاط الفعلي خلال الأسبوع الأخير. الهدف منه: سرعة استجابة النظام للمعرف الذي يكثف جهده لتعويض ما فاته، ليرتفع توقعه مباشرة في لوحة التحكم ويتحول تصنيفه إلى المسار المطلوب فور تحسن وتيرته الحالية.
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -400,39 +366,6 @@ export const TargetRulesScreen: React.FC<TargetRulesScreenProps> = ({
           </View>
         </View>
 
-        {/* 6. Action Buttons Bar */}
-        <View style={[styles.actionButtonsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          {onOpenTargetSettings && (
-            <TouchableOpacity
-              style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
-              onPress={onOpenTargetSettings}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="options-outline" size={18} color="#ffffff" />
-              <Text style={styles.primaryActionBtnText}>تعديل إعدادات التارچت</Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={[
-              styles.secondaryActionBtn,
-              {
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-                flex: onOpenTargetSettings ? 1 : undefined,
-                width: onOpenTargetSettings ? undefined : '100%',
-              },
-            ]}
-            onPress={handleShareSummary}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="share-social-outline" size={18} color={colors.textPrimary} />
-            <Text style={[styles.secondaryActionBtnText, { color: colors.textPrimary }]}>
-              مشاركة أو نسخ ملخص المعايير
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Footer info note */}
         <View style={[styles.footerNoteWrap, { borderColor: colors.border }]}>
           <MaterialCommunityIcons name="information-outline" size={16} color={colors.textSecondary} />
@@ -449,37 +382,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  subHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    alignItems: 'center',
-    gap: 12,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  subHeaderTitleCol: {
-    flex: 1,
-  },
-  subHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  subHeaderSubtitle: {
-    fontSize: 11,
-    marginTop: 1,
-  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 32,
     gap: 16,
   },
   heroCard: {
@@ -637,19 +545,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-  benefitBox: {
+  weightsExplanationBlock: {
+    gap: 10,
+  },
+  weightItemBox: {
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     gap: 10,
     alignItems: 'flex-start',
   },
-  benefitTitle: {
-    fontSize: 12,
+  weightBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  weightBadgeText: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  weightItemTitle: {
+    fontSize: 12.5,
     fontWeight: '800',
     marginBottom: 3,
   },
-  benefitBody: {
+  weightItemBody: {
     fontSize: 11.5,
     lineHeight: 17,
   },
@@ -709,39 +632,6 @@ const styles = StyleSheet.create({
   platformDesc: {
     fontSize: 10.5,
     marginTop: 2,
-  },
-  actionButtonsContainer: {
-    gap: 10,
-    alignItems: 'center',
-  },
-  primaryActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-  },
-  primaryActionBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  secondaryActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  secondaryActionBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
   },
   footerNoteWrap: {
     flexDirection: 'row',
