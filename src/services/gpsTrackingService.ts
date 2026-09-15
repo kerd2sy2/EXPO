@@ -228,75 +228,92 @@ export async function startGpsTracking(sessionId: string): Promise<boolean> {
       activeLocationSubscription = null;
     }
 
-    // 5. Initial position check with quick timeout
+    // 5. Verify location services hardware toggle
+    const servicesEnabled = await Location.hasServicesEnabledAsync().catch(() => true);
+    if (!servicesEnabled) {
+      console.warn('[GPS] Location services are disabled on device hardware.');
+    }
+
+    // 6. Initial position check with quick timeout
     try {
-      const locationPromise = Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
-      const initialLoc = await Promise.race([locationPromise, timeoutPromise]);
-      if (initialLoc && 'coords' in initialLoc && initialLoc.coords) {
-        await recordNewCoordinate(
-          sessionId,
-          initialLoc.coords.latitude,
-          initialLoc.coords.longitude,
-          initialLoc.coords.accuracy
-        );
-        await maybeSyncLocationToServer(
-          initialLoc.coords.latitude,
-          initialLoc.coords.longitude,
-          initialLoc.coords.speed,
-          initialLoc.coords.heading
-        );
-      }
-    } catch {}
-
-    // 6. In-process active watcher for fast updates while app is open
-    activeLocationSubscription = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 4000,
-        distanceInterval: 15,
-      },
-      (loc) => {
-        if (loc?.coords) {
-          recordNewCoordinate(
+      if (servicesEnabled) {
+        const locationPromise = Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+        const initialLoc = await Promise.race([locationPromise, timeoutPromise]);
+        if (initialLoc && 'coords' in initialLoc && initialLoc.coords) {
+          await recordNewCoordinate(
             sessionId,
-            loc.coords.latitude,
-            loc.coords.longitude,
-            loc.coords.accuracy
-          ).catch(() => {});
-
-          const isMock = Boolean((loc as any)?.mocked || (loc.coords as any)?.isMocked);
-          maybeSyncLocationToServer(
-            loc.coords.latitude,
-            loc.coords.longitude,
-            loc.coords.speed,
-            loc.coords.heading,
-            isMock
-          ).catch(() => {});
+            initialLoc.coords.latitude,
+            initialLoc.coords.longitude,
+            initialLoc.coords.accuracy
+          );
+          await maybeSyncLocationToServer(
+            initialLoc.coords.latitude,
+            initialLoc.coords.longitude,
+            initialLoc.coords.speed,
+            initialLoc.coords.heading
+          );
         }
       }
-    );
+    } catch (posErr) {
+      console.log('[GPS Initial Position safe fallback]:', posErr);
+    }
 
-    // 7. Start Background Location updates with Foreground Service Notification (for screen lock / background)
+    // 7. In-process active watcher for fast updates while app is open
     try {
-      const isAlreadyRunning = await Location.hasStartedLocationUpdatesAsync(GPS_LOCATION_TASK_NAME).catch(() => false);
-      if (!isAlreadyRunning) {
-        await Location.startLocationUpdatesAsync(GPS_LOCATION_TASK_NAME, {
+      activeLocationSubscription = await Location.watchPositionAsync(
+        {
           accuracy: Location.Accuracy.Balanced,
-          timeInterval: 15000, // Every 15 seconds
-          distanceInterval: 15, // Or 15 meters
-          deferredUpdatesInterval: 15000,
-          showsBackgroundLocationIndicator: true,
-          foregroundService: {
-            notificationTitle: 'تتبع الشفت نشط - AAMS',
-            notificationBody: 'جاري تسجيل مسار العمل وتحديث موقعك على الخريطة في الطائف.',
-            notificationColor: '#059669',
-          },
-        }).catch((bgErr) => {
-          console.log('[GPS Background Start warning - safe fallback]:', bgErr);
-        });
+          timeInterval: 4000,
+          distanceInterval: 15,
+        },
+        (loc) => {
+          if (loc?.coords) {
+            recordNewCoordinate(
+              sessionId,
+              loc.coords.latitude,
+              loc.coords.longitude,
+              loc.coords.accuracy
+            ).catch(() => {});
+
+            const isMock = Boolean((loc as any)?.mocked || (loc.coords as any)?.isMocked);
+            maybeSyncLocationToServer(
+              loc.coords.latitude,
+              loc.coords.longitude,
+              loc.coords.speed,
+              loc.coords.heading,
+              isMock
+            ).catch(() => {});
+          }
+        }
+      );
+    } catch (watchErr) {
+      console.log('[GPS WatchPosition safe warning]:', watchErr);
+    }
+
+    // 8. Start Background Location updates safely (only if background permission is explicitly granted)
+    try {
+      const bgPerm = await Location.getBackgroundPermissionsAsync().catch(() => null);
+      if (bgPerm?.granted && TaskManager.isTaskDefined(GPS_LOCATION_TASK_NAME)) {
+        const isAlreadyRunning = await Location.hasStartedLocationUpdatesAsync(GPS_LOCATION_TASK_NAME).catch(() => false);
+        if (!isAlreadyRunning) {
+          await Location.startLocationUpdatesAsync(GPS_LOCATION_TASK_NAME, {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 15000, // Every 15 seconds
+            distanceInterval: 15, // Or 15 meters
+            deferredUpdatesInterval: 15000,
+            showsBackgroundLocationIndicator: true,
+            foregroundService: {
+              notificationTitle: 'تتبع الشفت نشط - AAMS',
+              notificationBody: 'جاري تسجيل مسار العمل وتحديث موقعك على الخريطة.',
+              notificationColor: '#059669',
+            },
+          }).catch((bgErr) => {
+            console.log('[GPS Background Start safe fallback]:', bgErr);
+          });
+        }
       }
     } catch (bgErr) {
       console.log('[GPS Background Not Supported or Ignored]:', bgErr);

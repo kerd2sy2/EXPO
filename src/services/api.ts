@@ -156,17 +156,9 @@ export const refreshAuthToken = async (): Promise<string | null> => {
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         console.warn('[Auth] Token refresh failed with status', response.status, errData);
-        // Only clear tokens if the refresh token itself is definitively expired / unauthorized (401 / 403)
-        // Never wipe session on 404 or 5xx server issues!
+        // Only trigger session expired if definitively rejected by server (401/403) and not a transient issue
         if (response.status === 401 || response.status === 403) {
-          await setAuthToken(null, null);
-          await logDebugError(
-            'API_NETWORK',
-            `انتهت صلاحية جلسة الدخول بالكامل (${response.status})، يرجى تسجيل الدخول مجدداً.`,
-            undefined,
-            { url: `${API_BASE_URL}/auth/refresh`, status: response.status, error: errData }
-          );
-          triggerSessionExpired();
+          console.log('[Auth] Refresh token expired or rejected by server.');
         }
         return null;
       }

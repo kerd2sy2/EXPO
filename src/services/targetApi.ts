@@ -53,7 +53,7 @@ async function targetFetch(
       ...existingHeaders,
     };
 
-    if (token && !headers['Authorization']) {
+    if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 

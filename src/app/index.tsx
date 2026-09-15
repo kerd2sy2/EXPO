@@ -17,6 +17,7 @@ import {
   KeyboardEvent,
   Platform,
   StyleSheet,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -187,6 +188,16 @@ export default function DelegateApp() {
   useEffect(() => {
     checkSession();
   }, []);
+
+  // Silently re-sync session and data when app returns from background / unlocked
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        checkSession(true);
+      }
+    });
+    return () => sub.remove();
+  }, [employee?.id]);
 
   // Listen for unrecoverable session expiry (when token refresh fails)
   useEffect(() => {
@@ -439,16 +450,18 @@ export default function DelegateApp() {
     return () => clearTimeout(timer);
   }, []);
 
-  const checkSession = async () => {
+  const checkSession = async (isSilentBackground: boolean = false) => {
     try {
       // 1. Fast Token Check - If no token exists at all, immediately show login screen in < 5ms
       const token = await loadStoredToken();
       const cached = await getCachedUser();
 
       if (!token) {
-        setAdminUser(null);
-        setEmployee(null);
-        setLoading(false);
+        if (!isSilentBackground) {
+          setAdminUser(null);
+          setEmployee(null);
+          setLoading(false);
+        }
         return;
       }
 
@@ -766,32 +779,34 @@ export default function DelegateApp() {
       if (emp.motorcycle_number) {
         setEnteredMotorcycle(emp.motorcycle_number);
       }
-      await Promise.all([
-        workApi
-          .getMe()
-          .then((fresh) => {
-            if (fresh && fresh.id) {
-              setEmployee((prev) => ({
-                ...(prev || {}),
-                ...fresh,
-                personal_image: fresh.personal_image || prev?.personal_image || '',
-                motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
-                key_number: fresh.key_number || prev?.key_number || '',
-                national_id: fresh.national_id || prev?.national_id || '',
-                phone: fresh.phone || prev?.phone || '',
-                branch_name: fresh.branch_name || prev?.branch_name || '',
-              } as EmployeeProfile));
-              const curTok = loginResp?.access_token || getStoredToken();
-              if (curTok && fresh.national_id) {
-                saveLastCredentialsForBiometrics(fresh.national_id, curTok, fresh);
-              }
-            }
-          })
-          .catch((e) => console.log('Notice refreshing profile on OTP/Bio:', e)),
-        fetchActiveSession(emp.id),
-        fetchHistory(emp.id),
-      ]);
+      await saveCachedUser(emp);
       setCurrentTab('home');
+
+      // Non-blocking background sync of profile, session, and history
+      workApi
+        .getMe()
+        .then((fresh) => {
+          if (fresh && fresh.id) {
+            setEmployee((prev) => ({
+              ...(prev || {}),
+              ...fresh,
+              personal_image: fresh.personal_image || prev?.personal_image || '',
+              motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
+              key_number: fresh.key_number || prev?.key_number || '',
+              national_id: fresh.national_id || prev?.national_id || '',
+              phone: fresh.phone || prev?.phone || '',
+              branch_name: fresh.branch_name || prev?.branch_name || '',
+            } as EmployeeProfile));
+            const curTok = loginResp?.access_token || getStoredToken();
+            if (curTok && fresh.national_id) {
+              saveLastCredentialsForBiometrics(fresh.national_id, curTok, fresh, loginResp?.refresh_token);
+            }
+          }
+        })
+        .catch((e) => console.log('Notice refreshing profile on OTP/Bio:', e));
+
+      fetchActiveSession(emp.id).catch(() => {});
+      fetchHistory(emp.id).catch(() => {});
     } else {
       await checkSession();
       setCurrentTab('home');
