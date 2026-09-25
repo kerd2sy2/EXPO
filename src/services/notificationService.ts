@@ -1,3 +1,6 @@
+import { Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import { apiRequest } from './api';
 
 export interface BroadcastNotificationItem {
@@ -19,7 +22,109 @@ export interface BroadcastNotificationItem {
   user_vote?: 'AGREE' | 'DISAGREE';
 }
 
+// Configure notification presentation behavior in the phone
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+} catch (e) {
+  console.log('[NotificationService] setNotificationHandler notice:', e);
+}
+
+// Track IDs already displayed in the system notification shade to prevent duplicates
+const shownInTrayIds = new Set<string>();
+
 export const notificationService = {
+  /**
+   * Initializes notification channel and requests system permissions for status bar notifications
+   */
+  initNotifications: async (employeeId?: string): Promise<string | null> => {
+    try {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('aams_broadcasts', {
+          name: 'إشعارات وتعاميم الإدارة',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#f97316',
+          sound: 'default',
+          enableVibrate: true,
+          showBadge: true,
+        });
+      }
+
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('[NotificationService] Permission not granted for notifications');
+        return null;
+      }
+
+      // Get Expo Push Token if on a physical device
+      let pushToken = '';
+      try {
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: '352e8773-7aaa-4a12-b906-01fe05420113',
+        });
+        pushToken = tokenData.data;
+      } catch (tokenErr) {
+        console.log('[NotificationService] Push token notice:', tokenErr);
+      }
+
+      // Register push token with backend
+      if (pushToken && employeeId) {
+        await apiRequest(`/employees/me/push-token?employee_id=${employeeId}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            push_token: pushToken,
+            device_uuid: Device.modelName || 'mobile',
+          }),
+          timeoutMs: 6000,
+        }).catch(() => {});
+      }
+
+      return pushToken || null;
+    } catch (e) {
+      console.log('[NotificationService] initNotifications notice:', e);
+      return null;
+    }
+  },
+
+  /**
+   * Fires a native system tray notification in the Android status bar / notification shade
+   */
+  showSystemTrayNotification: async (item: BroadcastNotificationItem): Promise<void> => {
+    try {
+      if (shownInTrayIds.has(item.id)) return;
+      shownInTrayIds.add(item.id);
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `📢 ${item.title}`,
+          body: item.has_poll ? `${item.body}\n(استبيان: موافق / معترض)` : item.body,
+          data: { broadcastId: item.id },
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.MAX,
+        },
+        trigger: {
+          channelId: 'aams_broadcasts',
+        },
+      });
+    } catch (e) {
+      console.log('[NotificationService] showSystemTrayNotification notice:', e);
+    }
+  },
+
   getUnreadBroadcasts: async (employeeId: string): Promise<BroadcastNotificationItem[]> => {
     if (!employeeId) return [];
     try {
@@ -27,7 +132,14 @@ export const notificationService = {
         `/notifications/employee/unread?employee_id=${employeeId}`,
         { timeoutMs: 7000 }
       );
-      return res?.data || [];
+      const items = res?.data || [];
+
+      // Fire in system notification bar for any incoming unread broadcast!
+      for (const item of items) {
+        notificationService.showSystemTrayNotification(item);
+      }
+
+      return items;
     } catch (e) {
       return [];
     }

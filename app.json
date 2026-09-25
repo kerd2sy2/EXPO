@@ -50,6 +50,14 @@
         {
           "username": "aams1"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#f97316",
+          "defaultChannel": "default"
+        }
       ]
     ],
     "runtimeVersion": {

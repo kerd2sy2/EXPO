@@ -69,6 +69,7 @@ import { DiagnosticsModal } from '../components/modals/DiagnosticsModal';
 import { BroadcastModal } from '../components/modals/BroadcastModal';
 import { BroadcastHistoryModal } from '../components/modals/BroadcastHistoryModal';
 import { notificationService, BroadcastNotificationItem } from '../services/notificationService';
+import * as Notifications from 'expo-notifications';
 import { initGlobalErrorLogger } from '../services/errorLogger';
 import * as Updates from 'expo-updates';
 
@@ -165,9 +166,28 @@ export default function DelegateApp() {
 
   useEffect(() => {
     if (employee?.id) {
+      notificationService.initNotifications(employee.id);
       checkUnreadBroadcasts();
-      const interval = setInterval(checkUnreadBroadcasts, 40000);
-      return () => clearInterval(interval);
+      const interval = setInterval(checkUnreadBroadcasts, 35000);
+
+      // Listen to notification clicks from the Android status bar
+      const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+        const bId = response.notification.request.content.data?.broadcastId;
+        if (bId && employee?.id) {
+          notificationService.getAllBroadcasts(employee.id).then((list) => {
+            const found = list.find((b) => b.id === bId);
+            if (found) {
+              setActiveBroadcast(found);
+              setShowBroadcastModal(true);
+            }
+          });
+        }
+      });
+
+      return () => {
+        clearInterval(interval);
+        sub.remove();
+      };
     }
   }, [employee?.id]);
 
