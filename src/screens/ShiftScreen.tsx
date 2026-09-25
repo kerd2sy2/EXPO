@@ -34,7 +34,6 @@ interface ShiftScreenProps {
   setEndNotes: (val: string) => void;
   calculatedDistance: number;
   elapsedTime: string;
-  gpsDistance?: number;
   onScrollToInput?: (yOffset: number) => void;
   submitting: boolean;
   onTakeOdometerPhoto: (type: 'start' | 'end') => Promise<void>;
@@ -71,7 +70,6 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   setEndNotes,
   calculatedDistance,
   elapsedTime,
-  gpsDistance = 0,
   onScrollToInput,
   submitting,
   onTakeOdometerPhoto,
@@ -97,19 +95,15 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
     return Math.max(0.5, Math.min(24, diffHours));
   }, [activeSession?.start_time]);
 
-  // Estimated distance based on GPS (if active) or orders count / hours
+  // Estimated distance based on orders count / elapsed shift hours
   const ordersNum = Number(ordersCount) || 0;
   const estimatedKm = React.useMemo(() => {
-    if (gpsDistance > 0) {
-      return Math.round(gpsDistance);
-    }
     if (ordersNum > 0) {
       return Math.round(ordersNum * 4.2);
     }
     return Math.round(elapsedHours * 14);
-  }, [gpsDistance, ordersNum, elapsedHours]);
+  }, [ordersNum, elapsedHours]);
 
-  const gpsEndKm = startKmNum + Math.round(gpsDistance);
   const suggestedEndKm = startKmNum + estimatedKm;
 
   return (
@@ -332,7 +326,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                   <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
                   <TextInput
                     style={[styles.input, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                    placeholder={isRTL ? `المقترح: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}` : `Suggested: ${gpsDistance > 0 ? gpsEndKm : suggestedEndKm}`}
+                    placeholder={isRTL ? `المقترح: ${suggestedEndKm}` : `Suggested: ${suggestedEndKm}`}
                     placeholderTextColor="#94a3b8"
                     value={endKm}
                     onChangeText={setEndKm}
@@ -347,25 +341,23 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                       style={[
                         styles.insideInputBtn,
                         {
-                          backgroundColor: gpsDistance > 0
-                            ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5')
-                            : colors.primaryLight,
-                          borderColor: gpsDistance > 0 ? '#10b981' : colors.primary,
+                          backgroundColor: colors.primaryLight,
+                          borderColor: colors.primary,
                           flexDirection: isRTL ? 'row-reverse' : 'row',
                         },
                       ]}
-                      onPress={() => setEndKm(String(gpsDistance > 0 ? gpsEndKm : suggestedEndKm))}
+                      onPress={() => setEndKm(String(suggestedEndKm))}
                       activeOpacity={0.8}
                     >
                       <Ionicons
-                        name={gpsDistance > 0 ? 'navigate' : 'flash'}
+                        name="flash"
                         size={13}
-                        color={gpsDistance > 0 ? '#10b981' : colors.primary}
+                        color={colors.primary}
                       />
                       <Text
                         style={[
                           styles.insideInputBtnText,
-                          { color: gpsDistance > 0 ? (isDarkMode ? '#34d399' : '#047857') : colors.primary },
+                          { color: colors.primary },
                         ]}
                       >
                         {t.suggestedKm || (isRTL ? 'المقترح' : 'Suggest')}

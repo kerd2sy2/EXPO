@@ -48,14 +48,6 @@ import {
   saveLastCredentialsForBiometrics,
   onSessionExpired,
 } from '../services/api';
-import {
-  startGpsTracking,
-  stopGpsTracking,
-  getGpsShiftDistance,
-  clearGpsShiftData,
-  checkLocationPermissionStatus,
-  requestAllLocationPermissions,
-} from '../services/gpsTrackingService';
 
 // Screens
 import { LoginScreen } from '../screens/LoginScreen';
@@ -130,9 +122,8 @@ export default function DelegateApp() {
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const mainScrollRef = useRef<ScrollView>(null);
 
-  // Active Timer & Live GPS Distance
+  // Active Timer
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
-  const [gpsDistance, setGpsDistance] = useState<number>(0);
   const [keyboardOffset, setKeyboardOffset] = useState<number>(0);
   const [mainScrollEnabled, setMainScrollEnabled] = useState(true);
 
@@ -280,36 +271,6 @@ export default function DelegateApp() {
       if (interval) clearInterval(interval);
     };
   }, [activeSession]);
-
-  // Live GPS Distance Tracking for Active Session (Runs continuously ONLY when shift is active)
-  useEffect(() => {
-    let gpsInterval: any = null;
-    const sessionId = activeSession?.id;
-
-    if (sessionId) {
-      // Shift is ACTIVE -> Run safe foreground GPS tracking
-      startGpsTracking(sessionId).catch(() => {});
-
-      const updateGpsDist = async () => {
-        try {
-          const recordedDist = await getGpsShiftDistance(sessionId);
-          setGpsDistance(recordedDist);
-        } catch {}
-      };
-
-      updateGpsDist();
-      gpsInterval = setInterval(updateGpsDist, 4000);
-    } else {
-      // Shift is NOT active -> Completely stop tracking
-      setGpsDistance(0);
-      stopGpsTracking().catch(() => {});
-    }
-
-    return () => {
-      if (gpsInterval) clearInterval(gpsInterval);
-      stopGpsTracking().catch(() => {});
-    };
-  }, [activeSession?.id]);
 
   // Dynamic Keyboard Height Listener for Seamless Scroll Padding
   useEffect(() => {
@@ -935,29 +896,6 @@ export default function DelegateApp() {
       photoUri = '';
     }
 
-    // التحقق من صلاحية الموقع في الخلفية (السماح طوال الوقت) قبل بدء الشفت
-    const permStatus = await checkLocationPermissionStatus();
-    if (!permStatus.backgroundGranted) {
-      setAlertConfig({
-        type: 'location_permission',
-        title: lang === 'ar' ? 'تفعيل تتبع الموقع طوال الوقت' : 'Background Location Permission',
-        message:
-          lang === 'ar'
-            ? 'لتتبع مسارك وحساب الكيلومترات بدقة على الخريطة أثناء إغلاق الشاشة أو استخدام تطبيقات أخرى، يرجى الضغط على "موافق" واختيار (السماح طوال الوقت - Allow all the time).'
-            : 'To track your route and calculate kilometers accurately while the screen is locked, please tap "Allow" and choose "Allow all the time".',
-        primaryButtonText: lang === 'ar' ? 'موافق وسماح' : 'Allow All Time',
-        secondaryButtonText: lang === 'ar' ? 'تخطي الآن' : 'Skip For Now',
-        onPrimaryPress: async () => {
-          await requestAllLocationPermissions().catch(() => {});
-          proceedStartShift(startVal, photoUri);
-        },
-        onSecondaryPress: () => {
-          proceedStartShift(startVal, photoUri);
-        },
-      });
-      return;
-    }
-
     proceedStartShift(startVal, photoUri);
   };
 
@@ -998,10 +936,6 @@ export default function DelegateApp() {
       setStartKmImage(null);
       setStartNotes('');
       setAutoKmFetched(false);
-
-      if (newSession && newSession.id) {
-        startGpsTracking(newSession.id);
-      }
 
       fetchHistory(employee.id);
     } catch (err: any) {
@@ -1102,12 +1036,6 @@ export default function DelegateApp() {
       });
 
       // 2. تنظيف الحالة بعد الانتقال حتى لا تظهر صفحة بدء الشفت للمستخدم
-      if (activeSession && activeSession.id) {
-        stopGpsTracking(activeSession.id);
-        clearGpsShiftData(activeSession.id);
-      }
-      setGpsDistance(0);
-
       setActiveSession(null);
       setEndKm('');
       endKmImageRef.current = null;
@@ -1440,7 +1368,6 @@ export default function DelegateApp() {
               setEndNotes={setEndNotes}
               calculatedDistance={calculatedDistance}
               elapsedTime={elapsedTime}
-              gpsDistance={gpsDistance}
               onScrollToInput={(y) => mainScrollRef.current?.scrollTo({ y, animated: true })}
               submitting={submitting}
               onTakeOdometerPhoto={takeOdometerPhoto}
