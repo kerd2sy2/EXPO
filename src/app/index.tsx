@@ -66,6 +66,9 @@ import { ImagePreviewModal } from '../components/modals/ImagePreviewModal';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import { AppUpdateBottomSheet, UpdateModalState } from '../components/modals/AppUpdateBottomSheet';
 import { DiagnosticsModal } from '../components/modals/DiagnosticsModal';
+import { BroadcastModal } from '../components/modals/BroadcastModal';
+import { BroadcastHistoryModal } from '../components/modals/BroadcastHistoryModal';
+import { notificationService, BroadcastNotificationItem } from '../services/notificationService';
 import { initGlobalErrorLogger } from '../services/errorLogger';
 import * as Updates from 'expo-updates';
 
@@ -133,6 +136,79 @@ export default function DelegateApp() {
   const [updateModalVisible, setUpdateModalVisible] = useState(false);
   const [updateState, setUpdateState] = useState<UpdateModalState>('CHECKING');
   const [updateError, setUpdateError] = useState<string>('');
+
+  // Broadcast Announcements & Polls State
+  const [activeBroadcast, setActiveBroadcast] = useState<BroadcastNotificationItem | null>(null);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [showBroadcastHistory, setShowBroadcastHistory] = useState(false);
+  const [allBroadcasts, setAllBroadcasts] = useState<BroadcastNotificationItem[]>([]);
+  const [unreadBroadcastsCount, setUnreadBroadcastsCount] = useState(0);
+  const [loadingBroadcastHistory, setLoadingBroadcastHistory] = useState(false);
+  const lastDismissedBroadcastId = useRef<string | null>(null);
+
+  const checkUnreadBroadcasts = async () => {
+    if (!employee?.id) return;
+    try {
+      const unread = await notificationService.getUnreadBroadcasts(employee.id);
+      setUnreadBroadcastsCount(unread.length);
+      if (unread.length > 0) {
+        const first = unread[0];
+        if (first.id !== lastDismissedBroadcastId.current) {
+          setActiveBroadcast(first);
+          setShowBroadcastModal(true);
+        }
+      }
+    } catch (e) {
+      console.log('Error checking broadcasts:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (employee?.id) {
+      checkUnreadBroadcasts();
+      const interval = setInterval(checkUnreadBroadcasts, 40000);
+      return () => clearInterval(interval);
+    }
+  }, [employee?.id]);
+
+  const handleVoteBroadcast = async (broadcastId: string, response: 'AGREE' | 'DISAGREE') => {
+    if (!employee?.id) return;
+    const ok = await notificationService.submitVote(broadcastId, employee.id, response);
+    if (ok) {
+      lastDismissedBroadcastId.current = broadcastId;
+      setShowBroadcastModal(false);
+      setActiveBroadcast(null);
+      setUnreadBroadcastsCount((prev) => Math.max(0, prev - 1));
+      Alert.alert(
+        'تم تسجيل صوتك بنجاح',
+        `شكراً لمشاركتك برأيك (${response === 'AGREE' ? 'موافق 🟢' : 'معترض 🔴'})`
+      );
+    } else {
+      Alert.alert('تنبيه', 'تعذر تسجيل التصويت، يرجى التحقق من الاتصال بالإنترنت');
+    }
+  };
+
+  const handleCloseBroadcast = async () => {
+    if (activeBroadcast && employee?.id) {
+      lastDismissedBroadcastId.current = activeBroadcast.id;
+      await notificationService.markAsRead(activeBroadcast.id, employee.id);
+      setUnreadBroadcastsCount((prev) => Math.max(0, prev - 1));
+    }
+    setShowBroadcastModal(false);
+    setActiveBroadcast(null);
+  };
+
+  const handleOpenNotificationsHistory = async () => {
+    if (!employee?.id) return;
+    setShowBroadcastHistory(true);
+    setLoadingBroadcastHistory(true);
+    try {
+      const list = await notificationService.getAllBroadcasts(employee.id);
+      setAllBroadcasts(list);
+    } finally {
+      setLoadingBroadcastHistory(false);
+    }
+  };
 
   // Theme Colors
   const colors: ThemeColors = isDarkMode
@@ -1333,6 +1409,20 @@ export default function DelegateApp() {
             </TouchableOpacity>
 
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              {/* Notification Center Bell */}
+              <TouchableOpacity
+                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                onPress={handleOpenNotificationsHistory}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="notifications-outline" size={24} color={colors.primary} />
+                {unreadBroadcastsCount > 0 ? (
+                  <View style={styles.notifBadge}>
+                    <Text style={styles.notifBadgeText}>{unreadBroadcastsCount}</Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setShowQrModal(true)}
@@ -1577,6 +1667,40 @@ export default function DelegateApp() {
         isRTL={isRTL}
         onClose={() => setShowDiagnosticsModal(false)}
       />
+
+      {/* Broadcast Announcement & Survey Poll Modal */}
+      <BroadcastModal
+        visible={showBroadcastModal}
+        broadcast={activeBroadcast}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onClose={handleCloseBroadcast}
+        onVote={handleVoteBroadcast}
+        onPreviewImage={(url) => {
+          if (activeBroadcast) {
+            setPreviewPhoto({ url, title: activeBroadcast.title });
+          }
+        }}
+      />
+
+      {/* Broadcast History Modal (مركز الإشعارات) */}
+      <BroadcastHistoryModal
+        visible={showBroadcastHistory}
+        broadcasts={allBroadcasts}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onClose={() => setShowBroadcastHistory(false)}
+        onSelectBroadcast={(item) => {
+          setActiveBroadcast(item);
+          setShowBroadcastHistory(false);
+          setShowBroadcastModal(true);
+        }}
+        onPreviewImage={(url) => setPreviewPhoto({ url, title: 'معاينة صورة التعميم' })}
+        onRefresh={handleOpenNotificationsHistory}
+        loading={loadingBroadcastHistory}
+      />
     </SafeAreaView>
   );
 }
@@ -1646,6 +1770,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    backgroundColor: '#ef4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
+  notifBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
   },
   subPageHeaderRow: {
     flex: 1,
