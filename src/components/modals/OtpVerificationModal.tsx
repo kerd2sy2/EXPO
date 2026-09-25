@@ -235,10 +235,8 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
     try {
       const loginResp = await verifyOtpApi(natId, fullCode);
       setSuccessMessage(isRTL ? 'تم توثيق الجهاز بنجاح! جاري الدخول...' : 'Device trusted! Logging in...');
-      setTimeout(() => {
-        onSuccessLogin(loginResp);
-        onClose();
-      }, 300);
+      onClose();
+      await onSuccessLogin(loginResp);
     } catch (err: any) {
       setErrorMessage(err.message || (isRTL ? 'رمز التحقق غير صحيح' : 'Invalid OTP code'));
       setOtpDigits(['', '', '', '']);

@@ -663,49 +663,64 @@ export default function DelegateApp() {
     setLoginError('');
     try {
       const res = await workApi.login(inputVal, password);
-      if (res && res.admin) {
+
+      const isActualAdmin =
+        Boolean(res && res.admin && (res.admin.role === 'ADMIN' || res.admin.role === 'SUPER_ADMIN' || res.admin.role === 'SUPERVISOR'));
+
+      if (isActualAdmin && res.admin) {
         setAdminUser(res.admin);
         setEmployee(null);
-        await saveCachedUser(res.admin);
+        await saveCachedUser({ ...res.admin, is_admin: true });
         if (res.access_token) {
           await setAuthToken(res.access_token, res.refresh_token);
           const bioOn = await isBiometricEnabled();
           if (bioOn) {
-            await saveLastCredentialsForBiometrics(inputVal, res.access_token, res.admin, res.refresh_token);
+            await saveLastCredentialsForBiometrics(inputVal, res.access_token, { ...res.admin, is_admin: true }, res.refresh_token);
           }
         }
-        return;
-      } else if (res && res.employee) {
-        setAdminUser(null);
-        setEmployee(res.employee);
-        if (res.employee.motorcycle_number) {
-          setEnteredMotorcycle(res.employee.motorcycle_number);
-        }
-        await Promise.all([
-          workApi
-            .getMe()
-            .then((fresh) => {
-              if (fresh && fresh.id) {
-                setEmployee((prev) => ({
-                  ...(prev || {}),
-                  ...fresh,
-                  personal_image: fresh.personal_image || prev?.personal_image || '',
-                  motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
-                  key_number: fresh.key_number || prev?.key_number || '',
-                  national_id: fresh.national_id || prev?.national_id || '',
-                  phone: fresh.phone || prev?.phone || '',
-                  branch_name: fresh.branch_name || prev?.branch_name || '',
-                } as EmployeeProfile));
-                if (res.access_token && fresh.national_id) {
-                  saveLastCredentialsForBiometrics(fresh.national_id, res.access_token, fresh, res.refresh_token);
-                }
-              }
-            })
-            .catch((e) => console.log('Notice refreshing profile on Login:', e)),
-          fetchActiveSession(res.employee.id),
-          fetchHistory(res.employee.id),
-        ]);
         setCurrentTab('home');
+        return;
+      } else if (res && (res.employee || res.is_employee)) {
+        const emp = (res.employee || res) as EmployeeProfile;
+        setAdminUser(null);
+        setEmployee(emp);
+        if (emp.motorcycle_number) {
+          setEnteredMotorcycle(emp.motorcycle_number);
+        }
+        await saveCachedUser(emp);
+        if (res.access_token) {
+          await setAuthToken(res.access_token, res.refresh_token);
+          const bioOn = await isBiometricEnabled();
+          if (bioOn && emp.national_id) {
+            await saveLastCredentialsForBiometrics(emp.national_id, res.access_token, emp, res.refresh_token);
+          }
+        }
+        setCurrentTab('home');
+
+        // Non-blocking background sync of profile, session, and history
+        workApi
+          .getMe()
+          .then((fresh) => {
+            if (fresh && fresh.id) {
+              setEmployee((prev) => ({
+                ...(prev || {}),
+                ...fresh,
+                personal_image: fresh.personal_image || prev?.personal_image || '',
+                motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
+                key_number: fresh.key_number || prev?.key_number || '',
+                national_id: fresh.national_id || prev?.national_id || '',
+                phone: fresh.phone || prev?.phone || '',
+                branch_name: fresh.branch_name || prev?.branch_name || '',
+              } as EmployeeProfile));
+              if (res.access_token && fresh.national_id) {
+                saveLastCredentialsForBiometrics(fresh.national_id, res.access_token, fresh, res.refresh_token);
+              }
+            }
+          })
+          .catch((e) => console.log('Notice refreshing profile on Login:', e));
+
+        fetchActiveSession(emp.id).catch(() => {});
+        fetchHistory(emp.id).catch(() => {});
       } else {
         setLoginError(t.passwordHint || 'بيانات الدخول غير صحيحة');
       }
@@ -722,20 +737,26 @@ export default function DelegateApp() {
     if (loginResp?.access_token) {
       await setAuthToken(loginResp.access_token, loginResp.refresh_token);
     }
-    if (loginResp?.admin) {
+
+    const isActualAdmin =
+      Boolean(loginResp && loginResp.admin && (loginResp.admin.role === 'ADMIN' || loginResp.admin.role === 'SUPER_ADMIN' || loginResp.admin.role === 'SUPERVISOR'));
+
+    if (isActualAdmin && loginResp.admin) {
       setAdminUser(loginResp.admin);
       setEmployee(null);
-      await saveCachedUser(loginResp.admin);
+      await saveCachedUser({ ...loginResp.admin, is_admin: true });
       const bioOn = await isBiometricEnabled();
       if (bioOn) {
         const idVal = loginResp.admin.phone || loginResp.admin.username || 'admin';
-        await saveLastCredentialsForBiometrics(idVal, loginResp.access_token, loginResp.admin, loginResp.refresh_token);
+        await saveLastCredentialsForBiometrics(idVal, loginResp.access_token, { ...loginResp.admin, is_admin: true }, loginResp.refresh_token);
       }
       setCurrentTab('home');
       return;
     }
-    const emp = loginResp?.employee || loginResp;
+
+    const emp = loginResp?.employee || (loginResp?.id ? loginResp : null);
     if (emp && emp.id) {
+      setAdminUser(null);
       setEmployee(emp);
       if (emp.motorcycle_number) {
         setEnteredMotorcycle(emp.motorcycle_number);
