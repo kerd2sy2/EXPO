@@ -207,7 +207,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const formatDocUrl = (url?: string) => {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
-    return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/uploads/${url.replace(/^\/+/, '')}`;
+    const cleanUrl = url.replace(/^\/+/, '');
+    if (cleanUrl.startsWith('uploads/')) {
+      return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/${cleanUrl}`;
+    }
+    return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/uploads/${cleanUrl}`;
   };
 
   const nationalIdPhotoUrl = formatDocUrl(currentEmp.national_id_image);
@@ -247,8 +251,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     },
     {
       id: 'vehicle_registration',
-      title: t.vehicleRegistrationPhoto || 'صورة رخصة الدباب (الاستمارة)',
-      shortTitle: isRTL ? 'رخصة الدباب (الاستمارة)' : 'Vehicle Registration',
+      title: currentEmp.motorcycle_number
+        ? `${t.vehicleRegistrationPhoto || 'صورة استمارة الدباب'} (${currentEmp.motorcycle_number})`
+        : (t.vehicleRegistrationPhoto || 'صورة رخصة الدباب (الاستمارة)'),
+      shortTitle: currentEmp.motorcycle_number
+        ? (isRTL ? `استمارة (${currentEmp.motorcycle_number})` : `Reg. (${currentEmp.motorcycle_number})`)
+        : (isRTL ? 'رخصة الدباب (الاستمارة)' : 'Vehicle Registration'),
       icon: 'file-document-outline' as const,
       iconFamily: 'material',
       accentColor: '#f59e0b',

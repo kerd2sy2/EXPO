@@ -317,6 +317,18 @@ export default function DelegateApp() {
             setAutoKmFetched(true);
           }
         }
+        if (res && res.registration_image) {
+          setEmployee((prev) => {
+            if (!prev) return prev;
+            const updated = {
+              ...prev,
+              motorcycle_number: bike,
+              vehicle_registration_image: res.registration_image,
+            };
+            saveCachedUser(updated);
+            return updated;
+          });
+        }
       } catch (err) {
         setIsOdometerBroken(false);
         console.log('No prior KM found for bike:', bike);
@@ -325,7 +337,7 @@ export default function DelegateApp() {
     fetchLastKm();
   }, [enteredMotorcycle, activeSession, employee?.id]);
 
-  // Check broken odometer for active session
+  // Check broken odometer and registration image for active session
   useEffect(() => {
     if (activeSession && employee) {
       const bike = activeSession.motorcycle_number || employee.motorcycle_number;
@@ -335,6 +347,18 @@ export default function DelegateApp() {
             setIsOdometerBroken(true);
           } else {
             setIsOdometerBroken(false);
+          }
+          if (res && res.registration_image) {
+            setEmployee((prev) => {
+              if (!prev) return prev;
+              const updated = {
+                ...prev,
+                motorcycle_number: bike,
+                vehicle_registration_image: res.registration_image,
+              };
+              saveCachedUser(updated);
+              return updated;
+            });
           }
         }).catch(() => {
           if (activeSession.start_km === 0 && !activeSession.start_km_image) {
@@ -978,6 +1002,9 @@ export default function DelegateApp() {
       if (newSession && newSession.id) {
         setActiveSession(newSession);
         fetchHistory(employee.id).catch(() => {});
+        workApi.getMe().then((me) => {
+          if (me) setEmployee(me);
+        }).catch(() => {});
       }
     } catch (err: any) {
       console.error('Start shift error:', err);
