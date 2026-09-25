@@ -280,7 +280,12 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             disabled={submitting}
           >
             {submitting ? (
-              <ActivityIndicator color="#ffffff" size="small" />
+              <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <ActivityIndicator color="#ffffff" size="small" />
+                <Text style={[styles.primaryButtonText, { marginHorizontal: 8 }]}>
+                  {t.savingStartBtn || (isRTL ? 'جاري بدء الدوام وحفظ البيانات...' : 'Starting shift...')}
+                </Text>
+              </View>
             ) : (
               <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <Ionicons name="play" size={20} color="#ffffff" />
@@ -480,7 +485,12 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             disabled={submitting}
           >
             {submitting ? (
-              <ActivityIndicator color="#ffffff" size="small" />
+              <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <ActivityIndicator color="#ffffff" size="small" />
+                <Text style={[styles.primaryButtonText, { marginHorizontal: 8 }]}>
+                  {t.savingEndBtn || (isRTL ? 'جاري إنهاء الدوام وحفظ البيانات...' : 'Ending shift...')}
+                </Text>
+              </View>
             ) : (
               <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <Ionicons name="stop" size={20} color="#ffffff" />

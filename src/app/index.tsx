@@ -850,7 +850,7 @@ export default function DelegateApp() {
 
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
-        quality: 0.35,
+        quality: 0.18,
         base64: true,
       });
 
@@ -862,10 +862,10 @@ export default function DelegateApp() {
 
         if (type === 'start') {
           startKmImageRef.current = base64Uri;
-          setStartKmImage(base64Uri);
+          setStartKmImage(asset.uri);
         } else {
           endKmImageRef.current = base64Uri;
-          setEndKmImage(base64Uri);
+          setEndKmImage(asset.uri);
         }
       }
     } catch (err) {
@@ -946,7 +946,7 @@ export default function DelegateApp() {
         motorcycleNumber: savedMoto,
         startKm: savedStartKm,
         startTime: newSession?.start_time || new Date().toISOString(),
-        imageUri: savedPhoto || undefined,
+        imageUri: startKmImage || savedPhoto || undefined,
         notes: savedNotes,
       });
 
@@ -1052,7 +1052,7 @@ export default function DelegateApp() {
         fuelCost: savedFuel,
         startTime: savedStartTime,
         endTime: new Date().toISOString(),
-        imageUri: savedPhoto,
+        imageUri: endKmImage || savedPhoto,
         notes: savedNotes,
       });
 
