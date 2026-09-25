@@ -101,6 +101,8 @@ export default function DelegateApp() {
   const [startNotes, setStartNotes] = useState('');
   const [autoKmFetched, setAutoKmFetched] = useState(false);
   const [isOdometerBroken, setIsOdometerBroken] = useState(false);
+  const isTakingPhotoRef = useRef(false);
+  const lastFetchedBikeRef = useRef<string>('');
 
   const [endKm, setEndKm] = useState('');
   const [endKmImage, setEndKmImage] = useState<string | null>(null);
@@ -184,7 +186,9 @@ export default function DelegateApp() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        checkSession(true);
+        if (!isTakingPhotoRef.current) {
+          checkSession(true);
+        }
       }
     });
     return () => sub.remove();
@@ -297,20 +301,20 @@ export default function DelegateApp() {
     const fetchLastKm = async () => {
       const bike = enteredMotorcycle.trim();
       if (!bike || activeSession || !employee) return;
+      if (lastFetchedBikeRef.current === bike) return;
+      lastFetchedBikeRef.current = bike;
+
       try {
         const res = await workApi.getLastKM(employee.id, bike);
         if (res?.is_odometer_broken) {
           setIsOdometerBroken(true);
-          setStartKm('0');
+          setStartKm((prev) => (prev ? prev : '0'));
           setAutoKmFetched(false);
         } else {
           setIsOdometerBroken(false);
           if (res && res.last_end_km > 0) {
-            setStartKm(String(res.last_end_km));
+            setStartKm((prev) => (prev ? prev : String(res.last_end_km)));
             setAutoKmFetched(true);
-          } else {
-            setStartKm('');
-            setAutoKmFetched(false);
           }
         }
       } catch (err) {
@@ -319,7 +323,7 @@ export default function DelegateApp() {
       }
     };
     fetchLastKm();
-  }, [enteredMotorcycle, activeSession, employee]);
+  }, [enteredMotorcycle, activeSession, employee?.id]);
 
   // Check broken odometer for active session
   useEffect(() => {
@@ -437,8 +441,8 @@ export default function DelegateApp() {
         if (cached.id) {
           setAdminUser(null);
           setEmployee(cached);
-          if (cached.motorcycle_number) {
-            setEnteredMotorcycle(cached.motorcycle_number);
+          if (cached.motorcycle_number && !isSilentBackground) {
+            setEnteredMotorcycle((prev) => prev || cached.motorcycle_number);
           }
           // Immediately hide loading spinner so user sees dashboard right away!
           setLoading(false);
@@ -505,8 +509,7 @@ export default function DelegateApp() {
       const active = await workApi.getActiveSession(employeeId);
       if (active && active.status === 'ACTIVE') {
         setActiveSession(active as WorkSession);
-        setEndKm('');
-        setOrdersCount(active.orders_count ? String(active.orders_count) : '');
+        setOrdersCount((prev) => prev || (active.orders_count ? String(active.orders_count) : ''));
       } else {
         setActiveSession(null);
       }
@@ -832,6 +835,7 @@ export default function DelegateApp() {
 
   // Camera Capture for Odometer
   const takeOdometerPhoto = async (type: 'start' | 'end') => {
+    isTakingPhotoRef.current = true;
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
@@ -875,6 +879,10 @@ export default function DelegateApp() {
         title: lang === 'ar' ? 'خطأ في الكاميرا' : 'Camera Error',
         message: lang === 'ar' ? 'تعذر فتح الكاميرا، يرجى المحاولة مرة أخرى' : 'Could not launch camera, please try again.',
       });
+    } finally {
+      setTimeout(() => {
+        isTakingPhotoRef.current = false;
+      }, 1000);
     }
   };
 
