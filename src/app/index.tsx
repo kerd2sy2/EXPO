@@ -850,7 +850,7 @@ export default function DelegateApp() {
 
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
-        quality: 0.18,
+        quality: 0.08,
         base64: true,
       });
 
@@ -923,13 +923,42 @@ export default function DelegateApp() {
   const proceedStartShift = async (startVal: number, photoUri: string) => {
     if (!employee) return;
 
-    setSubmitting(true);
-    try {
-      const savedMoto = enteredMotorcycle.trim();
-      const savedStartKm = startVal;
-      const savedPhoto = photoUri;
-      const savedNotes = startNotes;
+    const savedMoto = enteredMotorcycle.trim();
+    const savedStartKm = startVal;
+    const savedPhoto = photoUri;
+    const savedNotes = startNotes;
 
+    // 1. الانتقال فوراً وبشكل لحظي للداشبورد دون أي انتظار ودون أي موديول
+    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    setCurrentTab('home');
+
+    // تنظيف حقول شاشة البداية فوراً
+    setStartKm('');
+    startKmImageRef.current = null;
+    setStartKmImage(null);
+    setStartNotes('');
+    setAutoKmFetched(false);
+
+    // تفعيل حالة الشفت التفاؤلية فوراً ليراها الموظف نشطة بالداشبورد
+    const optimisticSession: WorkSession = {
+      id: 'temp-' + Date.now(),
+      employee_id: employee.id,
+      motorcycle_number: savedMoto,
+      start_km: savedStartKm,
+      start_km_image: savedPhoto || undefined,
+      notes: savedNotes,
+      start_time: new Date().toISOString(),
+      end_time: null,
+      end_km: 0,
+      distance: 0,
+      orders_count: 0,
+      fuel_cost: 0,
+      status: 'ACTIVE',
+    };
+    setActiveSession(optimisticSession);
+    setSubmitting(true);
+
+    try {
       const newSession = await workApi.startShift({
         employee_id: employee.id,
         motorcycle_number: savedMoto,
@@ -938,32 +967,20 @@ export default function DelegateApp() {
         notes: savedNotes,
       });
 
-      // 1. الانتقال فوراً للرئيسية والتمرير لأعلى الصفحة وإظهار المديولا في تلك اللحظة
-      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-      setCurrentTab('home');
-      openSuccessModal({
-        type: 'start',
-        motorcycleNumber: savedMoto,
-        startKm: savedStartKm,
-        startTime: newSession?.start_time || new Date().toISOString(),
-        imageUri: startKmImage || savedPhoto || undefined,
-        notes: savedNotes,
-      });
-
-      // 2. تحديث الحالة في الخلفية
-      setActiveSession(newSession);
-      setStartKm('');
-      startKmImageRef.current = null;
-      setStartKmImage(null);
-      setStartNotes('');
-      setAutoKmFetched(false);
-
-      fetchHistory(employee.id);
+      if (newSession && newSession.id) {
+        setActiveSession(newSession);
+        fetchHistory(employee.id).catch(() => {});
+      }
     } catch (err: any) {
       console.error('Start shift error:', err);
+      // في حال وجود خطأ من الخادم (مثل تنبيه الزيت أو خطأ بيانات)، إعادة الحالة لصفحة الدوام وتنبيه الموظف
+      setActiveSession(null);
+      setCurrentTab('shift');
+      setStartKm(String(savedStartKm));
+      setStartNotes(savedNotes);
       setAlertConfig({
         type: 'error',
-        title: lang === 'ar' ? 'خطأ' : 'Error',
+        title: lang === 'ar' ? 'خطأ في بدء الدوام' : 'Shift Error',
         message: err?.message || (lang === 'ar' ? 'تعذر بدء الشفت، يرجى المحاولة ثانية' : 'Failed to start shift'),
       });
     } finally {
