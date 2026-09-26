@@ -655,6 +655,19 @@ export const getStoredLanguage = async (): Promise<'ar' | 'en' | 'bn' | null> =>
 export const saveStoredLanguage = async (l: 'ar' | 'en' | 'bn'): Promise<void> => {
   try {
     await AsyncStorage.setItem(APP_LANGUAGE_KEY, l);
+    const storedUser = await AsyncStorage.getItem('aams_delegate_user');
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.id) {
+          apiRequest(`/employees/me/push-token?employee_id=${parsed.id}`, {
+            method: 'POST',
+            body: JSON.stringify({ language: l }),
+            timeoutMs: 4000,
+          }).catch(() => {});
+        }
+      } catch {}
+    }
   } catch (e) {
     console.log('Error saving language:', e);
   }

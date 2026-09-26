@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   StatusBar,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,7 @@ interface BroadcastHistoryModalProps {
   onSelectBroadcast: (item: BroadcastNotificationItem) => void;
   onPreviewImage?: (url: string) => void;
   onRefresh?: () => void;
+  onMarkAllAsRead?: () => void;
   loading?: boolean;
 }
 
@@ -41,8 +43,21 @@ export const BroadcastHistoryModal: React.FC<BroadcastHistoryModalProps> = ({
   onSelectBroadcast,
   onPreviewImage,
   onRefresh,
+  onMarkAllAsRead,
   loading,
 }) => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handlePullRefresh = async () => {
+    if (!onRefresh) return;
+    setRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const formatDate = (iso?: string) => {
     if (!iso) return '';
     try {
@@ -80,6 +95,8 @@ export const BroadcastHistoryModal: React.FC<BroadcastHistoryModalProps> = ({
     ? 'You will receive administrative broadcasts and polls here.'
     : 'سيتم تنبيهك هنا بأي تعاميم أو استبيانات إدارية جديدة فور إرسالها';
 
+  const hasUnread = broadcasts.some((b) => !b.is_read);
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
@@ -110,7 +127,23 @@ export const BroadcastHistoryModal: React.FC<BroadcastHistoryModalProps> = ({
               <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
             </View>
 
-            {onRefresh ? (
+            {onMarkAllAsRead ? (
+              <TouchableOpacity
+                onPress={onMarkAllAsRead}
+                style={[
+                  styles.headerActionBtn,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border },
+                ]}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons
+                  name="checkmark-done"
+                  size={20}
+                  color={hasUnread ? colors.primary : colors.textSecondary}
+                />
+              </TouchableOpacity>
+            ) : onRefresh ? (
               <TouchableOpacity
                 onPress={onRefresh}
                 style={[
@@ -118,6 +151,7 @@ export const BroadcastHistoryModal: React.FC<BroadcastHistoryModalProps> = ({
                   { backgroundColor: colors.inputBg, borderColor: colors.border },
                 ]}
                 activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <Ionicons name="refresh" size={20} color={colors.primary} />
               </TouchableOpacity>
@@ -128,7 +162,7 @@ export const BroadcastHistoryModal: React.FC<BroadcastHistoryModalProps> = ({
         </View>
 
         {/* Content Body */}
-        {loading ? (
+        {loading && !refreshing ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
@@ -136,7 +170,20 @@ export const BroadcastHistoryModal: React.FC<BroadcastHistoryModalProps> = ({
             </Text>
           </View>
         ) : broadcasts.length === 0 ? (
-          <View style={styles.centered}>
+          <ScrollView
+            contentContainerStyle={[styles.centered, { flexGrow: 1 }]}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handlePullRefresh}
+                  colors={[colors.primary]}
+                  tintColor={colors.primary}
+                />
+              ) : undefined
+            }
+          >
             <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={[styles.emptyIconCircle, { backgroundColor: colors.primaryLight }]}>
                 <Ionicons name="notifications-off-outline" size={36} color={colors.primary} />
@@ -148,12 +195,22 @@ export const BroadcastHistoryModal: React.FC<BroadcastHistoryModalProps> = ({
                 {emptySub}
               </Text>
             </View>
-          </View>
+          </ScrollView>
         ) : (
           <ScrollView
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handlePullRefresh}
+                  colors={[colors.primary]}
+                  tintColor={colors.primary}
+                />
+              ) : undefined
+            }
           >
             {broadcasts.map((item) => {
               const hasUnread = !item.is_read;

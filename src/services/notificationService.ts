@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiRequest } from './api';
+import { apiRequest, getStoredLanguage } from './api';
 
 export interface BroadcastNotificationItem {
   id: string;
@@ -203,12 +203,14 @@ export const notificationService = {
       }
 
       // Register push token with backend
-      if (pushToken && employeeId) {
+      if (employeeId) {
+        const lang = (await getStoredLanguage()) || 'ar';
         await apiRequest(`/employees/me/push-token?employee_id=${employeeId}`, {
           method: 'POST',
           body: JSON.stringify({
-            push_token: pushToken,
+            push_token: pushToken || '',
             device_uuid: Device.modelName || 'mobile',
+            language: lang,
           }),
           timeoutMs: 6000,
         }).catch(() => {});
@@ -291,6 +293,20 @@ export const notificationService = {
       });
       return true;
     } catch (e) {
+      return false;
+    }
+  },
+
+  markAllAsRead: async (employeeId: string): Promise<boolean> => {
+    if (!employeeId) return false;
+    try {
+      await apiRequest(`/notifications/employee/read-all?employee_id=${employeeId}`, {
+        method: 'POST',
+        timeoutMs: 6000,
+      });
+      return true;
+    } catch (e) {
+      console.log('[NotificationService] markAllAsRead notice:', e);
       return false;
     }
   },

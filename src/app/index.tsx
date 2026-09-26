@@ -228,8 +228,33 @@ export default function DelegateApp() {
     try {
       const list = await notificationService.getAllBroadcasts(employee.id);
       setAllBroadcasts(list);
+      const unread = list.filter((b) => !b.is_read).length;
+      setUnreadBroadcastCount(unread);
     } finally {
       setLoadingBroadcastHistory(false);
+    }
+  };
+
+  const handleRefreshNotificationsHistory = async () => {
+    if (!employee?.id) return;
+    try {
+      const list = await notificationService.getAllBroadcasts(employee.id);
+      setAllBroadcasts(list);
+      const unread = list.filter((b) => !b.is_read).length;
+      setUnreadBroadcastCount(unread);
+    } catch (e) {
+      console.log('Error refreshing notifications history:', e);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!employee?.id) return;
+    try {
+      await notificationService.markAllAsRead(employee.id);
+      setAllBroadcasts((prev) => prev.map((b) => ({ ...b, is_read: true })));
+      setUnreadBroadcastCount(0);
+    } catch (e) {
+      console.log('Error marking all as read:', e);
     }
   };
 
@@ -1733,7 +1758,8 @@ export default function DelegateApp() {
           setShowBroadcastModal(true);
         }}
         onPreviewImage={(url) => setPreviewPhoto({ url, title: 'معاينة صورة التعميم' })}
-        onRefresh={handleOpenNotificationsHistory}
+        onRefresh={handleRefreshNotificationsHistory}
+        onMarkAllAsRead={handleMarkAllAsRead}
         loading={loadingBroadcastHistory}
       />
     </SafeAreaView>
