@@ -638,5 +638,28 @@ export const revokeTrustedDevice = async (nationalId: string, uuid: string): Pro
   }
 };
 
+const APP_LANGUAGE_KEY = '@aams_app_language';
+
+export const getStoredLanguage = async (): Promise<'ar' | 'en' | 'bn' | null> => {
+  try {
+    const l = await AsyncStorage.getItem(APP_LANGUAGE_KEY);
+    if (l === 'ar' || l === 'en' || l === 'bn') {
+      return l;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+export const saveStoredLanguage = async (l: 'ar' | 'en' | 'bn'): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(APP_LANGUAGE_KEY, l);
+  } catch (e) {
+    console.log('Error saving language:', e);
+  }
+};
+
+
 
 

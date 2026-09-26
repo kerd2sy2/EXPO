@@ -47,6 +47,8 @@ import {
   isBiometricEnabled,
   saveLastCredentialsForBiometrics,
   onSessionExpired,
+  getStoredLanguage,
+  saveStoredLanguage,
 } from '../services/api';
 
 // Screens
@@ -274,8 +276,16 @@ export default function DelegateApp() {
         errorText: '#ef4444',
       };
 
+  const handleSetLanguage = async (newLang: Language) => {
+    setLang(newLang);
+    await saveStoredLanguage(newLang);
+  };
+
   // Check Active Session & Employee on Mount
   useEffect(() => {
+    getStoredLanguage().then((l) => {
+      if (l) setLang(l);
+    });
     checkSession();
   }, []);
 
@@ -1337,7 +1347,7 @@ export default function DelegateApp() {
         isRTL={isRTL}
         t={t}
         lang={lang}
-        onSetLang={setLang}
+        onSetLang={handleSetLanguage}
         onLogin={handleLogin}
         onOtpSuccess={handleOtpSuccess}
         loginError={loginError}
@@ -1381,7 +1391,7 @@ export default function DelegateApp() {
         isRTL={isRTL}
         t={t}
         lang={lang}
-        onSetLang={setLang}
+        onSetLang={handleSetLanguage}
         onLogin={handleLogin}
         onOtpSuccess={handleOtpSuccess}
         loginError={loginError}
@@ -1624,8 +1634,8 @@ export default function DelegateApp() {
         isDarkMode={isDarkMode}
         isRTL={isRTL}
         t={t}
-        onSelectLang={(newLang) => {
-          setLang(newLang);
+        onSelectLang={async (newLang) => {
+          await handleSetLanguage(newLang);
           setShowLangModal(false);
         }}
         onClose={() => setShowLangModal(false)}
