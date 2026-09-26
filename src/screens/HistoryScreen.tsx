@@ -11,6 +11,8 @@ import { ShiftDetailsModal } from '../components/modals/ShiftDetailsModal';
 
 interface HistoryScreenProps {
   historySessions: WorkSession[];
+  selectedSession?: WorkSession | null;
+  onSelectSession?: (session: WorkSession | null) => void;
   onPreviewPhoto: (photo: PreviewPhotoData) => void;
   formatDateStr: (iso?: string) => string;
   formatTimeStr: (iso?: string) => string;
@@ -22,6 +24,8 @@ interface HistoryScreenProps {
 
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   historySessions,
+  selectedSession,
+  onSelectSession,
   onPreviewPhoto,
   formatDateStr,
   formatTimeStr,
@@ -30,7 +34,9 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   isRTL,
   t,
 }) => {
-  const [selectedSession, setSelectedSession] = useState<WorkSession | null>(null);
+  const [internalSelectedSession, setInternalSelectedSession] = useState<WorkSession | null>(null);
+  const activeSelected = selectedSession !== undefined ? selectedSession : internalSelectedSession;
+  const setActiveSelected = onSelectSession || setInternalSelectedSession;
 
   return (
     <View style={styles.tabContainer}>
@@ -62,7 +68,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
               ]}
               onPress={() => {
                 if (isApproved) {
-                  setSelectedSession(session);
+                  setActiveSelected(session);
                 }
               }}
             >
@@ -165,12 +171,12 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
       {/* Full Shift Details Bottom Sheet Modal (Only triggered for approved shifts) */}
       <ShiftDetailsModal
-        session={selectedSession}
+        session={activeSelected}
         colors={colors}
         isDarkMode={isDarkMode}
         isRTL={isRTL}
         t={t}
-        onClose={() => setSelectedSession(null)}
+        onClose={() => setActiveSelected(null)}
         onPreviewPhoto={onPreviewPhoto}
         formatDateStr={formatDateStr}
         formatTimeStr={formatTimeStr}

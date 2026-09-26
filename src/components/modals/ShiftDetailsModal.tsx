@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { WorkSession, PreviewPhotoData, ThemeColors } from '../../types/delegate';
+import { API_BASE_URL } from '../../services/api';
 
 interface ShiftDetailsModalProps {
   session: WorkSession | null;
@@ -35,6 +36,19 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
   formatTimeStr,
 }) => {
   if (!session) return null;
+
+  const formatDocUrl = (url?: string) => {
+    if (!url) return null;
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
+    const cleanUrl = url.replace(/^\/+/, '');
+    if (cleanUrl.startsWith('uploads/')) {
+      return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/${cleanUrl}`;
+    }
+    return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/uploads/${cleanUrl}`;
+  };
+
+  const startKmPhotoUrl = formatDocUrl(session.start_km_image);
+  const endKmPhotoUrl = formatDocUrl(session.end_km_image);
 
   const distance =
     session.distance ||
@@ -397,7 +411,7 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                     { flexDirection: isRTL ? 'row-reverse' : 'row' },
                   ]}
                 >
-                  {session.start_km_image && (
+                  {startKmPhotoUrl && (
                     <TouchableOpacity
                       activeOpacity={0.85}
                       style={[
@@ -409,13 +423,13 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                       ]}
                       onPress={() =>
                         onPreviewPhoto({
-                          url: session.start_km_image!,
+                          url: startKmPhotoUrl,
                           title: `${t.startKmPhotoLabel} (${session.start_km} ${t.km})`,
                         })
                       }
                     >
                       <Image
-                        source={{ uri: session.start_km_image }}
+                        source={{ uri: startKmPhotoUrl }}
                         style={styles.photoImg}
                         resizeMode="cover"
                       />
@@ -426,7 +440,7 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                     </TouchableOpacity>
                   )}
 
-                  {session.end_km_image && (
+                  {endKmPhotoUrl && (
                     <TouchableOpacity
                       activeOpacity={0.85}
                       style={[
@@ -438,13 +452,13 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                       ]}
                       onPress={() =>
                         onPreviewPhoto({
-                          url: session.end_km_image!,
+                          url: endKmPhotoUrl,
                           title: `${t.endKmPhotoLabel} (${session.end_km} ${t.km})`,
                         })
                       }
                     >
                       <Image
-                        source={{ uri: session.end_km_image }}
+                        source={{ uri: endKmPhotoUrl }}
                         style={styles.photoImg}
                         resizeMode="cover"
                       />

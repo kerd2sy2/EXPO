@@ -98,6 +98,7 @@ export default function DelegateApp() {
   // Work Session State
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [historySessions, setHistorySessions] = useState<WorkSession[]>([]);
+  const [selectedHistorySession, setSelectedHistorySession] = useState<WorkSession | null>(null);
 
   // Shift Inputs
   const [enteredMotorcycle, setEnteredMotorcycle] = useState('');
@@ -326,6 +327,36 @@ export default function DelegateApp() {
     });
     return () => sub.remove();
   }, [employee?.id]);
+
+  // Direct navigation to approved shift details modal when clicking shift notification
+  useEffect(() => {
+    const notifSub = Notifications.addNotificationResponseReceivedListener(async (response) => {
+      const data = response.notification.request.content.data as any;
+      if (data?.type === 'SESSION_APPROVED' || data?.sessionId) {
+        setCurrentTab('history');
+        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+        const sid = data.sessionId;
+        if (sid) {
+          const match = historySessions.find((s) => s.id === sid);
+          if (match) {
+            setSelectedHistorySession(match);
+          } else if (employee?.id) {
+            try {
+              const fresh = await workApi.getMySessions(employee.id);
+              if (Array.isArray(fresh)) {
+                setHistorySessions(fresh as WorkSession[]);
+                const m = fresh.find((s) => s.id === sid) || fresh[0];
+                if (m) setSelectedHistorySession(m);
+              }
+            } catch (e) {
+              console.log('Error opening session from notification:', e);
+            }
+          }
+        }
+      }
+    });
+    return () => notifSub.remove();
+  }, [historySessions, employee?.id]);
 
   // Listen for unrecoverable session expiry (when token refresh fails)
   useEffect(() => {
@@ -1610,6 +1641,8 @@ export default function DelegateApp() {
           {currentTab === 'history' && (
             <HistoryScreen
               historySessions={historySessions}
+              selectedSession={selectedHistorySession}
+              onSelectSession={setSelectedHistorySession}
               onPreviewPhoto={setPreviewPhoto}
               formatDateStr={formatDateStr}
               formatTimeStr={formatTimeStr}

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PreviewPhotoData, ThemeColors } from '../../types/delegate';
+import { API_BASE_URL } from '../../services/api';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -30,6 +31,17 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
 }) => {
   if (!previewPhoto) return null;
 
+  const formatDocUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
+    const cleanUrl = url.replace(/^\/+/, '');
+    if (cleanUrl.startsWith('uploads/')) {
+      return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/${cleanUrl}`;
+    }
+    return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/uploads/${cleanUrl}`;
+  };
+
+  const photoUrl = formatDocUrl(previewPhoto.url);
   const [rotation, setRotation] = useState<number>(previewPhoto?.rotate ? 90 : 0);
 
   useEffect(() => {
@@ -78,7 +90,7 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
         {/* Full-bleed Vertical Document Viewer Area */}
         <View style={styles.documentViewerArea}>
           <Image
-            source={{ uri: previewPhoto.url }}
+            source={{ uri: photoUrl }}
             style={[
               styles.fullDocumentImage,
               isRotated
