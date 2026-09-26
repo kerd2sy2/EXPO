@@ -229,7 +229,7 @@ export default function DelegateApp() {
       const list = await notificationService.getAllBroadcasts(employee.id);
       setAllBroadcasts(list);
       const unread = list.filter((b) => !b.is_read).length;
-      setUnreadBroadcastCount(unread);
+      setUnreadBroadcastsCount(unread);
     } finally {
       setLoadingBroadcastHistory(false);
     }
@@ -241,7 +241,7 @@ export default function DelegateApp() {
       const list = await notificationService.getAllBroadcasts(employee.id);
       setAllBroadcasts(list);
       const unread = list.filter((b) => !b.is_read).length;
-      setUnreadBroadcastCount(unread);
+      setUnreadBroadcastsCount(unread);
     } catch (e) {
       console.log('Error refreshing notifications history:', e);
     }
@@ -252,7 +252,7 @@ export default function DelegateApp() {
     try {
       await notificationService.markAllAsRead(employee.id);
       setAllBroadcasts((prev) => prev.map((b) => ({ ...b, is_read: true })));
-      setUnreadBroadcastCount(0);
+      setUnreadBroadcastsCount(0);
     } catch (e) {
       console.log('Error marking all as read:', e);
     }
