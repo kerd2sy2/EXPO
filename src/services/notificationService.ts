@@ -167,7 +167,12 @@ export const notificationService = {
       };
 
       if (item.image_url) {
-        (content as any).attachments = [{ url: item.image_url }];
+        let fullImgUrl = item.image_url.trim();
+        if (!fullImgUrl.startsWith('http://') && !fullImgUrl.startsWith('https://')) {
+          const clean = fullImgUrl.replace(/^\/+/, '');
+          fullImgUrl = `https://api.kerd2sy.com/${clean}`;
+        }
+        (content as any).attachments = [{ url: fullImgUrl }];
       }
 
       await Notifications.scheduleNotificationAsync({
