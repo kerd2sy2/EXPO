@@ -93,9 +93,7 @@ export const workApi = {
       const bioOn = await isBiometricEnabled();
       if (isActualAdmin && data.admin) {
         await saveCachedUser({ ...data.admin, is_admin: true });
-        if (bioOn) {
-          await saveLastCredentialsForBiometrics(login.trim(), data.access_token, { ...data.admin, is_admin: true }, data.refresh_token);
-        }
+        // Never save biometric credentials for admin accounts on the mobile app
       } else if (data.employee && data.employee.id) {
         await saveCachedUser(data.employee);
         if (bioOn) {

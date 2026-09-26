@@ -96,7 +96,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
       if (result.success) {
         const saved = await getSavedCredentialsForBiometrics();
-        if (saved && saved.user) {
+        const isAdmin = saved?.user?.role === 'ADMIN' || saved?.user?.role === 'SUPER_ADMIN' || saved?.user?.role === 'SUPERVISOR' || saved?.user?.is_admin;
+
+        if (saved && saved.user && !isAdmin) {
           let tokenToUse = saved.token;
           if (saved.refreshToken) {
             await setAuthToken(saved.token, saved.refreshToken);
@@ -113,12 +115,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           } catch {}
 
           await saveCachedUser(saved.user);
-          const isAdmin = saved.user.role === 'ADMIN' || saved.user.role === 'SUPER_ADMIN' || saved.user.role === 'SUPERVISOR';
           await onOtpSuccess({
             access_token: tokenToUse,
             refresh_token: saved.refreshToken,
-            employee: isAdmin ? undefined : saved.user,
-            admin: isAdmin ? saved.user : undefined,
+            employee: saved.user,
           });
         } else {
           setAlertConfig({
