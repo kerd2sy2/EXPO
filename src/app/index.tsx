@@ -449,12 +449,11 @@ export default function DelegateApp() {
             setAutoKmFetched(true);
           }
         }
-        if (res && res.registration_image) {
+        if (res && res.registration_image && bike === employee.motorcycle_number) {
           setEmployee((prev) => {
             if (!prev) return prev;
             const updated = {
               ...prev,
-              motorcycle_number: bike,
               vehicle_registration_image: res.registration_image,
             };
             saveCachedUser(updated);
@@ -480,12 +479,11 @@ export default function DelegateApp() {
           } else {
             setIsOdometerBroken(false);
           }
-          if (res && res.registration_image) {
+          if (res && res.registration_image && bike === employee.motorcycle_number) {
             setEmployee((prev) => {
               if (!prev) return prev;
               const updated = {
                 ...prev,
-                motorcycle_number: bike,
                 vehicle_registration_image: res.registration_image,
               };
               saveCachedUser(updated);
