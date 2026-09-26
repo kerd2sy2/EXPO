@@ -204,7 +204,7 @@ export default function DelegateApp() {
       setUnreadBroadcastsCount((prev) => Math.max(0, prev - 1));
       Alert.alert(
         'تم تسجيل صوتك بنجاح',
-        `شكراً لمشاركتك برأيك (${response === 'AGREE' ? 'موافق 🟢' : 'معترض 🔴'})`
+        `شكراً لمشاركتك برأيك (${response === 'AGREE' ? 'موافق' : 'معترض'})`
       );
     } else {
       Alert.alert('تنبيه', 'تعذر تسجيل التصويت، يرجى التحقق من الاتصال بالإنترنت');

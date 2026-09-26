@@ -72,18 +72,18 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'TARGET_ACHIEVED':
-        return { bg: '#dbeafe', text: '#1d4ed8', label: '🔵 حقق التارچت' };
+        return { bg: '#dbeafe', text: '#1d4ed8', label: 'حقق التارچت' };
       case 'ON_TRACK':
-        return { bg: '#dcfce7', text: '#15803d', label: '🟢 يسير بالمعدل المطلوب' };
+        return { bg: '#dcfce7', text: '#15803d', label: 'يسير بالمعدل المطلوب' };
       case 'AT_RISK':
         return {
           bg: isDarkMode ? 'rgba(245, 158, 11, 0.22)' : '#fef3c7',
           text: isDarkMode ? '#fbbf24' : '#b45309',
-          label: '🟡 على وشك المعدل',
+          label: 'على وشك المعدل',
         };
       case 'BEHIND_TARGET':
       default:
-        return { bg: '#fee2e2', text: '#b91c1c', label: '🔴 متأخر عن التارچت' };
+        return { bg: '#fee2e2', text: '#b91c1c', label: 'متأخر عن التارچت' };
     }
   };
 
@@ -114,7 +114,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
       case 'SUSPENDED_TEMP':
         return {
           title: 'موقوف مؤقتاً',
-          badgeText: '⏸️ موقوف مؤقتاً',
+          badgeText: 'موقوف مؤقتاً',
           bg: isDarkMode ? 'rgba(245, 158, 11, 0.18)' : '#fef3c7',
           border: isDarkMode ? '#b45309' : '#fde68a',
           text: isDarkMode ? '#fbbf24' : '#b45309',
@@ -123,7 +123,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
       case 'SUSPENDED_PERM':
         return {
           title: 'موقوف نهائياً',
-          badgeText: '🛑 موقوف نهائياً',
+          badgeText: 'موقوف نهائياً',
           bg: isDarkMode ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2',
           border: isDarkMode ? '#b91c1c' : '#fecaca',
           text: isDarkMode ? '#f87171' : '#dc2626',
@@ -133,7 +133,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
       default:
         return {
           title: 'نشط',
-          badgeText: '🟢 نشط وقيد العمل',
+          badgeText: 'نشط وقيد العمل',
           bg: isDarkMode ? 'rgba(16, 185, 129, 0.18)' : '#ecfdf5',
           border: isDarkMode ? '#059669' : '#a7f3d0',
           text: isDarkMode ? '#34d399' : '#047857',
@@ -359,12 +359,12 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                     ]}
                   >
                     {p.status === 'TARGET_ACHIEVED'
-                      ? '🏆 حقق التارچت المطلوب'
+                      ? 'حقق التارچت المطلوب'
                       : p.status === 'ON_TRACK'
-                      ? '✅ مؤهل (يسير بالمعدل)'
+                      ? 'مؤهل (يسير بالمعدل)'
                       : p.status === 'AT_RISK'
-                      ? '⏳ فرصة قائمة (في المتناول)'
-                      : '❌ غير مؤهل (متأخر)'}
+                      ? 'فرصة قائمة (في المتناول)'
+                      : 'غير مؤهل (متأخر)'}
                   </Text>
                 </View>
               </View>
@@ -671,7 +671,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                 <View style={styles.optionLeftGroup}>
                   <View style={[styles.optionDot, { backgroundColor: '#10b981' }]} />
                   <Text style={[styles.optionTitle, isDarkMode && styles.darkText]}>
-                    🟢 نشط (ACTIVE)
+                    نشط (ACTIVE)
                   </Text>
                 </View>
                 {currentAccountStatus === 'ACTIVE' && (
@@ -698,7 +698,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                 <View style={styles.optionLeftGroup}>
                   <View style={[styles.optionDot, { backgroundColor: '#f59e0b' }]} />
                   <Text style={[styles.optionTitle, isDarkMode && styles.darkText]}>
-                    ⏸️ موقوف مؤقتاً (SUSPENDED_TEMP)
+                    موقوف مؤقتاً (SUSPENDED_TEMP)
                   </Text>
                 </View>
                 {currentAccountStatus === 'SUSPENDED_TEMP' && (

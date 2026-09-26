@@ -78,14 +78,14 @@ try {
   Notifications.setNotificationCategoryAsync('POLL_CATEGORY', [
     {
       identifier: 'VOTE_AGREE',
-      buttonTitle: 'موافق 👍',
+      buttonTitle: 'موافق',
       options: {
         opensAppToForeground: false,
       },
     },
     {
       identifier: 'VOTE_DISAGREE',
-      buttonTitle: 'معترض 👎',
+      buttonTitle: 'معترض',
       options: {
         opensAppToForeground: false,
       },
@@ -148,14 +148,14 @@ export const notificationService = {
         await Notifications.setNotificationCategoryAsync('POLL_CATEGORY', [
           {
             identifier: 'VOTE_AGREE',
-            buttonTitle: 'موافق 👍',
+            buttonTitle: 'موافق',
             options: {
               opensAppToForeground: false,
             },
           },
           {
             identifier: 'VOTE_DISAGREE',
-            buttonTitle: 'معترض 👎',
+            buttonTitle: 'معترض',
             options: {
               opensAppToForeground: false,
             },

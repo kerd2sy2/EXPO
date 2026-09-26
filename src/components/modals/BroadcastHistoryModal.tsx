@@ -216,11 +216,11 @@ export const BroadcastHistoryModal: React.FC<BroadcastHistoryModalProps> = ({
               const hasUnread = !item.is_read;
               const { title: locTitle, body: locBody } = getLocalizedBroadcast(item, lang);
 
-              const agreeText = lang === 'bn' ? 'সম্মত 🟢' : lang === 'en' ? 'Agreed 🟢' : 'تمت الموافقة 🟢';
-              const disagreeText = lang === 'bn' ? 'অসম্মত 🔴' : lang === 'en' ? 'Disagreed 🔴' : 'معترض 🔴';
+              const agreeText = lang === 'bn' ? 'সম্মত' : lang === 'en' ? 'Agreed' : 'تمت الموافقة';
+              const disagreeText = lang === 'bn' ? 'অসম্মত' : lang === 'en' ? 'Disagreed' : 'معترض';
               const pollText = lang === 'bn' ? 'ভোট / জরিপ' : lang === 'en' ? 'Poll' : 'استبيان رأي';
               const newBadgeText = lang === 'bn' ? 'নতুন' : lang === 'en' ? 'NEW' : 'جديد';
-              const tapVoteText = lang === 'bn' ? 'ভোট দিতে চাপ দিন ✍️' : lang === 'en' ? 'Tap to cast your vote ✍️' : 'اضغط للمشاركة في التصويت ✍️';
+              const tapVoteText = lang === 'bn' ? 'ভোট দিতে চাপ দিন' : lang === 'en' ? 'Tap to cast your vote' : 'اضغط للمشاركة في التصويت';
               const viewDetailsText = lang === 'bn' ? 'বিস্তারিত দেখুন' : lang === 'en' ? 'View details' : 'عرض التفاصيل الكاملة';
 
               return (
