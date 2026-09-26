@@ -85,11 +85,13 @@ export const notificationService = {
         await Notifications.setNotificationChannelAsync('aams_broadcasts', {
           name: 'إشعارات وتعاميم الإدارة',
           importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
+          vibrationPattern: [0, 500, 250, 500],
           lightColor: '#f97316',
           sound: 'default',
           enableVibrate: true,
           showBadge: true,
+          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+          bypassDnd: true,
         });
       }
 
@@ -105,25 +107,27 @@ export const notificationService = {
         return null;
       }
 
-      // Get Native FCM device token or Expo Push Token
+      // Get Expo Push Token & Native FCM token
       let pushToken = '';
       try {
-        const deviceData = await Notifications.getDevicePushTokenAsync();
-        if (deviceData?.data) {
-          pushToken = typeof deviceData.data === 'string' ? deviceData.data : (deviceData.data as any).token || '';
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: '352e8773-7aaa-4a12-b906-01fe05420113',
+        });
+        if (tokenData?.data) {
+          pushToken = tokenData.data;
         }
-      } catch (devErr) {
-        console.log('[NotificationService] Device push token notice:', devErr);
+      } catch (tokenErr) {
+        console.log('[NotificationService] Expo Push token notice:', tokenErr);
       }
 
       if (!pushToken) {
         try {
-          const tokenData = await Notifications.getExpoPushTokenAsync({
-            projectId: '352e8773-7aaa-4a12-b906-01fe05420113',
-          });
-          pushToken = tokenData.data;
-        } catch (tokenErr) {
-          console.log('[NotificationService] Push token notice:', tokenErr);
+          const deviceData = await Notifications.getDevicePushTokenAsync();
+          if (deviceData?.data) {
+            pushToken = typeof deviceData.data === 'string' ? deviceData.data : (deviceData.data as any).token || '';
+          }
+        } catch (devErr) {
+          console.log('[NotificationService] Device push token notice:', devErr);
         }
       }
 
