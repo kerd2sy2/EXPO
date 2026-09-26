@@ -73,6 +73,28 @@ try {
   console.log('[NotificationService] setNotificationHandler notice:', e);
 }
 
+// Register interactive survey action buttons for lockscreen and notification shade immediately on load
+try {
+  Notifications.setNotificationCategoryAsync('POLL_CATEGORY', [
+    {
+      identifier: 'VOTE_AGREE',
+      buttonTitle: 'موافق 👍',
+      options: {
+        opensAppToForeground: false,
+      },
+    },
+    {
+      identifier: 'VOTE_DISAGREE',
+      buttonTitle: 'معترض 👎',
+      options: {
+        opensAppToForeground: false,
+      },
+    },
+  ]);
+} catch (catErr) {
+  console.log('[NotificationService] setNotificationCategory startup notice:', catErr);
+}
+
 // Handle direct interactive notification button taps (Agree / Disagree) from notification shade / lockscreen
 try {
   Notifications.addNotificationResponseReceivedListener(async (response) => {
