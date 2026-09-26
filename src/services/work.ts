@@ -117,36 +117,35 @@ export const workApi = {
       }
       const meResp = await apiRequest('/me', { timeoutMs: 8000 });
       if (meResp && meResp.id) {
-        let fullEmployee: any = cached ? { ...cached } : {};
+        let fullEmployee: EmployeeProfile;
         try {
           const empDetail = await apiRequest<EmployeeProfile>(`/employees/${meResp.id}`, { timeoutMs: 8000 });
           if (empDetail && empDetail.id) {
-            fullEmployee = { ...fullEmployee, ...empDetail };
+            fullEmployee = {
+              ...(cached || {}),
+              ...empDetail,
+              vehicle_registration_image: empDetail.vehicle_registration_image || '',
+              motorcycle_number: empDetail.motorcycle_number || '',
+            } as EmployeeProfile;
+          } else {
+            fullEmployee = {
+              ...(cached || {}),
+              ...meResp,
+              vehicle_registration_image: meResp.vehicle_registration_image || '',
+              motorcycle_number: meResp.motorcycle_number || '',
+            } as EmployeeProfile;
           }
         } catch {
-          fullEmployee = { ...fullEmployee, ...meResp };
-        }
-
-        if (cached) {
           fullEmployee = {
-            ...cached,
-            ...fullEmployee,
-            motorcycle_number: fullEmployee.motorcycle_number || cached.motorcycle_number,
-            key_number: fullEmployee.key_number || cached.key_number,
-            national_id: fullEmployee.national_id || cached.national_id,
-            personal_image: fullEmployee.personal_image || cached.personal_image,
-            national_id_image: fullEmployee.national_id_image || cached.national_id_image,
-            driving_license_image: fullEmployee.driving_license_image || cached.driving_license_image,
-            passport_image: fullEmployee.passport_image || cached.passport_image,
-            vehicle_registration_image: fullEmployee.vehicle_registration_image || cached.vehicle_registration_image,
-            employee_number: fullEmployee.employee_number || cached.employee_number,
-            phone: fullEmployee.phone || cached.phone,
-            branch_name: fullEmployee.branch_name || cached.branch_name,
-          };
+            ...(cached || {}),
+            ...meResp,
+            vehicle_registration_image: meResp.vehicle_registration_image || '',
+            motorcycle_number: meResp.motorcycle_number || '',
+          } as EmployeeProfile;
         }
 
         await saveCachedUser(fullEmployee);
-        return fullEmployee as EmployeeProfile;
+        return fullEmployee;
       }
       return cached;
     } catch (e) {
