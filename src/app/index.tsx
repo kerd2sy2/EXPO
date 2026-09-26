@@ -107,6 +107,7 @@ export default function DelegateApp() {
   const [startNotes, setStartNotes] = useState('');
   const [autoKmFetched, setAutoKmFetched] = useState(false);
   const [isOdometerBroken, setIsOdometerBroken] = useState(false);
+  const [activeBikeRegistrationImage, setActiveBikeRegistrationImage] = useState<string | null>(null);
   const isTakingPhotoRef = useRef(false);
   const lastFetchedBikeRef = useRef<string>('');
 
@@ -452,17 +453,6 @@ export default function DelegateApp() {
             setAutoKmFetched(false);
           }
         }
-        if (res && res.registration_image && bike === employee.motorcycle_number) {
-          setEmployee((prev) => {
-            if (!prev) return prev;
-            const updated = {
-              ...prev,
-              vehicle_registration_image: res.registration_image,
-            };
-            saveCachedUser(updated);
-            return updated;
-          });
-        }
       } catch (err) {
         setIsOdometerBroken(false);
         console.log('No prior KM found for bike:', bike);
@@ -476,33 +466,33 @@ export default function DelegateApp() {
     if (activeSession && employee) {
       const bike = activeSession.motorcycle_number || employee.motorcycle_number;
       if (bike) {
-        workApi.getLastKM(employee.id, bike).then((res) => {
-          if (res?.is_odometer_broken || (activeSession.start_km === 0 && !activeSession.start_km_image)) {
-            setIsOdometerBroken(true);
-          } else {
-            setIsOdometerBroken(false);
-          }
-          if (res && res.registration_image && bike === employee.motorcycle_number) {
-            setEmployee((prev) => {
-              if (!prev) return prev;
-              const updated = {
-                ...prev,
-                vehicle_registration_image: res.registration_image,
-              };
-              saveCachedUser(updated);
-              return updated;
-            });
-          }
-        }).catch(() => {
-          if (activeSession.start_km === 0 && !activeSession.start_km_image) {
-            setIsOdometerBroken(true);
-          }
-        });
-      } else if (activeSession.start_km === 0 && !activeSession.start_km_image) {
-        setIsOdometerBroken(true);
+        workApi
+          .getLastKM(employee.id, bike)
+          .then((res) => {
+            if (res?.is_odometer_broken || (activeSession.start_km === 0 && !activeSession.start_km_image)) {
+              setIsOdometerBroken(true);
+            } else {
+              setIsOdometerBroken(false);
+            }
+            if (res && res.registration_image) {
+              setActiveBikeRegistrationImage(res.registration_image);
+            } else {
+              setActiveBikeRegistrationImage(null);
+            }
+          })
+          .catch(() => {
+            if (activeSession.start_km === 0 && !activeSession.start_km_image) {
+              setIsOdometerBroken(true);
+            }
+            setActiveBikeRegistrationImage(null);
+          });
+      } else {
+        setActiveBikeRegistrationImage(null);
       }
+    } else {
+      setActiveBikeRegistrationImage(null);
     }
-  }, [activeSession, employee]);
+  }, [activeSession, employee?.id]);
 
   // OTA Updates Handler (Background check on launch + Interactive manual check)
   const handleCheckForUpdates = async (interactive = false) => {
@@ -630,20 +620,21 @@ export default function DelegateApp() {
           const merged: EmployeeProfile = {
             ...(cached || {}),
             ...user,
-            motorcycle_number: user.motorcycle_number || cached?.motorcycle_number || '',
-            key_number: user.key_number || cached?.key_number || '',
-            national_id: user.national_id || cached?.national_id || '',
-            personal_image: user.personal_image || cached?.personal_image || '',
-            national_id_image: user.national_id_image || cached?.national_id_image || '',
-            driving_license_image: user.driving_license_image || cached?.driving_license_image || '',
-            passport_image: user.passport_image || cached?.passport_image || '',
-            vehicle_registration_image: user.vehicle_registration_image || cached?.vehicle_registration_image || '',
-            employee_number: user.employee_number || cached?.employee_number || '',
-            phone: user.phone || cached?.phone || '',
-            branch_name: user.branch_name || cached?.branch_name || '',
+            motorcycle_number: user.motorcycle_number || '',
+            key_number: user.key_number || '',
+            national_id: user.national_id || '',
+            personal_image: user.personal_image || '',
+            national_id_image: user.national_id_image || '',
+            driving_license_image: user.driving_license_image || '',
+            passport_image: user.passport_image || '',
+            vehicle_registration_image: user.vehicle_registration_image || '',
+            employee_number: user.employee_number || '',
+            phone: user.phone || '',
+            branch_name: user.branch_name || '',
           } as EmployeeProfile;
 
           setEmployee(merged);
+          await saveCachedUser(merged);
           if (merged.motorcycle_number) {
             setEnteredMotorcycle(merged.motorcycle_number);
           }
@@ -697,21 +688,12 @@ export default function DelegateApp() {
         await Promise.all([
           workApi.getMe().then((u) => {
             if (u) {
-              setEmployee((prev) => ({
-                ...(prev || {}),
-                ...u,
-                motorcycle_number: u.motorcycle_number || prev?.motorcycle_number || '',
-                key_number: u.key_number || prev?.key_number || '',
-                national_id: u.national_id || prev?.national_id || '',
-                personal_image: u.personal_image || prev?.personal_image || '',
-                national_id_image: u.national_id_image || prev?.national_id_image || '',
-                driving_license_image: u.driving_license_image || prev?.driving_license_image || '',
-                passport_image: u.passport_image || prev?.passport_image || '',
-                vehicle_registration_image: u.vehicle_registration_image || prev?.vehicle_registration_image || '',
-                employee_number: u.employee_number || prev?.employee_number || '',
-                phone: u.phone || prev?.phone || '',
-                branch_name: u.branch_name || prev?.branch_name || '',
-              } as EmployeeProfile));
+              const updated = {
+                ...(u as EmployeeProfile),
+                vehicle_registration_image: u.vehicle_registration_image || '',
+              };
+              setEmployee(updated);
+              saveCachedUser(updated);
             }
           }),
           fetchActiveSession(employee.id),
@@ -730,27 +712,21 @@ export default function DelegateApp() {
   // Auto-fetch fresh profile data when user opens Profile tab without requiring manual pull-to-refresh
   useEffect(() => {
     if (currentTab === 'profile' && employee?.id) {
-      workApi.getMe().then((u) => {
-        if (u && u.id) {
-          setEmployee((prev) => ({
-            ...(prev || {}),
-            ...u,
-            motorcycle_number: u.motorcycle_number || prev?.motorcycle_number || '',
-            key_number: u.key_number || prev?.key_number || '',
-            national_id: u.national_id || prev?.national_id || '',
-            personal_image: u.personal_image || prev?.personal_image || '',
-            national_id_image: u.national_id_image || prev?.national_id_image || '',
-            driving_license_image: u.driving_license_image || prev?.driving_license_image || '',
-            passport_image: u.passport_image || prev?.passport_image || '',
-            vehicle_registration_image: u.vehicle_registration_image || prev?.vehicle_registration_image || '',
-            employee_number: u.employee_number || prev?.employee_number || '',
-            phone: u.phone || prev?.phone || '',
-            branch_name: u.branch_name || prev?.branch_name || '',
-          } as EmployeeProfile));
-        }
-      }).catch((err) => {
-        console.log('Silent profile sync error:', err);
-      });
+      workApi
+        .getMe()
+        .then((u) => {
+          if (u && u.id) {
+            const updated = {
+              ...(u as EmployeeProfile),
+              vehicle_registration_image: u.vehicle_registration_image || '',
+            };
+            setEmployee(updated);
+            saveCachedUser(updated);
+          }
+        })
+        .catch((err) => {
+          console.log('Silent profile sync error:', err);
+        });
     }
   }, [currentTab]);
 
@@ -1647,6 +1623,8 @@ export default function DelegateApp() {
           {currentTab === 'profile' && (
             <ProfileScreen
               employee={employee}
+              activeSession={activeSession}
+              activeBikeRegistrationImage={activeBikeRegistrationImage}
               empPhotoUrl={empPhotoUrl}
               lang={lang}
               onOpenQrModal={() => setShowQrModal(true)}

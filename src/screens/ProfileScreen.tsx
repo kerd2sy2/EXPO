@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { EmployeeProfile, Language, ThemeColors, PreviewPhotoData } from '../types/delegate';
+import { EmployeeProfile, WorkSession, Language, ThemeColors, PreviewPhotoData } from '../types/delegate';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import { ChangePasswordModal } from '../components/modals/ChangePasswordModal';
 import { AddPhoneBottomSheet } from '../components/modals/AddPhoneBottomSheet';
@@ -38,6 +38,8 @@ const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.22;
 
 interface ProfileScreenProps {
   employee: EmployeeProfile;
+  activeSession?: WorkSession | null;
+  activeBikeRegistrationImage?: string | null;
   empPhotoUrl: string | null;
   lang: Language;
   onOpenQrModal: () => void;
@@ -56,6 +58,8 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   employee,
+  activeSession,
+  activeBikeRegistrationImage,
   empPhotoUrl,
   lang,
   onOpenLangModal,
@@ -215,9 +219,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/uploads/${cleanUrl}`;
   };
 
+  const activeBikeNumber = activeSession?.motorcycle_number || currentEmp.motorcycle_number;
+  const currentVehicleRegImage = activeSession
+    ? (activeBikeRegistrationImage || currentEmp.vehicle_registration_image)
+    : currentEmp.vehicle_registration_image;
+
   const nationalIdPhotoUrl = formatDocUrl(currentEmp.national_id_image);
   const drivingLicensePhotoUrl = formatDocUrl(currentEmp.driving_license_image);
-  const vehicleRegPhotoUrl = formatDocUrl(currentEmp.vehicle_registration_image);
+  const vehicleRegPhotoUrl = formatDocUrl(currentVehicleRegImage);
   const passportPhotoUrl = formatDocUrl(currentEmp.passport_image);
 
   const rawPhone = (
@@ -252,11 +261,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     },
     {
       id: 'vehicle_registration',
-      title: currentEmp.motorcycle_number
-        ? `${t.vehicleRegistrationPhoto || 'صورة استمارة الدباب'} (${currentEmp.motorcycle_number})`
+      title: activeBikeNumber
+        ? `${t.vehicleRegistrationPhoto || 'صورة استمارة الدباب'} (${activeBikeNumber})`
         : (t.vehicleRegistrationPhoto || 'صورة رخصة الدباب (الاستمارة)'),
-      shortTitle: currentEmp.motorcycle_number
-        ? (isRTL ? `استمارة (${currentEmp.motorcycle_number})` : `Reg. (${currentEmp.motorcycle_number})`)
+      shortTitle: activeBikeNumber
+        ? (isRTL ? `استمارة (${activeBikeNumber})` : `Reg. (${activeBikeNumber})`)
         : (isRTL ? 'رخصة الدباب (الاستمارة)' : 'Vehicle Registration'),
       icon: 'file-document-outline' as const,
       iconFamily: 'material',
