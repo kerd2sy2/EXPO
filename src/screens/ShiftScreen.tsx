@@ -106,6 +106,26 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
 
   const suggestedEndKm = startKmNum + estimatedKm;
 
+  const isExemptOdometer = isOdometerBroken || (startKmNum === 0 && !activeSession?.start_km_image);
+
+  const canStartShift = isOdometerBroken
+    ? Boolean(enteredMotorcycle.trim())
+    : Boolean(
+        enteredMotorcycle.trim() &&
+        startKm.trim() &&
+        Number(startKm) > 0 &&
+        startKmImage
+      );
+
+  const canEndShift = isExemptOdometer
+    ? true
+    : Boolean(
+        endKm.trim() &&
+        Number(endKm) >= startKmNum &&
+        Number(endKm) > 0 &&
+        endKmImage
+      );
+
   return (
     <View style={styles.tabContainer}>
       {!activeSession ? (
@@ -275,9 +295,16 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
 
           {/* Start Button */}
           <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: colors.primary, marginTop: 8 }]}
+            style={[
+              styles.primaryButton,
+              {
+                backgroundColor: canStartShift ? colors.primary : (isDarkMode ? '#334155' : '#cbd5e1'),
+                marginTop: 8,
+                opacity: canStartShift && !submitting ? 1 : 0.65,
+              },
+            ]}
             onPress={onStartShift}
-            disabled={submitting}
+            disabled={!canStartShift || submitting}
           >
             {submitting ? (
               <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -480,9 +507,17 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
 
           {/* End Shift Button */}
           <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: '#ef4444', marginTop: 12, marginBottom: 8 }]}
+            style={[
+              styles.primaryButton,
+              {
+                backgroundColor: canEndShift ? '#ef4444' : (isDarkMode ? '#334155' : '#cbd5e1'),
+                marginTop: 12,
+                marginBottom: 8,
+                opacity: canEndShift && !submitting ? 1 : 0.65,
+              },
+            ]}
             onPress={onEndShift}
-            disabled={submitting}
+            disabled={!canEndShift || submitting}
           >
             {submitting ? (
               <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>

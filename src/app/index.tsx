@@ -440,13 +440,16 @@ export default function DelegateApp() {
         const res = await workApi.getLastKM(employee.id, bike);
         if (res?.is_odometer_broken) {
           setIsOdometerBroken(true);
-          setStartKm((prev) => (prev ? prev : '0'));
+          setStartKm('0');
           setAutoKmFetched(false);
         } else {
           setIsOdometerBroken(false);
           if (res && res.last_end_km > 0) {
-            setStartKm((prev) => (prev ? prev : String(res.last_end_km)));
+            setStartKm(String(res.last_end_km));
             setAutoKmFetched(true);
+          } else {
+            setStartKm('');
+            setAutoKmFetched(false);
           }
         }
         if (res && res.registration_image && bike === employee.motorcycle_number) {
@@ -1202,17 +1205,41 @@ export default function DelegateApp() {
       endVal = 0;
     }
 
+    // Zero orders confirmation bottom sheet modal
+    if (countVal < 1) {
+      setAlertConfig({
+        type: 'confirm',
+        title: lang === 'ar' ? 'تأكيد عدد الطلبات' : 'Confirm Orders Count',
+        message: lang === 'ar' ? 'هل أنت متأكد أن عدد الطلبات هو 0؟' : 'Are you sure the orders count is 0?',
+        primaryButtonText: lang === 'ar' ? 'نعم، تأكيد إنهاء الدوام' : 'Yes, End Shift',
+        secondaryButtonText: lang === 'ar' ? 'تعديل عدد الطلبات' : 'Edit Orders',
+        onPrimaryPress: () => {
+          proceedEndShift(endVal, distanceVal, countVal, fuelVal, photoUri, isExemptOdometer);
+        },
+      });
+      return;
+    }
+
+    proceedEndShift(endVal, distanceVal, countVal, fuelVal, photoUri, isExemptOdometer);
+  };
+
+  const proceedEndShift = async (
+    endVal: number,
+    distanceVal: number,
+    countVal: number,
+    fuelVal: number,
+    photoUri: string | null,
+    isExemptOdometer: boolean
+  ) => {
+    if (!employee || !activeSession) return;
+
     setSubmitting(true);
     try {
       const savedEndKm = endVal;
-      const savedDistance = distanceVal;
       const savedOrders = countVal;
       const savedFuel = fuelVal;
       const savedPhoto = isExemptOdometer ? undefined : (photoUri || undefined);
       const savedNotes = endNotes;
-      const savedMoto = activeSession.motorcycle_number || employee.motorcycle_number;
-      const savedStartKm = activeSession.start_km;
-      const savedStartTime = activeSession.start_time;
 
       await workApi.endShift({
         employee_id: employee.id,
@@ -1223,24 +1250,11 @@ export default function DelegateApp() {
         notes: savedNotes,
       });
 
-      // 1. الانتقال فوراً لسجل الشفتات والتمرير لأعلى الصفحة وإظهار المديولا في تلك اللحظة بالضبط
+      // 1. الانتقال فوراً لسجل الشفتات والتمرير لأعلى الصفحة مباشرة دون أي موديول
       mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       setCurrentTab('history');
-      openSuccessModal({
-        type: 'end',
-        motorcycleNumber: savedMoto,
-        startKm: savedStartKm,
-        endKm: savedEndKm,
-        distance: savedDistance,
-        ordersCount: savedOrders,
-        fuelCost: savedFuel,
-        startTime: savedStartTime,
-        endTime: new Date().toISOString(),
-        imageUri: endKmImage || savedPhoto,
-        notes: savedNotes,
-      });
 
-      // 2. تنظيف الحالة بعد الانتقال حتى لا تظهر صفحة بدء الشفت للمستخدم
+      // 2. تنظيف الحالة بعد الانتقال
       setActiveSession(null);
       setEndKm('');
       endKmImageRef.current = null;
@@ -1248,6 +1262,20 @@ export default function DelegateApp() {
       setOrdersCount('');
       setFuelCost('');
       setEndNotes('');
+
+      // 3. إعادة تحميل بروفايل الموظف الأصلي والدباب الرسمي وإلغاء استمارة الدباب البديل
+      workApi
+        .getMe()
+        .then(async (fresh) => {
+          if (fresh && fresh.id) {
+            setEmployee(fresh);
+            if (fresh.motorcycle_number) {
+              setEnteredMotorcycle(fresh.motorcycle_number);
+            }
+            await saveCachedUser(fresh);
+          }
+        })
+        .catch((e) => console.log('Notice refreshing profile on End Shift:', e));
 
       fetchHistory(employee.id);
     } catch (err: any) {
