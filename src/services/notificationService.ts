@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiRequest } from './api';
 
 export interface BroadcastNotificationItem {
@@ -72,6 +73,31 @@ try {
   console.log('[NotificationService] setNotificationHandler notice:', e);
 }
 
+// Handle direct interactive notification button taps (Agree / Disagree) from notification shade / lockscreen
+try {
+  Notifications.addNotificationResponseReceivedListener(async (response) => {
+    const actionId = response.actionIdentifier;
+    const data = response.notification.request.content.data as any;
+    const broadcastId = data?.broadcastId;
+    if (broadcastId && (actionId === 'VOTE_AGREE' || actionId === 'VOTE_DISAGREE')) {
+      const voteChoice = actionId === 'VOTE_AGREE' ? 'AGREE' : 'DISAGREE';
+      const storedUser = await AsyncStorage.getItem('aams_delegate_user');
+      let empId = '';
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          empId = parsed.id || '';
+        } catch {}
+      }
+      if (empId) {
+        await notificationService.submitVote(broadcastId, empId, voteChoice);
+      }
+    }
+  });
+} catch (e) {
+  console.log('[NotificationService] addNotificationResponseReceivedListener error:', e);
+}
+
 // Track IDs already displayed in the system notification shade to prevent duplicates
 const shownInTrayIds = new Set<string>();
 
@@ -93,6 +119,28 @@ export const notificationService = {
           lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
           bypassDnd: true,
         });
+      }
+
+      // Register interactive survey action buttons for lockscreen and notification shade
+      try {
+        await Notifications.setNotificationCategoryAsync('POLL_CATEGORY', [
+          {
+            identifier: 'VOTE_AGREE',
+            buttonTitle: 'موافق 👍',
+            options: {
+              opensAppToForeground: false,
+            },
+          },
+          {
+            identifier: 'VOTE_DISAGREE',
+            buttonTitle: 'معترض 👎',
+            options: {
+              opensAppToForeground: false,
+            },
+          },
+        ]);
+      } catch (catErr) {
+        console.log('[NotificationService] setNotificationCategory notice:', catErr);
       }
 
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
