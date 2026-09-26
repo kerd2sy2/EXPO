@@ -107,27 +107,30 @@ export const notificationService = {
         return null;
       }
 
-      // Get Expo Push Token & Native FCM token
+      // Prefer Native FCM device token on Android for native BigPicture banner & lockscreen display
       let pushToken = '';
-      try {
-        const tokenData = await Notifications.getExpoPushTokenAsync({
-          projectId: '352e8773-7aaa-4a12-b906-01fe05420113',
-        });
-        if (tokenData?.data) {
-          pushToken = tokenData.data;
-        }
-      } catch (tokenErr) {
-        console.log('[NotificationService] Expo Push token notice:', tokenErr);
-      }
-
-      if (!pushToken) {
+      if (Platform.OS === 'android') {
         try {
           const deviceData = await Notifications.getDevicePushTokenAsync();
           if (deviceData?.data) {
             pushToken = typeof deviceData.data === 'string' ? deviceData.data : (deviceData.data as any).token || '';
           }
         } catch (devErr) {
-          console.log('[NotificationService] Device push token notice:', devErr);
+          console.log('[NotificationService] Android native FCM device token notice:', devErr);
+        }
+      }
+
+      // Fallback to Expo Push Token if native device token is not available
+      if (!pushToken) {
+        try {
+          const tokenData = await Notifications.getExpoPushTokenAsync({
+            projectId: '352e8773-7aaa-4a12-b906-01fe05420113',
+          });
+          if (tokenData?.data) {
+            pushToken = tokenData.data;
+          }
+        } catch (tokenErr) {
+          console.log('[NotificationService] Expo Push token notice:', tokenErr);
         }
       }
 
