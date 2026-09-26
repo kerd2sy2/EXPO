@@ -1467,7 +1467,8 @@ export default function DelegateApp() {
             </TouchableOpacity>
 
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              {/* Notification Center Bell */}
+              {/* Notification Center Bell (Hidden temporarily) */}
+              {/*
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={handleOpenNotificationsHistory}
@@ -1480,6 +1481,7 @@ export default function DelegateApp() {
                   </View>
                 ) : null}
               </TouchableOpacity>
+              */}
 
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
