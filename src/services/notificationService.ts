@@ -7,6 +7,12 @@ export interface BroadcastNotificationItem {
   id: string;
   title: string;
   body: string;
+  title_ar?: string;
+  title_en?: string;
+  title_bn?: string;
+  body_ar?: string;
+  body_en?: string;
+  body_bn?: string;
   image_url?: string;
   target: string;
   branch_id?: string;
@@ -15,11 +21,40 @@ export interface BroadcastNotificationItem {
   sent_count: number;
   has_poll: boolean;
   poll_question?: string;
+  poll_question_ar?: string;
+  poll_question_en?: string;
+  poll_question_bn?: string;
   agree_count: number;
   disagree_count: number;
   created_at: string;
   is_read: boolean;
   user_vote?: 'AGREE' | 'DISAGREE';
+}
+
+/**
+ * Returns localized title, body, and poll_question based on the employee's chosen app language
+ */
+export function getLocalizedBroadcast(item: BroadcastNotificationItem, lang: string = 'ar') {
+  let title = item.title;
+  let body = item.body;
+  let poll_question = item.poll_question;
+
+  if (lang === 'en') {
+    title = item.title_en?.trim() || item.title_ar?.trim() || item.title;
+    body = item.body_en?.trim() || item.body_ar?.trim() || item.body;
+    poll_question = item.poll_question_en?.trim() || item.poll_question_ar?.trim() || item.poll_question;
+  } else if (lang === 'bn') {
+    title = item.title_bn?.trim() || item.title_ar?.trim() || item.title;
+    body = item.body_bn?.trim() || item.body_ar?.trim() || item.body;
+    poll_question = item.poll_question_bn?.trim() || item.poll_question_ar?.trim() || item.poll_question;
+  } else {
+    // Arabic (default)
+    title = item.title_ar?.trim() || item.title;
+    body = item.body_ar?.trim() || item.body;
+    poll_question = item.poll_question_ar?.trim() || item.poll_question;
+  }
+
+  return { title, body, poll_question };
 }
 
 // Configure notification presentation behavior in the phone
@@ -70,15 +105,26 @@ export const notificationService = {
         return null;
       }
 
-      // Get Expo Push Token if on a physical device
+      // Get Native FCM device token or Expo Push Token
       let pushToken = '';
       try {
-        const tokenData = await Notifications.getExpoPushTokenAsync({
-          projectId: '352e8773-7aaa-4a12-b906-01fe05420113',
-        });
-        pushToken = tokenData.data;
-      } catch (tokenErr) {
-        console.log('[NotificationService] Push token notice:', tokenErr);
+        const deviceData = await Notifications.getDevicePushTokenAsync();
+        if (deviceData?.data) {
+          pushToken = typeof deviceData.data === 'string' ? deviceData.data : (deviceData.data as any).token || '';
+        }
+      } catch (devErr) {
+        console.log('[NotificationService] Device push token notice:', devErr);
+      }
+
+      if (!pushToken) {
+        try {
+          const tokenData = await Notifications.getExpoPushTokenAsync({
+            projectId: '352e8773-7aaa-4a12-b906-01fe05420113',
+          });
+          pushToken = tokenData.data;
+        } catch (tokenErr) {
+          console.log('[NotificationService] Push token notice:', tokenErr);
+        }
       }
 
       // Register push token with backend

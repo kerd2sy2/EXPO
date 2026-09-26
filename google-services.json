@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "413526529021",
+    "project_id": "aams-8a73f",
+    "storage_bucket": "aams-8a73f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:413526529021:android:76602ff70ea46a26597f94",
+        "android_client_info": {
+          "package_name": "com.aams.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2FuEqdvI21s6NYQ2jVkvT57xHTqP5Fqw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -3,6 +3,7 @@ import {
   setAuthToken,
   saveCachedUser,
   getCachedUser,
+  isBiometricEnabled,
   saveLastCredentialsForBiometrics,
   getStoredToken,
   loadStoredToken,
@@ -89,12 +90,17 @@ export const workApi = {
       const isActualAdmin =
         Boolean(data.admin?.role && (data.admin.role === 'ADMIN' || data.admin.role === 'SUPER_ADMIN' || data.admin.role === 'SUPERVISOR'));
 
+      const bioOn = await isBiometricEnabled();
       if (isActualAdmin && data.admin) {
         await saveCachedUser({ ...data.admin, is_admin: true });
-        await saveLastCredentialsForBiometrics(login.trim(), data.access_token, { ...data.admin, is_admin: true }, data.refresh_token);
+        if (bioOn) {
+          await saveLastCredentialsForBiometrics(login.trim(), data.access_token, { ...data.admin, is_admin: true }, data.refresh_token);
+        }
       } else if (data.employee && data.employee.id) {
         await saveCachedUser(data.employee);
-        await saveLastCredentialsForBiometrics(login.trim(), data.access_token, data.employee, data.refresh_token);
+        if (bioOn) {
+          await saveLastCredentialsForBiometrics(login.trim(), data.access_token, data.employee, data.refresh_token);
+        }
       }
     }
     return data;

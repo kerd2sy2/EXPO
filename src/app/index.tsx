@@ -153,9 +153,10 @@ export default function DelegateApp() {
       const unread = await notificationService.getUnreadBroadcasts(employee.id);
       setUnreadBroadcastsCount(unread.length);
       if (unread.length > 0) {
-        const first = unread[0];
-        if (first.id !== lastDismissedBroadcastId.current) {
-          setActiveBroadcast(first);
+        // Only auto-popup on app open if it is a poll waiting for the employee's vote
+        const pendingPoll = unread.find((b) => b.has_poll && !b.user_vote);
+        if (pendingPoll && pendingPoll.id !== lastDismissedBroadcastId.current) {
+          setActiveBroadcast(pendingPoll);
           setShowBroadcastModal(true);
         }
       }
@@ -823,7 +824,7 @@ export default function DelegateApp() {
         // Non-blocking background sync of profile, session, and history
         workApi
           .getMe()
-          .then((fresh) => {
+          .then(async (fresh) => {
             if (fresh && fresh.id) {
               setEmployee((prev) => ({
                 ...(prev || {}),
@@ -835,7 +836,8 @@ export default function DelegateApp() {
                 phone: fresh.phone || prev?.phone || '',
                 branch_name: fresh.branch_name || prev?.branch_name || '',
               } as EmployeeProfile));
-              if (res.access_token && fresh.national_id) {
+              const bioOn = await isBiometricEnabled();
+              if (bioOn && res.access_token && fresh.national_id) {
                 saveLastCredentialsForBiometrics(fresh.national_id, res.access_token, fresh, res.refresh_token);
               }
             }
@@ -890,7 +892,7 @@ export default function DelegateApp() {
       // Non-blocking background sync of profile, session, and history
       workApi
         .getMe()
-        .then((fresh) => {
+        .then(async (fresh) => {
           if (fresh && fresh.id) {
             setEmployee((prev) => ({
               ...(prev || {}),
@@ -902,8 +904,9 @@ export default function DelegateApp() {
               phone: fresh.phone || prev?.phone || '',
               branch_name: fresh.branch_name || prev?.branch_name || '',
             } as EmployeeProfile));
+            const bioOn = await isBiometricEnabled();
             const curTok = loginResp?.access_token || getStoredToken();
-            if (curTok && fresh.national_id) {
+            if (bioOn && curTok && fresh.national_id) {
               saveLastCredentialsForBiometrics(fresh.national_id, curTok, fresh, loginResp?.refresh_token);
             }
           }
@@ -1695,6 +1698,7 @@ export default function DelegateApp() {
         colors={colors}
         isDarkMode={isDarkMode}
         isRTL={isRTL}
+        lang={lang}
         onClose={handleCloseBroadcast}
         onVote={handleVoteBroadcast}
         onPreviewImage={(url) => {
@@ -1711,6 +1715,7 @@ export default function DelegateApp() {
         colors={colors}
         isDarkMode={isDarkMode}
         isRTL={isRTL}
+        lang={lang}
         onClose={() => setShowBroadcastHistory(false)}
         onSelectBroadcast={(item) => {
           setActiveBroadcast(item);

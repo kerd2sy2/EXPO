@@ -23,6 +23,7 @@ import {
   setBiometricEnabled,
   saveLastCredentialsForBiometrics,
   getStoredToken,
+  loadStoredToken,
 } from '../../services/api';
 import { targetApi } from '../../services/targetApi';
 
@@ -141,7 +142,7 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
         });
 
         if (result.success) {
-          const token = getStoredToken();
+          const token = getStoredToken() || (await loadStoredToken());
           const identifier = user?.phone || user?.username || user?.email || (isAdmin ? '2642799148' : '500500');
           if (token) {
             await saveLastCredentialsForBiometrics(identifier, token, user);

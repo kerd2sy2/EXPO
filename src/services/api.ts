@@ -8,6 +8,24 @@ export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   'https://api.kerd2sy.com/api/v1';
 
+/**
+ * Formats any image URL (relative /uploads/ path or absolute URL) to a fully qualified URL for mobile rendering
+ */
+export const formatImageUrl = (url?: string | null): string | null => {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:') || trimmed.startsWith('file:')) {
+    return trimmed;
+  }
+  const cleanUrl = trimmed.replace(/^\/+/, '');
+  const baseDomain = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+  if (cleanUrl.startsWith('uploads/')) {
+    return `${baseDomain}/${cleanUrl}`;
+  }
+  return `${baseDomain}/uploads/${cleanUrl}`;
+};
+
 const TOKEN_KEY = 'aams_delegate_token';
 const REFRESH_TOKEN_KEY = 'aams_delegate_refresh_token';
 const USER_KEY = 'aams_delegate_user';
@@ -260,7 +278,6 @@ export const saveLastCredentialsForBiometrics = async (
       timestamp: Date.now(),
     };
     await AsyncStorage.setItem(LAST_SAVED_CREDENTIALS_KEY, JSON.stringify(data));
-    await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
   } catch (e) {
     console.log('Error saving biometric credentials:', e);
   }
@@ -504,7 +521,10 @@ export const verifyOtpApi = async (nationalId: string, otpCode: string): Promise
     await setDeviceTrustedForNationalId(nationalId);
     if (res.employee) {
       await saveCachedUser(res.employee);
-      await saveLastCredentialsForBiometrics(nationalId, res.access_token, res.employee, res.refresh_token);
+      const bioOn = await isBiometricEnabled();
+      if (bioOn) {
+        await saveLastCredentialsForBiometrics(nationalId, res.access_token, res.employee, res.refresh_token);
+      }
     }
   }
   return res;

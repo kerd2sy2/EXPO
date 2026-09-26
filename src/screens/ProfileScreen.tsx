@@ -30,6 +30,7 @@ import {
   setBiometricEnabled,
   saveLastCredentialsForBiometrics,
   getStoredToken,
+  loadStoredToken,
 } from '../services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -179,7 +180,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           disableDeviceFallback: false,
         });
         if (result.success) {
-          const token = getStoredToken();
+          const token = getStoredToken() || (await loadStoredToken());
           if (token && employee?.national_id) {
             await saveLastCredentialsForBiometrics(employee.national_id, token, employee);
           }
