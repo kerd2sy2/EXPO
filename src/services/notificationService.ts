@@ -196,14 +196,7 @@ export const notificationService = {
         `/notifications/employee/unread?employee_id=${employeeId}`,
         { timeoutMs: 7000 }
       );
-      const items = res?.data || [];
-
-      // Fire in system notification bar for any incoming unread broadcast!
-      for (const item of items) {
-        notificationService.showSystemTrayNotification(item);
-      }
-
-      return items;
+      return res?.data || [];
     } catch (e) {
       return [];
     }
