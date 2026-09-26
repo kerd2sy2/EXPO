@@ -158,14 +158,20 @@ export const notificationService = {
       if (shownInTrayIds.has(item.id)) return;
       shownInTrayIds.add(item.id);
 
+      const content: Notifications.NotificationContentInput = {
+        title: item.title,
+        body: item.has_poll ? `${item.body}\n(استبيان: موافق / معترض)` : item.body,
+        data: { broadcastId: item.id, image_url: item.image_url },
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      };
+
+      if (item.image_url) {
+        (content as any).attachments = [{ url: item.image_url }];
+      }
+
       await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `📢 ${item.title}`,
-          body: item.has_poll ? `${item.body}\n(استبيان: موافق / معترض)` : item.body,
-          data: { broadcastId: item.id },
-          sound: true,
-          priority: Notifications.AndroidNotificationPriority.MAX,
-        },
+        content,
         trigger: {
           channelId: 'aams_broadcasts',
         },
