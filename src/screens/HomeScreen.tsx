@@ -384,7 +384,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
           <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 2 }]}>
             {violations.length > 0
-              ? `مرورية: ${totalTrafficAmt.toLocaleString()} ر.س • جزاءات: ${totalPenaltiesAmt.toLocaleString()} ر.س${deductedViolationsAmount > 0 ? ` (المسدد: ${deductedViolationsAmount.toLocaleString()})` : ''}`
+              ? (totalDuePending > 0
+                  ? `المبلغ المتبقي عليك: ${totalDuePending.toLocaleString()} ر.س`
+                  : 'تم سداد كامل المستحقات (لا يوجد متبقي)')
               : (t.noViolationsSub || 'سجلك نظيف! لا توجد مخالفات أو جزاءات مسجلة')}
           </Text>
         </View>
