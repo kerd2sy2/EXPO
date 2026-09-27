@@ -74,6 +74,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       activeSession.motorcycle_number.trim().toUpperCase() !== employee.motorcycle_number.trim().toUpperCase())
   );
 
+  // Split calculations for traffic violations and administrative penalties
+  const isPenaltyRecord = (v: DelegateViolation) =>
+    v.reason?.includes('جزاء') ||
+    v.reason?.includes('خصم') ||
+    v.reason?.includes('تأخير') ||
+    v.reason?.includes('غياب') ||
+    v.reason?.includes('زي') ||
+    v.reason?.includes('عهدة') ||
+    v.reason?.includes('إهمال');
+
+  const trafficRecords = violations.filter((v) => !isPenaltyRecord(v));
+  const penaltyRecords = violations.filter((v) => isPenaltyRecord(v));
+
+  const totalTrafficAmt = trafficRecords.reduce((acc, v) => acc + (v.amount || 0), 0);
+  const totalPenaltiesAmt = penaltyRecords.reduce((acc, v) => acc + (v.amount || 0), 0);
+  const totalDuePending = Math.max(0, totalViolationsAmount - deductedViolationsAmount);
+
   return (
     <View style={styles.tabContainer}>
       {/* Clean Monthly Target & Earnings Card */}
@@ -329,12 +346,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   styles.violationCountBadge,
                   {
                     backgroundColor:
-                      totalViolationsAmount > deductedViolationsAmount
+                      totalDuePending > 0
                         ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2')
                         : (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#ECFDF5'),
                     borderWidth: 1,
                     borderColor:
-                      totalViolationsAmount > deductedViolationsAmount
+                      totalDuePending > 0
                         ? (isDarkMode ? 'rgba(239, 68, 68, 0.4)' : '#FCA5A5')
                         : (isDarkMode ? 'rgba(16, 185, 129, 0.4)' : '#6EE7B7'),
                     paddingHorizontal: 8,
@@ -350,7 +367,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     styles.violationCountText,
                     {
                       color:
-                        totalViolationsAmount > deductedViolationsAmount
+                        totalDuePending > 0
                           ? (isDarkMode ? '#F87171' : '#DC2626')
                           : (isDarkMode ? '#34D399' : '#059669'),
                       fontSize: 11,
@@ -358,19 +375,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     },
                   ]}
                 >
-                  {totalViolationsAmount > deductedViolationsAmount
-                    ? `عليك: ${(totalViolationsAmount - deductedViolationsAmount).toLocaleString()} ر.س`
-                    : 'مسددة بالكامل'}
+                  {totalDuePending > 0
+                    ? `المتبقي: ${totalDuePending.toLocaleString()} ر.س`
+                    : 'مسدد بالكامل'}
                 </Text>
               </View>
             ) : null}
           </View>
-          <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+          <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 2 }]}>
             {violations.length > 0
-              ? (totalViolationsAmount > deductedViolationsAmount
-                  ? `المدفوع / المخصوم: ${deductedViolationsAmount.toLocaleString()} ر.س (متبقي ${(totalViolationsAmount - deductedViolationsAmount).toLocaleString()} ر.س)`
-                  : `المدفوع / المخصوم: ${deductedViolationsAmount.toLocaleString()} ر.س بالكامل`)
-              : (t.noViolationsSub || 'سجلك نظيف! لا توجد مخالفات مسجلة')}
+              ? `مرورية: ${totalTrafficAmt.toLocaleString()} ر.س • جزاءات: ${totalPenaltiesAmt.toLocaleString()} ر.س${deductedViolationsAmount > 0 ? ` (المسدد: ${deductedViolationsAmount.toLocaleString()})` : ''}`
+              : (t.noViolationsSub || 'سجلك نظيف! لا توجد مخالفات أو جزاءات مسجلة')}
           </Text>
         </View>
         <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
