@@ -26,7 +26,10 @@
         "ACCESS_NOTIFICATION_POLICY",
         "WAKE_LOCK",
         "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
-        "SYSTEM_ALERT_WINDOW"
+        "SYSTEM_ALERT_WINDOW",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "VIBRATE"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
@@ -52,6 +55,12 @@
         "expo-image-picker",
         {
           "photosPermission": "السماح بالوصول لمعرض الصور لتحميل وتوثيق صور العمل."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "السماح بالوصول للموقع لإرسال الإحداثيات الدقيقة في حالات الطوارئ وبلاغات الحوادث."
         }
       ],
       [
