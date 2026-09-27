@@ -324,14 +324,52 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               {t.quickViolationsTitle || 'المخالفات والجزاءات'}
             </Text>
             {violations.length > 0 ? (
-              <View style={[styles.violationCountBadge, { backgroundColor: '#EF4444' }]}>
-                <Text style={styles.violationCountText}>{violations.length}</Text>
+              <View
+                style={[
+                  styles.violationCountBadge,
+                  {
+                    backgroundColor:
+                      totalViolationsAmount > deductedViolationsAmount
+                        ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2')
+                        : (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#ECFDF5'),
+                    borderWidth: 1,
+                    borderColor:
+                      totalViolationsAmount > deductedViolationsAmount
+                        ? (isDarkMode ? 'rgba(239, 68, 68, 0.4)' : '#FCA5A5')
+                        : (isDarkMode ? 'rgba(16, 185, 129, 0.4)' : '#6EE7B7'),
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 12,
+                    minWidth: 0,
+                    height: 'auto',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.violationCountText,
+                    {
+                      color:
+                        totalViolationsAmount > deductedViolationsAmount
+                          ? (isDarkMode ? '#F87171' : '#DC2626')
+                          : (isDarkMode ? '#34D399' : '#059669'),
+                      fontSize: 11,
+                      fontWeight: '700',
+                    },
+                  ]}
+                >
+                  {totalViolationsAmount > deductedViolationsAmount
+                    ? `عليك: ${(totalViolationsAmount - deductedViolationsAmount).toLocaleString()} ر.س`
+                    : 'مسددة بالكامل'}
+                </Text>
               </View>
             ) : null}
           </View>
           <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
             {violations.length > 0
-              ? `${violations.length} مخالفة مسجلة • إجمالي ${totalViolationsAmount.toLocaleString()} ر.س`
+              ? (totalViolationsAmount > deductedViolationsAmount
+                  ? `المدفوع / المخصوم: ${deductedViolationsAmount.toLocaleString()} ر.س (متبقي ${(totalViolationsAmount - deductedViolationsAmount).toLocaleString()} ر.س)`
+                  : `المدفوع / المخصوم: ${deductedViolationsAmount.toLocaleString()} ر.س بالكامل`)
               : (t.noViolationsSub || 'سجلك نظيف! لا توجد مخالفات مسجلة')}
           </Text>
         </View>

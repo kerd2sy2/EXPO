@@ -32,7 +32,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
   isRTL,
   t,
 }) => {
-  const [filter, setFilter] = useState<'ALL' | 'RECORDED' | 'DEDUCTED' | 'PAID'>('ALL');
+  const [filter, setFilter] = useState<'ALL' | 'RECORDED' | 'PARTIAL' | 'DEDUCTED' | 'PAID'>('ALL');
 
   const pendingAmount = Math.max(0, totalAmount - deductedAmount);
 
@@ -46,18 +46,26 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
       case 'RECORDED':
         return {
           label: t.violationStatusRecorded || 'مسجلة',
+          bg: isDarkMode ? 'rgba(107, 114, 128, 0.2)' : '#F3F4F6',
+          text: isDarkMode ? '#9CA3AF' : '#4B5563',
+          border: isDarkMode ? 'rgba(107, 114, 128, 0.4)' : '#E5E7EB',
+          icon: 'alert-circle-outline' as const,
+        };
+      case 'PARTIAL':
+        return {
+          label: 'مخصومة جزئياً',
           bg: isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7',
           text: isDarkMode ? '#FCD34D' : '#D97706',
           border: isDarkMode ? 'rgba(245, 158, 11, 0.4)' : '#FDE68A',
-          icon: 'alert-circle-outline' as const,
+          icon: 'hourglass-outline' as const,
         };
       case 'DEDUCTED':
         return {
-          label: t.violationStatusDeducted || 'تم الخصم',
-          bg: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2',
-          text: isDarkMode ? '#FCA5A5' : '#DC2626',
-          border: isDarkMode ? 'rgba(239, 68, 68, 0.4)' : '#FECACA',
-          icon: 'remove-circle-outline' as const,
+          label: t.violationStatusDeducted || 'تم الخصم بالكامل',
+          bg: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5',
+          text: isDarkMode ? '#6EE7B7' : '#059669',
+          border: isDarkMode ? 'rgba(16, 185, 129, 0.4)' : '#A7F3D0',
+          icon: 'checkmark-circle-outline' as const,
         };
       case 'DISPUTED':
         return {
@@ -69,7 +77,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
         };
       case 'PAID':
         return {
-          label: t.violationStatusPaid || 'مسددة',
+          label: t.violationStatusPaid || 'مسددة بالكامل',
           bg: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5',
           text: isDarkMode ? '#6EE7B7' : '#059669',
           border: isDarkMode ? 'rgba(16, 185, 129, 0.4)' : '#A7F3D0',
@@ -118,7 +126,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
             <Ionicons name="receipt-outline" size={18} color="#EF4444" />
           </View>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
-            {t.violationsTotalAmount || 'إجمالي المبالغ'}
+            {t.violationsTotalAmount || 'إجمالي المخالفات'}
           </Text>
           <Text style={[styles.kpiValue, { color: '#EF4444' }]}>
             {totalAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
@@ -138,7 +146,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
             <Ionicons name="checkmark-done-circle-outline" size={18} color="#10B981" />
           </View>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
-            {t.violationsTotalDeducted || 'تم الخصم'}
+            {t.violationsTotalDeducted || 'تم خصمه / سداده'}
           </Text>
           <Text style={[styles.kpiValue, { color: '#10B981' }]}>
             {deductedAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
@@ -158,7 +166,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
             <Ionicons name="time-outline" size={18} color="#F59E0B" />
           </View>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
-            {t.violationsTotalPending || 'المتبقي'}
+            {t.violationsTotalPending || 'المتبقي للسداد'}
           </Text>
           <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>
             {pendingAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
@@ -171,6 +179,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
         {[
           { key: 'ALL', label: 'الكل' },
           { key: 'RECORDED', label: 'مسجلة' },
+          { key: 'PARTIAL', label: 'مخصومة جزئياً' },
           { key: 'DEDUCTED', label: 'تم الخصم' },
           { key: 'PAID', label: 'مسددة' },
         ].map((tab) => {
@@ -257,6 +266,12 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
         <View style={styles.listContainer}>
           {filteredList.map((item) => {
             const badge = getStatusBadge(item.status);
+            const paid = item.paid_amount !== undefined
+              ? item.paid_amount
+              : (item.status === 'DEDUCTED' || item.status === 'PAID' ? item.amount : 0);
+            const remaining = Math.max(0, item.amount - paid);
+            const progressPct = item.amount > 0 ? Math.min(100, Math.round((paid / item.amount) * 100)) : 0;
+
             return (
               <View
                 key={item.id}
@@ -298,7 +313,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                   </View>
                 </View>
 
-                {/* Body Row: Reason & Amount */}
+                {/* Body Row: Reason & Meta */}
                 <View
                   style={[
                     styles.bodyRow,
@@ -361,19 +376,58 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                       ) : null}
                     </View>
                   </View>
+                </View>
 
-                  {/* Amount Box */}
-                  <View
-                    style={[
-                      styles.amountBox,
-                      { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2' },
-                    ]}
-                  >
-                    <Text style={styles.amountNumber}>
-                      {Number(item.amount || 0).toLocaleString()}
-                    </Text>
-                    <Text style={styles.amountCurrency}>ر.س</Text>
+                {/* Payment Breakdown Box (تجزئة وسداد المخالفة) */}
+                <View
+                  style={[
+                    styles.paymentBreakdownBox,
+                    {
+                      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : '#F8FAFC',
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={[styles.breakdownRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={styles.breakdownCol}>
+                      <Text style={[styles.breakdownLabel, { color: colors.textSecondary }]}>المبلغ الكلي</Text>
+                      <Text style={[styles.breakdownVal, { color: colors.textPrimary }]}>
+                        {Number(item.amount || 0).toLocaleString()} ر.س
+                      </Text>
+                    </View>
+
+                    <View style={styles.breakdownDivider} />
+
+                    <View style={styles.breakdownCol}>
+                      <Text style={[styles.breakdownLabel, { color: '#10B981' }]}>تم خصمه</Text>
+                      <Text style={[styles.breakdownVal, { color: '#10B981' }]}>
+                        {Number(paid).toLocaleString()} ر.س
+                      </Text>
+                    </View>
+
+                    <View style={styles.breakdownDivider} />
+
+                    <View style={styles.breakdownCol}>
+                      <Text style={[styles.breakdownLabel, { color: remaining > 0 ? '#F59E0B' : colors.textSecondary }]}>
+                        المتبقي
+                      </Text>
+                      <Text style={[styles.breakdownVal, { color: remaining > 0 ? '#F59E0B' : colors.textSecondary }]}>
+                        {Number(remaining).toLocaleString()} ر.س
+                      </Text>
+                    </View>
                   </View>
+
+                  {/* Progress Bar for Partial Payments */}
+                  {item.amount > 0 && remaining > 0 && paid > 0 ? (
+                    <View style={styles.progressContainer}>
+                      <View style={[styles.progressTrack, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#E2E8F0' }]}>
+                        <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: '#10B981' }]} />
+                      </View>
+                      <Text style={[styles.progressText, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                        تم سداد {progressPct}% من قيمة المخالفة
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
 
                 {/* Supervisor Notes if present */}
@@ -597,5 +651,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     flex: 1,
+  },
+  paymentBreakdownBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    gap: 8,
+  },
+  breakdownRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  breakdownLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  breakdownVal: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  breakdownDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E5E7EB',
+  },
+  progressContainer: {
+    gap: 4,
+    marginTop: 2,
+  },
+  progressTrack: {
+    height: 5,
+    borderRadius: 3,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
 });

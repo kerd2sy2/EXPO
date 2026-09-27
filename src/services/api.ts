@@ -679,10 +679,11 @@ export interface DelegateViolation {
   employee_id?: string;
   vehicle_plate?: string;
   amount: number;
+  paid_amount?: number;
   reason: string;
   violation_date: string;
   city?: string;
-  status: 'RECORDED' | 'DEDUCTED' | 'DISPUTED' | 'PAID' | string;
+  status: 'RECORDED' | 'PARTIAL' | 'DEDUCTED' | 'DISPUTED' | 'PAID' | string;
   notes?: string;
   created_at?: string;
 }
