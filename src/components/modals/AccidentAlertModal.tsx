@@ -9,12 +9,16 @@ import {
   Animated,
   Linking,
   Platform,
+  Dimensions,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { EmployeeProfile, WorkSession, ThemeColors, Language } from '../../types/delegate';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface AccidentAlertModalProps {
   visible: boolean;
@@ -45,7 +49,8 @@ export const AccidentAlertModal: React.FC<AccidentAlertModalProps> = ({
   const [gpsData, setGpsData] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
 
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
@@ -54,14 +59,52 @@ export const AccidentAlertModal: React.FC<AccidentAlertModalProps> = ({
       setStatusMessage('');
       setLoadingLocation(false);
 
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      }).start();
+      Animated.parallel([
+        Animated.timing(backdropAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.spring(translateY, {
+          toValue: 0,
+          damping: 22,
+          mass: 0.9,
+          stiffness: 160,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(backdropAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: SCREEN_HEIGHT,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
-  }, [visible, scaleAnim]);
+  }, [visible, translateY, backdropAnim]);
+
+  const handleDismiss = () => {
+    Animated.parallel([
+      Animated.timing(backdropAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: SCREEN_HEIGHT,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onClose();
+    });
+  };
 
   const handleConfirmAccident = async () => {
     try {
@@ -74,7 +117,7 @@ export const AccidentAlertModal: React.FC<AccidentAlertModalProps> = ({
         ? 'আপনার নির্ভুল অবস্থান শনাক্ত করা হচ্ছে...'
         : lang === 'en'
         ? 'Detecting accurate GPS location...'
-        : 'جاري تحديد إحداثيات موقعك بأعلى دقة...'
+        : 'جاري تحديد موقعك بدقة...'
     );
 
     let lat: number | null = null;
@@ -131,7 +174,7 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
 
 ⏰ *وقت البلاغ:* ${nowStr}
 ━━━━━━━━━━━━━━━━━━━━
-⚠️ *يرجى التوجه فوراً أو تقديم المساعدة والدعم العاجل للمندوب!*`;
+⚠️ *يرجى التوجه فوراً أو تقديم المساعدة والدعم للمندوب!*`;
 
     const encodedMsg = encodeURIComponent(emergencyMsg);
     const whatsappAppUrl = `whatsapp://send?phone=${EMERGENCY_PHONE_INTL}&text=${encodedMsg}`;
@@ -141,7 +184,7 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
     setLoadingLocation(false);
     setLocationSent(true);
 
-    // Try opening WhatsApp directly
+    // Open WhatsApp directly, fallback to SMS
     try {
       const canOpen = await Linking.canOpenURL(whatsappAppUrl);
       if (canOpen) {
@@ -152,7 +195,7 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
     } catch {
       try {
         await Linking.openURL(smsUrl);
-      } catch (smsErr) {
+      } catch {
         Linking.openURL(`tel:${EMERGENCY_PHONE}`).catch(() => {});
       }
     }
@@ -171,7 +214,6 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
     const emergencyMsg = `🚨 *بلاغ طوارئ وحادث مندوب عاجل* 🚨
 👤 المندوب: ${employee?.name || ''}
 📱 الهاتف: ${employee?.phone || ''}
-🆔 الهوية: ${employee?.national_id || ''}
 🛵 الدباب: ${activeSession?.motorcycle_number || employee?.motorcycle_number || ''}
 📍 الموقع: ${mapsUrl}
 ⏰ الوقت: ${nowStr}`;
@@ -182,33 +224,52 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
 
   const titleText =
     lang === 'bn'
-      ? '🚨 আপনি কি কোনো দুর্ঘটনার শিকার হয়েছেন?'
+      ? 'আপনি কি ঠিক আছেন?'
       : lang === 'en'
-      ? '🚨 Did you experience an accident?'
-      : '🚨 هل تعرضت إلى حادث لا قدر الله؟';
+      ? 'Are you alright?'
+      : 'هل أنت بخير؟';
 
   const subText =
     lang === 'bn'
-      ? 'আমরা আপনার পাশে আছি। (হ্যাঁ) চাপলে আপনার সঠিক লোকেশন ও তথ্য জরুরি নম্বরে (0500626432) পাঠানো হবে।'
+      ? 'হঠাৎ কোনো ধাক্কা বা ঝাঁকুনি শনাক্ত হয়েছে। দুর্ঘটনায় পড়লে নিচের বাটনে চাপ দিন।'
       : lang === 'en'
-      ? 'We are here to help. Tapping (Yes) will instantly send your exact GPS location and info to Emergency (0500626432).'
-      : 'نحن هنا لمساعدتك. عند الضغط على "نعم"، سيتم إرسال إحداثيات موقعك الجغرافي الدقيق وبياناتك فوراً إلى رقم الطوارئ (0500626432) لتقديم المساعدة.';
+      ? 'Sudden impact detected. If you had an accident, tap below to send your live location.'
+      : 'تم استشعار اهتزاز قوي أو حركة مفاجئة. إذا تعرضت لحادث، اضغط لإرسال موقعك لطوارئ العمل.';
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={handleDismiss}>
+      <View style={styles.modalRoot}>
+        {/* Backdrop overlay */}
+        <TouchableWithoutFeedback onPress={handleDismiss}>
+          <Animated.View
+            style={[
+              styles.backdrop,
+              {
+                opacity: backdropAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 0.65],
+                }),
+              },
+            ]}
+          />
+        </TouchableWithoutFeedback>
+
+        {/* Bottom Sheet Container */}
         <Animated.View
           style={[
-            styles.container,
+            styles.bottomSheet,
             {
-              backgroundColor: isDarkMode ? '#18181b' : '#ffffff',
-              borderColor: isDarkMode ? '#ef4444' : '#fee2e2',
-              transform: [{ scale: scaleAnim }],
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              transform: [{ translateY }],
             },
           ]}
         >
-          {/* Lottie Car Accident Animation */}
-          <View style={styles.lottieContainer}>
+          {/* Sheet Drag Indicator */}
+          <View style={[styles.dragHandle, { backgroundColor: isDarkMode ? '#3f3f46' : '#e2e8f0' }]} />
+
+          {/* Large Lottie Car Accident Animation */}
+          <View style={styles.lottieWrap}>
             <LottieView
               source={require('../../../assets/Lottie/Car accident.json')}
               autoPlay
@@ -218,58 +279,63 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
             />
           </View>
 
-          {/* Title & Description */}
-          <Text style={[styles.title, { color: isDarkMode ? '#ffffff' : '#0f172a' }]}>
+          {/* Simplified, Clean Header */}
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
             {titleText}
           </Text>
 
-          <Text style={[styles.subtitle, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {subText}
           </Text>
 
-          {/* Emergency Phone Badge */}
-          <View
+          {/* Emergency Phone Chip */}
+          <TouchableOpacity
             style={[
-              styles.emergencyContactBadge,
-              { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2' },
+              styles.emergencyChip,
+              {
+                backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2',
+                borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5',
+              },
             ]}
+            onPress={handleCallEmergency}
+            activeOpacity={0.7}
           >
-            <Ionicons name="call" size={16} color="#ef4444" />
-            <Text style={styles.emergencyContactText}>
-              {lang === 'bn' ? 'জরুরি নম্বর:' : lang === 'en' ? 'Emergency Number:' : 'هاتف الطوارئ والإسعاف:'} {EMERGENCY_PHONE}
+            <Ionicons name="call" size={15} color="#EF4444" />
+            <Text style={styles.emergencyChipText}>
+              {lang === 'bn' ? 'জরুরি কল:' : lang === 'en' ? 'Emergency Call:' : 'طوارئ الإدارة:'} {EMERGENCY_PHONE}
             </Text>
-          </View>
+          </TouchableOpacity>
 
           {/* Loading or Sent State */}
           {loadingLocation ? (
-            <View style={styles.statusBox}>
-              <ActivityIndicator size="small" color="#ef4444" />
-              <Text style={[styles.statusText, { color: isDarkMode ? '#fca5a5' : '#dc2626' }]}>
+            <View style={[styles.statusBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <ActivityIndicator size="small" color="#EF4444" />
+              <Text style={[styles.statusText, { color: colors.textPrimary }]}>
                 {statusMessage}
               </Text>
             </View>
           ) : locationSent ? (
             <View style={styles.sentContainer}>
-              <View style={styles.sentSuccessBadge}>
-                <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+              <View style={[styles.sentSuccessBadge, { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5' }]}>
+                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
                 <Text style={styles.sentSuccessText}>
                   {lang === 'bn'
                     ? 'তথ্য ও লোকেশন পাঠানো হয়েছে'
                     : lang === 'en'
-                    ? 'Location dispatched to Emergency'
-                    : 'تم تجهيز وإرسال البلاغ والموقع بنجاح'}
+                    ? 'Location sent to Emergency'
+                    : 'تم إرسال موقعك وبياناتك بنجاح'}
                 </Text>
               </View>
 
-              <View style={styles.actionButtonsRow}>
+              <View style={[styles.actionButtonsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity
                   style={[styles.actionBtn, styles.callBtn]}
                   onPress={handleCallEmergency}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="call" size={18} color="#ffffff" />
+                  <Ionicons name="call" size={18} color="#FFFFFF" />
                   <Text style={styles.btnTextWhite}>
-                    {lang === 'bn' ? 'কল করুন' : lang === 'en' ? 'Call Now' : 'اتصال مباشر'}
+                    {lang === 'bn' ? 'কল করুন' : lang === 'en' ? 'Call' : 'اتصال مباشر'}
                   </Text>
                 </TouchableOpacity>
 
@@ -278,7 +344,7 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
                   onPress={handleResendWhatsapp}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="logo-whatsapp" size={18} color="#ffffff" />
+                  <Ionicons name="logo-whatsapp" size={18} color="#FFFFFF" />
                   <Text style={styles.btnTextWhite}>واتساب</Text>
                 </TouchableOpacity>
               </View>
@@ -286,63 +352,63 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
               <TouchableOpacity
                 style={[
                   styles.closeSecondaryBtn,
-                  { backgroundColor: isDarkMode ? '#27272a' : '#f1f5f9' },
+                  { backgroundColor: colors.inputBg, borderColor: colors.border },
                 ]}
-                onPress={onClose}
+                onPress={handleDismiss}
               >
-                <Text style={[styles.closeSecondaryText, { color: isDarkMode ? '#e2e8f0' : '#475569' }]}>
-                  {lang === 'bn' ? 'বন্ধ করুন' : lang === 'en' ? 'Close' : 'إغلاق النافذة'}
+                <Text style={[styles.closeSecondaryText, { color: colors.textSecondary }]}>
+                  {lang === 'bn' ? 'إغلاق' : lang === 'en' ? 'Close' : 'إغلاق'}
                 </Text>
               </TouchableOpacity>
             </View>
           ) : (
-            /* Action Buttons: Yes, Need Help vs No, I am Safe */
+            /* Action Buttons: Yes, Send Location vs No, I am Safe */
             <View style={styles.buttonsContainer}>
-              {/* YES Button */}
+              {/* Emergency Trigger Button */}
               <TouchableOpacity
                 style={styles.confirmButton}
                 onPress={handleConfirmAccident}
                 activeOpacity={0.85}
               >
-                <MaterialCommunityIcons name="ambulance" size={22} color="#ffffff" style={{ marginHorizontal: 6 }} />
+                <MaterialCommunityIcons name="ambulance" size={22} color="#FFFFFF" style={{ marginHorizontal: 6 }} />
                 <Text style={styles.confirmButtonText}>
                   {lang === 'bn'
-                    ? 'হ্যাঁ, আমি দুর্ঘটনায় পড়েছি - সাহায্য পাঠান'
+                    ? 'জরুরি লোকেশন পাঠান'
                     : lang === 'en'
-                    ? 'Yes, I had an accident - Send Help'
-                    : 'نعم، أحتاج مساعدة طارئة وإرسال موقعي'}
+                    ? 'Send Location for Help'
+                    : 'إرسال موقعي للطوارئ'}
                 </Text>
               </TouchableOpacity>
 
-              {/* NO Button */}
+              {/* Dismiss Button */}
               <TouchableOpacity
                 style={[
                   styles.cancelButton,
                   {
-                    backgroundColor: isDarkMode ? '#27272a' : '#f8fafc',
-                    borderColor: isDarkMode ? '#3f3f46' : '#e2e8f0',
+                    backgroundColor: colors.inputBg,
+                    borderColor: colors.border,
                   },
                 ]}
-                onPress={onClose}
+                onPress={handleDismiss}
                 activeOpacity={0.7}
               >
                 <Ionicons
                   name="shield-checkmark"
                   size={18}
-                  color={isDarkMode ? '#34d399' : '#10b981'}
+                  color={isDarkMode ? '#34D399' : '#059669'}
                   style={{ marginHorizontal: 6 }}
                 />
                 <Text
                   style={[
                     styles.cancelButtonText,
-                    { color: isDarkMode ? '#34d399' : '#059669' },
+                    { color: isDarkMode ? '#34D399' : '#059669' },
                   ]}
                 >
                   {lang === 'bn'
-                    ? 'না, আমি নিরাপদে আছি والحمد لله'
+                    ? 'আমি নিরাপদ আছি'
                     : lang === 'en'
-                    ? 'No, I am safe'
-                    : 'لا، أنا بخير والحمد لله'}
+                    ? 'I am safe'
+                    : 'أنا بخير والحمد لله'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -354,62 +420,79 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
 };
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalRoot: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: 'flex-end',
   },
-  container: {
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000000',
+  },
+  bottomSheet: {
     width: '100%',
-    maxWidth: 390,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    padding: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
     alignItems: 'center',
-    shadowColor: '#ef4444',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 24,
   },
-  lottieContainer: {
-    width: 170,
-    height: 130,
+  dragHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    marginBottom: 8,
+  },
+  lottieWrap: {
+    width: 240,
+    height: 160,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginVertical: 4,
   },
   lottieAnim: {
     width: '100%',
     height: '100%',
   },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 10,
-    lineHeight: 28,
+    marginBottom: 6,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
-    lineHeight: 21,
-    marginBottom: 16,
+    lineHeight: 19,
+    marginBottom: 14,
+    paddingHorizontal: 8,
   },
-  emergencyContactBadge: {
+  emergencyChip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 12,
-    marginBottom: 20,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 16,
   },
-  emergencyContactText: {
-    color: '#ef4444',
+  emergencyChipText: {
+    color: '#EF4444',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 12,
     marginHorizontal: 6,
   },
   buttonsContainer: {
@@ -417,27 +500,27 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   confirmButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: '#DC2626',
     borderRadius: 16,
-    paddingVertical: 15,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#dc2626',
+    shadowColor: '#DC2626',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 5,
   },
   confirmButtonText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
   },
   cancelButton: {
     borderRadius: 16,
-    borderWidth: 1.2,
+    borderWidth: 1,
     paddingVertical: 13,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -449,11 +532,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statusBox: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
     gap: 8,
-    marginVertical: 10,
+    marginVertical: 8,
   },
   statusText: {
     fontSize: 13,
@@ -466,15 +553,14 @@ const styles = StyleSheet.create({
   sentSuccessBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 14,
+    marginBottom: 14,
     gap: 6,
   },
   sentSuccessText: {
-    color: '#10b981',
+    color: '#10B981',
     fontWeight: '700',
     fontSize: 13,
   },
@@ -482,7 +568,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   actionBtn: {
     flex: 1,
@@ -494,13 +580,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   callBtn: {
-    backgroundColor: '#ef4444',
+    backgroundColor: '#EF4444',
   },
   whatsappBtn: {
     backgroundColor: '#25D366',
   },
   btnTextWhite: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
   },
@@ -508,8 +594,9 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 12,
     borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 2,
   },
   closeSecondaryText: {
     fontSize: 13,
