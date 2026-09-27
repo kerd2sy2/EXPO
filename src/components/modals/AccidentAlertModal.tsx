@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { EmployeeProfile, WorkSession, ThemeColors, Language } from '../../types/delegate';
@@ -44,7 +45,6 @@ export const AccidentAlertModal: React.FC<AccidentAlertModalProps> = ({
   const [gpsData, setGpsData] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
@@ -54,22 +54,6 @@ export const AccidentAlertModal: React.FC<AccidentAlertModalProps> = ({
       setStatusMessage('');
       setLoadingLocation(false);
 
-      // Pulse animation for warning ring
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.15,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-
       Animated.spring(scaleAnim, {
         toValue: 1,
         friction: 8,
@@ -77,7 +61,7 @@ export const AccidentAlertModal: React.FC<AccidentAlertModalProps> = ({
         useNativeDriver: true,
       }).start();
     }
-  }, [visible, pulseAnim, scaleAnim]);
+  }, [visible, scaleAnim]);
 
   const handleConfirmAccident = async () => {
     try {
@@ -223,20 +207,15 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
             },
           ]}
         >
-          {/* Header Warning Ring */}
-          <View style={styles.iconContainer}>
-            <Animated.View
-              style={[
-                styles.pulseRing,
-                {
-                  transform: [{ scale: pulseAnim }],
-                  backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2',
-                },
-              ]}
+          {/* Lottie Car Accident Animation */}
+          <View style={styles.lottieContainer}>
+            <LottieView
+              source={require('../../../assets/Lottie/Car accident.json')}
+              autoPlay
+              loop
+              style={styles.lottieAnim}
+              resizeMode="contain"
             />
-            <View style={styles.alertIconCircle}>
-              <MaterialCommunityIcons name="alert-octagon" size={44} color="#ef4444" />
-            </View>
           </View>
 
           {/* Title & Description */}
@@ -395,25 +374,16 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 20,
   },
-  iconContainer: {
-    position: 'relative',
+  lottieContainer: {
+    width: 170,
+    height: 130,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  pulseRing: {
-    position: 'absolute',
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-  },
-  alertIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  lottieAnim: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 20,
