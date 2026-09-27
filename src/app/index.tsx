@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StatusBar,
   ScrollView,
@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Types & Constants
 import {
@@ -56,9 +57,11 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ShiftScreen } from '../screens/ShiftScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
+import { ViolationsScreen } from '../screens/ViolationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { AdminTargetDashboard } from '../screens/target/AdminTargetDashboard';
 import { SupervisorTargetDashboard } from '../screens/target/SupervisorTargetDashboard';
+import { getMyViolationsApi, DelegateViolation } from '../services/api';
 
 // Modals
 import { SuccessShiftModal } from '../components/modals/SuccessShiftModal';
@@ -66,14 +69,19 @@ import { LanguageModal } from '../components/modals/LanguageModal';
 import { QrCodeModal } from '../components/modals/QrCodeModal';
 import { ImagePreviewModal } from '../components/modals/ImagePreviewModal';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
-import { AppUpdateBottomSheet, UpdateModalState } from '../components/modals/AppUpdateBottomSheet';
+import { AppUpdateBottomSheet } from '../components/modals/AppUpdateBottomSheet';
 import { DiagnosticsModal } from '../components/modals/DiagnosticsModal';
 import { BroadcastModal } from '../components/modals/BroadcastModal';
 import { BroadcastHistoryModal } from '../components/modals/BroadcastHistoryModal';
-import { notificationService, BroadcastNotificationItem } from '../services/notificationService';
-import * as Notifications from 'expo-notifications';
+import { PlateScannerModal } from '../components/ui/PlateScannerModal';
+import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
+
+// Modular Hooks
+import { useSessionTimer } from '../hooks/useSessionTimer';
+import { useBroadcasts } from '../hooks/useBroadcasts';
+import { useAppUpdates } from '../hooks/useAppUpdates';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 import { initGlobalErrorLogger } from '../services/errorLogger';
-import * as Updates from 'expo-updates';
 
 // Initialize global crash/error interception immediately on app boot
 initGlobalErrorLogger();
@@ -99,6 +107,7 @@ export default function DelegateApp() {
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [historySessions, setHistorySessions] = useState<WorkSession[]>([]);
   const [selectedHistorySession, setSelectedHistorySession] = useState<WorkSession | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(true);
 
   // Shift Inputs
   const [enteredMotorcycle, setEnteredMotorcycle] = useState('');
@@ -109,6 +118,10 @@ export default function DelegateApp() {
   const [autoKmFetched, setAutoKmFetched] = useState(false);
   const [isOdometerBroken, setIsOdometerBroken] = useState(false);
   const [activeBikeRegistrationImage, setActiveBikeRegistrationImage] = useState<string | null>(null);
+  const [startPlateImage, setStartPlateImage] = useState<string | null>(null);
+  const startPlateImageRef = useRef<string | null>(null);
+  const [isPlateConfirmed, setIsPlateConfirmed] = useState(false);
+  const [isScanningPlate, setIsScanningPlate] = useState(false);
   const isTakingPhotoRef = useRef(false);
   const lastFetchedBikeRef = useRef<string>('');
 
@@ -119,6 +132,27 @@ export default function DelegateApp() {
   const [fuelCost, setFuelCost] = useState('');
   const [endNotes, setEndNotes] = useState('');
 
+  // Violations & Penalties State
+  const [violations, setViolations] = useState<DelegateViolation[]>([]);
+  const [violationsLoading, setViolationsLoading] = useState(false);
+  const [totalViolationsAmount, setTotalViolationsAmount] = useState(0);
+  const [deductedViolationsAmount, setDeductedViolationsAmount] = useState(0);
+
+  const fetchViolations = useCallback(async (empId?: string) => {
+    setViolationsLoading(true);
+    try {
+      const targetId = empId || employee?.id;
+      const res = await getMyViolationsApi(targetId);
+      setViolations(res.data || []);
+      setTotalViolationsAmount(res.total_amount || 0);
+      setDeductedViolationsAmount(res.deducted_amount || 0);
+    } catch (err) {
+      console.warn('[index.tsx] Error fetching violations:', err);
+    } finally {
+      setViolationsLoading(false);
+    }
+  }, [employee?.id]);
+
   // Modals & Popups
   const [showQrModal, setShowQrModal] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
@@ -126,139 +160,58 @@ export default function DelegateApp() {
   const [successModalData, setSuccessModalData] = useState<SuccessModalData | null>(null);
   const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
+  const [showPlateScannerModal, setShowPlateScannerModal] = useState(false);
 
   // Success Sheet Animations
   const sheetTranslateY = useRef(new Animated.Value(600)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const mainScrollRef = useRef<ScrollView>(null);
 
-  // Active Timer
-  const [elapsedTime, setElapsedTime] = useState('00:00:00');
   const [keyboardOffset, setKeyboardOffset] = useState<number>(0);
   const [mainScrollEnabled, setMainScrollEnabled] = useState(true);
 
-  // OTA Updates State (Bottom Sheet Modal)
-  const [updateModalVisible, setUpdateModalVisible] = useState(false);
-  const [updateState, setUpdateState] = useState<UpdateModalState>('CHECKING');
-  const [updateError, setUpdateError] = useState<string>('');
+  // Modular Hooks: Active Shift Timer
+  const { elapsedTime } = useSessionTimer(activeSession);
 
-  // Broadcast Announcements & Polls State
-  const [activeBroadcast, setActiveBroadcast] = useState<BroadcastNotificationItem | null>(null);
-  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
-  const [showBroadcastHistory, setShowBroadcastHistory] = useState(false);
-  const [allBroadcasts, setAllBroadcasts] = useState<BroadcastNotificationItem[]>([]);
-  const [unreadBroadcastsCount, setUnreadBroadcastsCount] = useState(0);
-  const [loadingBroadcastHistory, setLoadingBroadcastHistory] = useState(false);
-  const lastDismissedBroadcastId = useRef<string | null>(null);
+  // Modular Hooks: Over-The-Air Updates
+  const {
+    updateModalVisible,
+    setUpdateModalVisible,
+    updateState,
+    updateError,
+    handleCheckForUpdates,
+    handleApplyUpdate,
+  } = useAppUpdates(isRTL);
 
-  const checkUnreadBroadcasts = async () => {
-    if (!employee?.id) return;
-    try {
-      const unread = await notificationService.getUnreadBroadcasts(employee.id);
-      setUnreadBroadcastsCount(unread.length);
-      if (unread.length > 0) {
-        // Only auto-popup on app open if it is a poll waiting for the employee's vote
-        const pendingPoll = unread.find((b) => b.has_poll && !b.user_vote);
-        if (pendingPoll && pendingPoll.id !== lastDismissedBroadcastId.current) {
-          setActiveBroadcast(pendingPoll);
-          setShowBroadcastModal(true);
-        }
-      }
-    } catch (e) {
-      console.log('Error checking broadcasts:', e);
-    }
-  };
+  // Modular Hooks: Announcements & Survey Polls
+  const {
+    activeBroadcast,
+    setActiveBroadcast,
+    showBroadcastModal,
+    setShowBroadcastModal,
+    showBroadcastHistory,
+    setShowBroadcastHistory,
+    allBroadcasts,
+    unreadBroadcastsCount,
+    loadingBroadcastHistory,
+    handleVoteBroadcast,
+    handleCloseBroadcast,
+    handleOpenNotificationsHistory,
+    handleRefreshNotificationsHistory,
+    handleMarkAllAsRead,
+  } = useBroadcasts(employee);
 
-  useEffect(() => {
-    if (employee?.id) {
-      notificationService.initNotifications(employee.id);
-      checkUnreadBroadcasts();
-      const interval = setInterval(checkUnreadBroadcasts, 35000);
-
-      // Listen to notification clicks from the Android status bar
-      const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-        const bId = response.notification.request.content.data?.broadcastId;
-        if (bId && employee?.id) {
-          notificationService.getAllBroadcasts(employee.id).then((list) => {
-            const found = list.find((b) => b.id === bId);
-            if (found) {
-              setActiveBroadcast(found);
-              setShowBroadcastModal(true);
-            }
-          });
-        }
-      });
-
-      return () => {
-        clearInterval(interval);
-        sub.remove();
-      };
-    }
-  }, [employee?.id]);
-
-  const handleVoteBroadcast = async (broadcastId: string, response: 'AGREE' | 'DISAGREE') => {
-    if (!employee?.id) return;
-    const ok = await notificationService.submitVote(broadcastId, employee.id, response);
-    if (ok) {
-      lastDismissedBroadcastId.current = broadcastId;
-      setShowBroadcastModal(false);
-      setActiveBroadcast(null);
-      setUnreadBroadcastsCount((prev) => Math.max(0, prev - 1));
-      Alert.alert(
-        'تم تسجيل صوتك بنجاح',
-        `شكراً لمشاركتك برأيك (${response === 'AGREE' ? 'موافق' : 'معترض'})`
-      );
-    } else {
-      Alert.alert('تنبيه', 'تعذر تسجيل التصويت، يرجى التحقق من الاتصال بالإنترنت');
-    }
-  };
-
-  const handleCloseBroadcast = async () => {
-    if (activeBroadcast && employee?.id) {
-      lastDismissedBroadcastId.current = activeBroadcast.id;
-      await notificationService.markAsRead(activeBroadcast.id, employee.id);
-      setUnreadBroadcastsCount((prev) => Math.max(0, prev - 1));
-    }
-    setShowBroadcastModal(false);
-    setActiveBroadcast(null);
-  };
-
-  const handleOpenNotificationsHistory = async () => {
-    if (!employee?.id) return;
-    setShowBroadcastHistory(true);
-    setLoadingBroadcastHistory(true);
-    try {
-      const list = await notificationService.getAllBroadcasts(employee.id);
-      setAllBroadcasts(list);
-      const unread = list.filter((b) => !b.is_read).length;
-      setUnreadBroadcastsCount(unread);
-    } finally {
-      setLoadingBroadcastHistory(false);
-    }
-  };
-
-  const handleRefreshNotificationsHistory = async () => {
-    if (!employee?.id) return;
-    try {
-      const list = await notificationService.getAllBroadcasts(employee.id);
-      setAllBroadcasts(list);
-      const unread = list.filter((b) => !b.is_read).length;
-      setUnreadBroadcastsCount(unread);
-    } catch (e) {
-      console.log('Error refreshing notifications history:', e);
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    if (!employee?.id) return;
-    try {
-      await notificationService.markAllAsRead(employee.id);
-      setAllBroadcasts((prev) => prev.map((b) => ({ ...b, is_read: true })));
-      setUnreadBroadcastsCount(0);
-    } catch (e) {
-      console.log('Error marking all as read:', e);
-    }
-  };
+  // Modular Hooks: Direct Shift Notification Routing
+  usePushNotifications({
+    employee,
+    setCurrentTab,
+    mainScrollRef,
+    setHistorySessions,
+    setSelectedHistorySession,
+    setLoadingHistory,
+    setActiveBroadcast,
+    setShowBroadcastModal,
+  });
 
   // Theme Colors
   const colors: ThemeColors = isDarkMode
@@ -328,35 +281,7 @@ export default function DelegateApp() {
     return () => sub.remove();
   }, [employee?.id]);
 
-  // Direct navigation to approved shift details modal when clicking shift notification
-  useEffect(() => {
-    const notifSub = Notifications.addNotificationResponseReceivedListener(async (response) => {
-      const data = response.notification.request.content.data as any;
-      if (data?.type === 'SESSION_APPROVED' || data?.sessionId) {
-        setCurrentTab('history');
-        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-        const sid = data.sessionId;
-        if (sid) {
-          const match = historySessions.find((s) => s.id === sid);
-          if (match) {
-            setSelectedHistorySession(match);
-          } else if (employee?.id) {
-            try {
-              const fresh = await workApi.getMySessions(employee.id);
-              if (Array.isArray(fresh)) {
-                setHistorySessions(fresh as WorkSession[]);
-                const m = fresh.find((s) => s.id === sid) || fresh[0];
-                if (m) setSelectedHistorySession(m);
-              }
-            } catch (e) {
-              console.log('Error opening session from notification:', e);
-            }
-          }
-        }
-      }
-    });
-    return () => notifSub.remove();
-  }, [historySessions, employee?.id]);
+
 
   // Listen for unrecoverable session expiry (when token refresh fails)
   useEffect(() => {
@@ -413,31 +338,15 @@ export default function DelegateApp() {
     return () => backHandler.remove();
   }, [currentTab, previewPhoto, showQrModal, showLangModal, successModalData]);
 
-  // Update Elapsed Time Interval
+
+
+  // Keep active session in sync with local cache instantly
   useEffect(() => {
-    let interval: any = null;
-    if (activeSession && activeSession.start_time) {
-      const updateTimer = () => {
-        const start = new Date(activeSession.start_time).getTime();
-        const now = new Date().getTime();
-        const diff = Math.max(0, now - start);
-
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-        setElapsedTime(
-          `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-        );
-      };
-      updateTimer();
-      interval = setInterval(updateTimer, 1000);
-    } else {
-      setElapsedTime('00:00:00');
+    if (activeSession && activeSession.status === 'ACTIVE') {
+      AsyncStorage.setItem('@aams_cached_active_session', JSON.stringify(activeSession)).catch(() => {});
+    } else if (!activeSession) {
+      AsyncStorage.removeItem('@aams_cached_active_session').catch(() => {});
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
   }, [activeSession]);
 
   // Dynamic Keyboard Height Listener for Seamless Scroll Padding
@@ -460,16 +369,38 @@ export default function DelegateApp() {
     };
   }, []);
 
-  // Auto-fetch Last End KM when bike changes
-  useEffect(() => {
-    const fetchLastKm = async () => {
-      const bike = enteredMotorcycle.trim();
-      if (!bike || activeSession || !employee) return;
-      if (lastFetchedBikeRef.current === bike) return;
-      lastFetchedBikeRef.current = bike;
+  // Auto-fetch Last End KM and registration image when entered motorcycle changes (with debounce)
+  const bikeFetchSeqRef = useRef<number>(0);
 
+  useEffect(() => {
+    if (activeSession || !employee) return;
+    const rawBike = enteredMotorcycle.trim();
+    const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const bike = rawBike.replace(/[٠-٩]/g, (w) => `${arabicDigits.indexOf(w)}`).trim();
+
+    if (!bike) {
+      lastFetchedBikeRef.current = '';
+      setStartKm('');
+      setAutoKmFetched(false);
+      setIsOdometerBroken(false);
+      setActiveBikeRegistrationImage(null);
+      return;
+    }
+
+    const currentSeq = ++bikeFetchSeqRef.current;
+    const timer = setTimeout(async () => {
       try {
         const res = await workApi.getLastKM(employee.id, bike);
+        if (bikeFetchSeqRef.current !== currentSeq) return; // Stale request, ignore
+
+        lastFetchedBikeRef.current = bike;
+
+        if (res?.registration_image) {
+          setActiveBikeRegistrationImage(res.registration_image);
+        } else {
+          setActiveBikeRegistrationImage(null);
+        }
+
         if (res?.is_odometer_broken) {
           setIsOdometerBroken(true);
           setStartKm('0');
@@ -485,11 +416,13 @@ export default function DelegateApp() {
           }
         }
       } catch (err) {
+        if (bikeFetchSeqRef.current !== currentSeq) return;
         setIsOdometerBroken(false);
         console.log('No prior KM found for bike:', bike);
       }
-    };
-    fetchLastKm();
+    }, 280);
+
+    return () => clearTimeout(timer);
   }, [enteredMotorcycle, activeSession, employee?.id]);
 
   // Check broken odometer and registration image for active session
@@ -523,82 +456,14 @@ export default function DelegateApp() {
     } else {
       setActiveBikeRegistrationImage(null);
     }
-  }, [activeSession, employee?.id]);
+  }, [activeSession?.id, activeSession?.motorcycle_number, employee?.id]);
 
-  // OTA Updates Handler (Background check on launch + Interactive manual check)
-  const handleCheckForUpdates = async (interactive = false) => {
-    if (__DEV__ || !Updates.isEnabled) {
-      if (interactive) {
-        setUpdateState('CHECKING');
-        setUpdateModalVisible(true);
-        setTimeout(() => {
-          setUpdateState('UP_TO_DATE');
-        }, 1200);
-      }
-      return;
-    }
 
-    try {
-      if (interactive) {
-        setUpdateState('CHECKING');
-        setUpdateModalVisible(true);
-      }
-      const startTime = Date.now();
-      const check = await Updates.checkForUpdateAsync().catch((e) => {
-        console.log('checkForUpdateAsync safe catch:', e);
-        return { isAvailable: false } as Updates.UpdateCheckResult;
-      });
-      const elapsed = Date.now() - startTime;
-      if (interactive && elapsed < 900) {
-        await new Promise((resolve) => setTimeout(resolve, 900 - elapsed));
-      }
-
-      if (check && check.isAvailable) {
-        if (interactive) {
-          setUpdateState('DOWNLOADING');
-          setUpdateModalVisible(true);
-        }
-        // Download update quietly in the background without forcing popup
-        await Updates.fetchUpdateAsync();
-        setUpdateState('READY');
-        setUpdateModalVisible(true);
-      } else if (interactive) {
-        setUpdateState('UP_TO_DATE');
-        setUpdateModalVisible(true);
-      }
-    } catch (err: any) {
-      console.log('Update check error:', err);
-      if (interactive) {
-        setUpdateState('ERROR');
-        setUpdateError(err?.message || (isRTL ? 'تعذر الاتصال بخوادم التحديث' : 'Update server unavailable'));
-        setUpdateModalVisible(true);
-      }
-    }
-  };
-
-  const handleApplyUpdate = async () => {
-    try {
-      await Updates.reloadAsync();
-    } catch (e) {
-      console.log('Update reload error:', e);
-      setUpdateModalVisible(false);
-    }
-  };
-
-  // Background check for update 8 seconds after app starts so startup is completely undisturbed
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handleCheckForUpdates(false);
-    }, 8000);
-    return () => clearTimeout(timer);
-  }, []);
 
   const checkSession = async (isSilentBackground: boolean = false) => {
     try {
       // 1. Fast Token Check - If no token exists at all, immediately show login screen in < 5ms
       const token = await loadStoredToken();
-      const cached = await getCachedUser();
-
       if (!token) {
         if (!isSilentBackground) {
           setAdminUser(null);
@@ -609,6 +474,13 @@ export default function DelegateApp() {
       }
 
       // 2. Instant Render from Local Cache (< 10ms Cold Start!)
+      // Load cached user, active session, and history ALL TOGETHER before toggling loading state!
+      const [cached, rawActiveSession, rawHistory] = await Promise.all([
+        getCachedUser(),
+        AsyncStorage.getItem('@aams_cached_active_session'),
+        AsyncStorage.getItem('@aams_cached_history_sessions'),
+      ]);
+
       if (cached) {
         if (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN') {
           setAdminUser(cached);
@@ -619,14 +491,39 @@ export default function DelegateApp() {
         if (cached.id) {
           setAdminUser(null);
           setEmployee(cached);
+
+          // Restore cached active shift session immediately on the FIRST render frame
+          if (rawActiveSession) {
+            try {
+              const parsed = JSON.parse(rawActiveSession);
+              if (parsed && parsed.status === 'ACTIVE' && parsed.employee_id === cached.id) {
+                setActiveSession(parsed);
+              }
+            } catch {}
+          }
+
           if (cached.motorcycle_number && !isSilentBackground) {
             setEnteredMotorcycle((prev) => prev || cached.motorcycle_number);
           }
-          // Immediately hide loading spinner so user sees dashboard right away!
+
+          // Restore cached shift history instantly (< 5ms)
+          if (rawHistory) {
+            try {
+              const parsed = JSON.parse(rawHistory);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setHistorySessions(parsed);
+                setLoadingHistory(false);
+              }
+            } catch {}
+          }
+
+          // Immediately hide loading spinner only after activeSession and employee are primed!
           setLoading(false);
-          // Fetch shift session and history in background
+
+          // Fetch shift session, history, and violations in background
           fetchActiveSession(cached.id);
           fetchHistory(cached.id);
+          fetchViolations(cached.id);
         }
       }
 
@@ -671,6 +568,7 @@ export default function DelegateApp() {
           }
           fetchActiveSession(merged.id);
           fetchHistory(merged.id);
+          fetchViolations(merged.id);
         }
       }).catch((err) => {
         console.log('Background session refresh notice:', err);
@@ -687,14 +585,21 @@ export default function DelegateApp() {
     try {
       const active = await workApi.getActiveSession(employeeId);
       if (active && active.status === 'ACTIVE') {
-        setActiveSession(active as WorkSession);
+        setActiveSession((prev) => {
+          // If already active with the same session, preserve client start_time so timer doesn't stutter/reset
+          if (prev && prev.id === active.id && prev.start_time) {
+            return { ...active, start_time: prev.start_time };
+          }
+          return active as WorkSession;
+        });
         setOrdersCount((prev) => prev || (active.orders_count ? String(active.orders_count) : ''));
+        AsyncStorage.setItem('@aams_cached_active_session', JSON.stringify(active)).catch(() => {});
       } else {
         setActiveSession(null);
+        AsyncStorage.removeItem('@aams_cached_active_session').catch(() => {});
       }
     } catch (err) {
       console.log('Error fetching active session:', err);
-      setActiveSession(null);
     }
   };
 
@@ -703,9 +608,12 @@ export default function DelegateApp() {
       const history = await workApi.getMySessions(employeeId);
       if (Array.isArray(history)) {
         setHistorySessions(history as WorkSession[]);
+        AsyncStorage.setItem('@aams_cached_history_sessions', JSON.stringify(history)).catch(() => {});
       }
     } catch (err) {
       console.log('Error fetching shift history:', err);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -729,6 +637,7 @@ export default function DelegateApp() {
           }),
           fetchActiveSession(employee.id),
           fetchHistory(employee.id),
+          fetchViolations(employee.id),
         ]);
       } else {
         await checkSession();
@@ -1052,6 +961,37 @@ export default function DelegateApp() {
     }
   };
 
+  // Smart Plate Camera Scan Handlers
+  const handleScanPlate = () => {
+    setShowPlateScannerModal(true);
+  };
+
+  const handleProcessPlateScan = async (imageUri: string, base64Uri: string, plateData?: any) => {
+    setIsScanningPlate(true);
+    startPlateImageRef.current = base64Uri;
+    setStartPlateImage(imageUri);
+
+    if (plateData && (plateData.full_plate || plateData.digits)) {
+      const combined = plateData.full_plate || (plateData.letters ? `${plateData.digits} ${plateData.letters}` : plateData.digits);
+      setEnteredMotorcycle(combined || '');
+      setIsScanningPlate(false);
+      return;
+    }
+
+    try {
+      const scanRes = await workApi.scanPlate(base64Uri);
+      if (scanRes && scanRes.full_plate) {
+        setEnteredMotorcycle(scanRes.full_plate);
+      } else if (scanRes && scanRes.digits) {
+        setEnteredMotorcycle(scanRes.letters ? `${scanRes.digits} ${scanRes.letters}` : scanRes.digits);
+      }
+    } catch (scanErr) {
+      console.error('Plate scan API error:', scanErr);
+    } finally {
+      setIsScanningPlate(false);
+    }
+  };
+
   // Start Shift Handler
   const handleStartShift = async () => {
     if (!employee) return;
@@ -1110,6 +1050,9 @@ export default function DelegateApp() {
     setStartKm('');
     startKmImageRef.current = null;
     setStartKmImage(null);
+    startPlateImageRef.current = null;
+    setStartPlateImage(null);
+    setIsPlateConfirmed(false);
     setStartNotes('');
     setAutoKmFetched(false);
 
@@ -1142,7 +1085,10 @@ export default function DelegateApp() {
       });
 
       if (newSession && newSession.id) {
-        setActiveSession(newSession);
+        setActiveSession({
+          ...newSession,
+          start_time: optimisticSession.start_time || newSession.start_time,
+        });
         fetchHistory(employee.id).catch(() => {});
         workApi.getMe().then((me) => {
           if (me) setEmployee(me);
@@ -1399,62 +1345,70 @@ export default function DelegateApp() {
   // Not Logged In -> Login Screen
   if (!employee && !adminUser) {
     return (
-      <LoginScreen
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        t={t}
-        lang={lang}
-        onSetLang={handleSetLanguage}
-        onLogin={handleLogin}
-        onOtpSuccess={handleOtpSuccess}
-        loginError={loginError}
-        submitting={submitting}
-      />
+      <ModuleErrorBoundary moduleName="تسجيل الدخول" colors={colors}>
+        <LoginScreen
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          t={t}
+          lang={lang}
+          onSetLang={handleSetLanguage}
+          onLogin={handleLogin}
+          onOtpSuccess={handleOtpSuccess}
+          loginError={loginError}
+          submitting={submitting}
+        />
+      </ModuleErrorBoundary>
     );
   }
 
   // Admin Dashboard Portal
   if (adminUser && (adminUser.role === 'ADMIN' || adminUser.role === 'SUPER_ADMIN')) {
     return (
-      <AdminTargetDashboard
-        user={adminUser}
-        onLogout={handleAdminLogout}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-      />
+      <ModuleErrorBoundary moduleName="لوحة تحكم الإدارة" colors={colors}>
+        <AdminTargetDashboard
+          user={adminUser}
+          onLogout={handleAdminLogout}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+        />
+      </ModuleErrorBoundary>
     );
   }
 
   // Supervisor Dashboard Portal
   if (adminUser && adminUser.role === 'SUPERVISOR') {
     return (
-      <SupervisorTargetDashboard
-        user={adminUser}
-        onLogout={handleAdminLogout}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-      />
+      <ModuleErrorBoundary moduleName="لوحة تحكم المشرف" colors={colors}>
+        <SupervisorTargetDashboard
+          user={adminUser}
+          onLogout={handleAdminLogout}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+        />
+      </ModuleErrorBoundary>
     );
   }
 
   // Delegate App - must have authenticated employee
   if (!employee) {
     return (
-      <LoginScreen
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        t={t}
-        lang={lang}
-        onSetLang={handleSetLanguage}
-        onLogin={handleLogin}
-        onOtpSuccess={handleOtpSuccess}
-        loginError={loginError}
-        submitting={submitting}
-      />
+      <ModuleErrorBoundary moduleName="تسجيل الدخول" colors={colors}>
+        <LoginScreen
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          t={t}
+          lang={lang}
+          onSetLang={handleSetLanguage}
+          onLogin={handleLogin}
+          onOtpSuccess={handleOtpSuccess}
+          loginError={loginError}
+          submitting={submitting}
+        />
+      </ModuleErrorBoundary>
     );
   }
 
@@ -1478,18 +1432,21 @@ export default function DelegateApp() {
                 {empPhotoUrl ? (
                   <Image source={{ uri: empPhotoUrl }} style={styles.headerAvatarImg} />
                 ) : (
-                  <Ionicons name="person" size={28} color={colors.primary} />
+                  <Ionicons name="person" size={20} color={colors.primary} />
                 )}
               </View>
               <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                <Text
-                  style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit={true}
-                  minimumFontScale={0.75}
-                >
-                  {employee.name}
-                </Text>
+                <View style={[styles.headerNameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="person-outline" size={13} color={colors.primary} />
+                  <Text
+                    style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.75}
+                  >
+                    {employee.name}
+                  </Text>
+                </View>
                 <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Ionicons name="card-outline" size={13} color={colors.primary} />
                   <Text style={[styles.headerUserNationalId, { color: colors.textSecondary }]}>
@@ -1500,28 +1457,12 @@ export default function DelegateApp() {
             </TouchableOpacity>
 
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              {/* Notification Center Bell (Hidden temporarily) */}
-              {/*
-              <TouchableOpacity
-                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-                onPress={handleOpenNotificationsHistory}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="notifications-outline" size={24} color={colors.primary} />
-                {unreadBroadcastsCount > 0 ? (
-                  <View style={styles.notifBadge}>
-                    <Text style={styles.notifBadgeText}>{unreadBroadcastsCount}</Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-              */}
-
               <TouchableOpacity
                 style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
                 onPress={() => setShowQrModal(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="qr-code-outline" size={26} color={colors.primary} />
+                <Ionicons name="qr-code-outline" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </>
@@ -1546,6 +1487,8 @@ export default function DelegateApp() {
                   ? (activeSession ? t.endShiftTitle : t.startShiftTitle)
                   : currentTab === 'history'
                   ? t.historyTitle
+                  : currentTab === 'violations'
+                  ? (t.violationsTitle || 'سجل المخالفات والجزاءات')
                   : t.profileTitle}
               </Text>
               <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
@@ -1570,112 +1513,154 @@ export default function DelegateApp() {
             { paddingBottom: 24 + (keyboardOffset > 0 ? keyboardOffset + 24 : 0) },
           ]}
           refreshControl={
-            currentTab !== 'profile' ? (
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
-              />
-            ) : undefined
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
           }
         >
           {currentTab === 'home' && (
-            <HomeScreen
-              employee={employee}
-              activeSession={activeSession}
-              historySessions={historySessions}
-              totalApprovedOrdersCount={totalApprovedOrdersCount}
-              monthlyTarget={monthlyTarget}
-              isTargetAchieved={isTargetAchieved}
-              expectedSalary={expectedSalary}
-              targetProgressPct={targetProgressPct}
-              remainingOrdersToTarget={remainingOrdersToTarget}
-              elapsedTime={elapsedTime}
-              colors={colors}
-              isDarkMode={isDarkMode}
-              isRTL={isRTL}
-              t={t}
-              onNavigateToTab={setCurrentTab}
-            />
+            <ModuleErrorBoundary moduleName="الرئيسية" colors={colors} onReset={onRefresh}>
+              <HomeScreen
+                employee={employee}
+                activeSession={activeSession}
+                historySessions={historySessions}
+                totalApprovedOrdersCount={totalApprovedOrdersCount}
+                monthlyTarget={monthlyTarget}
+                isTargetAchieved={isTargetAchieved}
+                expectedSalary={expectedSalary}
+                targetProgressPct={targetProgressPct}
+                remainingOrdersToTarget={remainingOrdersToTarget}
+                elapsedTime={elapsedTime}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                t={t}
+                onNavigateToTab={setCurrentTab}
+              />
+            </ModuleErrorBoundary>
           )}
 
           {currentTab === 'shift' && (
-            <ShiftScreen
-              employee={employee}
-              activeSession={activeSession}
-              enteredMotorcycle={enteredMotorcycle}
-              setEnteredMotorcycle={setEnteredMotorcycle}
-              startKm={startKm}
-              setStartKm={setStartKm}
-              autoKmFetched={autoKmFetched}
-              isOdometerBroken={isOdometerBroken}
-              startKmImage={startKmImage}
-              startNotes={startNotes}
-              setStartNotes={setStartNotes}
-              endKm={endKm}
-              setEndKm={setEndKm}
-              endKmImage={endKmImage}
-              ordersCount={ordersCount}
-              setOrdersCount={setOrdersCount}
-              fuelCost={fuelCost}
-              setFuelCost={setFuelCost}
-              endNotes={endNotes}
-              setEndNotes={setEndNotes}
-              calculatedDistance={calculatedDistance}
-              elapsedTime={elapsedTime}
-              onScrollToInput={(y) => mainScrollRef.current?.scrollTo({ y, animated: true })}
-              submitting={submitting}
-              onTakeOdometerPhoto={takeOdometerPhoto}
-              onStartShift={handleStartShift}
-              onEndShift={handleEndShift}
-              onPreviewPhoto={setPreviewPhoto}
-              formatTimeStr={formatTimeStr}
-              colors={colors}
-              isDarkMode={isDarkMode}
-              isRTL={isRTL}
-              t={t}
-            />
+            <ModuleErrorBoundary moduleName="إدارة الشفت" colors={colors} onReset={() => checkSession(false)}>
+              <ShiftScreen
+                employee={employee}
+                activeSession={activeSession}
+                enteredMotorcycle={enteredMotorcycle}
+                setEnteredMotorcycle={setEnteredMotorcycle}
+                startKm={startKm}
+                setStartKm={setStartKm}
+                autoKmFetched={autoKmFetched}
+                isOdometerBroken={isOdometerBroken}
+                startKmImage={startKmImage}
+                startPlateImage={startPlateImage}
+                isPlateConfirmed={isPlateConfirmed}
+                setIsPlateConfirmed={setIsPlateConfirmed}
+                startNotes={startNotes}
+                setStartNotes={setStartNotes}
+                endKm={endKm}
+                setEndKm={setEndKm}
+                endKmImage={endKmImage}
+                ordersCount={ordersCount}
+                setOrdersCount={setOrdersCount}
+                fuelCost={fuelCost}
+                setFuelCost={setFuelCost}
+                endNotes={endNotes}
+                setEndNotes={setEndNotes}
+                calculatedDistance={calculatedDistance}
+                elapsedTime={elapsedTime}
+                onScrollToInput={(y) => mainScrollRef.current?.scrollTo({ y, animated: true })}
+                submitting={submitting}
+                onTakeOdometerPhoto={takeOdometerPhoto}
+                onScanPlate={handleScanPlate}
+                isScanningPlate={isScanningPlate}
+                onStartShift={handleStartShift}
+                onEndShift={handleEndShift}
+                onPreviewPhoto={setPreviewPhoto}
+                formatTimeStr={formatTimeStr}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                t={t}
+              />
+            </ModuleErrorBoundary>
           )}
 
           {currentTab === 'history' && (
-            <HistoryScreen
-              historySessions={historySessions}
-              selectedSession={selectedHistorySession}
-              onSelectSession={setSelectedHistorySession}
-              onPreviewPhoto={setPreviewPhoto}
-              formatDateStr={formatDateStr}
-              formatTimeStr={formatTimeStr}
+            <ModuleErrorBoundary
+              moduleName="سجل الشفتات"
               colors={colors}
-              isDarkMode={isDarkMode}
-              isRTL={isRTL}
-              t={t}
-            />
+              onReset={() => {
+                if (employee?.id) fetchHistory(employee.id);
+              }}
+            >
+              <HistoryScreen
+                historySessions={historySessions}
+                loading={loadingHistory}
+                selectedSession={selectedHistorySession}
+                onSelectSession={setSelectedHistorySession}
+                onPreviewPhoto={setPreviewPhoto}
+                formatDateStr={formatDateStr}
+                formatTimeStr={formatTimeStr}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                t={t}
+              />
+            </ModuleErrorBoundary>
+          )}
+
+          {currentTab === 'violations' && (
+            <ModuleErrorBoundary
+              moduleName="المخالفات والجزاءات"
+              colors={colors}
+              onReset={() => {
+                if (employee?.id) fetchViolations(employee.id);
+              }}
+            >
+              <ViolationsScreen
+                violations={violations}
+                loading={violationsLoading}
+                totalAmount={totalViolationsAmount}
+                deductedAmount={deductedViolationsAmount}
+                onRefresh={() => {
+                  if (employee?.id) fetchViolations(employee.id);
+                }}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                t={t}
+              />
+            </ModuleErrorBoundary>
           )}
 
           {currentTab === 'profile' && (
-            <ProfileScreen
-              employee={employee}
-              activeSession={activeSession}
-              activeBikeRegistrationImage={activeBikeRegistrationImage}
-              empPhotoUrl={empPhotoUrl}
-              lang={lang}
-              onOpenQrModal={() => setShowQrModal(true)}
-              onOpenLangModal={() => setShowLangModal(true)}
-              onCheckForUpdates={() => handleCheckForUpdates(true)}
-              onOpenDiagnostics={() => setShowDiagnosticsModal(true)}
-              setParentScrollEnabled={setMainScrollEnabled}
-              onLogout={handleLogout}
-              onPreviewPhoto={setPreviewPhoto}
-              onUpdateEmployee={async (updated) => {
-                setEmployee(updated);
-                await saveCachedUser(updated);
-              }}
-              colors={colors}
-              isDarkMode={isDarkMode}
-              isRTL={isRTL}
-              t={t}
-            />
+            <ModuleErrorBoundary moduleName="الملف الشخصي" colors={colors} onReset={() => checkSession(false)}>
+              <ProfileScreen
+                employee={employee}
+                activeSession={activeSession}
+                activeBikeRegistrationImage={activeBikeRegistrationImage}
+                empPhotoUrl={empPhotoUrl}
+                lang={lang}
+                onOpenQrModal={() => setShowQrModal(true)}
+                onOpenLangModal={() => setShowLangModal(true)}
+                onCheckForUpdates={() => handleCheckForUpdates(true)}
+                onOpenDiagnostics={() => setShowDiagnosticsModal(true)}
+                setParentScrollEnabled={setMainScrollEnabled}
+                onLogout={handleLogout}
+                onPreviewPhoto={setPreviewPhoto}
+                onUpdateEmployee={async (updated) => {
+                  setEmployee(updated);
+                  await saveCachedUser(updated);
+                }}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                t={t}
+              />
+            </ModuleErrorBoundary>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -1801,6 +1786,14 @@ export default function DelegateApp() {
         onMarkAllAsRead={handleMarkAllAsRead}
         loading={loadingBroadcastHistory}
       />
+
+      {/* Smart Saudi Plate Live Scanner Modal */}
+      <PlateScannerModal
+        visible={showPlateScannerModal}
+        onClose={() => setShowPlateScannerModal(false)}
+        onScanned={handleProcessPlateScan}
+        isProcessing={isScanningPlate}
+      />
     </SafeAreaView>
   );
 }
@@ -1829,9 +1822,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerAvatar: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1844,7 +1837,11 @@ const styles = StyleSheet.create({
   headerUserText: {
     flex: 1,
     justifyContent: 'center',
-    gap: 4,
+    gap: 3,
+  },
+  headerNameRow: {
+    alignItems: 'center',
+    gap: 5,
   },
   headerUserName: {
     fontSize: 15,

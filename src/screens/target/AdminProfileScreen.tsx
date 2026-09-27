@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
   StyleSheet,
   Alert,
   Modal,
@@ -228,11 +229,29 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
     );
   }
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (onResetData) onResetData();
+    } catch {}
+    setTimeout(() => setRefreshing(false), 600);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* 1. Profile Hero Card (Identical structure to Delegate Profile) */}
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>

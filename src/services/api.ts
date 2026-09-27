@@ -673,6 +673,51 @@ export const saveStoredLanguage = async (l: 'ar' | 'en' | 'bn'): Promise<void> =
   }
 };
 
+export interface DelegateViolation {
+  id: string;
+  violation_number: string;
+  employee_id?: string;
+  vehicle_plate?: string;
+  amount: number;
+  reason: string;
+  violation_date: string;
+  city?: string;
+  status: 'RECORDED' | 'DEDUCTED' | 'DISPUTED' | 'PAID' | string;
+  notes?: string;
+  created_at?: string;
+}
 
+export interface ViolationsApiResponse {
+  data: DelegateViolation[];
+  total: number;
+  total_amount: number;
+  deducted_amount: number;
+  total_count: number;
+  page?: number;
+  limit?: number;
+}
 
-
+export const getMyViolationsApi = async (employeeId?: string): Promise<ViolationsApiResponse> => {
+  try {
+    const query = employeeId ? `?employee_id=${employeeId}&limit=100` : `?limit=100`;
+    const res = await apiRequest(`/violations${query}`, {
+      method: 'GET',
+    });
+    return {
+      data: res?.data || [],
+      total: res?.total || 0,
+      total_amount: res?.total_amount || 0,
+      deducted_amount: res?.deducted_amount || 0,
+      total_count: res?.total_count || 0,
+    };
+  } catch (err) {
+    console.warn('[getMyViolationsApi] Error fetching violations:', err);
+    return {
+      data: [],
+      total: 0,
+      total_amount: 0,
+      deducted_amount: 0,
+      total_count: 0,
+    };
+  }
+};

@@ -11,6 +11,7 @@ import { ShiftDetailsModal } from '../components/modals/ShiftDetailsModal';
 
 interface HistoryScreenProps {
   historySessions: WorkSession[];
+  loading?: boolean;
   selectedSession?: WorkSession | null;
   onSelectSession?: (session: WorkSession | null) => void;
   onPreviewPhoto: (photo: PreviewPhotoData) => void;
@@ -24,6 +25,7 @@ interface HistoryScreenProps {
 
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   historySessions,
+  loading = false,
   selectedSession,
   onSelectSession,
   onPreviewPhoto,
@@ -40,7 +42,36 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
   return (
     <View style={styles.tabContainer}>
-      {historySessions.length === 0 ? (
+      {loading && historySessions.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          {[1, 2, 3].map((k) => (
+            <View
+              key={k}
+              style={[
+                styles.premiumHistoryCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  opacity: 0.7,
+                },
+              ]}
+            >
+              <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.dateGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={[styles.dateIconCircle, { backgroundColor: colors.inputBg }]} />
+                  <View style={[styles.skeletonLine, { width: 100, backgroundColor: colors.inputBg }]} />
+                </View>
+                <View style={[styles.skeletonBadge, { backgroundColor: colors.inputBg }]} />
+              </View>
+              <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.statBox, { backgroundColor: colors.inputBg, borderColor: colors.border, height: 62 }]} />
+                <View style={[styles.statBox, { backgroundColor: colors.inputBg, borderColor: colors.border, height: 62 }]} />
+                <View style={[styles.statBox, { backgroundColor: colors.inputBg, borderColor: colors.border, height: 62 }]} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : historySessions.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="receipt-outline" size={44} color={colors.textSecondary} />
           <Text style={[styles.emptyCardText, { color: colors.textSecondary }]}>
@@ -287,5 +318,17 @@ const styles = StyleSheet.create({
   statTitle: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    gap: 0,
+  },
+  skeletonLine: {
+    height: 14,
+    borderRadius: 7,
+  },
+  skeletonBadge: {
+    width: 68,
+    height: 22,
+    borderRadius: 11,
   },
 });

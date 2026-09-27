@@ -17,6 +17,9 @@
       "googleServicesFile": "./google-services.json",
       "allowBackup": false,
       "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
         "FOREGROUND_SERVICE",
         "POST_NOTIFICATIONS",
         "USE_FULL_SCREEN_INTENT",
@@ -39,6 +42,18 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "السماح لتطبيق AAMS باستخدام الكاميرا لمسح لوحات الدبابات وعدادات المسافات بالذكاء الاصطناعي."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "السماح بالوصول لمعرض الصور لتحميل وتوثيق صور العمل."
+        }
+      ],
       [
         "expo-splash-screen",
         {

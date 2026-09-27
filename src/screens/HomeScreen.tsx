@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmployeeProfile, WorkSession, TabType, ThemeColors } from '../types/delegate';
+import { getMyViolationsApi, DelegateViolation } from '../services/api';
 
 interface HomeScreenProps {
   employee: EmployeeProfile;
@@ -43,6 +44,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   t,
   onNavigateToTab,
 }) => {
+  const [violations, setViolations] = useState<DelegateViolation[]>([]);
+  const [violationsLoading, setViolationsLoading] = useState(false);
+  const [totalViolationsAmount, setTotalViolationsAmount] = useState(0);
+  const [deductedViolationsAmount, setDeductedViolationsAmount] = useState(0);
+
+  const fetchViolations = useCallback(async () => {
+    setViolationsLoading(true);
+    try {
+      const res = await getMyViolationsApi(employee?.id);
+      setViolations(res.data || []);
+      setTotalViolationsAmount(res.total_amount || 0);
+      setDeductedViolationsAmount(res.deducted_amount || 0);
+    } catch (err) {
+      console.warn('[HomeScreen] Error fetching violations:', err);
+    } finally {
+      setViolationsLoading(false);
+    }
+  }, [employee?.id]);
+
+  useEffect(() => {
+    fetchViolations();
+  }, [fetchViolations]);
+
   const isDifferentBike = Boolean(
     activeSession &&
     activeSession.motorcycle_number &&
@@ -264,6 +288,55 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
         <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
       </TouchableOpacity>
+
+      {/* 3. Violations & Penalties Quick Access (المخالفات والجزاءات) */}
+      <TouchableOpacity
+        style={[
+          styles.quickCardRow,
+          {
+            backgroundColor: colors.card,
+            borderColor: violations.length > 0 ? (isDarkMode ? 'rgba(239, 68, 68, 0.4)' : '#FECACA') : colors.border,
+            borderWidth: violations.length > 0 ? 1.2 : 1,
+            flexDirection: isRTL ? 'row-reverse' : 'row',
+          },
+        ]}
+        onPress={() => onNavigateToTab('violations')}
+      >
+        <View
+          style={[
+            styles.quickCardIconCircle,
+            {
+              backgroundColor: violations.length > 0
+                ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2')
+                : (isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5'),
+            },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={violations.length > 0 ? 'shield-alert-outline' : 'shield-check-outline'}
+            size={24}
+            color={violations.length > 0 ? (isDarkMode ? '#F87171' : '#DC2626') : (isDarkMode ? '#34D399' : '#059669')}
+          />
+        </View>
+        <View style={styles.quickCardTextCol}>
+          <View style={[styles.quickCardTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+              {t.quickViolationsTitle || 'المخالفات والجزاءات'}
+            </Text>
+            {violations.length > 0 ? (
+              <View style={[styles.violationCountBadge, { backgroundColor: '#EF4444' }]}>
+                <Text style={styles.violationCountText}>{violations.length}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+            {violations.length > 0
+              ? `${violations.length} مخالفة مسجلة • إجمالي ${totalViolationsAmount.toLocaleString()} ر.س`
+              : (t.noViolationsSub || 'سجلك نظيف! لا توجد مخالفات مسجلة')}
+          </Text>
+        </View>
+        <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -387,10 +460,26 @@ const styles = StyleSheet.create({
   quickCardTextCol: {
     flex: 1,
   },
+  quickCardTitleRow: {
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
   quickCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    marginBottom: 2,
+  },
+  violationCountBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  violationCountText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
   },
   quickCardSub: {
     fontSize: 12,

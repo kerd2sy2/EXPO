@@ -209,6 +209,21 @@ export const workApi = {
     }
   },
 
+  // Smart Plate Scanner OCR
+  scanPlate: async (imageBase64: string): Promise<{ digits: string; letters: string; full_plate: string; confidence?: number } | null> => {
+    try {
+      const data = await apiRequest<{ digits: string; letters: string; full_plate: string; confidence?: number }>('/work/scan-plate', {
+        method: 'POST',
+        body: JSON.stringify({ image: imageBase64 }),
+        timeoutMs: 12000,
+      });
+      return data;
+    } catch (err) {
+      console.log('scanPlate api error:', err);
+      return null;
+    }
+  },
+
   // Get delegate shift history
   getMySessions: async (employeeId: string, limit = 50): Promise<WorkSession[]> => {
     try {

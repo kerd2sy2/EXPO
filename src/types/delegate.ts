@@ -63,7 +63,7 @@ export interface PreviewPhotoData {
   rotate?: boolean;
 }
 
-export type TabType = 'home' | 'shift' | 'history' | 'profile';
+export type TabType = 'home' | 'shift' | 'history' | 'profile' | 'violations';
 export type Language = 'ar' | 'en' | 'bn';
 
 export interface ThemeColors {

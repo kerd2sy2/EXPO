@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import { ThemeColors } from '../../types/delegate';
 
 export type UpdateModalState = 'CHECKING' | 'DOWNLOADING' | 'READY' | 'UP_TO_DATE' | 'ERROR';
@@ -130,24 +131,20 @@ export const AppUpdateBottomSheet: React.FC<AppUpdateBottomSheetProps> = ({
           <View style={[styles.handle, { backgroundColor: isDarkMode ? '#475569' : '#cbd5e1' }]} />
         </View>
 
-        {/* Dynamic Icon Box */}
+        {/* Dynamic Icon / Lottie Box */}
         <View style={styles.iconCenterWrap}>
-          {state === 'READY' && (
-            <Animated.View
-              style={[
-                styles.iconBox,
-                {
-                  backgroundColor: 'rgba(34, 197, 94, 0.15)',
-                  borderColor: '#22c55e',
-                  transform: [{ scale: pulseAnim }],
-                },
-              ]}
-            >
-              <Ionicons name="rocket-outline" size={38} color="#16a34a" />
-            </Animated.View>
+          {(state === 'READY' || state === 'DOWNLOADING') && (
+            <View style={{ width: 140, height: 140, alignItems: 'center', justifyContent: 'center' }}>
+              <LottieView
+                source={require('../../../assets/Lottie/update.json')}
+                autoPlay={true}
+                loop={true}
+                style={{ width: 140, height: 140 }}
+              />
+            </View>
           )}
 
-          {(state === 'CHECKING' || state === 'DOWNLOADING') && (
+          {state === 'CHECKING' && (
             <View
               style={[
                 styles.iconBox,
