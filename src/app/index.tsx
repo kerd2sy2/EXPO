@@ -1458,11 +1458,12 @@ export default function DelegateApp() {
 
             <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity
-                style={[styles.headerActionBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                style={styles.headerQrBtn}
                 onPress={() => setShowQrModal(true)}
                 activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <Ionicons name="qr-code-outline" size={24} color={colors.primary} />
+                <Ionicons name="qr-code-outline" size={26} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </>
@@ -1859,6 +1860,11 @@ const styles = StyleSheet.create({
   headerActions: {
     alignItems: 'center',
     gap: 8,
+  },
+  headerQrBtn: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerActionBtn: {
     width: 48,
