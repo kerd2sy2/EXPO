@@ -197,7 +197,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
           </Text>
         </View>
       ) : (
-        /* 4. Streamlined, Elegant Violations List */
+        /* 4. Streamlined, Elegant Violations & Penalties List */
         <View style={styles.listContainer}>
           {violations.map((item) => {
             const badge = getStatusBadge(item.status);
@@ -207,6 +207,15 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
             const remaining = Math.max(0, item.amount - paid);
             const progressPct = item.amount > 0 ? Math.min(100, Math.round((paid / item.amount) * 100)) : 0;
 
+            const isPenalty =
+              item.reason?.includes('جزاء') ||
+              item.reason?.includes('خصم') ||
+              item.reason?.includes('تأخير') ||
+              item.reason?.includes('غياب') ||
+              item.reason?.includes('زي') ||
+              item.reason?.includes('عهدة') ||
+              item.reason?.includes('إهمال');
+
             return (
               <View
                 key={item.id}
@@ -214,7 +223,9 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                   styles.card,
                   {
                     backgroundColor: colors.card,
-                    borderColor: colors.border,
+                    borderColor: isPenalty
+                      ? (isDarkMode ? 'rgba(245, 158, 11, 0.3)' : '#FDE68A')
+                      : colors.border,
                   },
                 ]}
               >
@@ -222,9 +233,9 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                 <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <View style={[styles.reasonWrap, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <Ionicons
-                      name="warning-outline"
+                      name={isPenalty ? 'alert-circle' : 'warning-outline'}
                       size={18}
-                      color="#EF4444"
+                      color={isPenalty ? '#F59E0B' : '#EF4444'}
                       style={{ marginHorizontal: 2 }}
                     />
                     <Text
@@ -234,7 +245,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                       ]}
                       numberOfLines={1}
                     >
-                      {item.reason || 'مخالفة مرورية'}
+                      {item.reason || (isPenalty ? 'جزاء إداري' : 'مخالفة مرورية')}
                     </Text>
                   </View>
 
