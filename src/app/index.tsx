@@ -1018,6 +1018,21 @@ export default function DelegateApp() {
       return;
     }
 
+    // التحقق الإلزامي من تصوير ومسح لوحة الدباب لتوثيق اللوحة وإثبات وجودها
+    const platePhoto = startPlateImageRef.current || startPlateImage;
+    if (!platePhoto) {
+      setAlertConfig({
+        type: 'warning',
+        title: lang === 'ar' ? 'تصوير اللوحة إلزامي' : 'Plate Photo Required',
+        message:
+          lang === 'ar'
+            ? 'يجب مسح وتصوير لوحة الدباب بالكاميرا لتوثيق اللوحة وإثبات وجودها قبل بدء الدوام.'
+            : 'You must scan/capture the motorcycle plate photo before starting your shift.',
+      });
+      setIsPlateConfirmed(false);
+      return;
+    }
+
     let startVal = Number(startKm);
     let photoUri = startKmImageRef.current || startKmImage;
 
@@ -1044,15 +1059,16 @@ export default function DelegateApp() {
       photoUri = '';
     }
 
-    proceedStartShift(startVal, photoUri);
+    proceedStartShift(startVal, photoUri, platePhoto);
   };
 
-  const proceedStartShift = async (startVal: number, photoUri: string) => {
+  const proceedStartShift = async (startVal: number, photoUri: string, platePhotoUri?: string | null) => {
     if (!employee) return;
 
     const savedMoto = enteredMotorcycle.trim();
     const savedStartKm = startVal;
     const savedPhoto = photoUri;
+    const savedPlatePhoto = platePhotoUri || startPlateImageRef.current || startPlateImage;
     const savedNotes = startNotes;
 
     // 1. الانتقال فوراً وبشكل لحظي للداشبورد دون أي انتظار ودون أي موديول
@@ -1076,6 +1092,7 @@ export default function DelegateApp() {
       motorcycle_number: savedMoto,
       start_km: savedStartKm,
       start_km_image: savedPhoto || undefined,
+      start_plate_image: savedPlatePhoto || undefined,
       notes: savedNotes,
       start_time: new Date().toISOString(),
       end_time: null,
@@ -1094,6 +1111,7 @@ export default function DelegateApp() {
         motorcycle_number: savedMoto,
         start_km: savedStartKm,
         start_km_image: savedPhoto || undefined,
+        start_plate_image: savedPlatePhoto || undefined,
         notes: savedNotes,
       });
 

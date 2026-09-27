@@ -494,11 +494,26 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     }
   }, [visible]);
 
-  // Trigger result card appearance animation
-  const showResultPopup = (data: PlateResultData, photoUri: string, b64: string) => {
+  // Trigger result card appearance animation & compress image for database proof
+  const showResultPopup = async (data: PlateResultData, photoUri: string, b64: string) => {
+    try {
+      // Compress to minimal size (~25-35KB) for database proof of plate
+      const manipulated = await ImageManipulator.manipulateAsync(
+        photoUri,
+        [{ resize: { width: 640 } }],
+        { compress: 0.25, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      const compressedB64 = manipulated.base64
+        ? `data:image/jpeg;base64,${manipulated.base64}`
+        : b64;
+      setCapturedPhotoUri(manipulated.uri || photoUri);
+      setCapturedBase64(compressedB64);
+    } catch (compErr) {
+      setCapturedPhotoUri(photoUri);
+      setCapturedBase64(b64);
+    }
+
     setDetectedResult(data);
-    setCapturedPhotoUri(photoUri);
-    setCapturedBase64(b64);
     isFinishedRef.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 

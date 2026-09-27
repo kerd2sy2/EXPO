@@ -25,6 +25,7 @@ export interface WorkSession {
   end_time?: string | null;
   start_km: number;
   start_km_image?: string;
+  start_plate_image?: string;
   end_km: number;
   end_km_image?: string;
   distance: number;
