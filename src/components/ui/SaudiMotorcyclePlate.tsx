@@ -19,6 +19,8 @@ interface SaudiMotorcyclePlateProps {
   scale?: number;
   onScanPlate?: () => void;
   isScanning?: boolean;
+  showScanButton?: boolean;
+  showInputsRow?: boolean;
 }
 
 const AR_TO_EN_LETTERS: Record<string, string> = {
@@ -120,6 +122,8 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
   scale = 1,
   onScanPlate,
   isScanning = false,
+  showScanButton = false,
+  showInputsRow = false,
 }) => {
   const digitsInputRef = useRef<TextInput>(null);
   const lettersInputRef = useRef<TextInput>(null);
@@ -131,8 +135,34 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
 
   return (
     <View style={[styles.plateOuterContainer, isDarkMode && styles.plateDarkShadow]}>
-      {/* Smart Plate Camera Scan Action Bar */}
-      {editable && onScanPlate && (
+      {/* Hidden inputs to allow direct tapping on the plate to type if editable */}
+      <TextInput
+        ref={digitsInputRef}
+        style={styles.hiddenInput}
+        value={englishDigits}
+        keyboardType="numeric"
+        maxLength={4}
+        onChangeText={(val) => {
+          const clean = toEnglishDigits(val).replace(/\D/g, '');
+          onChangeDigits?.(clean);
+          if (clean.length >= 4) {
+            lettersInputRef.current?.focus();
+          }
+        }}
+      />
+      <TextInput
+        ref={lettersInputRef}
+        style={styles.hiddenInput}
+        value={letters}
+        autoCapitalize="characters"
+        maxLength={6}
+        onChangeText={(val) => {
+          onChangeLetters?.(val);
+        }}
+      />
+
+      {/* Smart Plate Camera Scan Action Bar (Opt-in) */}
+      {showScanButton && editable && onScanPlate && (
         <TouchableOpacity
           style={[
             styles.scanButton,
@@ -240,8 +270,8 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
         </View>
       </View>
 
-      {/* Dual Inputs Row below plate (Numbers & Letters) */}
-      {editable && (
+      {/* Dual Inputs Row below plate (Only when explicit showInputsRow is true) */}
+      {showInputsRow && editable && (
         <View style={styles.inputsRow}>
           <View style={styles.inputItem}>
             <Text style={[styles.inputHelperLabel, { color: isDarkMode ? '#cbd5e1' : '#475569' }]}>
@@ -503,5 +533,11 @@ const styles = StyleSheet.create({
   scanButtonText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  hiddenInput: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
 });

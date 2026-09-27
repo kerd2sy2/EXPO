@@ -220,8 +220,7 @@ export default function DelegateApp() {
   // Emergency Accident Shake Detection (Impact & Shake Sensor)
   useShakeDetection({
     enabled: Boolean(employee),
-    threshold: 2.7,
-    cooldownMs: 6000,
+    cooldownMs: 8000,
     onShake: () => {
       setShowAccidentModal(true);
     },

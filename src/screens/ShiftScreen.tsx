@@ -190,32 +190,18 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
           {/* STEP 1: Capture & Confirm Motorcycle Plate */}
           {!isPlateConfirmed ? (
             <View style={styles.sectionContainer}>
-              <View style={[styles.sectionLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <MaterialCommunityIcons name="motorbike" size={18} color={colors.primary} />
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                  {isRTL ? 'الخطوة الأولى: تصوير وتأكيد لوحة الدباب' : 'Step 1: Bike Plate Photo'}
-                </Text>
-              </View>
-
-              {/* Plate Photo Preview (if taken) */}
-              {startPlateImage ? (
-                <View style={[styles.photoPreviewCard, { borderColor: colors.primary, backgroundColor: colors.inputBg, marginBottom: 12 }]}>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => onPreviewPhoto({ url: startPlateImage, title: isRTL ? 'صورة لوحة الدباب' : 'Plate Photo' })}
-                    style={styles.photoPreviewTouch}
-                  >
-                    <Image source={{ uri: startPlateImage }} style={styles.photoPreviewImage} resizeMode="cover" />
-                    <View style={[styles.photoZoomBadge, isRTL ? { left: 10 } : { right: 10 }]}>
-                      <Ionicons name="expand-outline" size={14} color="#ffffff" />
-                      <Text style={styles.photoZoomText}>{isRTL ? 'معاينة مكبرة' : 'Preview'}</Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                /* Primary Camera Card for Plate */
+              {!hasBikeNumber ? (
+                /* Primary Scan Trigger Button */
                 <TouchableOpacity
-                  style={[styles.cameraCard, { backgroundColor: colors.inputBg, borderColor: colors.primary, marginBottom: 12 }]}
+                  style={[
+                    styles.cameraCard,
+                    {
+                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                      borderColor: colors.primary,
+                      marginVertical: 10,
+                      paddingVertical: 24,
+                    },
+                  ]}
                   onPress={onScanPlate}
                   disabled={isScanningPlate}
                   activeOpacity={0.8}
@@ -223,101 +209,100 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                   <View style={[styles.cameraIconWrap, { backgroundColor: colors.primary }]}>
                     <Ionicons name="camera" size={26} color="#ffffff" />
                   </View>
-                  <Text style={[styles.cameraTitle, { color: colors.textPrimary }]}>
+                  <Text style={[styles.cameraTitle, { color: colors.textPrimary, marginTop: 10 }]}>
                     {isScanningPlate
                       ? (isRTL ? 'جاري قراءة اللوحة والتعرف عليها...' : 'Scanning plate...')
-                      : (isRTL ? 'فتح الكاميرا وتصوير لوحة الدباب' : 'Open Camera to Scan Plate')}
+                      : (isRTL ? 'مسح لوحة الدباب بالكاميرا' : 'Scan Motorcycle Plate')}
                   </Text>
                   <Text style={[styles.cameraSubtitle, { color: colors.textSecondary }]}>
                     {isRTL
-                      ? 'التقط صورة واضحة للوحة ليتم قراءة الأرقام والحروف تلقائياً'
-                      : 'Capture plate photo to auto-read digits & letters'}
+                      ? 'التقط صورة واضحة للوحة لقراءة الأرقام والحروف تلقائياً'
+                      : 'Capture plate photo to auto-read numbers & letters'}
                   </Text>
                 </TouchableOpacity>
-              )}
-
-              {/* Authentic Saudi License Plate (Editable & Interactive) */}
-              <SaudiMotorcyclePlate
-                digits={plateDigits}
-                letters={plateLetters}
-                onChangeDigits={(d) => handlePlateChange(d, plateLetters)}
-                onChangeLetters={(l) => handlePlateChange(plateDigits, l)}
-                editable={true}
-                isDarkMode={isDarkMode}
-                onScanPlate={onScanPlate}
-                isScanning={isScanningPlate}
-              />
-
-              {/* Bike Verification Feedback Badge */}
-              {hasBikeNumber && assignedBike && (
-                <View
-                  style={[
-                    styles.verificationBadge,
-                    {
-                      backgroundColor: isBikeMatching ? 'rgba(34, 197, 94, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                      borderColor: isBikeMatching ? '#22c55e' : '#f59e0b',
-                      flexDirection: isRTL ? 'row-reverse' : 'row',
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={isBikeMatching ? 'checkmark-circle' : 'alert-circle'}
-                    size={18}
-                    color={isBikeMatching ? '#22c55e' : '#f59e0b'}
+              ) : (
+                /* Plate Scanned -> Show Authentic Saudi Plate & Confirmation */
+                <View style={{ marginTop: 4 }}>
+                  <SaudiMotorcyclePlate
+                    digits={plateDigits}
+                    letters={plateLetters}
+                    onChangeDigits={(d) => handlePlateChange(d, plateLetters)}
+                    onChangeLetters={(l) => handlePlateChange(plateDigits, l)}
+                    editable={true}
+                    isDarkMode={isDarkMode}
+                    onScanPlate={onScanPlate}
+                    isScanning={isScanningPlate}
                   />
-                  <Text
-                    style={[
-                      styles.verificationText,
-                      { color: isBikeMatching ? (isDarkMode ? '#4ade80' : '#15803d') : (isDarkMode ? '#fbbf24' : '#b45309'), textAlign: isRTL ? 'right' : 'left' },
-                    ]}
-                  >
-                    {isBikeMatching
-                      ? (t.bikeMatchingSuccess || (isRTL ? 'مطابق للدباب المربوط بك بالنظام' : 'Matches assigned motorcycle'))
-                      : (t.bikeMismatchWarning || (isRTL ? 'تنبيه: الدباب مختلف عن المربوط بك — سيتم إشعار المشرف' : 'Different bike from assigned'))}
-                  </Text>
+
+                  {/* Bike Matching Verification Badge */}
+                  {Boolean(assignedBike) && (
+                    <View
+                      style={[
+                        styles.verificationBadge,
+                        {
+                          backgroundColor: isBikeMatching ? 'rgba(34, 197, 94, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                          borderColor: isBikeMatching ? '#22c55e' : '#f59e0b',
+                          flexDirection: isRTL ? 'row-reverse' : 'row',
+                          marginVertical: 10,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={isBikeMatching ? 'checkmark-circle' : 'alert-circle'}
+                        size={18}
+                        color={isBikeMatching ? '#22c55e' : '#f59e0b'}
+                      />
+                      <Text
+                        style={[
+                          styles.verificationText,
+                          {
+                            color: isBikeMatching
+                              ? (isDarkMode ? '#4ade80' : '#15803d')
+                              : (isDarkMode ? '#fbbf24' : '#b45309'),
+                            textAlign: isRTL ? 'right' : 'left',
+                          },
+                        ]}
+                      >
+                        {isBikeMatching
+                          ? (t.bikeMatchingSuccess || (isRTL ? 'مطابق للدباب المربوط بك بالنظام' : 'Matches assigned motorcycle'))
+                          : (t.bikeMismatchWarning || (isRTL ? 'تنبيه: الدباب مختلف عن المربوط بك' : 'Different bike from assigned'))}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Action Buttons: Confirm & Retake */}
+                  <View style={[styles.stepButtonContainer, { marginTop: 10 }]}>
+                    <TouchableOpacity
+                      style={[styles.confirmPlateBtn, { backgroundColor: '#16a34a' }]}
+                      onPress={() => setIsPlateConfirmed?.(true)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
+                      <Text style={styles.confirmPlateBtnText}>
+                        {isRTL ? 'تأكيد اللوحة والانتقال لعداد البداية' : 'Confirm Plate & Proceed'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.retakePlateBtn,
+                        {
+                          backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
+                          borderColor: isDarkMode ? '#334155' : '#cbd5e1',
+                        },
+                      ]}
+                      onPress={onScanPlate}
+                      disabled={isScanningPlate}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="camera-reverse-outline" size={18} color={colors.primary} />
+                      <Text style={[styles.retakePlateBtnText, { color: colors.primary }]}>
+                        {isRTL ? 'إعادة مسح اللوحة' : 'Rescan Plate'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
-
-              {/* Confirmation Buttons: [اللوحة صحيحة] & [إعادة التصوير] */}
-              <View style={styles.stepButtonContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.confirmPlateBtn,
-                    {
-                      backgroundColor: hasBikeNumber ? '#16a34a' : (isDarkMode ? '#334155' : '#cbd5e1'),
-                      opacity: hasBikeNumber ? 1 : 0.6,
-                    },
-                  ]}
-                  onPress={() => hasBikeNumber && setIsPlateConfirmed?.(true)}
-                  disabled={!hasBikeNumber}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
-                  <Text style={styles.confirmPlateBtnText}>
-                    {isRTL ? 'اللوحة صحيحة - الانتقال لعداد البداية' : 'Plate Correct - Continue'}
-                  </Text>
-                </TouchableOpacity>
-
-                {Boolean(startPlateImage || hasBikeNumber) && (
-                  <TouchableOpacity
-                    style={[
-                      styles.retakePlateBtn,
-                      {
-                        backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-                        borderColor: isDarkMode ? '#334155' : '#cbd5e1',
-                      },
-                    ]}
-                    onPress={onScanPlate}
-                    disabled={isScanningPlate}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="camera-reverse-outline" size={18} color={colors.primary} />
-                    <Text style={[styles.retakePlateBtnText, { color: colors.primary }]}>
-                      {isRTL ? 'إعادة تصوير اللوحة' : 'Retake Plate'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
             </View>
           ) : (
             /* STEP 2: Capture Odometer & Enter KM (Plate is confirmed) */
