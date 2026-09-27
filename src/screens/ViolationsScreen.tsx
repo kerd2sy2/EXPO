@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Platform,
 } from 'react-native';
@@ -32,63 +31,56 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
   isRTL,
   t,
 }) => {
-  const [filter, setFilter] = useState<'ALL' | 'RECORDED' | 'PARTIAL' | 'DEDUCTED' | 'PAID'>('ALL');
-
   const pendingAmount = Math.max(0, totalAmount - deductedAmount);
-
-  const filteredList = violations.filter((v) => {
-    if (filter === 'ALL') return true;
-    return v.status === filter;
-  });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'RECORDED':
         return {
-          label: t.violationStatusRecorded || 'مسجلة',
-          bg: isDarkMode ? 'rgba(107, 114, 128, 0.2)' : '#F3F4F6',
-          text: isDarkMode ? '#9CA3AF' : '#4B5563',
-          border: isDarkMode ? 'rgba(107, 114, 128, 0.4)' : '#E5E7EB',
+          label: 'مسجلة',
+          bg: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2',
+          text: isDarkMode ? '#F87171' : '#DC2626',
+          border: isDarkMode ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5',
           icon: 'alert-circle-outline' as const,
         };
       case 'PARTIAL':
         return {
           label: 'مخصومة جزئياً',
-          bg: isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7',
-          text: isDarkMode ? '#FCD34D' : '#D97706',
-          border: isDarkMode ? 'rgba(245, 158, 11, 0.4)' : '#FDE68A',
+          bg: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7',
+          text: isDarkMode ? '#FBBF24' : '#D97706',
+          border: isDarkMode ? 'rgba(245, 158, 11, 0.3)' : '#FDE68A',
           icon: 'hourglass-outline' as const,
         };
       case 'DEDUCTED':
         return {
-          label: t.violationStatusDeducted || 'تم الخصم بالكامل',
-          bg: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5',
-          text: isDarkMode ? '#6EE7B7' : '#059669',
-          border: isDarkMode ? 'rgba(16, 185, 129, 0.4)' : '#A7F3D0',
+          label: 'تم الخصم',
+          bg: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
+          text: isDarkMode ? '#34D399' : '#059669',
+          border: isDarkMode ? 'rgba(16, 185, 129, 0.3)' : '#A7F3D0',
           icon: 'checkmark-circle-outline' as const,
         };
       case 'DISPUTED':
         return {
-          label: t.violationStatusDisputed || 'معترض عليها',
-          bg: isDarkMode ? 'rgba(139, 92, 246, 0.2)' : '#EDE9FE',
+          label: 'معترض عليها',
+          bg: isDarkMode ? 'rgba(139, 92, 246, 0.15)' : '#EDE9FE',
           text: isDarkMode ? '#C4B5FD' : '#7C3AED',
-          border: isDarkMode ? 'rgba(139, 92, 246, 0.4)' : '#DDD6FE',
+          border: isDarkMode ? 'rgba(139, 92, 246, 0.3)' : '#DDD6FE',
           icon: 'help-circle-outline' as const,
         };
       case 'PAID':
         return {
-          label: t.violationStatusPaid || 'مسددة بالكامل',
-          bg: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5',
-          text: isDarkMode ? '#6EE7B7' : '#059669',
-          border: isDarkMode ? 'rgba(16, 185, 129, 0.4)' : '#A7F3D0',
+          label: 'مسددة',
+          bg: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
+          text: isDarkMode ? '#34D399' : '#059669',
+          border: isDarkMode ? 'rgba(16, 185, 129, 0.3)' : '#A7F3D0',
           icon: 'checkmark-circle-outline' as const,
         };
       default:
         return {
           label: status,
-          bg: isDarkMode ? 'rgba(107, 114, 128, 0.2)' : '#F3F4F6',
+          bg: isDarkMode ? 'rgba(107, 114, 128, 0.15)' : '#F3F4F6',
           text: isDarkMode ? '#9CA3AF' : '#4B5563',
-          border: isDarkMode ? 'rgba(107, 114, 128, 0.4)' : '#E5E7EB',
+          border: isDarkMode ? 'rgba(107, 114, 128, 0.3)' : '#E5E7EB',
           icon: 'information-circle-outline' as const,
         };
     }
@@ -111,23 +103,18 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
 
   return (
     <View style={styles.tabContainer}>
-      {/* Summary KPI Cards (Matching App Theme) */}
+      {/* 1. Summary KPI Header */}
       <View style={[styles.kpiRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <View
           style={[
             styles.kpiCard,
             {
               backgroundColor: colors.card,
-              borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.3)' : '#FECACA',
+              borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.25)' : '#FEE2E2',
             },
           ]}
         >
-          <View style={styles.kpiIconWrapper}>
-            <Ionicons name="receipt-outline" size={18} color="#EF4444" />
-          </View>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
-            {t.violationsTotalAmount || 'إجمالي المخالفات'}
-          </Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>إجمالي المخالفات</Text>
           <Text style={[styles.kpiValue, { color: '#EF4444' }]}>
             {totalAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
           </Text>
@@ -138,16 +125,11 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
             styles.kpiCard,
             {
               backgroundColor: colors.card,
-              borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.3)' : '#A7F3D0',
+              borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.25)' : '#D1FAE5',
             },
           ]}
         >
-          <View style={styles.kpiIconWrapper}>
-            <Ionicons name="checkmark-done-circle-outline" size={18} color="#10B981" />
-          </View>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
-            {t.violationsTotalDeducted || 'تم خصمه / سداده'}
-          </Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>تم خصمه</Text>
           <Text style={[styles.kpiValue, { color: '#10B981' }]}>
             {deductedAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
           </Text>
@@ -158,89 +140,42 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
             styles.kpiCard,
             {
               backgroundColor: colors.card,
-              borderColor: isDarkMode ? 'rgba(245, 158, 11, 0.3)' : '#FDE68A',
+              borderColor: isDarkMode ? 'rgba(245, 158, 11, 0.25)' : '#FEF3C7',
             },
           ]}
         >
-          <View style={styles.kpiIconWrapper}>
-            <Ionicons name="time-outline" size={18} color="#F59E0B" />
-          </View>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
-            {t.violationsTotalPending || 'المتبقي للسداد'}
-          </Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>المتبقي عليك</Text>
           <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>
             {pendingAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
           </Text>
         </View>
       </View>
 
-      {/* Filter Tabs */}
-      <View style={[styles.filterBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        {[
-          { key: 'ALL', label: 'الكل' },
-          { key: 'RECORDED', label: 'مسجلة' },
-          { key: 'PARTIAL', label: 'مخصومة جزئياً' },
-          { key: 'DEDUCTED', label: 'تم الخصم' },
-          { key: 'PAID', label: 'مسددة' },
-        ].map((tab) => {
-          const isSelected = filter === tab.key;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              style={[
-                styles.filterChip,
-                {
-                  backgroundColor: isSelected
-                    ? colors.primary
-                    : isDarkMode
-                    ? 'rgba(255,255,255,0.06)'
-                    : colors.card,
-                  borderColor: isSelected ? colors.primary : colors.border,
-                },
-              ]}
-              onPress={() => setFilter(tab.key as any)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  {
-                    color: isSelected ? '#FFFFFF' : colors.textSecondary,
-                    fontWeight: isSelected ? '700' : '500',
-                  },
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Loading Skeleton */}
+      {/* 2. Loading State */}
       {loading && violations.length === 0 ? (
         <View style={styles.loadingContainer}>
           {[1, 2, 3].map((k) => (
             <View
               key={k}
               style={[
-                styles.premiumCard,
+                styles.card,
                 {
                   backgroundColor: colors.card,
                   borderColor: colors.border,
-                  opacity: 0.7,
+                  opacity: 0.6,
                 },
               ]}
             >
-              <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.skeletonLine, { width: 120, backgroundColor: colors.inputBg }]} />
+              <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.skeletonLine, { width: 140, backgroundColor: colors.inputBg }]} />
                 <View style={[styles.skeletonBadge, { backgroundColor: colors.inputBg }]} />
               </View>
-              <View style={[styles.skeletonLine, { width: 180, backgroundColor: colors.inputBg, marginTop: 12 }]} />
+              <View style={[styles.skeletonLine, { width: 100, backgroundColor: colors.inputBg, marginTop: 8 }]} />
             </View>
           ))}
         </View>
-      ) : filteredList.length === 0 ? (
-        /* Empty / Clean Record State */
+      ) : violations.length === 0 ? (
+        /* 3. Empty State */
         <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View
             style={[
@@ -250,21 +185,21 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
           >
             <Ionicons
               name="shield-checkmark-outline"
-              size={52}
+              size={48}
               color={isDarkMode ? '#34D399' : '#10B981'}
             />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-            {t.noViolations || 'سجلك نظيف! لا توجد أي مخالفات أو جزاءات مسجلة.'}
+            {t.noViolations || 'سجلك نظيف! لا توجد مخالفات مسجلة.'}
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            {t.noViolationsSub || 'ممتاز! التزام تام بالأنظمة وقواعد السلامة المرورية'}
+            {t.noViolationsSub || 'التزام ممتاز بقواعد وأنظمة السلامة المرورية'}
           </Text>
         </View>
       ) : (
-        /* Violations List */
+        /* 4. Streamlined, Elegant Violations List */
         <View style={styles.listContainer}>
-          {filteredList.map((item) => {
+          {violations.map((item) => {
             const badge = getStatusBadge(item.status);
             const paid = item.paid_amount !== undefined
               ? item.paid_amount
@@ -276,26 +211,33 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
               <View
                 key={item.id}
                 style={[
-                  styles.premiumCard,
+                  styles.card,
                   {
                     backgroundColor: colors.card,
                     borderColor: colors.border,
                   },
                 ]}
               >
-                {/* Header: Number & Status */}
-                <View
-                  style={[
-                    styles.cardHeaderRow,
-                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  ]}
-                >
-                  <View style={[styles.numberGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.violationNumber, { color: colors.textPrimary }]}>
-                      #{item.violation_number || item.id.substring(0, 8)}
+                {/* Header: Reason & Status */}
+                <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={[styles.reasonWrap, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Ionicons
+                      name="warning-outline"
+                      size={18}
+                      color="#EF4444"
+                      style={{ marginHorizontal: 2 }}
+                    />
+                    <Text
+                      style={[
+                        styles.reasonText,
+                        { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.reason || 'مخالفة مرورية'}
                     </Text>
                   </View>
+
                   <View
                     style={[
                       styles.statusBadge,
@@ -306,137 +248,119 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                       },
                     ]}
                   >
-                    <Ionicons name={badge.icon} size={13} color={badge.text} />
-                    <Text style={[styles.statusText, { color: badge.text }]}>
+                    <Ionicons name={badge.icon} size={12} color={badge.text} />
+                    <Text style={[styles.statusBadgeText, { color: badge.text }]}>
                       {badge.label}
                     </Text>
                   </View>
                 </View>
 
-                {/* Body Row: Reason & Meta */}
-                <View
-                  style={[
-                    styles.bodyRow,
-                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  ]}
-                >
-                  <View style={styles.reasonCol}>
-                    <Text
+                {/* Sub Row: Plate & Date */}
+                <View style={[styles.metaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {item.vehicle_plate ? (
+                    <View
                       style={[
-                        styles.reasonTitle,
-                        { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                        styles.platePill,
+                        {
+                          backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#F1F5F9',
+                          flexDirection: isRTL ? 'row-reverse' : 'row',
+                        },
                       ]}
                     >
-                      {item.reason || 'مخالفة مرورية'}
-                    </Text>
-                    <View style={[styles.metaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      {item.vehicle_plate ? (
-                        <View
-                          style={[
-                            styles.platePill,
-                            {
-                              backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#F3F4F6',
-                              flexDirection: isRTL ? 'row-reverse' : 'row',
-                            },
-                          ]}
-                        >
-                          <MaterialCommunityIcons
-                            name="motorbike"
-                            size={14}
-                            color={colors.textSecondary}
-                          />
-                          <Text style={[styles.plateText, { color: colors.textPrimary }]}>
-                            {item.vehicle_plate}
-                          </Text>
-                        </View>
-                      ) : null}
-                      <View
-                        style={[
-                          styles.metaItem,
-                          { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                        ]}
-                      >
-                        <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
-                        <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                          {formatDate(item.violation_date)}
-                        </Text>
-                      </View>
-                      {item.city ? (
-                        <View
-                          style={[
-                            styles.metaItem,
-                            { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                          ]}
-                        >
-                          <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
-                          <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                            {item.city}
-                          </Text>
-                        </View>
-                      ) : null}
+                      <MaterialCommunityIcons
+                        name="motorbike"
+                        size={13}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={[styles.plateText, { color: colors.textPrimary }]}>
+                        {item.vehicle_plate}
+                      </Text>
                     </View>
-                  </View>
+                  ) : null}
+
+                  <Text style={[styles.metaDate, { color: colors.textSecondary }]}>
+                    {formatDate(item.violation_date)}
+                  </Text>
+
+                  {item.violation_number ? (
+                    <Text style={[styles.violationRef, { color: colors.textSecondary }]}>
+                      #{item.violation_number}
+                    </Text>
+                  ) : null}
                 </View>
 
-                {/* Payment Breakdown Box (تجزئة وسداد المخالفة) */}
+                {/* Amount Details Box */}
                 <View
                   style={[
-                    styles.paymentBreakdownBox,
+                    styles.amountBox,
                     {
-                      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : '#F8FAFC',
+                      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.025)' : '#F8FAFC',
                       borderColor: colors.border,
                     },
                   ]}
                 >
-                  <View style={[styles.breakdownRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={styles.breakdownCol}>
-                      <Text style={[styles.breakdownLabel, { color: colors.textSecondary }]}>المبلغ الكلي</Text>
-                      <Text style={[styles.breakdownVal, { color: colors.textPrimary }]}>
+                  <View style={[styles.amountRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={styles.amountCol}>
+                      <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>المبلغ</Text>
+                      <Text style={[styles.amountVal, { color: colors.textPrimary }]}>
                         {Number(item.amount || 0).toLocaleString()} ر.س
                       </Text>
                     </View>
 
-                    <View style={styles.breakdownDivider} />
-
-                    <View style={styles.breakdownCol}>
-                      <Text style={[styles.breakdownLabel, { color: '#10B981' }]}>تم خصمه</Text>
-                      <Text style={[styles.breakdownVal, { color: '#10B981' }]}>
+                    <View style={styles.amountCol}>
+                      <Text style={[styles.amountLabel, { color: '#10B981' }]}>المخصوم</Text>
+                      <Text style={[styles.amountVal, { color: '#10B981' }]}>
                         {Number(paid).toLocaleString()} ر.س
                       </Text>
                     </View>
 
-                    <View style={styles.breakdownDivider} />
-
-                    <View style={styles.breakdownCol}>
-                      <Text style={[styles.breakdownLabel, { color: remaining > 0 ? '#F59E0B' : colors.textSecondary }]}>
+                    <View style={styles.amountCol}>
+                      <Text
+                        style={[
+                          styles.amountLabel,
+                          { color: remaining > 0 ? '#F59E0B' : '#10B981' },
+                        ]}
+                      >
                         المتبقي
                       </Text>
-                      <Text style={[styles.breakdownVal, { color: remaining > 0 ? '#F59E0B' : colors.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.amountVal,
+                          { color: remaining > 0 ? '#F59E0B' : '#10B981' },
+                        ]}
+                      >
                         {Number(remaining).toLocaleString()} ر.س
                       </Text>
                     </View>
                   </View>
 
-                  {/* Progress Bar for Partial Payments */}
+                  {/* Clean Mini Progress for installments */}
                   {item.amount > 0 && remaining > 0 && paid > 0 ? (
-                    <View style={styles.progressContainer}>
-                      <View style={[styles.progressTrack, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#E2E8F0' }]}>
-                        <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: '#10B981' }]} />
+                    <View style={styles.progressWrap}>
+                      <View
+                        style={[
+                          styles.progressBar,
+                          { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#E2E8F0' },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.progressFill,
+                            { width: `${progressPct}%`, backgroundColor: '#10B981' },
+                          ]}
+                        />
                       </View>
-                      <Text style={[styles.progressText, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                        تم سداد {progressPct}% من قيمة المخالفة
-                      </Text>
                     </View>
                   ) : null}
                 </View>
 
-                {/* Supervisor Notes if present */}
+                {/* Notes if any */}
                 {item.notes ? (
                   <View
                     style={[
-                      styles.notesContainer,
+                      styles.notesBox,
                       {
-                        backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : '#F9FAFB',
+                        backgroundColor: isDarkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC',
                         borderColor: colors.border,
                         flexDirection: isRTL ? 'row-reverse' : 'row',
                       },
@@ -444,7 +368,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                   >
                     <Ionicons
                       name="chatbubble-ellipses-outline"
-                      size={14}
+                      size={13}
                       color={colors.textSecondary}
                     />
                     <Text
@@ -452,6 +376,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                         styles.notesText,
                         { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' },
                       ]}
+                      numberOfLines={2}
                     >
                       {item.notes}
                     </Text>
@@ -469,143 +394,78 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
 const styles = StyleSheet.create({
   tabContainer: {
     padding: 16,
+    gap: 12,
   },
   kpiRow: {
-    gap: 10,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 4,
   },
   kpiCard: {
     flex: 1,
-    padding: 12,
-    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 14,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  kpiIconWrapper: {
-    marginBottom: 4,
-  },
   kpiLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   kpiValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
   },
   kpiUnit: {
     fontSize: 10,
     fontWeight: '700',
   },
-  filterBar: {
-    gap: 8,
-    marginBottom: 16,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  filterChipText: {
-    fontSize: 12,
-  },
-  loadingContainer: {
-    gap: 12,
-  },
-  skeletonLine: {
-    height: 14,
-    borderRadius: 7,
-  },
-  skeletonBadge: {
-    width: 60,
-    height: 22,
-    borderRadius: 11,
-  },
-  emptyCard: {
-    padding: 36,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  emptyIconCircle: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
   listContainer: {
-    gap: 12,
+    gap: 10,
   },
-  premiumCard: {
-    borderRadius: 18,
+  card: {
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
-    gap: 12,
+    padding: 14,
+    gap: 10,
   },
-  cardHeaderRow: {
+  cardTopRow: {
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
-  numberGroup: {
+  reasonWrap: {
+    flex: 1,
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
-  violationNumber: {
-    fontSize: 13,
+  reasonText: {
+    fontSize: 14,
     fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    flex: 1,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     gap: 4,
   },
-  statusText: {
+  statusBadgeText: {
     fontSize: 11,
     fontWeight: '700',
   },
-  bodyRow: {
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  reasonCol: {
-    flex: 1,
-    gap: 6,
-  },
-  reasonTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
   metaRow: {
-    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
   },
   platePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
     alignItems: 'center',
     gap: 4,
   },
@@ -614,88 +474,100 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
-  metaItem: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
+  metaDate: {
     fontSize: 11,
     fontWeight: '500',
   },
+  violationRef: {
+    fontSize: 11,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
   amountBox: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 72,
-  },
-  amountNumber: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#DC2626',
-  },
-  amountCurrency: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#DC2626',
-  },
-  notesContainer: {
-    padding: 10,
     borderRadius: 10,
     borderWidth: 1,
-    alignItems: 'center',
-    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 6,
   },
-  notesText: {
-    fontSize: 12,
-    fontWeight: '500',
-    flex: 1,
-  },
-  paymentBreakdownBox: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 10,
-    gap: 8,
-  },
-  breakdownRow: {
+  amountRow: {
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  breakdownCol: {
-    flex: 1,
+  amountCol: {
     alignItems: 'center',
-    gap: 2,
+    gap: 1,
   },
-  breakdownLabel: {
+  amountLabel: {
     fontSize: 10,
     fontWeight: '600',
   },
-  breakdownVal: {
-    fontSize: 13,
+  amountVal: {
+    fontSize: 12,
     fontWeight: '800',
   },
-  breakdownDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#E5E7EB',
-  },
-  progressContainer: {
-    gap: 4,
+  progressWrap: {
     marginTop: 2,
   },
-  progressTrack: {
-    height: 5,
-    borderRadius: 3,
+  progressBar: {
+    height: 4,
+    borderRadius: 2,
     overflow: 'hidden',
     width: '100%',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 2,
   },
-  progressText: {
-    fontSize: 10,
-    fontWeight: '600',
+  notesBox: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  notesText: {
+    fontSize: 11,
+    fontWeight: '500',
+    flex: 1,
+  },
+  loadingContainer: {
+    gap: 10,
+  },
+  skeletonLine: {
+    height: 12,
+    borderRadius: 6,
+  },
+  skeletonBadge: {
+    width: 50,
+    height: 18,
+    borderRadius: 9,
+  },
+  emptyCard: {
+    padding: 32,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
