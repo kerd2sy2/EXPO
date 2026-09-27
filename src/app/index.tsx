@@ -201,7 +201,7 @@ export default function DelegateApp() {
     handleMarkAllAsRead,
   } = useBroadcasts(employee);
 
-  // Modular Hooks: Direct Shift Notification Routing
+  // Modular Hooks: Direct Shift & Violation Notification Routing
   usePushNotifications({
     employee,
     setCurrentTab,
@@ -211,6 +211,7 @@ export default function DelegateApp() {
     setLoadingHistory,
     setActiveBroadcast,
     setShowBroadcastModal,
+    fetchViolations,
   });
 
   // Theme Colors

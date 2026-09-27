@@ -16,6 +16,7 @@ interface UsePushNotificationsProps {
   setLoadingHistory: (loading: boolean) => void;
   setActiveBroadcast: (broadcast: BroadcastNotificationItem | null) => void;
   setShowBroadcastModal: (show: boolean) => void;
+  fetchViolations?: (empId?: string) => Promise<void>;
 }
 
 export function usePushNotifications({
@@ -27,6 +28,7 @@ export function usePushNotifications({
   setLoadingHistory,
   setActiveBroadcast,
   setShowBroadcastModal,
+  fetchViolations,
 }: UsePushNotificationsProps) {
   const handledNotifIdentifierRef = useRef<string | null>(null);
 
@@ -37,6 +39,8 @@ export function usePushNotifications({
           response?.notification?.request?.identifier ||
           (response?.notification?.request?.content?.data as any)?.sessionId ||
           (response?.notification?.request?.content?.data as any)?.broadcastId ||
+          (response?.notification?.request?.content?.data as any)?.violationId ||
+          (response?.notification?.request?.content?.data as any)?.violation_id ||
           'default_notif';
 
         if (handledNotifIdentifierRef.current === notifId) {
@@ -110,7 +114,36 @@ export function usePushNotifications({
           return;
         }
 
-        // 2. Broadcast / Poll Notification
+        // 2. Violation / Penalty / Deduction Notification
+        const isViolation =
+          data?.type === 'VIOLATION' ||
+          data?.type === 'PENALTY' ||
+          data?.type === 'TRAFFIC_VIOLATION' ||
+          data?.violation_id ||
+          data?.violationId ||
+          title.includes('مخالفة') ||
+          title.includes('جزاء') ||
+          title.includes('خصم') ||
+          title.includes('Violation') ||
+          title.includes('Penalty') ||
+          title.includes('Deduction') ||
+          title.includes('জরিমানা');
+
+        if (isViolation) {
+          setCurrentTab('violations');
+          mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+          let empId = employee?.id;
+          if (!empId) {
+            const cached = await getCachedUser();
+            empId = cached?.id;
+          }
+          if (empId && fetchViolations) {
+            fetchViolations(empId);
+          }
+          return;
+        }
+
+        // 3. Broadcast / Poll Notification
         const bId = data?.broadcastId || data?.broadcast_id;
         if (bId) {
           let empId = employee?.id;
@@ -144,5 +177,5 @@ export function usePushNotifications({
 
     const subscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
     return () => subscription.remove();
-  }, [employee?.id]);
+  }, [employee?.id, fetchViolations]);
 }

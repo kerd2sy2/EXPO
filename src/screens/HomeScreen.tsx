@@ -340,52 +340,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
               {t.quickViolationsTitle || 'المخالفات والجزاءات'}
             </Text>
-            {violations.length > 0 ? (
-              <View
-                style={[
-                  styles.violationCountBadge,
-                  {
-                    backgroundColor:
-                      totalDuePending > 0
-                        ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2')
-                        : (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#ECFDF5'),
-                    borderWidth: 1,
-                    borderColor:
-                      totalDuePending > 0
-                        ? (isDarkMode ? 'rgba(239, 68, 68, 0.4)' : '#FCA5A5')
-                        : (isDarkMode ? 'rgba(16, 185, 129, 0.4)' : '#6EE7B7'),
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 12,
-                    minWidth: 0,
-                    height: 'auto',
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.violationCountText,
-                    {
-                      color:
-                        totalDuePending > 0
-                          ? (isDarkMode ? '#F87171' : '#DC2626')
-                          : (isDarkMode ? '#34D399' : '#059669'),
-                      fontSize: 11,
-                      fontWeight: '700',
-                    },
-                  ]}
-                >
-                  {totalDuePending > 0
-                    ? `المتبقي: ${totalDuePending.toLocaleString()} ر.س`
-                    : 'مسدد بالكامل'}
-                </Text>
-              </View>
-            ) : null}
           </View>
           <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 2 }]}>
             {violations.length > 0
               ? (totalDuePending > 0
-                  ? `المبلغ المتبقي عليك: ${totalDuePending.toLocaleString()} ر.س`
+                  ? `المتبقي عليك: ${totalDuePending.toLocaleString()} ر.س`
                   : 'تم سداد كامل المستحقات (لا يوجد متبقي)')
               : (t.noViolationsSub || 'سجلك نظيف! لا توجد مخالفات أو جزاءات مسجلة')}
           </Text>
