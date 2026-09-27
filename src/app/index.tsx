@@ -74,6 +74,7 @@ import { DiagnosticsModal } from '../components/modals/DiagnosticsModal';
 import { BroadcastModal } from '../components/modals/BroadcastModal';
 import { BroadcastHistoryModal } from '../components/modals/BroadcastHistoryModal';
 import { PlateScannerModal } from '../components/ui/PlateScannerModal';
+import { AccidentAlertModal } from '../components/modals/AccidentAlertModal';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 
 // Modular Hooks
@@ -81,6 +82,7 @@ import { useSessionTimer } from '../hooks/useSessionTimer';
 import { useBroadcasts } from '../hooks/useBroadcasts';
 import { useAppUpdates } from '../hooks/useAppUpdates';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { useShakeDetection } from '../hooks/useShakeDetection';
 import { initGlobalErrorLogger } from '../services/errorLogger';
 
 // Initialize global crash/error interception immediately on app boot
@@ -161,6 +163,7 @@ export default function DelegateApp() {
   const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
   const [showPlateScannerModal, setShowPlateScannerModal] = useState(false);
+  const [showAccidentModal, setShowAccidentModal] = useState(false);
 
   // Success Sheet Animations
   const sheetTranslateY = useRef(new Animated.Value(600)).current;
@@ -212,6 +215,16 @@ export default function DelegateApp() {
     setActiveBroadcast,
     setShowBroadcastModal,
     fetchViolations,
+  });
+
+  // Emergency Accident Shake Detection (Impact & Shake Sensor)
+  useShakeDetection({
+    enabled: Boolean(employee),
+    threshold: 2.7,
+    cooldownMs: 6000,
+    onShake: () => {
+      setShowAccidentModal(true);
+    },
   });
 
   // Theme Colors
@@ -1795,6 +1808,18 @@ export default function DelegateApp() {
         onClose={() => setShowPlateScannerModal(false)}
         onScanned={handleProcessPlateScan}
         isProcessing={isScanningPlate}
+      />
+
+      {/* Emergency Accident Detection Modal (Shake to Report) */}
+      <AccidentAlertModal
+        visible={showAccidentModal}
+        onClose={() => setShowAccidentModal(false)}
+        employee={employee}
+        activeSession={activeSession}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        lang={lang}
       />
     </SafeAreaView>
   );
