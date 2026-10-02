@@ -18,6 +18,7 @@ import { ShutterButton } from './components/ShutterButton';
 import { PlateResultCard } from './components/PlateResultCard';
 import { ScannerIntroSplash } from './components/ScannerIntroSplash';
 import { ScannerErrorSheet } from './components/ScannerErrorSheet';
+import { translations } from '../../constants/translations';
 
 export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
   visible,
@@ -25,7 +26,12 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
   onScanned,
   isProcessing = false,
   isDarkMode: propIsDarkMode,
+  lang = 'ar',
+  t,
+  isRTL,
 }) => {
+  const activeT = t || (lang ? (translations as any)[lang] : translations.ar) || translations.ar;
+  const activeIsRTL = isRTL !== undefined ? isRTL : (lang === 'ar' || lang === 'ur');
   const systemScheme = useColorScheme();
   const isDark = propIsDarkMode !== undefined ? propIsDarkMode : systemScheme === 'dark';
 
@@ -85,7 +91,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
             fallback={
               <View style={[StyleSheet.absoluteFill, styles.fallbackContainer, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]}>
                 <Ionicons name="scan-circle" size={72} color="#f97316" />
-                <Text style={[styles.fallbackText, { color: isDark ? '#94a3b8' : '#64748b' }]}>كاميرا مسح اللوحات الذكية</Text>
+                <Text style={[styles.fallbackText, { color: isDark ? '#94a3b8' : '#64748b' }]}>{activeT.cameraScannerFallback || 'كاميرا مسح اللوحات الذكية'}</Text>
               </View>
             }
           >
@@ -118,6 +124,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               hasNativeCamera={hasNativeCamera}
               torchOn={torchOn}
               onToggleTorch={() => setTorchOn((prev) => !prev)}
+              t={activeT}
             />
 
             {/* Centered Target Box */}
@@ -126,6 +133,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               laserAnim={laserAnim}
               detectedResult={detectedResult}
               isBusy={isBusy}
+              t={activeT}
             />
 
             {/* Bottom Control / Result Popover */}
@@ -136,6 +144,8 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                   detectedResult={detectedResult}
                   onRescan={handleRescan}
                   onConfirm={handleConfirmResult}
+                  t={activeT}
+                  isRTL={activeIsRTL}
                 />
               ) : (
                 <ShutterButton
@@ -164,6 +174,8 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
           errorSheetAnim={errorSheetAnim}
           onClose={closeErrorSheet}
           isDark={isDark}
+          t={activeT}
+          isRTL={activeIsRTL}
         />
       </View>
     </Modal>

@@ -9,27 +9,32 @@ import {
   UIManager,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { WorkSession, PreviewPhotoData, ThemeColors } from '../types/delegate';
+import { WorkSession, PreviewPhotoData, ThemeColors, Language } from '../types/delegate';
 import { ShiftDetailsModal } from '../components/modals/ShiftDetailsModal';
+import { formatBikePlateForDisplay } from '../utils/plateUtils';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const ARABIC_MONTHS = [
-  'يناير',
-  'فبراير',
-  'مارس',
-  'أبريل',
-  'مايو',
-  'يونيو',
-  'يوليو',
-  'أغسطس',
-  'سبتمبر',
-  'أكتوبر',
-  'نوفمبر',
-  'ديسمبر',
-];
+const MONTH_NAMES: Record<string, string[]> = {
+  ar: [
+    'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+  ],
+  en: [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ],
+  bn: [
+    'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+    'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর',
+  ],
+  ur: [
+    'جنوری', 'فروری', 'مارچ', 'اپریل', 'مئی', 'جون',
+    'جولائی', 'اگست', 'ستمبر', 'اکتوبر', 'نومبر', 'دسمبر',
+  ],
+};
 
 interface MonthGroup {
   key: string; // YYYY-MM
@@ -60,6 +65,7 @@ interface HistoryScreenProps {
   isDarkMode: boolean;
   isRTL: boolean;
   t: any;
+  lang?: Language;
   monthlyTarget?: number;
 }
 
@@ -77,6 +83,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   isDarkMode,
   isRTL,
   t,
+  lang = 'ar',
 }) => {
   const [internalSelectedSession, setInternalSelectedSession] = useState<WorkSession | null>(null);
   const activeSelected = selectedSession !== undefined ? selectedSession : internalSelectedSession;
@@ -100,11 +107,12 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     const map = new Map<string, MonthGroup>();
     const now = new Date();
     const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthList = MONTH_NAMES[lang || 'ar'] || MONTH_NAMES.ar;
 
     // Ensure current month always exists in the list
     map.set(currentKey, {
       key: currentKey,
-      label: `${ARABIC_MONTHS[now.getMonth()]} ${now.getFullYear()}`,
+      label: `${monthList[now.getMonth()]} ${now.getFullYear()}`,
       year: now.getFullYear(),
       month: now.getMonth() + 1,
       isCurrent: true,
@@ -126,7 +134,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         if (!map.has(k)) {
           map.set(k, {
             key: k,
-            label: `${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`,
+            label: `${monthList[d.getMonth()]} ${d.getFullYear()}`,
             year: d.getFullYear(),
             month: d.getMonth() + 1,
             isCurrent: k === currentKey,
@@ -164,7 +172,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
     // Sort descending by month key (latest month first)
     return Array.from(map.values()).sort((a, b) => b.key.localeCompare(a.key));
-  }, [historySessions]);
+  }, [historySessions, lang]);
 
   const activeMonthGroup = useMemo(() => {
     if (!selectedMonthKey) return null;
@@ -202,7 +210,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
               <Text
                 style={[styles.emptyStateText, { color: colors.textSecondary }]}
               >
-                {isRTL ? 'لا توجد شفتات مسجلة في هذا الشهر' : 'No shifts recorded in this month'}
+                {t.noHistoryInMonth || (isRTL ? 'لا توجد شفتات مسجلة في هذا الشهر' : 'No shifts recorded in this month')}
               </Text>
             </View>
           ) : (
@@ -270,7 +278,9 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                           >
                             {formatTimeStr(session.start_time)}
                             {session.end_time ? `  ←  ${formatTimeStr(session.end_time)}` : ''}
-                            {session.motorcycle_number ? ` • لوحة: ${session.motorcycle_number}` : ''}
+                            {session.motorcycle_number
+                              ? ` • ${t.plateLabel || (isRTL ? 'لوحة' : 'Plate')}: ${formatBikePlateForDisplay(session.motorcycle_number, lang)}`
+                              : ''}
                           </Text>
                         </View>
                       </View>
@@ -467,9 +477,17 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                             { color: isDarkMode ? '#fbbf24' : '#92400e' },
                           ]}
                         >
-                          {isRTL
-                            ? `قام المشرف (${session.edited_by_name || 'المشرف'}) بتعديل واعتماد البيانات`
-                            : `Modified & Approved by Supervisor (${session.edited_by_name || 'Supervisor'})`}
+                          {(t.supervisorModifiedNotice || 'قام المشرف ({name}) بتعديل واعتماد البيانات').replace(
+                            '{name}',
+                            session.edited_by_name ||
+                              (lang === 'ar'
+                                ? 'المشرف'
+                                : lang === 'bn'
+                                ? 'সুপারভাইজার'
+                                : lang === 'ur'
+                                ? 'نگران'
+                                : 'Supervisor')
+                          )}
                         </Text>
                       </View>
                     )}
@@ -560,7 +578,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                               { color: colors.primary },
                             ]}
                           >
-                            {isRTL ? 'الحالي' : 'Current'}
+                            {t.currentMonth || (lang === 'ar' ? 'الحالي' : 'Current')}
                           </Text>
                         </View>
                       )}
@@ -571,7 +589,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                         { color: colors.textSecondary },
                       ]}
                     >
-                      {group.shiftsCount} {isRTL ? 'شفت عمل مسجل' : 'shifts'}
+                      {(t.shiftsCountLabel || '{n} shifts').replace('{n}', String(group.shiftsCount))}
                     </Text>
                   </View>
                 </View>
@@ -711,6 +729,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         isDarkMode={isDarkMode}
         isRTL={isRTL}
         t={t}
+        lang={lang}
         onClose={() => setActiveSelected(null)}
         onPreviewPhoto={onPreviewPhoto}
         formatDateStr={formatDateStr}

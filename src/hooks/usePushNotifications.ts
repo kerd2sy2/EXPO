@@ -62,7 +62,11 @@ export function usePushNotifications({
           title.includes('المصادقة') ||
           title.includes('Approved') ||
           title.includes('অনুমোদিত') ||
-          body.includes('المشرف على طلباتك');
+          title.includes('تصدیق') ||
+          body.includes('المشرف') ||
+          body.includes('Supervisor') ||
+          body.includes('سুপারভাইজার') ||
+          body.includes('نگران');
 
         if (isShiftApproval) {
           setCurrentTab('history');
@@ -127,7 +131,10 @@ export function usePushNotifications({
           title.includes('Violation') ||
           title.includes('Penalty') ||
           title.includes('Deduction') ||
-          title.includes('জরিমানা');
+          title.includes('জরিমানা') ||
+          title.includes('چالان') ||
+          title.includes('جرمانہ') ||
+          title.includes('کٹوتی');
 
         if (isViolation) {
           setCurrentTab('violations');

@@ -9,7 +9,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ThemeColors, PreviewPhotoData } from '../../../types/delegate';
+import { ThemeColors, PreviewPhotoData, Language } from '../../../types/delegate';
+import { formatBikePlateForDisplay } from '../../../utils/plateUtils';
 
 interface StartShiftSectionProps {
   enteredMotorcycle: string;
@@ -32,6 +33,7 @@ interface StartShiftSectionProps {
   isDarkMode: boolean;
   isRTL: boolean;
   t: any;
+  lang?: Language;
 }
 
 export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
@@ -55,6 +57,7 @@ export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
   isDarkMode,
   isRTL,
   t,
+  lang = 'ar',
 }) => {
   return (
     <View style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -68,7 +71,7 @@ export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
             {t.startShiftTitle || (isRTL ? 'تسجيل بدء الدوام' : 'Start Shift')}
           </Text>
           <Text style={[styles.cardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {isRTL ? 'تسجيل قراءة عداد البداية وتأكيد الدوام' : 'Record start odometer & start shift'}
+            {t.startKmRecorded || (isRTL ? 'تسجيل قراءة عداد البداية وتأكيد الدوام' : 'Record start odometer & start shift')}
           </Text>
         </View>
       </View>
@@ -80,10 +83,10 @@ export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
           <Ionicons name="checkmark-circle" size={22} color="#16a34a" />
           <View style={{ flex: 1, marginHorizontal: 8 }}>
             <Text style={[styles.confirmedPlateLabel, { color: isDarkMode ? '#4ade80' : '#166534', textAlign: isRTL ? 'right' : 'left' }]}>
-              {isRTL ? 'لوحة الدباب المعتمدة:' : 'Confirmed Plate:'}
+              {t.confirmedPlate || (isRTL ? 'لوحة الدباب المعتمدة' : 'Confirmed Plate')}:
             </Text>
             <Text style={[styles.confirmedPlateVal, { color: isDarkMode ? '#ffffff' : '#0f172a', textAlign: isRTL ? 'right' : 'left' }]}>
-              {enteredMotorcycle || `${plateDigits} ${plateLetters}` || (isRTL ? 'يرجى مسح اللوحة' : 'Please scan plate')}
+              {formatBikePlateForDisplay(enteredMotorcycle || (plateDigits ? `${plateDigits} ${plateLetters}` : ''), lang) || (t.pleaseScanPlate || (isRTL ? 'يرجى مسح اللوحة' : 'Please scan plate'))}
             </Text>
           </View>
           <TouchableOpacity
@@ -93,7 +96,7 @@ export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
           >
             <Ionicons name="camera" size={14} color={colors.primary} />
             <Text style={[styles.editPlateBtnText, { color: colors.textPrimary, marginHorizontal: 4 }]}>
-              {isRTL ? 'إعادة مسح' : 'Rescan'}
+              {t.rescan || (isRTL ? 'إعادة مسح' : 'Rescan')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -200,7 +203,7 @@ export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
                     <Image source={{ uri: startKmImage }} style={styles.photoPreviewImage} resizeMode="cover" />
                     <View style={[styles.photoZoomBadge, isRTL ? { left: 10 } : { right: 10 }]}>
                       <Ionicons name="expand-outline" size={14} color="#ffffff" />
-                      <Text style={styles.photoZoomText}>{isRTL ? 'معاينة مكبرة' : 'Preview'}</Text>
+                      <Text style={styles.photoZoomText}>{t.tapToViewPhoto || (isRTL ? 'معاينة مكبرة' : 'Preview')}</Text>
                     </View>
                   </TouchableOpacity>
 

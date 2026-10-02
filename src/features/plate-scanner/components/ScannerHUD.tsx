@@ -9,6 +9,7 @@ interface ScannerHUDProps {
   laserAnim: Animated.Value;
   detectedResult: PlateResultData | null;
   isBusy: boolean;
+  t?: any;
 }
 
 export const ScannerHUD: React.FC<ScannerHUDProps> = ({
@@ -16,6 +17,7 @@ export const ScannerHUD: React.FC<ScannerHUDProps> = ({
   laserAnim,
   detectedResult,
   isBusy,
+  t,
 }) => {
   const translateY = laserAnim.interpolate({
     inputRange: [0, 1],
@@ -42,10 +44,10 @@ export const ScannerHUD: React.FC<ScannerHUDProps> = ({
         <View style={styles.frameInnerGuidance} pointerEvents="none">
           <Text style={styles.frameGuidanceText}>
             {detectedResult
-              ? 'تم التعرف على اللوحة بنجاح!'
+              ? (t?.scannerSuccess || 'تم التعرف على اللوحة بنجاح!')
               : isBusy
-              ? 'جاري فحص وقراءة اللوحة...'
-              : 'وجّه اللوحة داخل الإطار والتقط'}
+              ? (t?.scannerScanning || 'جاري فحص وقراءة اللوحة...')
+              : (t?.scannerAimGuide || 'وجّه اللوحة داخل الإطار والتقط')}
           </Text>
         </View>
 

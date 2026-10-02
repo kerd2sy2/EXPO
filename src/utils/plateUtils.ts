@@ -161,3 +161,39 @@ export const getAlignedDigits = (englishDigits: string) => {
   return { enArray, arArray, isEmptyDigits: !clean };
 };
 
+/**
+ * Format bike / motorcycle plate for display based on user language.
+ * - Arabic ('ar'): displays Arabic plate format e.g. "7030 ب ع"
+ * - English / Urdu / Bengali ('en' | 'ur' | 'bn'): displays English plate format e.g. "7030 BE"
+ */
+export const formatBikePlateForDisplay = (
+  raw: string | undefined | null,
+  lang: string = 'ar'
+): string => {
+  if (!raw) return '—';
+  const clean = raw.trim();
+  if (!clean || clean === '—') return '—';
+
+  const { digits, letters } = parsePlateComponents(clean);
+  const slots = getPlateLetterSlots(letters);
+
+  if (lang === 'ar') {
+    const arLetters = [slots.leftAr, slots.rightAr].filter(Boolean).join(' ');
+    if (digits && arLetters) {
+      return `${digits} ${arLetters}`;
+    }
+    return clean;
+  } else {
+    // English, Urdu, Bengali: display in English digits and Latin letters (e.g. "7030 BE")
+    const enLetters = [slots.leftEn, slots.rightEn].filter(Boolean).join(' ');
+    if (digits && enLetters) {
+      return `${digits} ${enLetters}`;
+    }
+    const enConverted = clean
+      .split('')
+      .map((char) => AR_TO_EN_LETTERS[char] || char)
+      .join('');
+    return toEnglishDigits(enConverted);
+  }
+};
+

@@ -11,8 +11,9 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { ThemeColors } from '../../types/delegate';
+import { ThemeColors, Language } from '../../types/delegate';
 import { DelegateViolation } from '../../services/api';
+import { formatBikePlateForDisplay } from '../../utils/plateUtils';
 
 interface ViolationsModalProps {
   visible: boolean;
@@ -26,6 +27,7 @@ interface ViolationsModalProps {
   isDarkMode: boolean;
   isRTL: boolean;
   t: any;
+  lang?: Language;
 }
 
 export const ViolationsModal: React.FC<ViolationsModalProps> = ({
@@ -40,6 +42,7 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
   isDarkMode,
   isRTL,
   t,
+  lang = 'ar',
 }) => {
   const isDark = isDarkMode;
   const [filter, setFilter] = useState<'ALL' | 'RECORDED' | 'DEDUCTED' | 'PAID'>('ALL');
@@ -101,7 +104,8 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return dateStr.split('T')[0];
-      return d.toLocaleDateString('ar-SA', {
+      const locale = lang === 'ar' ? 'ar-SA' : lang === 'bn' ? 'bn-BD' : lang === 'ur' ? 'ur-PK' : 'en-US';
+      return d.toLocaleDateString(locale, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
@@ -175,7 +179,7 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
                 {t.violationsTotalAmount || 'إجمالي المبالغ'}
               </Text>
               <Text style={[styles.kpiValue, { color: '#EF4444' }]}>
-                {totalAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
+                {totalAmount.toLocaleString()} <Text style={styles.kpiUnit}>{t.sar || 'ر.س'}</Text>
               </Text>
             </View>
 
@@ -196,7 +200,7 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
                 {t.violationsTotalDeducted || 'تم الخصم'}
               </Text>
               <Text style={[styles.kpiValue, { color: '#10B981' }]}>
-                {deductedAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
+                {deductedAmount.toLocaleString()} <Text style={styles.kpiUnit}>{t.sar || 'ر.س'}</Text>
               </Text>
             </View>
 
@@ -217,7 +221,7 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
                 {t.violationsTotalPending || 'المتبقي'}
               </Text>
               <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>
-                {pendingAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
+                {pendingAmount.toLocaleString()} <Text style={styles.kpiUnit}>{t.sar || 'ر.س'}</Text>
               </Text>
             </View>
           </View>
@@ -225,10 +229,10 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
           {/* Filter Pills */}
           <View style={[styles.filterBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             {[
-              { key: 'ALL', label: 'الكل' },
-              { key: 'RECORDED', label: 'مسجلة' },
-              { key: 'DEDUCTED', label: 'تم الخصم' },
-              { key: 'PAID', label: 'مسددة' },
+              { key: 'ALL', label: t.allLabel || 'الكل' },
+              { key: 'RECORDED', label: t.violationStatusRecorded || 'مسجلة' },
+              { key: 'DEDUCTED', label: t.violationStatusDeducted || 'تم الخصم' },
+              { key: 'PAID', label: t.violationStatusPaid || 'مسددة' },
             ].map((tab) => {
               const isSelected = filter === tab.key;
               return (
@@ -379,7 +383,7 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
                                 color={colors.textSecondary}
                               />
                               <Text style={[styles.plateText, { color: colors.textPrimary }]}>
-                                {item.vehicle_plate}
+                                {formatBikePlateForDisplay(item.vehicle_plate, lang)}
                               </Text>
                             </View>
                           ) : null}
@@ -415,7 +419,7 @@ export const ViolationsModal: React.FC<ViolationsModalProps> = ({
                         <Text style={styles.amountNumber}>
                           {Number(item.amount || 0).toLocaleString()}
                         </Text>
-                        <Text style={styles.amountCurrency}>ر.س</Text>
+                        <Text style={styles.amountCurrency}>{t.sar || 'ر.س'}</Text>
                       </View>
                     </View>
 

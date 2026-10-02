@@ -7,8 +7,9 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { EmployeeProfile, WorkSession, TabType, ThemeColors } from '../types/delegate';
+import { EmployeeProfile, WorkSession, TabType, ThemeColors, Language } from '../types/delegate';
 import { getMyViolationsApi, DelegateViolation } from '../services/api';
+import { formatBikePlateForDisplay } from '../utils/plateUtils';
 
 interface HomeScreenProps {
   employee: EmployeeProfile;
@@ -26,6 +27,7 @@ interface HomeScreenProps {
   isDarkMode: boolean;
   isRTL: boolean;
   t: any;
+  lang?: Language;
   onNavigateToTab: (tab: TabType) => void;
   onStartShiftClick?: () => void;
 }
@@ -46,6 +48,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   isDarkMode,
   isRTL,
   t,
+  lang = 'ar',
   onNavigateToTab,
   onStartShiftClick,
 }) => {
@@ -230,8 +233,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             adjustsFontSizeToFit={true}
           >
             {isDifferentBike
-              ? activeSession?.motorcycle_number
-              : (employee.motorcycle_number || '—')}
+              ? formatBikePlateForDisplay(activeSession?.motorcycle_number, lang)
+              : (formatBikePlateForDisplay(employee.motorcycle_number, lang) || '—')}
           </Text>
           <Text
             style={[
@@ -253,7 +256,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               ]}
               numberOfLines={1}
             >
-              ({t.assignedBike}: {employee.motorcycle_number})
+              ({t.assignedBike}: {formatBikePlateForDisplay(employee.motorcycle_number, lang)})
             </Text>
           ) : null}
         </View>

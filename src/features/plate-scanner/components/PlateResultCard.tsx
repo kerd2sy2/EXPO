@@ -9,6 +9,8 @@ interface PlateResultCardProps {
   detectedResult: PlateResultData;
   onRescan: () => void;
   onConfirm: () => void;
+  t?: any;
+  isRTL?: boolean;
 }
 
 export const PlateResultCard: React.FC<PlateResultCardProps> = ({
@@ -16,6 +18,8 @@ export const PlateResultCard: React.FC<PlateResultCardProps> = ({
   detectedResult,
   onRescan,
   onConfirm,
+  t,
+  isRTL = true,
 }) => {
   return (
     <Animated.View
@@ -34,12 +38,12 @@ export const PlateResultCard: React.FC<PlateResultCardProps> = ({
         },
       ]}
     >
-      <View style={styles.resultHeader}>
-        <View style={styles.resultBadgeSuccess}>
+      <View style={[styles.resultHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.resultBadgeSuccess, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
-          <Text style={styles.resultBadgeText}>تم التعرف على اللوحة بنجاح</Text>
+          <Text style={styles.resultBadgeText}>{t?.plateDetectedSuccess || 'تم التعرف على اللوحة بنجاح'}</Text>
         </View>
-        <Text style={styles.resultConfidence}>دقة 99% (مطابقة تامة)</Text>
+        <Text style={styles.resultConfidence}>{t?.accuracyMatch || 'دقة 99% (مطابقة تامة)'}</Text>
       </View>
 
       {/* Authentic Saudi Motorcycle Plate Preview */}
@@ -54,23 +58,23 @@ export const PlateResultCard: React.FC<PlateResultCardProps> = ({
       </View>
 
       {/* Action Buttons */}
-      <View style={styles.resultActionRow}>
+      <View style={[styles.resultActionRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <TouchableOpacity
-          style={styles.rescanBtn}
+          style={[styles.rescanBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
           onPress={onRescan}
           activeOpacity={0.8}
         >
           <Ionicons name="refresh" size={18} color="#94a3b8" />
-          <Text style={styles.rescanBtnText}>إعادة المسح</Text>
+          <Text style={[styles.rescanBtnText, { marginHorizontal: 4 }]}>{t?.rescanBtn || 'إعادة المسح'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.confirmBtn}
+          style={[styles.confirmBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
           onPress={onConfirm}
           activeOpacity={0.85}
         >
-          <Ionicons name="checkmark" size={20} color="#ffffff" style={{ marginLeft: 6 }} />
-          <Text style={styles.confirmBtnText}>تأكيد واستخدام اللوحة</Text>
+          <Ionicons name="checkmark" size={20} color="#ffffff" style={{ marginHorizontal: 4 }} />
+          <Text style={styles.confirmBtnText}>{t?.confirmUsePlateBtn || 'تأكيد واستخدام اللوحة'}</Text>
         </TouchableOpacity>
       </View>
     </Animated.View>

@@ -46,6 +46,7 @@ export const en: Record<TranslationKeys, string> = {
   violationsTitle: 'Violations & Penalties Log',
   noViolations: 'Clean Record! No violations or penalties registered.',
   noViolationsSub: 'Excellent work! Full compliance with traffic safety rules',
+  allLabel: 'All',
   violationStatusRecorded: 'Recorded',
   violationStatusDeducted: 'Deducted',
   violationStatusDisputed: 'Disputed',
@@ -56,6 +57,8 @@ export const en: Record<TranslationKeys, string> = {
   violationNumberLabel: 'Violation No.',
   violationDateLabel: 'Date',
   violationAmountLabel: 'Amount',
+  violationDeductedLabel: 'Deducted',
+  violationRemainingLabel: 'Remaining',
   violationReasonLabel: 'Reason / Type',
   violationPlateLabel: 'Plate No.',
   violationCityLabel: 'City',
@@ -219,4 +222,35 @@ export const en: Record<TranslationKeys, string> = {
   firstBranch: 'First Branch (Branch 1)',
   secondBranch: 'Second Branch (Branch 2)',
   mainBranch: 'Main Branch',
+
+  // Shift & Odometer
+  endKmPlaceholder: 'Enter end KM reading...',
+  confirmedPlate: 'Confirmed Bike Plate',
+  pleaseScanPlate: 'Please scan plate',
+  startKmRecorded: 'Record start odometer & start shift',
+  rescan: 'Rescan',
+
+  // History & Months
+  noHistoryInMonth: 'No shifts recorded in this month',
+  currentMonth: 'Current',
+  shiftsCountLabel: '{n} shifts recorded',
+  plateLabel: 'Plate',
+  supervisorApprovedNotice: 'Approved by Supervisor ({name})',
+  supervisorModifiedNotice: 'Modified & Approved by Supervisor ({name})',
+  originalOrdersLabel: 'Original Orders',
+
+  // Scanner
+  smartScannerTitle: 'Smart Plate Scanner',
+  cameraScannerFallback: 'Smart Plate Scanner Camera',
+  scannerAimGuide: 'Fit plate inside frame & capture',
+  scannerScanning: 'Scanning & reading plate numbers...',
+  scannerSuccess: 'Plate recognized successfully!',
+  plateDetectedSuccess: 'Plate Recognized Successfully',
+  accuracyMatch: '99% Accuracy (Exact Match)',
+  rescanBtn: 'Rescan',
+  confirmUsePlateBtn: 'Confirm & Use Plate',
+  scannerErrorTitle: 'Could not read plate numbers',
+  scannerErrorTipFlash: 'Turn on flashlight if lighting is dim',
+  scannerErrorTipFrame: 'Align plate inside orange scan frame',
+  retryNowBtn: 'Try Again Now',
 };

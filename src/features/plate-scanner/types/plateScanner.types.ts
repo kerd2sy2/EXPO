@@ -1,3 +1,5 @@
+import { Language } from '../../../types/delegate';
+
 export interface PlateResultData {
   digits: string;
   letters: string;
@@ -13,6 +15,9 @@ export interface PlateScannerModalProps {
   onScanned: (imageUri: string, base64: string, data?: PlateResultData) => Promise<void>;
   isProcessing?: boolean;
   isDarkMode?: boolean;
+  lang?: Language;
+  t?: any;
+  isRTL?: boolean;
 }
 
 export interface FleetPlateEntry {

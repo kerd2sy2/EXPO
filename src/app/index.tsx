@@ -87,6 +87,7 @@ import { useShiftWorkflow } from '../hooks/useShiftWorkflow';
 import { useViolations } from '../hooks/useViolations';
 import { initGlobalErrorLogger } from '../services/errorLogger';
 import { analytics } from '../services/analytics';
+import { notificationService } from '../services/notificationService';
 
 // Initialize global crash/error interception immediately on app boot
 initGlobalErrorLogger();
@@ -302,6 +303,9 @@ export default function DelegateApp() {
   const handleSetLanguage = async (newLang: Language) => {
     setLang(newLang);
     await saveStoredLanguage(newLang);
+    if (employee?.id) {
+      notificationService.initNotifications(employee.id).catch(() => {});
+    }
   };
 
   // Check Active Session, Stored Theme & Employee on Mount
@@ -1400,7 +1404,13 @@ export default function DelegateApp() {
                   ? (activeSession ? t.endShiftTitle : t.startShiftTitle)
                   : currentTab === 'history'
                   ? (selectedHistoryMonthLabel
-                      ? (isRTL ? `طلبات شهر ${selectedHistoryMonthLabel}` : `${selectedHistoryMonthLabel} Orders`)
+                      ? (lang === 'ar'
+                          ? `طلبات شهر ${selectedHistoryMonthLabel}`
+                          : lang === 'ur'
+                          ? `${selectedHistoryMonthLabel} کے آرڈرز`
+                          : lang === 'bn'
+                          ? `${selectedHistoryMonthLabel} এর অর্ডারসমূহ`
+                          : `${selectedHistoryMonthLabel} Orders`)
                       : t.historyTitle)
                   : currentTab === 'violations'
                   ? (t.violationsTitle || 'سجل المخالفات والجزاءات')
@@ -1437,6 +1447,7 @@ export default function DelegateApp() {
               isDarkMode={isDarkMode}
               isRTL={isRTL}
               t={t}
+              lang={lang}
             />
           </ModuleErrorBoundary>
         ) : (
@@ -1488,6 +1499,7 @@ export default function DelegateApp() {
                   isDarkMode={isDarkMode}
                   isRTL={isRTL}
                   t={t}
+                  lang={lang}
                   onNavigateToTab={handleNavigateToTab}
                   onStartShiftClick={handleStartShiftClick}
                 />
@@ -1536,6 +1548,7 @@ export default function DelegateApp() {
                   isDarkMode={isDarkMode}
                   isRTL={isRTL}
                   t={t}
+                  lang={lang}
                 />
               </ModuleErrorBoundary>
             )}
@@ -1565,6 +1578,7 @@ export default function DelegateApp() {
                   isDarkMode={isDarkMode}
                   isRTL={isRTL}
                   t={t}
+                  lang={lang}
                   monthlyTarget={monthlyTarget}
                 />
               </ModuleErrorBoundary>
@@ -1749,6 +1763,9 @@ export default function DelegateApp() {
           onScanned={handleProcessPlateScan}
           isProcessing={isScanningPlate}
           isDarkMode={isDarkMode}
+          lang={lang}
+          t={t}
+          isRTL={isRTL}
         />
       </ModuleErrorBoundary>
 

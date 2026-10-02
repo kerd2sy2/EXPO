@@ -46,6 +46,7 @@ export const bn: Record<TranslationKeys, string> = {
   violationsTitle: 'লঙ্ঘন ও জরিমানার লগ',
   noViolations: 'কোন লঙ্ঘন বা জরিমানা রেকর্ড নেই।',
   noViolationsSub: 'চমৎকার! ট্র্যাফিক নিরাপত্তা নিয়ম মেনে চলার জন্য ধন্যবাদ',
+  allLabel: 'সমস্ত',
   violationStatusRecorded: 'রেকর্ড করা হয়েছে',
   violationStatusDeducted: 'কাটা হয়েছে',
   violationStatusDisputed: 'আপত্তি জানানো হয়েছে',
@@ -56,6 +57,8 @@ export const bn: Record<TranslationKeys, string> = {
   violationNumberLabel: 'লঙ্ঘন নম্বর',
   violationDateLabel: 'তারিখ',
   violationAmountLabel: 'পরিমাণ',
+  violationDeductedLabel: 'কর্তনকৃত',
+  violationRemainingLabel: 'অবশিষ্ট',
   violationReasonLabel: 'কারণ / ধরন',
   violationPlateLabel: 'প্লেট নম্বর',
   violationCityLabel: 'শহর',
@@ -219,4 +222,35 @@ export const bn: Record<TranslationKeys, string> = {
   firstBranch: 'প্রথম শাখা (শাখা ১)',
   secondBranch: 'দ্বিতীয় শাখা (শাখা ২)',
   mainBranch: 'প্রধান শাখা',
+
+  // Shift & Odometer
+  endKmPlaceholder: 'শেষ কিলোমিটার রিডিং লিখুন...',
+  confirmedPlate: 'অনুমোদিত বাইক প্লেট',
+  pleaseScanPlate: 'দয়া করে প্লেট স্ক্যান করুন',
+  startKmRecorded: 'শুরুর ওডোমিটার রেকর্ড করুন ও শিফট শুরু করুন',
+  rescan: 'পুনরায় স্ক্যান',
+
+  // History & Months
+  noHistoryInMonth: 'এই মাসে কোনো শিফট রেকর্ড নেই',
+  currentMonth: 'চলতি',
+  shiftsCountLabel: '{n} টি শিফট রেকর্ড করা হয়েছে',
+  plateLabel: 'প্লেট',
+  supervisorApprovedNotice: 'সুপারভাইজার ({name}) অনুমোদন করেছেন',
+  supervisorModifiedNotice: 'সুপারভাইজার ({name}) সংশোধন ও অনুমোদন করেছেন',
+  originalOrdersLabel: 'প্রদত্ত অর্ডার',
+
+  // Scanner
+  smartScannerTitle: 'স্মার্ট প্লেট স্ক্যানার',
+  cameraScannerFallback: 'স্মার্ট প্লেট স্ক্যানার ক্যামেরা',
+  scannerAimGuide: 'ফ্রেমের মধ্যে প্লেট রাখুন এবং তুলুন',
+  scannerScanning: 'প্লেট নম্বর পরীক্ষা ও রিড করা হচ্ছে...',
+  scannerSuccess: 'প্লেট সফলভাবে শনাক্ত করা হয়েছে!',
+  plateDetectedSuccess: 'প্লেট সফলভাবে শনাক্ত করা হয়েছে',
+  accuracyMatch: '৯৯% নির্ভুলতা (সঠিক মিল)',
+  rescanBtn: 'পুনরায় স্ক্যান',
+  confirmUsePlateBtn: 'নিশ্চিত করুন ও প্লেট ব্যবহার করুন',
+  scannerErrorTitle: 'প্লেট নম্বর রিড করা যায়নি',
+  scannerErrorTipFlash: 'আলো কম থাকলে ফ্ল্যাশলাইট চালু করুন',
+  scannerErrorTipFrame: 'কমলা স্ক্যান ফ্রেমের মধ্যে প্লেট রাখুন',
+  retryNowBtn: 'এখনই আবার চেষ্টা করুন',
 };

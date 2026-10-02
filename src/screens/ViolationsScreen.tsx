@@ -8,8 +8,9 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { ThemeColors } from '../types/delegate';
+import { ThemeColors, Language } from '../types/delegate';
 import { DelegateViolation } from '../services/api';
+import { formatBikePlateForDisplay } from '../utils/plateUtils';
 
 interface ViolationsScreenProps {
   violations: DelegateViolation[];
@@ -21,6 +22,7 @@ interface ViolationsScreenProps {
   isDarkMode: boolean;
   isRTL: boolean;
   t: any;
+  lang?: Language;
 }
 
 export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
@@ -33,6 +35,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
   isDarkMode,
   isRTL,
   t,
+  lang = 'ar',
 }) => {
   const pendingAmount = Math.max(0, totalAmount - deductedAmount);
 
@@ -40,7 +43,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
     switch (status) {
       case 'RECORDED':
         return {
-          label: 'مسجلة',
+          label: t.violationStatusRecorded || 'مسجلة',
           bg: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2',
           text: isDarkMode ? '#F87171' : '#DC2626',
           border: isDarkMode ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5',
@@ -48,7 +51,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
         };
       case 'PARTIAL':
         return {
-          label: 'مخصومة جزئياً',
+          label: t.violationStatusPartial || 'مخصومة جزئياً',
           bg: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7',
           text: isDarkMode ? '#FBBF24' : '#D97706',
           border: isDarkMode ? 'rgba(245, 158, 11, 0.3)' : '#FDE68A',
@@ -56,7 +59,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
         };
       case 'DEDUCTED':
         return {
-          label: 'تم الخصم',
+          label: t.violationStatusDeducted || 'تم الخصم',
           bg: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
           text: isDarkMode ? '#34D399' : '#059669',
           border: isDarkMode ? 'rgba(16, 185, 129, 0.3)' : '#A7F3D0',
@@ -64,7 +67,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
         };
       case 'DISPUTED':
         return {
-          label: 'معترض عليها',
+          label: t.violationStatusDisputed || 'معترض عليها',
           bg: isDarkMode ? 'rgba(139, 92, 246, 0.15)' : '#EDE9FE',
           text: isDarkMode ? '#C4B5FD' : '#7C3AED',
           border: isDarkMode ? 'rgba(139, 92, 246, 0.3)' : '#DDD6FE',
@@ -72,7 +75,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
         };
       case 'PAID':
         return {
-          label: 'مسددة',
+          label: t.violationStatusPaid || 'مسددة',
           bg: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
           text: isDarkMode ? '#34D399' : '#059669',
           border: isDarkMode ? 'rgba(16, 185, 129, 0.3)' : '#A7F3D0',
@@ -94,7 +97,8 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return dateStr.split('T')[0];
-      return d.toLocaleDateString('ar-SA', {
+      const locale = lang === 'ar' ? 'ar-SA' : lang === 'bn' ? 'bn-BD' : lang === 'ur' ? 'ur-PK' : 'en-US';
+      return d.toLocaleDateString(locale, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
@@ -118,9 +122,11 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
               },
             ]}
           >
-            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>إجمالي المخالفات</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+              {t.violationsTotalAmount || 'إجمالي المخالفات'}
+            </Text>
             <Text style={[styles.kpiValue, { color: '#EF4444' }]}>
-              {totalAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
+              {totalAmount.toLocaleString()} <Text style={styles.kpiUnit}>{t.sar || 'ر.س'}</Text>
             </Text>
           </View>
 
@@ -133,9 +139,11 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
               },
             ]}
           >
-            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>تم خصمه</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+              {t.violationsTotalDeducted || 'تم خصمه'}
+            </Text>
             <Text style={[styles.kpiValue, { color: '#10B981' }]}>
-              {deductedAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
+              {deductedAmount.toLocaleString()} <Text style={styles.kpiUnit}>{t.sar || 'ر.س'}</Text>
             </Text>
           </View>
 
@@ -148,9 +156,11 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
               },
             ]}
           >
-            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>المتبقي عليك</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+              {t.violationsTotalPending || 'المتبقي عليك'}
+            </Text>
             <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>
-              {pendingAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
+              {pendingAmount.toLocaleString()} <Text style={styles.kpiUnit}>{t.sar || 'ر.س'}</Text>
             </Text>
           </View>
         </View>
@@ -305,7 +315,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                         color={colors.textSecondary}
                       />
                       <Text style={[styles.plateText, { color: colors.textPrimary }]}>
-                        {item.vehicle_plate}
+                        {formatBikePlateForDisplay(item.vehicle_plate, lang)}
                       </Text>
                     </View>
                   ) : null}
@@ -333,16 +343,20 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                 >
                   <View style={[styles.amountRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <View style={styles.amountCol}>
-                      <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>المبلغ</Text>
+                      <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>
+                        {t.violationAmountLabel || 'المبلغ'}
+                      </Text>
                       <Text style={[styles.amountVal, { color: colors.textPrimary }]}>
-                        {Number(item.amount || 0).toLocaleString()} ر.س
+                        {Number(item.amount || 0).toLocaleString()} {t.sar || 'ر.س'}
                       </Text>
                     </View>
 
                     <View style={styles.amountCol}>
-                      <Text style={[styles.amountLabel, { color: '#10B981' }]}>المخصوم</Text>
+                      <Text style={[styles.amountLabel, { color: '#10B981' }]}>
+                        {t.violationDeductedLabel || 'المخصوم'}
+                      </Text>
                       <Text style={[styles.amountVal, { color: '#10B981' }]}>
-                        {Number(paid).toLocaleString()} ر.س
+                        {Number(paid).toLocaleString()} {t.sar || 'ر.س'}
                       </Text>
                     </View>
 
@@ -353,7 +367,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                           { color: remaining > 0 ? '#F59E0B' : '#10B981' },
                         ]}
                       >
-                        المتبقي
+                        {t.violationRemainingLabel || 'المتبقي'}
                       </Text>
                       <Text
                         style={[
@@ -361,7 +375,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
                           { color: remaining > 0 ? '#F59E0B' : '#10B981' },
                         ]}
                       >
-                        {Number(remaining).toLocaleString()} ر.س
+                        {Number(remaining).toLocaleString()} {t.sar || 'ر.س'}
                       </Text>
                     </View>
                   </View>

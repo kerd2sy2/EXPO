@@ -22,6 +22,7 @@ import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/A
 import { ChangePasswordModal } from '../components/modals/ChangePasswordModal';
 import { AddPhoneBottomSheet } from '../components/modals/AddPhoneBottomSheet';
 import { formatBranchName } from '../utils/branchUtils';
+import { formatBikePlateForDisplay } from '../utils/plateUtils';
 import {
   API_BASE_URL,
   getTrustedDevicesList,
@@ -224,7 +225,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/uploads/${cleanUrl}`;
   };
 
-  const activeBikeNumber = activeSession?.motorcycle_number || currentEmp.motorcycle_number;
+  const rawActiveBike = activeSession?.motorcycle_number || currentEmp.motorcycle_number;
+  const activeBikeNumber = formatBikePlateForDisplay(rawActiveBike, lang);
   const currentVehicleRegImage = activeSession
     ? (activeBikeRegistrationImage || currentEmp.vehicle_registration_image)
     : currentEmp.vehicle_registration_image;
@@ -898,10 +900,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Ionicons name="checkmark-circle" size={34} color="#10b981" />
             </View>
             <Text style={[styles.phoneSuccessTitle, { color: colors.textPrimary }]}>
-              {isRTL ? 'تم حفظ الرقم بنجاح' : 'Phone Saved Successfully'}
+              {t.phoneSavedSuccess || (isRTL ? 'تم حفظ الرقم بنجاح' : 'Phone Saved Successfully')}
             </Text>
             <Text style={[styles.phoneSuccessSubtitle, { color: colors.textSecondary }]}>
-              {isRTL ? 'تم تثبيت وتحديث رقم هاتفك في الملف الشخصي' : 'Your phone number has been updated in your profile'}
+              {t.phoneSavedSub || (isRTL ? 'تم تثبيت وتحديث رقم هاتفك في الملف الشخصي' : 'Your phone number has been updated in your profile')}
             </Text>
             <TouchableOpacity
               style={[styles.phoneSuccessBtn, { backgroundColor: '#10b981' }]}
@@ -909,7 +911,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               activeOpacity={0.85}
             >
               <Text style={styles.phoneSuccessBtnText}>
-                {isRTL ? 'حسناً' : 'OK'}
+                {t.okBtn || (isRTL ? 'حسناً' : 'OK')}
               </Text>
             </TouchableOpacity>
           </Animated.View>

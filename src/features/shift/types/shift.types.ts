@@ -1,4 +1,4 @@
-import { EmployeeProfile, WorkSession, PreviewPhotoData, ThemeColors } from '../../../types/delegate';
+import { EmployeeProfile, WorkSession, PreviewPhotoData, ThemeColors, Language } from '../../../types/delegate';
 
 export interface ShiftScreenProps {
   employee: EmployeeProfile | null;
@@ -39,4 +39,5 @@ export interface ShiftScreenProps {
   isDarkMode: boolean;
   isRTL: boolean;
   t: any;
+  lang?: Language;
 }

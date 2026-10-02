@@ -10,8 +10,9 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { WorkSession, PreviewPhotoData, ThemeColors } from '../../types/delegate';
+import { WorkSession, PreviewPhotoData, ThemeColors, Language } from '../../types/delegate';
 import { API_BASE_URL } from '../../services/api';
+import { formatBikePlateForDisplay } from '../../utils/plateUtils';
 
 export interface ShiftDetailsModalProps {
   visible: boolean;
@@ -20,6 +21,7 @@ export interface ShiftDetailsModalProps {
   isDarkMode: boolean;
   isRTL: boolean;
   t: any;
+  lang?: Language;
   onClose: () => void;
   onPreviewPhoto: (photo: PreviewPhotoData) => void;
   formatDateStr: (iso?: string) => string;
@@ -33,6 +35,7 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
   isDarkMode,
   isRTL,
   t,
+  lang = 'ar',
   onClose,
   onPreviewPhoto,
   formatDateStr,
@@ -286,7 +289,7 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                       </Text>
                     </View>
                     <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
-                      {session.motorcycle_number || '—'}
+                      {formatBikePlateForDisplay(session.motorcycle_number, lang)}
                     </Text>
                   </View>
 
@@ -385,9 +388,7 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                           { color: isDarkMode ? '#fbbf24' : '#92400e' },
                         ]}
                       >
-                        {isRTL
-                          ? `تم التعديل بواسطة المشرف (${supervisorName})`
-                          : `Edited by Supervisor (${supervisorName})`}
+                        {(t.supervisorModifiedNotice || 'تم التعديل بواسطة المشرف ({name})').replace('{name}', supervisorName)}
                       </Text>
                     </View>
 
@@ -401,9 +402,7 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                           },
                         ]}
                       >
-                        {isRTL
-                          ? `الطلبات المدخلة: ${session.original_orders_count}  ←  المعتمدة: ${session.orders_count}`
-                          : `Original: ${session.original_orders_count}  →  Approved: ${session.orders_count}`}
+                        {`${t.originalOrdersLabel || 'الطلبات المدخلة'}: ${session.original_orders_count}  ${isRTL ? '←' : '→'}  ${t.approvedOrders || 'المعتمدة'}: ${session.orders_count}`}
                       </Text>
                     ) : null}
 

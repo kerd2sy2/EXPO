@@ -7,6 +7,7 @@ interface ScannerHeaderProps {
   hasNativeCamera: boolean;
   torchOn: boolean;
   onToggleTorch: () => void;
+  t?: any;
 }
 
 export const ScannerHeader: React.FC<ScannerHeaderProps> = ({
@@ -14,6 +15,7 @@ export const ScannerHeader: React.FC<ScannerHeaderProps> = ({
   hasNativeCamera,
   torchOn,
   onToggleTorch,
+  t,
 }) => {
   return (
     <View style={styles.headerRow}>
@@ -28,7 +30,7 @@ export const ScannerHeader: React.FC<ScannerHeaderProps> = ({
 
       <View style={styles.headerBadge}>
         <View style={styles.radarDot} />
-        <Text style={styles.headerBadgeText}>ماسح اللوحات الذكي</Text>
+        <Text style={styles.headerBadgeText}>{t?.smartScannerTitle || 'ماسح اللوحات الذكي'}</Text>
       </View>
 
       {hasNativeCamera ? (

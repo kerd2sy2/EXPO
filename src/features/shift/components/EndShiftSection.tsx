@@ -89,7 +89,7 @@ export const EndShiftSection: React.FC<EndShiftSectionProps> = ({
             </View>
             {startKmNum > 0 && (
               <Text style={[styles.startRefText, { color: colors.textSecondary }]}>
-                {isRTL ? `عداد البداية: ${startKmNum} كم` : `Start: ${startKmNum} KM`}
+                {t.startKmLabel || (isRTL ? 'عداد البداية' : 'Start KM')}: {startKmNum} {t.km || 'كم'}
               </Text>
             )}
           </View>
@@ -99,7 +99,7 @@ export const EndShiftSection: React.FC<EndShiftSectionProps> = ({
             <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
             <TextInput
               style={[styles.modernTextInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-              placeholder={isRTL ? 'اكتب قراءة عداد النهاية...' : 'Enter end KM...'}
+              placeholder={t.endKmPlaceholder || (isRTL ? 'اكتب قراءة عداد النهاية...' : 'Enter end KM...')}
               placeholderTextColor="#94a3b8"
               value={endKm}
               onChangeText={(val) => {
@@ -120,7 +120,7 @@ export const EndShiftSection: React.FC<EndShiftSectionProps> = ({
             <View style={[styles.distanceBadge, { backgroundColor: 'rgba(56, 189, 248, 0.12)', borderColor: '#38bdf8', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Ionicons name="navigate-circle" size={16} color="#0284c7" />
               <Text style={[styles.distanceBadgeText, { color: isDarkMode ? '#38bdf8' : '#0369a1' }]}>
-                {isRTL ? `المسافة المقطوعة المحسوبة: ${calculatedDistance} كم` : `Calculated Distance: ${calculatedDistance} KM`}
+                {t.calculatedDistLabel || (isRTL ? 'المسافة المقطوعة المحسوبة' : 'Calculated Distance')}: {calculatedDistance} {t.km || 'كم'}
               </Text>
             </View>
           )}
@@ -141,7 +141,7 @@ export const EndShiftSection: React.FC<EndShiftSectionProps> = ({
                   <Image source={{ uri: endKmImage }} style={styles.photoPreviewImage} resizeMode="cover" />
                   <View style={[styles.photoZoomBadge, isRTL ? { left: 10 } : { right: 10 }]}>
                     <Ionicons name="expand-outline" size={14} color="#ffffff" />
-                    <Text style={styles.photoZoomText}>{isRTL ? 'معاينة مكبرة' : 'Preview'}</Text>
+                    <Text style={styles.photoZoomText}>{t.tapToViewPhoto || (isRTL ? 'معاينة مكبرة' : 'Preview')}</Text>
                   </View>
                 </TouchableOpacity>
 

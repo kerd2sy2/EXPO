@@ -44,6 +44,7 @@ export const ar = {
   violationsTitle: 'سجل المخالفات والجزاءات',
   noViolations: 'سجلك نظيف! لا توجد أي مخالفات أو جزاءات مسجلة.',
   noViolationsSub: 'ممتاز! التزام تام بالأنظمة وقواعد السلامة المرورية',
+  allLabel: 'الكل',
   violationStatusRecorded: 'مسجلة',
   violationStatusDeducted: 'تم الخصم',
   violationStatusDisputed: 'معترض عليها',
@@ -54,6 +55,8 @@ export const ar = {
   violationNumberLabel: 'رقم المخالفة',
   violationDateLabel: 'التاريخ',
   violationAmountLabel: 'المبلغ',
+  violationDeductedLabel: 'المخصوم',
+  violationRemainingLabel: 'المتبقي',
   violationReasonLabel: 'نوع المخالفة / السبب',
   violationPlateLabel: 'رقم اللوحة',
   violationCityLabel: 'المدينة',
@@ -217,6 +220,37 @@ export const ar = {
   firstBranch: 'الفرع الأول (فرع 1)',
   secondBranch: 'الفرع الثاني (فرع 2)',
   mainBranch: 'الفرع الرئيسي',
+
+  // Shift & Odometer
+  endKmPlaceholder: 'اكتب قراءة عداد النهاية...',
+  confirmedPlate: 'لوحة الدباب المعتمدة',
+  pleaseScanPlate: 'يرجى مسح اللوحة',
+  startKmRecorded: 'تسجيل قراءة عداد البداية وتأكيد الدوام',
+  rescan: 'إعادة مسح',
+
+  // History & Months
+  noHistoryInMonth: 'لا توجد شفتات مسجلة في هذا الشهر',
+  currentMonth: 'الحالي',
+  shiftsCountLabel: '{n} شفت عمل مسجل',
+  plateLabel: 'لوحة',
+  supervisorApprovedNotice: 'قام المشرف ({name}) باعتماد البيانات',
+  supervisorModifiedNotice: 'قام المشرف ({name}) بتعديل واعتماد البيانات',
+  originalOrdersLabel: 'الطلبات المدخلة',
+
+  // Scanner
+  smartScannerTitle: 'ماسح اللوحات الذكي',
+  cameraScannerFallback: 'كاميرا مسح اللوحات الذكية',
+  scannerAimGuide: 'وجّه اللوحة داخل الإطار والتقط',
+  scannerScanning: 'جاري فحص وقراءة اللوحة...',
+  scannerSuccess: 'تم التعرف على اللوحة بنجاح!',
+  plateDetectedSuccess: 'تم التعرف على اللوحة بنجاح',
+  accuracyMatch: 'دقة 99% (مطابقة تامة)',
+  rescanBtn: 'إعادة المسح',
+  confirmUsePlateBtn: 'تأكيد واستخدام اللوحة',
+  scannerErrorTitle: 'لم نتمكن من قراءة أرقام اللوحة',
+  scannerErrorTipFlash: 'شغّل إضاءة الفلاش إذا كان المكان مظلماً',
+  scannerErrorTipFrame: 'اجعل اللوحة داخل إطار المسح البرتقالي',
+  retryNowBtn: 'إعادة المحاولة الآن',
 };
 
 export type TranslationKeys = keyof typeof ar;

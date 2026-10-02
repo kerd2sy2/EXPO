@@ -46,6 +46,7 @@ export const ur: Record<TranslationKeys, string> = {
   violationsTitle: 'خلاف ورزیوں اور جرمانوں کا ریکارڈ',
   noViolations: 'آپ کا ریکارڈ بالکل صاف ہے! کوئی خلاف ورزی یا جرمانہ نہیں۔',
   noViolationsSub: 'بہترین! ٹریفک قوانین اور حفاظتی اصولوں کی مکمل پابندی',
+  allLabel: 'تمام',
   violationStatusRecorded: 'درج شدہ',
   violationStatusDeducted: 'منہا کر دیا گیا',
   violationStatusDisputed: 'زیرِ اعتراض',
@@ -56,6 +57,8 @@ export const ur: Record<TranslationKeys, string> = {
   violationNumberLabel: 'خلاف ورزی نمبر',
   violationDateLabel: 'تاریخ',
   violationAmountLabel: 'رقم',
+  violationDeductedLabel: 'منہا شدہ',
+  violationRemainingLabel: 'باقی',
   violationReasonLabel: 'خلاف ورزی کی قسم / وجہ',
   violationPlateLabel: 'نمبر پلیٹ',
   violationCityLabel: 'شہر',
@@ -219,4 +222,35 @@ export const ur: Record<TranslationKeys, string> = {
   firstBranch: 'پہلی برانچ (برانچ 1)',
   secondBranch: 'دوسری برانچ (برانچ 2)',
   mainBranch: 'مرکزی برانچ',
+
+  // Shift & Odometer
+  endKmPlaceholder: 'آخری کلومیٹر ریڈنگ درج کریں...',
+  confirmedPlate: 'منظور شدہ بائیک پلیٹ',
+  pleaseScanPlate: 'براہ کرم نمبر پلیٹ اسکین کریں',
+  startKmRecorded: 'شروعاتی اوڈومیٹر ریڈنگ درج کریں اور شفٹ شروع کریں',
+  rescan: 'دوبارہ اسکین کریں',
+
+  // History & Months
+  noHistoryInMonth: 'اس مہینے میں کوئی شفٹ ریکارڈ نہیں ہے',
+  currentMonth: 'موجودہ',
+  shiftsCountLabel: '{n} شفٹیں ریکارڈ کی گئیں',
+  plateLabel: 'نمبر پلیٹ',
+  supervisorApprovedNotice: 'نگران ({name}) نے ڈیٹا کی توثیق کر دی',
+  supervisorModifiedNotice: 'نگران ({name}) نے ڈیٹا میں ترمیم کر کے توثیق کر دی',
+  originalOrdersLabel: 'درج کردہ آرڈرز',
+
+  // Scanner
+  smartScannerTitle: 'اسمارٹ نمبر پلیٹ اسکینر',
+  cameraScannerFallback: 'اسمارٹ نمبر پلیٹ اسکینر کیمرہ',
+  scannerAimGuide: 'نمبر پلیٹ فریم کے اندر رکھیں اور تصویر لیں',
+  scannerScanning: 'نمبر پلیٹ اسکین اور پڑھی جا رہی ہے...',
+  scannerSuccess: 'نمبر پلیٹ کامیابی سے شناخت ہو گئی!',
+  plateDetectedSuccess: 'نمبر پلیٹ کامیابی سے شناخت ہو گئی',
+  accuracyMatch: '99% درستگی (مکمل مطابقت)',
+  rescanBtn: 'دوبارہ اسکین کریں',
+  confirmUsePlateBtn: 'تصدیق کریں اور پلیٹ استعمال کریں',
+  scannerErrorTitle: 'نمبر پلیٹ کے اعداد پڑھے نہیں جا سکے',
+  scannerErrorTipFlash: 'روشنی کم ہو تو فلیش لائٹ آن کریں',
+  scannerErrorTipFrame: 'نمبر پلیٹ کو نارنجی فریم کے اندر رکھیں',
+  retryNowBtn: 'ابھی دوبارہ کوشش کریں',
 };

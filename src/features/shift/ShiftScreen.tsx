@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ShiftScreenProps } from './types/shift.types';
 import { StartShiftSection } from './components/StartShiftSection';
-import { ActiveShiftSection } from './components/ActiveShiftSection';
 import { EndShiftSection } from './components/EndShiftSection';
 import { parsePlateComponents } from '../../utils/plateUtils';
 
@@ -42,6 +41,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   isDarkMode,
   isRTL,
   t,
+  lang = 'ar',
 }) => {
   const startKmNum = Number(activeSession?.start_km) || 0;
 
@@ -119,24 +119,13 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
           isDarkMode={isDarkMode}
           isRTL={isRTL}
           t={t}
+          lang={lang}
         />
       ) : (
         /* =========================================================================
             END SHIFT FORM (Active Shift in Progress)
            ========================================================================= */
         <View style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <ActiveShiftSection
-            activeSession={activeSession}
-            employee={employee}
-            elapsedTime={elapsedTime}
-            startKmNum={startKmNum}
-            formatTimeStr={formatTimeStr}
-            colors={colors}
-            isDarkMode={isDarkMode}
-            isRTL={isRTL}
-          />
-
-
           <EndShiftSection
             isExemptOdometer={isExemptOdometer}
             startKmNum={startKmNum}

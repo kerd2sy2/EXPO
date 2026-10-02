@@ -17,6 +17,8 @@ interface ScannerErrorSheetProps {
   errorSheetAnim: Animated.Value;
   onClose: () => void;
   isDark: boolean;
+  t?: any;
+  isRTL?: boolean;
 }
 
 export const ScannerErrorSheet: React.FC<ScannerErrorSheetProps> = ({
@@ -25,6 +27,8 @@ export const ScannerErrorSheet: React.FC<ScannerErrorSheetProps> = ({
   errorSheetAnim,
   onClose,
   isDark,
+  t,
+  isRTL = true,
 }) => {
   if (!visible) return null;
 
@@ -70,19 +74,19 @@ export const ScannerErrorSheet: React.FC<ScannerErrorSheetProps> = ({
           />
         </View>
 
-        <Text style={[styles.errorSheetTitle, { color: isDark ? '#ffffff' : '#0f172a' }]}>لم نتمكن من قراءة أرقام اللوحة</Text>
+        <Text style={[styles.errorSheetTitle, { color: isDark ? '#ffffff' : '#0f172a' }]}>{t?.scannerErrorTitle || 'لم نتمكن من قراءة أرقام اللوحة'}</Text>
         <Text style={[styles.errorSheetMessage, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-          {errorMessage || 'يرجى تقريب الكاميرا والتأكد من وضوح وإضاءة أرقام وحروف اللوحة ثم إعادة المحاولة.'}
+          {errorMessage || (t?.scannerAimGuide || 'يرجى تقريب الكاميرا والتأكد من وضوح وإضاءة أرقام وحروف اللوحة ثم إعادة المحاولة.')}
         </Text>
 
         <View style={[styles.errorTipsCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc', borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#e2e8f0' }]}>
-          <View style={styles.errorTipRow}>
+          <View style={[styles.errorTipRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <Ionicons name="flash-outline" size={16} color="#f97316" />
-            <Text style={[styles.errorTipText, { color: isDark ? '#cbd5e1' : '#334155' }]}>شغّل إضاءة الفلاش إذا كان المكان مظلماً</Text>
+            <Text style={[styles.errorTipText, { color: isDark ? '#cbd5e1' : '#334155', marginHorizontal: 8 }]}>{t?.scannerErrorTipFlash || 'شغّل إضاءة الفلاش إذا كان المكان مظلماً'}</Text>
           </View>
-          <View style={styles.errorTipRow}>
+          <View style={[styles.errorTipRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <Ionicons name="scan-outline" size={16} color="#f97316" />
-            <Text style={[styles.errorTipText, { color: isDark ? '#cbd5e1' : '#334155' }]}>اجعل اللوحة داخل إطار المسح البرتقالي</Text>
+            <Text style={[styles.errorTipText, { color: isDark ? '#cbd5e1' : '#334155', marginHorizontal: 8 }]}>{t?.scannerErrorTipFrame || 'اجعل اللوحة داخل إطار المسح البرتقالي'}</Text>
           </View>
         </View>
 
@@ -93,7 +97,7 @@ export const ScannerErrorSheet: React.FC<ScannerErrorSheetProps> = ({
             activeOpacity={0.85}
           >
             <Ionicons name="refresh" size={18} color="#ffffff" style={{ marginHorizontal: 6 }} />
-            <Text style={styles.errorRetryBtnText}>إعادة المحاولة الآن</Text>
+            <Text style={styles.errorRetryBtnText}>{t?.retryNowBtn || 'إعادة المحاولة الآن'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -101,7 +105,7 @@ export const ScannerErrorSheet: React.FC<ScannerErrorSheetProps> = ({
             onPress={onClose}
             activeOpacity={0.7}
           >
-            <Text style={[styles.errorDismissBtnText, { color: isDark ? '#94a3b8' : '#64748b' }]}>إغلاق</Text>
+            <Text style={[styles.errorDismissBtnText, { color: isDark ? '#94a3b8' : '#64748b' }]}>{t?.close || 'إغلاق'}</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
