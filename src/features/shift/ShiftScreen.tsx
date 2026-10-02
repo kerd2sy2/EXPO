@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ShiftScreenProps } from './types/shift.types';
 import { StartShiftSection } from './components/StartShiftSection';
-import { ActiveShiftTimerSection } from './components/ActiveShiftTimerSection';
+import { ActiveShiftSection } from './components/ActiveShiftSection';
 import { EndShiftSection } from './components/EndShiftSection';
 import { parsePlateComponents } from '../../utils/plateUtils';
+
 
 export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   employee,
@@ -124,7 +125,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             END SHIFT FORM (Active Shift in Progress)
            ========================================================================= */
         <View style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <ActiveShiftTimerSection
+          <ActiveShiftSection
             activeSession={activeSession}
             employee={employee}
             elapsedTime={elapsedTime}
@@ -134,6 +135,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
             isDarkMode={isDarkMode}
             isRTL={isRTL}
           />
+
 
           <EndShiftSection
             isExemptOdometer={isExemptOdometer}

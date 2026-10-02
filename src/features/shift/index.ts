@@ -5,5 +5,6 @@
 export { ShiftScreen } from './ShiftScreen';
 export type { ShiftScreenProps } from './types/shift.types';
 export { StartShiftSection } from './components/StartShiftSection';
-export { ActiveShiftTimerSection } from './components/ActiveShiftTimerSection';
+export { ActiveShiftSection, ActiveShiftTimerSection } from './components/ActiveShiftSection';
 export { EndShiftSection } from './components/EndShiftSection';
+

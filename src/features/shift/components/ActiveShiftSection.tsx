@@ -5,7 +5,7 @@ import { WorkSession, EmployeeProfile, ThemeColors } from '../../../types/delega
 import { SaudiMotorcyclePlate } from '../../../components/ui/SaudiMotorcyclePlate';
 import { parsePlateComponents } from '../../../utils/plateUtils';
 
-interface ActiveShiftTimerSectionProps {
+export interface ActiveShiftSectionProps {
   activeSession: WorkSession;
   employee: EmployeeProfile | null;
   elapsedTime: string;
@@ -16,7 +16,7 @@ interface ActiveShiftTimerSectionProps {
   isRTL: boolean;
 }
 
-export const ActiveShiftTimerSection: React.FC<ActiveShiftTimerSectionProps> = ({
+export const ActiveShiftSection: React.FC<ActiveShiftSectionProps> = ({
   activeSession,
   employee,
   elapsedTime,
@@ -82,6 +82,8 @@ export const ActiveShiftTimerSection: React.FC<ActiveShiftTimerSectionProps> = (
     </View>
   );
 };
+
+export const ActiveShiftTimerSection = ActiveShiftSection;
 
 const styles = StyleSheet.create({
   activeShiftLiveCard: {
