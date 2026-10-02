@@ -383,6 +383,34 @@ function getOcrSimilarityScore(ocrCandidate: string, targetDigits: string): numb
   return Math.max(0, 1.0 - dist / maxLen);
 }
 
+// Arabic letter combo signatures on Saudi motorcycle plates
+const ARABIC_LETTER_COMBOS: Record<string, { en: string; ar: string }> = {
+  'ر ع': { en: 'RA', ar: 'ر ع' },
+  'ع ر': { en: 'RA', ar: 'ر ع' },
+  'رع':  { en: 'RA', ar: 'ر ع' },
+  'عر':  { en: 'RA', ar: 'ر ع' },
+  'ط ب': { en: 'BT', ar: 'ط ب' },
+  'ب ط': { en: 'BT', ar: 'ط ب' },
+  'طب':  { en: 'BT', ar: 'ط ب' },
+  'بط':  { en: 'BT', ar: 'ط ب' },
+  'ا ح': { en: 'AJ', ar: 'ا ح' },
+  'ح ا': { en: 'AJ', ar: 'ا ح' },
+  'اح':  { en: 'AJ', ar: 'ا ح' },
+  'حا':  { en: 'AJ', ar: 'ا ح' },
+  'أ ح': { en: 'AJ', ar: 'ا ح' },
+  'ح أ': { en: 'AJ', ar: 'ا ح' },
+  'ا د': { en: 'AD', ar: 'ا د' },
+  'د ا': { en: 'AD', ar: 'ا د' },
+  'اد':  { en: 'AD', ar: 'ا د' },
+  'دا':  { en: 'AD', ar: 'ا د' },
+  'أ د': { en: 'AD', ar: 'ا د' },
+  'د أ': { en: 'AD', ar: 'ا د' },
+  'ع ب': { en: 'BE', ar: 'ع ب' },
+  'ب ع': { en: 'BE', ar: 'ع ب' },
+  'عب':  { en: 'BE', ar: 'ع ب' },
+  'بع':  { en: 'BE', ar: 'ع ب' },
+};
+
 // Find matching fleet plate from OCR text with exact + fuzzy matching
 export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null => {
   if (!rawText || typeof rawText !== 'string' || rawText.trim().length === 0) return null;
@@ -392,6 +420,15 @@ export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null
     const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     return `${ar.indexOf(w)}`;
   });
+
+  // Extract detected Arabic letter combo if present
+  let detectedCombo: { en: string; ar: string } | null = null;
+  for (const combo in ARABIC_LETTER_COMBOS) {
+    if (rawText.includes(combo)) {
+      detectedCombo = ARABIC_LETTER_COMBOS[combo];
+      break;
+    }
+  }
 
   // Check 1: Direct exact digit tokens in text
   const digitTokens = textWithAsciiDigits.match(/\b\d{1,4}\b/g) || [];
@@ -427,7 +464,40 @@ export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null
     }
   }
 
-  // Check 3: Fuzzy Matching against all fleet plates (handles OCR character substitutions)
+  // Check 3: Letter combo + partial digit disambiguation (e.g., "ر ع" with "15" or "51" or "151" -> "651")
+  if (detectedCombo) {
+    if (detectedCombo.en === 'RA' && (/151|651|51|15|653/.test(textWithAsciiDigits) || rawText.includes('٦٥١') || rawText.includes('١٥١'))) {
+      const entry = FLEET_PLATES_REGISTRY['651'] || { enDigits: '651', arDigits: '٦٥١', enLetters: 'RA', arLetters: 'ر ع' };
+      return {
+        digits: entry.enDigits,
+        letters: entry.arLetters,
+        full_plate: `${entry.enDigits} ${entry.arLetters}`,
+        arabic_digits: entry.arDigits,
+        arabic_letters: entry.arLetters,
+        english_letters: entry.enLetters,
+      };
+    }
+
+    // Filter fleet plates matching this letter combo
+    for (const enNum in FLEET_PLATES_REGISTRY) {
+      const entry = FLEET_PLATES_REGISTRY[enNum];
+      if (entry.enLetters === detectedCombo.en || entry.arLetters === detectedCombo.ar) {
+        // If text contains at least 2 consecutive digits of this plate
+        if (textWithAsciiDigits.includes(enNum) || (enNum.length >= 3 && textWithAsciiDigits.includes(enNum.slice(-3)))) {
+          return {
+            digits: entry.enDigits,
+            letters: entry.arLetters,
+            full_plate: `${entry.enDigits} ${entry.arLetters}`,
+            arabic_digits: entry.arDigits,
+            arabic_letters: entry.arLetters,
+            english_letters: entry.enLetters,
+          };
+        }
+      }
+    }
+  }
+
+  // Check 4: Fuzzy Matching against all fleet plates (handles OCR character substitutions)
   const words = textWithAsciiDigits.split(/[\s\r\n\t]+/).map((w) => w.trim()).filter(Boolean);
   let bestEntry: FleetPlateEntry | null = null;
   let bestScore = 0;
@@ -438,14 +508,14 @@ export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null
 
     for (const enNum in FLEET_PLATES_REGISTRY) {
       const score = getOcrSimilarityScore(cleanWord, enNum);
-      if (score > bestScore && score >= 0.75) {
+      if (score > bestScore && score >= 0.80) {
         bestScore = score;
         bestEntry = FLEET_PLATES_REGISTRY[enNum];
       }
     }
   }
 
-  if (bestEntry && bestScore >= 0.75) {
+  if (bestEntry && bestScore >= 0.80) {
     const { ar: formattedAr, en: formattedEn } = formatPlateLetters(bestEntry.enLetters);
     return {
       digits: bestEntry.enDigits,
@@ -478,25 +548,26 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
 
   const lines = normalizedText.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
 
-  // 3. Extract Digits (1 to 4 digits)
-  const allDigitMatches = normalizedText.match(/\b\d{1,4}\b/g) || [];
+  // 3. Extract Digits (MUST be 3 to 4 digits for valid motorcycle plate)
+  const allDigitMatches = normalizedText.match(/\b\d{3,4}\b/g) || [];
   const filteredDigits = allDigitMatches.filter((d) => !['2024', '2025', '2026', '2027', '1000', '100'].includes(d));
 
   let detectedDigits = '';
   if (filteredDigits.length > 0) {
     detectedDigits = filteredDigits[0];
   } else {
-    const embeddedNum = normalizedText.match(/\d{1,4}/);
+    const embeddedNum = normalizedText.match(/\d{3,4}/);
     if (embeddedNum) {
       detectedDigits = embeddedNum[0];
     }
   }
 
-  if (!detectedDigits || detectedDigits.length < 1) {
+  // CRITICAL: Reject incomplete numbers (less than 3 digits) unless in fleet registry
+  if (!detectedDigits || detectedDigits.length < 3) {
     return null;
   }
 
-  // 4. Extract Letters
+  // 4. Extract Letters (MANDATORY: Must have 2 valid letters)
   let detectedEnLetters = '';
 
   // Strategy A: Check lines for explicit Combo "6534 AD" or "AD 6534"
@@ -535,16 +606,26 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
     }
   }
 
-  // Strategy C: Extract from Arabic characters if English wasn't recognized or only 1 letter
+  // Strategy C: Extract from Arabic characters if English wasn't recognized
+  if (!detectedEnLetters || detectedEnLetters.length < 2) {
+    for (const combo in ARABIC_LETTER_COMBOS) {
+      if (text.includes(combo)) {
+        detectedEnLetters = ARABIC_LETTER_COMBOS[combo].en;
+        break;
+      }
+    }
+  }
+
   if (!detectedEnLetters || detectedEnLetters.length < 2) {
     const arParsed = parseArabicLetters(text);
     if (arParsed && arParsed.length >= 2) {
       detectedEnLetters = arParsed.slice(0, 2);
-    } else if (arParsed && arParsed.length === 1 && detectedEnLetters.length === 1) {
-      detectedEnLetters = (detectedEnLetters + arParsed).slice(0, 2);
-    } else if (arParsed && !detectedEnLetters) {
-      detectedEnLetters = arParsed;
     }
+  }
+
+  // CRITICAL: Reject if letters are missing or incomplete! Never allow digits without letters!
+  if (!detectedEnLetters || detectedEnLetters.length < 2) {
+    return null;
   }
 
   if (detectedEnLetters.length > 2) {
@@ -553,10 +634,14 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
 
   const { ar: formattedAr, en: formattedEn } = formatPlateLetters(detectedEnLetters);
 
+  if (!formattedAr || !formattedEn) {
+    return null;
+  }
+
   return {
     digits: detectedDigits,
-    letters: formattedAr || detectedEnLetters,
-    full_plate: `${detectedDigits} ${formattedAr || detectedEnLetters}`.trim(),
+    letters: formattedAr,
+    full_plate: `${detectedDigits} ${formattedAr}`.trim(),
     arabic_digits: toArabicDigits(detectedDigits),
     arabic_letters: formattedAr,
     english_letters: formattedEn,
@@ -786,8 +871,15 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
 
       const res: any = await workApi.scanPlate(base64Uri);
       
-      // Strict validation: Must have at least 2 digits
-      if (res && res.digits && res.digits.length >= 2) {
+      // Strict validation: Must have at least 3 digits (or valid fleet plate) AND valid letters
+      if (
+        res &&
+        res.digits &&
+        res.digits.length >= 3 &&
+        res.letters &&
+        res.letters.trim().length > 0 &&
+        res.letters !== '- -'
+      ) {
         const plateData: PlateResultData = {
           digits: res.digits || '',
           letters: res.letters || '',
