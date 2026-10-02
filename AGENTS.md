@@ -49,3 +49,20 @@ Data / Network Layer
 
 ## 7. الهدف الأساسي
 **Clean Architecture + Modular Structure + Separation of Concerns + Reusable Code + Easy Maintenance**
+
+## 8. القاعدة الذهبية للتطوير المستقبلي (Golden Rule)
+- **إلزامية المعمارية النمطية (Modular by Default):**
+  أي Feature جديدة بعد هذه المرحلة يجب أن تتبع نفس الـ Modular Architecture تلقائيًا، ولا يجوز مطلقاً الرجوع إلى نمط Monolithic Files حتى لو كان أسرع في التنفيذ.
+- **مرحلة المشروع الحالية:**
+  المشروع انتقل رسمياً وبشكل دائم إلى مرحلة **Maintenance & Feature Development** بدلاً من إعادة الهيكلة المستمرة.
+- **هيكل أي Feature جديدة:**
+  ```text
+  src/features/<feature-name>/
+  ├── components/
+  ├── hooks/
+  ├── services/
+  ├── types/
+  ├── <FeatureContainer>.tsx
+  └── index.ts
+  ```
+
