@@ -781,7 +781,54 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     }).start();
   };
 
-  // Process and Scan image through Google ML Kit (On-Device) or AI Backend Fallback
+  // High-accuracy Plate Recognizer API integration
+  const callPlateRecognizerApi = async (base64Data: string): Promise<PlateResultData | null> => {
+    try {
+      const cleanB64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
+      const formData = new FormData();
+      formData.append('upload', cleanB64);
+      formData.append('regions', 'sa');
+
+      const response = await fetch('https://api.platerecognizer.com/v1/plate-reader/', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Token c5f4ab21abb4f96f54001a308483511df1b23a75',
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.results && data.results.length > 0) {
+          const topResult = data.results[0];
+          const rawPlate = String(topResult.plate || '').trim();
+          const digits = rawPlate.replace(/[^0-9]/g, '');
+          const enLetters = rawPlate.replace(/[^a-zA-Z]/g, '').toUpperCase();
+
+          if (digits && digits.length >= 2) {
+            const fleetHit = FLEET_PLATES_REGISTRY[digits];
+            const finalLettersEn = enLetters || (fleetHit ? fleetHit.enLetters : '');
+            const { ar: formattedAr, en: formattedEn } = formatPlateLetters(finalLettersEn);
+            const finalArLetters = (fleetHit && fleetHit.arLetters) ? fleetHit.arLetters : formattedAr;
+
+            return {
+              digits: digits,
+              letters: finalArLetters || finalLettersEn,
+              full_plate: `${digits} ${finalArLetters || finalLettersEn}`.trim(),
+              arabic_digits: toArabicDigits(digits),
+              arabic_letters: finalArLetters,
+              english_letters: formattedEn || finalLettersEn,
+            };
+          }
+        }
+      }
+    } catch (apiErr) {
+      console.warn('Plate Recognizer API error:', apiErr);
+    }
+    return null;
+  };
+
+  // Process and Scan image through Google ML Kit (On-Device), Plate Recognizer, or AI Backend Fallback
   const executeAiScan = async (rawUri: string, rawB64?: string | null): Promise<PlateResultData | null> => {
     try {
       // 1. Try Instant On-Device Google ML Kit first
@@ -799,7 +846,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
         }
       }
 
-      // 2. Server OCR Engine Fallback
+      // 2. Prepare optimized base64 image
       const manipulated = await ImageManipulator.manipulateAsync(
         rawUri,
         [{ resize: { width: 900 } }],
@@ -810,6 +857,15 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
         ? `data:image/jpeg;base64,${manipulated.base64}`
         : rawB64 || rawUri;
 
+      // 3. Try High-Precision Plate Recognizer Cloud ALPR API
+      if (base64Uri) {
+        const prResult = await callPlateRecognizerApi(base64Uri);
+        if (prResult && prResult.digits && prResult.digits.length >= 2) {
+          return prResult;
+        }
+      }
+
+      // 4. Server OCR Engine Fallback
       const res: any = await workApi.scanPlate(base64Uri);
       
       // Strict validation: Must have at least 3 digits (or valid fleet plate) AND valid letters
