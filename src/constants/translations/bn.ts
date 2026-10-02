@@ -253,4 +253,9 @@ export const bn: Record<TranslationKeys, string> = {
   scannerErrorTipFlash: 'আলো কম থাকলে ফ্ল্যাশলাইট চালু করুন',
   scannerErrorTipFrame: 'কমলা স্ক্যান ফ্রেমের মধ্যে প্লেট রাখুন',
   retryNowBtn: 'এখনই আবার চেষ্টা করুন',
+
+  // Oil Change Alert
+  oilChangeAlertTitle: 'তেল পরিবর্তন প্রয়োজন',
+  oilChangeAlertMessage: 'প্রথমে মোটরসাইকেলের তেল পরিবর্তনের জন্য সুপারভাইজারের সাথে যোগাযোগ করুন',
+  oilChangeAlertBtn: 'বুঝেছি, আমি সুপারভাইজারের সাথে যোগাযোগ করব',
 };

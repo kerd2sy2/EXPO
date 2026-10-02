@@ -251,6 +251,11 @@ export const ar = {
   scannerErrorTipFlash: 'شغّل إضاءة الفلاش إذا كان المكان مظلماً',
   scannerErrorTipFrame: 'اجعل اللوحة داخل إطار المسح البرتقالي',
   retryNowBtn: 'إعادة المحاولة الآن',
+
+  // Oil Change Alert
+  oilChangeAlertTitle: 'تغيير زيت الدباب مطلوب',
+  oilChangeAlertMessage: 'ارجع الى المشرف لتغير زيت الدباب اولا',
+  oilChangeAlertBtn: 'فهمت، سأراجع المشرف',
 };
 
 export type TranslationKeys = keyof typeof ar;

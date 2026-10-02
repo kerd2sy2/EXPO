@@ -253,4 +253,9 @@ export const ur: Record<TranslationKeys, string> = {
   scannerErrorTipFlash: 'روشنی کم ہو تو فلیش لائٹ آن کریں',
   scannerErrorTipFrame: 'نمبر پلیٹ کو نارنجی فریم کے اندر رکھیں',
   retryNowBtn: 'ابھی دوبارہ کوشش کریں',
+
+  // Oil Change Alert
+  oilChangeAlertTitle: 'تیل تبدیل کرنا ضروری ہے',
+  oilChangeAlertMessage: 'پہلے موٹرسائیکل کا آئل تبدیل کروانے کے لیے نگران سے رجوع کریں',
+  oilChangeAlertBtn: 'سمجھ گیا، میں نگران سے رجوع کروں گا',
 };

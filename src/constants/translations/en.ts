@@ -253,4 +253,9 @@ export const en: Record<TranslationKeys, string> = {
   scannerErrorTipFlash: 'Turn on flashlight if lighting is dim',
   scannerErrorTipFrame: 'Align plate inside orange scan frame',
   retryNowBtn: 'Try Again Now',
+
+  // Oil Change Alert
+  oilChangeAlertTitle: 'Oil Change Required',
+  oilChangeAlertMessage: 'Please return to supervisor to change the motorcycle oil first',
+  oilChangeAlertBtn: 'Understood, will contact supervisor',
 };

@@ -74,6 +74,7 @@ import { AppUpdateBottomSheet } from '../components/modals/AppUpdateBottomSheet'
 import { DiagnosticsModal } from '../components/modals/DiagnosticsModal';
 import { BroadcastModal } from '../components/modals/BroadcastModal';
 import { BroadcastHistoryModal } from '../components/modals/BroadcastHistoryModal';
+import { OilChangeBottomSheet } from '../components/modals/OilChangeBottomSheet';
 import { PlateScannerModal } from '../features/plate-scanner';
 import { AccidentAlertModal } from '../components/modals/AccidentAlertModal';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
@@ -153,6 +154,7 @@ export default function DelegateApp() {
     setIsOdometerBroken,
     activeBikeRegistrationImage,
     setActiveBikeRegistrationImage,
+    needsOilChange,
     isTakingPhotoRef,
     resetStartInputs,
     endKm,
@@ -187,6 +189,10 @@ export default function DelegateApp() {
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
   const [showPlateScannerModal, setShowPlateScannerModal] = useState(false);
   const [showAccidentModal, setShowAccidentModal] = useState(false);
+  const [oilChangeModalState, setOilChangeModalState] = useState<{ visible: boolean; bikeNumber: string }>({
+    visible: false,
+    bikeNumber: '',
+  });
   const [selectedHistoryMonthKey, setSelectedHistoryMonthKey] = useState<string | null>(null);
   const [selectedHistoryMonthLabel, setSelectedHistoryMonthLabel] = useState<string | null>(null);
 
@@ -1035,15 +1041,29 @@ export default function DelegateApp() {
     setCurrentTab('shift');
     mainScrollRef.current?.scrollTo({ y: 0, animated: false });
 
+    const checkBikeOilAndKm = async (bikeNumber: string) => {
+      if (!bikeNumber || !employee) return;
+      try {
+        const res = await workApi.getLastKM(employee.id, bikeNumber);
+        if (res?.registration_image) {
+          setActiveBikeRegistrationImage(res.registration_image);
+        }
+        if (res?.needs_oil_change) {
+          setOilChangeModalState({
+            visible: true,
+            bikeNumber,
+          });
+        }
+      } catch (err) {
+        console.log('Error checking bike oil/km after scan:', err);
+      }
+    };
+
     if (plateData && (plateData.full_plate || plateData.digits)) {
       const combined = plateData.full_plate || (plateData.letters ? `${plateData.digits} ${plateData.letters}` : plateData.digits);
       setEnteredMotorcycle(combined || '');
-      if (combined && employee) {
-        workApi.getLastKM(employee.id, combined).then((res) => {
-          if (res?.registration_image) {
-            setActiveBikeRegistrationImage(res.registration_image);
-          }
-        }).catch(() => {});
+      if (combined) {
+        checkBikeOilAndKm(combined);
       }
       setIsScanningPlate(false);
       return;
@@ -1059,13 +1079,7 @@ export default function DelegateApp() {
       }
       if (detectedBike) {
         setEnteredMotorcycle(detectedBike);
-        if (employee) {
-          workApi.getLastKM(employee.id, detectedBike).then((res) => {
-            if (res?.registration_image) {
-              setActiveBikeRegistrationImage(res.registration_image);
-            }
-          }).catch(() => {});
-        }
+        checkBikeOilAndKm(detectedBike);
       }
     } catch (scanErr) {
       console.error('Plate scan API error:', scanErr);
@@ -1688,6 +1702,13 @@ export default function DelegateApp() {
                   onStartShift={handleStartShift}
                   onEndShift={handleEndShift}
                   activeBikeRegistrationImage={activeBikeRegistrationImage}
+                  needsOilChange={needsOilChange}
+                  onOpenOilChangeModal={() =>
+                    setOilChangeModalState({
+                      visible: true,
+                      bikeNumber: enteredMotorcycle,
+                    })
+                  }
                   onPreviewPhoto={setPreviewPhoto}
                   formatTimeStr={formatTimeStr}
                   colors={colors}
@@ -1836,6 +1857,21 @@ export default function DelegateApp() {
           isDarkMode={isDarkMode}
           isRTL={isRTL}
           onClose={() => setAlertConfig(null)}
+        />
+      </ModuleErrorBoundary>
+
+      {/* Motorcycle Oil Change Alert Bottom Sheet */}
+      <ModuleErrorBoundary moduleName="تنبيه تغيير الزيت" fallback={null}>
+        <OilChangeBottomSheet
+          visible={oilChangeModalState.visible}
+          motorcycleNumber={oilChangeModalState.bikeNumber}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          title={t.oilChangeAlertTitle}
+          message={t.oilChangeAlertMessage}
+          buttonText={t.oilChangeAlertBtn}
+          onClose={() => setOilChangeModalState((prev) => ({ ...prev, visible: false }))}
         />
       </ModuleErrorBoundary>
 

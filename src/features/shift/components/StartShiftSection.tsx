@@ -27,6 +27,8 @@ interface StartShiftSectionProps {
   canStartShift: boolean;
   submitting: boolean;
   activeBikeRegistrationImage?: string | null;
+  needsOilChange?: boolean;
+  onOpenOilChangeModal?: () => void;
   onScanPlate?: () => void;
   onTakeOdometerPhoto: (type: 'start' | 'end') => Promise<void>;
   onStartShift: () => Promise<void>;
@@ -52,6 +54,8 @@ export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
   canStartShift,
   submitting,
   activeBikeRegistrationImage,
+  needsOilChange,
+  onOpenOilChangeModal,
   onScanPlate,
   onTakeOdometerPhoto,
   onStartShift,
@@ -207,6 +211,49 @@ export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
               </Text>
             </TouchableOpacity>
           </View>
+        )}
+
+        {/* Motorcycle Oil Change Warning Banner */}
+        {Boolean(enteredMotorcycle && needsOilChange) && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onOpenOilChangeModal}
+            style={[
+              styles.oilChangeWarningBadge,
+              {
+                backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.14)' : '#fef2f2',
+                borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.4)' : '#fca5a5',
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+                marginBottom: 10,
+              },
+            ]}
+          >
+            <Ionicons name="alert-circle" size={22} color="#ef4444" />
+            <View style={{ flex: 1, marginHorizontal: 8 }}>
+              <Text
+                style={{
+                  color: isDarkMode ? '#fca5a5' : '#b91c1c',
+                  fontSize: 12.5,
+                  fontWeight: '800',
+                  textAlign: isRTL ? 'right' : 'left',
+                }}
+              >
+                {t.oilChangeAlertTitle || (isRTL ? 'تغيير زيت الدباب مطلوب' : 'Oil Change Required')}
+              </Text>
+              <Text
+                style={{
+                  color: isDarkMode ? '#f87171' : '#dc2626',
+                  fontSize: 11,
+                  marginTop: 2,
+                  fontWeight: '600',
+                  textAlign: isRTL ? 'right' : 'left',
+                }}
+              >
+                {t.oilChangeAlertMessage || (isRTL ? 'ارجع الى المشرف لتغير زيت الدباب اولا' : 'Please return to supervisor to change the motorcycle oil first')}
+              </Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color="#ef4444" />
+          </TouchableOpacity>
         )}
 
         {/* Odometer Section */}
@@ -597,5 +644,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  oilChangeWarningBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.2,
+    alignItems: 'center',
+    gap: 8,
   },
 });

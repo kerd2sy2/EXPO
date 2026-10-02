@@ -34,6 +34,8 @@ export interface ShiftScreenProps {
   onStartShift: () => Promise<void>;
   onEndShift: () => Promise<void>;
   activeBikeRegistrationImage?: string | null;
+  needsOilChange?: boolean;
+  onOpenOilChangeModal?: () => void;
   onPreviewPhoto: (photo: PreviewPhotoData) => void;
   formatTimeStr: (iso?: string) => string;
   colors: ThemeColors;

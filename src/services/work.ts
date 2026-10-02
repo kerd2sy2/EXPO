@@ -196,12 +196,57 @@ export const workApi = {
   },
 
   // Get last ending odometer (last_km)
-  getLastKM: async (employeeId: string, motorcycleNumber?: string): Promise<{ last_end_km: number; last_start_km: number; is_odometer_broken?: boolean; registration_image?: string } | null> => {
+  getLastKM: async (
+    employeeId: string,
+    motorcycleNumber?: string
+  ): Promise<{
+    last_end_km: number;
+    last_start_km: number;
+    is_odometer_broken?: boolean;
+    registration_image?: string;
+    needs_oil_change?: boolean;
+    remaining_oil_km?: number;
+  } | null> => {
     try {
       const url = motorcycleNumber
         ? `/work/last-km?employee_id=${employeeId}&motorcycle_number=${encodeURIComponent(motorcycleNumber)}`
         : `/work/last-km?employee_id=${employeeId}`;
-      const data = await apiRequest<{ last_end_km: number; last_start_km: number; is_odometer_broken?: boolean; registration_image?: string }>(url);
+      const data = await apiRequest<{
+        last_end_km: number;
+        last_start_km: number;
+        is_odometer_broken?: boolean;
+        registration_image?: string;
+        needs_oil_change?: boolean;
+        remaining_oil_km?: number;
+      }>(url);
+      return data;
+    } catch {
+      return null;
+    }
+  },
+
+  // Check oil change requirement for employee or specific motorcycle
+  checkOilChange: async (
+    employeeId?: string,
+    motorcycleNumber?: string
+  ): Promise<{
+    needs_oil_change: boolean;
+    total_distance?: number;
+    distance_since_oil?: number;
+    oil_change_interval?: number;
+    vehicle_type?: string;
+  } | null> => {
+    try {
+      const params = new URLSearchParams();
+      if (employeeId) params.append('employee_id', employeeId);
+      if (motorcycleNumber) params.append('motorcycle_number', motorcycleNumber);
+      const data = await apiRequest<{
+        needs_oil_change: boolean;
+        total_distance?: number;
+        distance_since_oil?: number;
+        oil_change_interval?: number;
+        vehicle_type?: string;
+      }>(`/work/check-oil?${params.toString()}`);
       return data;
     } catch {
       return null;

@@ -15,6 +15,7 @@ export function useShiftWorkflow(
   const [autoKmFetched, setAutoKmFetched] = useState(false);
   const [isOdometerBroken, setIsOdometerBroken] = useState(false);
   const [activeBikeRegistrationImage, setActiveBikeRegistrationImage] = useState<string | null>(null);
+  const [needsOilChange, setNeedsOilChange] = useState(false);
 
   // Plate Photo & OCR State
   const [startPlateImage, setStartPlateImage] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export function useShiftWorkflow(
       setAutoKmFetched(false);
       setIsOdometerBroken(false);
       setActiveBikeRegistrationImage(null);
+      setNeedsOilChange(false);
       return;
     }
 
@@ -63,6 +65,8 @@ export function useShiftWorkflow(
         } else {
           setActiveBikeRegistrationImage(null);
         }
+
+        setNeedsOilChange(Boolean(res?.needs_oil_change));
 
         if (res?.is_odometer_broken) {
           setIsOdometerBroken(true);
@@ -81,6 +85,7 @@ export function useShiftWorkflow(
       } catch (err) {
         if (bikeFetchSeqRef.current !== currentSeq) return;
         setIsOdometerBroken(false);
+        setNeedsOilChange(false);
         console.log('[useShiftWorkflow] No prior KM found for bike:', bike);
       }
     }, 280);
@@ -165,6 +170,8 @@ export function useShiftWorkflow(
     setIsOdometerBroken,
     activeBikeRegistrationImage,
     setActiveBikeRegistrationImage,
+    needsOilChange,
+    setNeedsOilChange,
     isTakingPhotoRef,
     resetStartInputs,
     // End Inputs

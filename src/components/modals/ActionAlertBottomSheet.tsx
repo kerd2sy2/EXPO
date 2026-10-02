@@ -20,7 +20,8 @@ export type AlertModalType =
   | 'error'
   | 'confirm'
   | 'success'
-  | 'info';
+  | 'info'
+  | 'oil_change';
 
 export interface AlertModalConfig {
   type: AlertModalType;
@@ -173,6 +174,13 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
       iconBg = isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed';
       primaryBtnColor = '#ef4444';
       defaultPrimaryText = isRTL ? 'تأكيد' : 'Confirm';
+      break;
+    case 'oil_change':
+      lottieSource = require('../../../assets/Lottie/LCKboLMu6C.lottie');
+      iconComponent = <Ionicons name="construct" size={32} color="#f97316" />;
+      iconBg = isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed';
+      primaryBtnColor = '#f97316';
+      defaultPrimaryText = isRTL ? 'فهمت، سأراجع المشرف' : 'OK, Contact Supervisor';
       break;
   }
 
