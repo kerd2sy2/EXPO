@@ -96,8 +96,8 @@
     "updates": {
       "url": "https://u.expo.dev/1ec8ea7a-75d2-43be-b7cf-5505a283c042",
       "enabled": true,
-      "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "ON_ERROR_RECOVERY"
+      "fallbackToCacheTimeout": 2000,
+      "checkAutomatically": "ON_LOAD"
     },
     "experiments": {
       "typedRoutes": true

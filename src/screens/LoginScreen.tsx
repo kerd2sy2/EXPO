@@ -163,24 +163,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     const cleanId = numericId || rawNormalizedId;
     const cleanPass = rawNormalizedPass;
 
-    // Supervisor (500500) and Admin (2642799148) NEVER request OTP under any circumstances
-    const isSpecialAccount =
-      cleanId === '500500' ||
-      numericId === '500500' ||
-      rawNormalizedId === '500500' ||
-      cleanId === '2642799148' ||
-      numericId === '2642799148' ||
-      rawNormalizedId === '2642799148' ||
-      cleanId.toLowerCase() === 'supervisor' ||
-      cleanId.toLowerCase() === 'admin';
-
-    if (!isSpecialAccount) {
-      const isTrusted = await isDeviceTrustedForNationalId(cleanId);
-      if (!isTrusted) {
-        // Device is untrusted / first-time login -> Require 4-digit Supervisor OTP
-        setShowOtpModal(true);
-        return;
-      }
+    const isTrusted = await isDeviceTrustedForNationalId(cleanId);
+    if (!isTrusted) {
+      // Device is untrusted / first-time login -> Require 4-digit Supervisor OTP
+      setShowOtpModal(true);
+      return;
     }
 
     // Proceed directly with password login without OTP

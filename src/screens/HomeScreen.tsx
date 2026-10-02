@@ -14,6 +14,7 @@ interface HomeScreenProps {
   activeSession: WorkSession | null;
   historySessions: WorkSession[];
   totalApprovedOrdersCount: number;
+  pendingOrdersCount?: number;
   monthlyTarget: number;
   isTargetAchieved: boolean;
   expectedSalary: number;
@@ -25,6 +26,7 @@ interface HomeScreenProps {
   isRTL: boolean;
   t: any;
   onNavigateToTab: (tab: TabType) => void;
+  onStartShiftClick?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -32,6 +34,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   activeSession,
   historySessions,
   totalApprovedOrdersCount,
+  pendingOrdersCount = 0,
   monthlyTarget,
   isTargetAchieved,
   expectedSalary,
@@ -43,6 +46,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   isRTL,
   t,
   onNavigateToTab,
+  onStartShiftClick,
 }) => {
   const [violations, setViolations] = useState<DelegateViolation[]>([]);
   const [violationsLoading, setViolationsLoading] = useState(false);
@@ -240,7 +244,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <Ionicons name="wallet-outline" size={22} color={isTargetAchieved ? '#22c55e' : colors.primary} />
           </View>
           <Text style={[styles.statNumber, { color: isTargetAchieved ? '#22c55e' : colors.textPrimary }]}>
-            {expectedSalary.toLocaleString()}
+            {expectedSalary > 0 ? expectedSalary.toLocaleString('en-US') : '0'}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.expectedSalary}</Text>
         </View>
@@ -256,7 +260,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {/* 1. Shift Quick Access */}
       <TouchableOpacity
         style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-        onPress={() => onNavigateToTab('shift')}
+        onPress={() => {
+          if (!activeSession && onStartShiftClick) {
+            onStartShiftClick();
+          } else {
+            onNavigateToTab('shift');
+          }
+        }}
       >
         <View
           style={[
@@ -312,8 +322,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           styles.quickCardRow,
           {
             backgroundColor: colors.card,
-            borderColor: violations.length > 0 ? (isDarkMode ? 'rgba(239, 68, 68, 0.4)' : '#FECACA') : colors.border,
-            borderWidth: violations.length > 0 ? 1.2 : 1,
+            borderColor: colors.border,
+            borderWidth: 1,
             flexDirection: isRTL ? 'row-reverse' : 'row',
           },
         ]}
@@ -324,7 +334,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             styles.quickCardIconCircle,
             {
               backgroundColor: violations.length > 0
-                ? (isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2')
+                ? (isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2')
                 : (isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5'),
             },
           ]}
@@ -344,7 +354,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 2 }]}>
             {violations.length > 0
               ? (totalDuePending > 0
-                  ? `المتبقي عليك: ${totalDuePending.toLocaleString()} ر.س`
+                  ? `المتبقي عليك: ${totalDuePending.toLocaleString('en-US')} ر.س`
                   : 'تم سداد كامل المستحقات (لا يوجد متبقي)')
               : (t.noViolationsSub || 'سجلك نظيف! لا توجد مخالفات أو جزاءات مسجلة')}
           </Text>
@@ -497,5 +507,18 @@ const styles = StyleSheet.create({
   },
   quickCardSub: {
     fontSize: 12,
+  },
+  pendingBadgeRow: {
+    marginTop: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  pendingOrdersText: {
+    fontSize: 11.5,
+    fontWeight: '600',
   },
 });

@@ -84,7 +84,7 @@ export const AutoUpdateOverlay: React.FC = () => {
       <Animated.View style={[styles.animationWrap, { opacity: fadeAnim }]}>
         <LottieView
           ref={lottieRef}
-          source={require('../../../assets/Lottie/update.json')}
+          source={require('../../../assets/Lottie/json/update.json')}
           autoPlay={true}
           loop={true}
           style={styles.lottieAnimation}

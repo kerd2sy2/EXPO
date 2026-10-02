@@ -92,10 +92,7 @@ export const workApi = {
         Boolean(data.admin?.role && (data.admin.role === 'ADMIN' || data.admin.role === 'SUPER_ADMIN' || data.admin.role === 'SUPERVISOR'));
 
       const bioOn = await isBiometricEnabled();
-      if (isActualAdmin && data.admin) {
-        await saveCachedUser({ ...data.admin, is_admin: true });
-        // Never save biometric credentials for admin accounts on the mobile app
-      } else if (data.employee && data.employee.id) {
+      if (!isActualAdmin && data.employee && data.employee.id) {
         await saveCachedUser(data.employee);
         if (bioOn) {
           await saveLastCredentialsForBiometrics(login.trim(), data.access_token, data.employee, data.refresh_token);
@@ -110,7 +107,7 @@ export const workApi = {
     try {
       const cached = await getCachedUser();
       if (cached && (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN')) {
-        return cached;
+        return null;
       }
       const token = getStoredToken() || (await loadStoredToken());
       if (!token) {
@@ -226,8 +223,8 @@ export const workApi = {
     }
   },
 
-  // Get delegate shift history
-  getMySessions: async (employeeId: string, limit = 50): Promise<WorkSession[]> => {
+  // Get delegate shift history (full month sessions)
+  getMySessions: async (employeeId: string, limit = 300): Promise<WorkSession[]> => {
     try {
       const data: any = await apiRequest(`/reports?employee_id=${employeeId}&limit=${limit}`);
       if (Array.isArray(data)) return data;

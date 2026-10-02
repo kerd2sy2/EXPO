@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import { ThemeColors } from '../../types/delegate';
 
 export type AlertModalType =
@@ -126,6 +127,7 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
 
   // Icon, color and default buttons configuration based on modal type
   let iconComponent = <Ionicons name="alert-circle" size={32} color={colors.primary} />;
+  let lottieSource: any = null;
   let iconBg = colors.primaryLight;
   let primaryBtnColor = colors.primary;
   let defaultPrimaryText = isRTL ? 'حسناً' : 'OK';
@@ -145,24 +147,28 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
       defaultPrimaryText = isRTL ? 'سماح بالوصول للموقع' : 'Allow Location';
       break;
     case 'warning':
+      lottieSource = require('../../../assets/Lottie/json/Alerts/Attention.json');
       iconComponent = <Ionicons name="warning" size={32} color="#eab308" />;
       iconBg = isDarkMode ? 'rgba(234, 179, 8, 0.18)' : '#fef9c3';
       primaryBtnColor = '#eab308';
       defaultPrimaryText = isRTL ? 'فهمت' : 'Got it';
       break;
     case 'error':
+      lottieSource = require('../../../assets/Lottie/json/Alerts/Error.json');
       iconComponent = <Ionicons name="close-circle" size={32} color="#ef4444" />;
       iconBg = isDarkMode ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2';
       primaryBtnColor = '#ef4444';
       defaultPrimaryText = isRTL ? 'إغلاق' : 'Close';
       break;
     case 'success':
+      lottieSource = require('../../../assets/Lottie/json/Alerts/Success.json');
       iconComponent = <Ionicons name="checkmark-circle" size={32} color="#10b981" />;
       iconBg = isDarkMode ? 'rgba(16, 185, 129, 0.18)' : '#ecfdf5';
       primaryBtnColor = '#10b981';
       defaultPrimaryText = isRTL ? 'حسناً' : 'OK';
       break;
     case 'confirm':
+      lottieSource = require('../../../assets/Lottie/json/Alerts/Attention.json');
       iconComponent = <Ionicons name="help-circle" size={32} color="#f97316" />;
       iconBg = isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed';
       primaryBtnColor = '#ef4444';
@@ -196,9 +202,19 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
           <View style={[styles.handleBar, { backgroundColor: isDarkMode ? '#3f3f46' : '#cbd5e1' }]} />
         </View>
 
-        {/* Icon Circle with Glow */}
+        {/* Icon Circle with Glow or Lottie */}
         <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>
-          {iconComponent}
+          {lottieSource ? (
+            <LottieView
+              source={lottieSource}
+              autoPlay
+              loop={false}
+              style={{ width: 56, height: 56 }}
+              resizeMode="contain"
+            />
+          ) : (
+            iconComponent
+          )}
         </View>
 
         {/* Title */}

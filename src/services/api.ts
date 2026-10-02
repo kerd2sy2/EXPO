@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import { logDebugError } from './errorLogger';
+import { secureStorage } from './secureStorage';
+import { offlineQueue } from './offlineQueue';
 
 // Hosted Backend API URL (Cloudflare Enterprise Custom Domain)
 export const API_BASE_URL =
@@ -34,12 +36,12 @@ let storedToken: string | null = null;
 let storedRefreshToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
-// Initialize token & refresh token from AsyncStorage
+// Initialize token & refresh token from secureStorage
 export const loadStoredToken = async (): Promise<string | null> => {
   try {
     const [token, rToken] = await Promise.all([
-      AsyncStorage.getItem(TOKEN_KEY),
-      AsyncStorage.getItem(REFRESH_TOKEN_KEY),
+      secureStorage.getItem(TOKEN_KEY),
+      secureStorage.getItem(REFRESH_TOKEN_KEY),
     ]);
     if (token) {
       storedToken = token;
@@ -49,20 +51,20 @@ export const loadStoredToken = async (): Promise<string | null> => {
     }
     return storedToken;
   } catch (e) {
-    console.log('Error reading token from AsyncStorage:', e);
+    console.log('Error reading token from storage:', e);
   }
   return null;
 };
 
 export const loadStoredRefreshToken = async (): Promise<string | null> => {
   try {
-    const rToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    const rToken = await secureStorage.getItem(REFRESH_TOKEN_KEY);
     if (rToken) {
       storedRefreshToken = rToken;
       return rToken;
     }
   } catch (e) {
-    console.log('Error reading refresh token from AsyncStorage:', e);
+    console.log('Error reading refresh token from storage:', e);
   }
   return null;
 };
@@ -78,16 +80,20 @@ export const setAuthToken = async (
   }
   try {
     if (token) {
-      await AsyncStorage.setItem(TOKEN_KEY, token);
+      await secureStorage.setItem(TOKEN_KEY, token);
       if (refreshToken) {
-        await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+        await secureStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
       }
     } else {
       storedRefreshToken = null;
-      await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY]);
+      await Promise.all([
+        secureStorage.removeItem(TOKEN_KEY),
+        secureStorage.removeItem(REFRESH_TOKEN_KEY),
+        AsyncStorage.removeItem(USER_KEY),
+      ]);
     }
   } catch (e) {
-    console.log('Error saving token to AsyncStorage:', e);
+    console.log('Error saving token to secure storage:', e);
   }
 };
 

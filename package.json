@@ -5,13 +5,14 @@
   "dependencies": {
     "@expo/ui": "~57.0.15",
     "@expo/vector-icons": "^15.1.1",
+    "@microsoft/react-native-clarity": "^4.9.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-ml-kit/text-recognition": "^2.0.0",
-    "expo": "~57.0.25",
-    "expo-camera": "^57.0.5",
-    "expo-constants": "~57.0.17",
+    "expo": "~57.0.26",
+    "expo-camera": "~57.0.6",
+    "expo-constants": "~57.0.20",
     "expo-device": "~57.0.2",
-    "expo-document-picker": "~57.0.2",
+    "expo-document-picker": "~57.0.3",
     "expo-font": "~57.0.4",
     "expo-glass-effect": "~57.0.4",
     "expo-haptics": "~57.0.3",
@@ -28,10 +29,11 @@
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.3",
     "expo-system-ui": "~57.0.4",
-    "expo-task-manager": "~57.0.20",
-    "expo-updates": "~57.0.23",
+    "expo-task-manager": "~57.0.21",
+    "expo-updates": "~57.0.24",
     "expo-web-browser": "~57.0.3",
-    "lottie-react-native": "^7.5.0",
+    "lottie-react-native": "~7.3.8",
+    "mixpanel-react-native": "^3.8.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -62,8 +64,24 @@
         "expo-image",
         "expo-image-picker",
         "expo-linking",
-        "expo-router"
+        "expo-router",
+        "lottie-react-native",
+        "expo",
+        "expo-camera",
+        "expo-constants",
+        "expo-document-picker",
+        "expo-task-manager",
+        "expo-updates"
       ]
+    },
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "listUnknownPackages": false,
+        "exclude": [
+          "@react-native-ml-kit/text-recognition",
+          "@microsoft/react-native-clarity"
+        ]
+      }
     }
   }
 }

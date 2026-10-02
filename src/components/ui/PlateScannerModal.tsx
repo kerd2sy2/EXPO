@@ -10,9 +10,10 @@ import {
   Platform,
   ActivityIndicator,
   StatusBar,
-  Alert,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
@@ -30,7 +31,7 @@ try {
   console.warn('expo-camera not linked in current binary, using fallback:', e);
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Safe Boundary to catch any native missing module crashes
 class CameraErrorBoundary extends Component<
@@ -299,12 +300,11 @@ export const KNOWN_FLEET_PLATES: Record<string, { en: string; ar: string }> = {
   '8037': { en: 'B E', ar: 'ع ب' },
 };
 
-// Flexible Independent Character-by-Character Plate Parser for Google ML Kit
+// Flexible Character-by-Character Plate Parser for Google ML Kit
 export const parseMLKitPlateText = (text: string): PlateResultData | null => {
   if (!text || typeof text !== 'string' || text.trim().length === 0) return null;
-  console.log("RAW MLKIT TEXT ===>", JSON.stringify(text));
 
-  // Convert Arabic numerals to standard English digits first
+  // Convert Arabic numerals to standard English digits
   const normalizedText = (text || '').replace(/[٠-٩]/g, (w) => {
     const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     return `${ar.indexOf(w)}`;
@@ -318,7 +318,6 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
 
   let detectedDigits = '';
   if (filteredDigits.length > 0) {
-    // Check if any match is directly in known fleet
     const fleetMatch = filteredDigits.find((d) => KNOWN_FLEET_PLATES[d]);
     detectedDigits = fleetMatch || filteredDigits[0];
   } else {
@@ -425,6 +424,10 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
   const [capturedBase64, setCapturedBase64] = useState<string | null>(null);
 
+  // Dedicated Intro Splash Animation state
+  const [showIntroSplash, setShowIntroSplash] = useState(true);
+  const introFadeAnim = useRef(new Animated.Value(1)).current;
+
   const isAutoScanningRef = useRef(false);
   const isMountedRef = useRef(false);
   const isFinishedRef = useRef(false);
@@ -433,11 +436,54 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
   const hookResult = useCameraPermsHook ? useCameraPermsHook() : [null, async () => ({ granted: false })];
   const permission = hookResult[0];
   const requestPermission = hookResult[1];
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+
+  // Check camera permissions immediately on mount so it is ready before opening
+  useEffect(() => {
+    ImagePicker.getCameraPermissionsAsync()
+      .then(({ granted }) => {
+        setHasPermission(granted);
+        if (!granted) {
+          ImagePicker.requestCameraPermissionsAsync()
+            .then((r) => setHasPermission(r.granted))
+            .catch(() => {});
+        }
+      })
+      .catch(() => setHasPermission(true));
+  }, []);
 
   // Animations
   const laserAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const resultCardAnim = useRef(new Animated.Value(0)).current;
+
+  // Modern Bottom Sheet Error Alert
+  const [showErrorSheet, setShowErrorSheet] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const errorSheetAnim = useRef(new Animated.Value(0)).current;
+
+  const triggerErrorSheet = (msg: string) => {
+    setErrorMessage(msg);
+    setShowErrorSheet(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    Animated.spring(errorSheetAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 65,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeErrorSheet = () => {
+    Animated.timing(errorSheetAnim, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowErrorSheet(false);
+    });
+  };
 
   // Request permissions when opened
   useEffect(() => {
@@ -446,25 +492,45 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     }
   }, [visible, permission]);
 
-  // Laser Sweep & Radar Animations
+  // Transition from Intro Animation to Live Camera
+  const handleIntroComplete = () => {
+    Animated.timing(introFadeAnim, {
+      toValue: 0,
+      duration: 350,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowIntroSplash(false);
+    });
+  };
+
+  // Intro Splash & Laser Sweep & Radar Animations lifecycle
   useEffect(() => {
     if (visible) {
+      setShowIntroSplash(true);
+      introFadeAnim.setValue(1);
+      setIsCameraReady(false);
       setDetectedResult(null);
       setCapturedPhotoUri(null);
-      setCapturedBase64(null);
+      setShowErrorSheet(false);
+      errorSheetAnim.setValue(0);
       isFinishedRef.current = false;
       resultCardAnim.setValue(0);
+
+      // Intro safety timer (ensures camera opens after 1.8s even if animation finish event doesn't fire)
+      const introTimer = setTimeout(() => {
+        handleIntroComplete();
+      }, 1800);
 
       const laser = Animated.loop(
         Animated.sequence([
           Animated.timing(laserAnim, {
             toValue: 1,
-            duration: 1500,
+            duration: 1400,
             useNativeDriver: true,
           }),
           Animated.timing(laserAnim, {
             toValue: 0,
-            duration: 1500,
+            duration: 1400,
             useNativeDriver: true,
           }),
         ])
@@ -474,13 +540,13 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.02,
-            duration: 1000,
+            toValue: 1.025,
+            duration: 900,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 1000,
+            duration: 900,
             useNativeDriver: true,
           }),
         ])
@@ -488,6 +554,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
       pulse.start();
 
       return () => {
+        clearTimeout(introTimer);
         laser.stop();
         pulse.stop();
       };
@@ -497,7 +564,6 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
   // Trigger result card appearance animation & compress image for database proof
   const showResultPopup = async (data: PlateResultData, photoUri: string, b64: string) => {
     try {
-      // Compress to minimal size (~25-35KB) for database proof of plate
       const manipulated = await ImageManipulator.manipulateAsync(
         photoUri,
         [{ resize: { width: 640 } }],
@@ -556,7 +622,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
 
       const res: any = await workApi.scanPlate(base64Uri);
       
-      // Strict validation: Must have at least 2 digits to be considered a genuine plate
+      // Strict validation: Must have at least 2 digits
       if (res && res.digits && res.digits.length >= 2) {
         const plateData: PlateResultData = {
           digits: res.digits || '',
@@ -574,14 +640,57 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     return null;
   };
 
-  // Keep viewfinder clean and responsive at 60 FPS without camera hardware flash blinking
+  // Real-time automatic background plate recognition loop while camera is active
   useEffect(() => {
     isMountedRef.current = true;
     isFinishedRef.current = false;
+
+    if (!visible || showIntroSplash) return;
+
+    let autoScanInterval: any = null;
+
+    if (CameraViewComponent && !cameraFailed && MLKitTextRecognition) {
+      autoScanInterval = setInterval(async () => {
+        if (
+          !isMountedRef.current ||
+          isFinishedRef.current ||
+          isAutoScanningRef.current ||
+          internalScanning ||
+          !isCameraReady ||
+          !cameraRef.current
+        ) {
+          return;
+        }
+
+        try {
+          isAutoScanningRef.current = true;
+          const snap = await cameraRef.current.takePictureAsync({
+            quality: 0.6,
+            base64: false,
+            skipProcessing: true,
+            shutterSound: false,
+          });
+
+          if (snap && snap.uri && !isFinishedRef.current) {
+            const detected = await executeAiScan(snap.uri);
+            if (detected && detected.digits && detected.digits.length >= 2 && !isFinishedRef.current) {
+              const fullB64 = `data:image/jpeg;base64,${snap.base64 || ''}`;
+              showResultPopup(detected, snap.uri, fullB64);
+            }
+          }
+        } catch (e) {
+          // ignore background frame error
+        } finally {
+          isAutoScanningRef.current = false;
+        }
+      }, 1000);
+    }
+
     return () => {
       isMountedRef.current = false;
+      if (autoScanInterval) clearInterval(autoScanInterval);
     };
-  }, [visible]);
+  }, [visible, showIntroSplash, isCameraReady, cameraFailed, internalScanning]);
 
   // Manual Trigger Button
   const handleManualScan = async () => {
@@ -603,9 +712,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
           if (detected && detected.digits && detected.digits.length >= 2) {
             showResultPopup(detected, photo.uri, b64);
           } else {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-            Alert.alert(
-              "تنبيه",
+            triggerErrorSheet(
               "لم نتمكن من قراءة أرقام اللوحة بوضوح، يرجى تقريب الكاميرا والتأكد من إضاءة اللوحة وإعادة المحاولة."
             );
           }
@@ -629,10 +736,8 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
           if (detected && detected.digits && detected.digits.length >= 2) {
             showResultPopup(detected, asset.uri, b64);
           } else {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-            Alert.alert(
-              "تنبيه",
-              "لم نتمكن من قراءة أرقام اللوحة بوضوح، يرجى إعادة المحاولة."
+            triggerErrorSheet(
+              "لم نتمكن من قراءة أرقام اللوحة بوضوح، يرجى تقريب الكاميرا وإعادة المحاولة."
             );
           }
         }
@@ -640,40 +745,6 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     } catch (e) {
       console.error('Manual scan error:', e);
     } finally {
-      setInternalScanning(false);
-    }
-  };
-
-  // Gallery Picker Option
-  const handlePickFromGallery = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') return;
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsEditing: false,
-        quality: 0.85,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setInternalScanning(true);
-        const b64 = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-        const detected = await executeAiScan(asset.uri, b64);
-        if (detected && detected.digits && detected.digits.length >= 2) {
-          showResultPopup(detected, asset.uri, b64);
-        } else {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-          Alert.alert(
-            "تنبيه",
-            "لم نتمكن من استخراج بيانات اللوحة من الصورة المحددة، يرجى اختيار صورة واضحة للوحة."
-          );
-        }
-        setInternalScanning(false);
-      }
-    } catch (err) {
-      console.error('Gallery pick error:', err);
       setInternalScanning(false);
     }
   };
@@ -697,7 +768,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
 
   const translateY = laserAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [10, 190],
+    outputRange: [12, 195],
   });
 
   const isBusy = isProcessing || internalScanning;
@@ -710,18 +781,19 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
   return (
     <Modal
       visible={visible}
-      animationType="fade"
-      transparent={false}
+      animationType="none"
+      transparent={true}
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
       <View style={styles.container}>
-        {/* Fullscreen Live Camera View Stream */}
-        {hasNativeCamera && permission?.granted ? (
+        {/* Fullscreen Live Camera Stream */}
+        {hasNativeCamera && (permission?.granted || hasPermission) ? (
           <CameraErrorBoundary
             fallback={
               <View style={[StyleSheet.absoluteFill, styles.fallbackContainer]}>
-                <Ionicons name="scan-circle" size={88} color="#f97316" />
+                <Ionicons name="scan-circle" size={72} color="#f97316" />
                 <Text style={styles.fallbackText}>كاميرا مسح اللوحات الذكية</Text>
               </View>
             }
@@ -733,16 +805,27 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               mute={true}
               enableTorch={torchOn}
               flash={torchOn ? 'on' : 'off'}
+              mode="picture"
+              onCameraReady={() => setIsCameraReady(true)}
+              onMountError={(e: any) => {
+                console.warn('Camera mount error:', e);
+                setCameraFailed(true);
+              }}
             />
           </CameraErrorBoundary>
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.fallbackContainer]}>
-            <Ionicons name="scan-circle" size={88} color="#f97316" />
-            <Text style={styles.fallbackText}>ماسح لوحات الدبابات الميداني</Text>
+            <LottieView
+              source={require('../../../assets/Lottie/lottie/HLmkwb6vpO.lottie')}
+              autoPlay
+              loop
+              style={{ width: 160, height: 160 }}
+            />
+            <Text style={styles.fallbackText}>جاري فتح عدسة الكاميرا...</Text>
           </View>
         )}
 
-        {/* HUD Overlay with Top Header, Centered Box, and Bottom Bar */}
+        {/* HUD Viewfinder Overlay */}
         <View style={styles.hudOverlay}>
           {/* Top Header Controls */}
           <View style={styles.headerRow}>
@@ -754,38 +837,31 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               <Ionicons name="close" size={24} color="#ffffff" />
             </TouchableOpacity>
 
+            {/* Header Badge */}
             <View style={styles.headerBadge}>
               <View style={styles.radarDot} />
-              <Ionicons name="scan" size={16} color="#f97316" style={{ marginRight: 6 }} />
-              <Text style={styles.headerBadgeText}>الماسح الذكي للوحات الدبابات</Text>
+              <Text style={styles.headerBadgeText}>مسح لوحة الدباب</Text>
             </View>
 
-            <View style={styles.headerActionGroup}>
-              {hasNativeCamera && (
-                <TouchableOpacity
-                  style={[styles.headerGlassBtn, torchOn && styles.headerBtnActive]}
-                  onPress={() => setTorchOn((prev) => !prev)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name={torchOn ? 'flashlight' : 'flashlight-outline'}
-                    size={20}
-                    color={torchOn ? '#0f172a' : '#ffffff'}
-                  />
-                </TouchableOpacity>
-              )}
-
+            {/* Torch toggle button */}
+            {hasNativeCamera ? (
               <TouchableOpacity
-                style={[styles.headerGlassBtn, { marginLeft: 8 }]}
-                onPress={handlePickFromGallery}
+                style={[styles.headerGlassBtn, torchOn && styles.headerBtnActive]}
+                onPress={() => setTorchOn((prev) => !prev)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="images-outline" size={20} color="#ffffff" />
+                <Ionicons
+                  name={torchOn ? 'flashlight' : 'flashlight-outline'}
+                  size={20}
+                  color={torchOn ? '#0f172a' : '#ffffff'}
+                />
               </TouchableOpacity>
-            </View>
+            ) : (
+              <View style={{ width: 44 }} />
+            )}
           </View>
 
-          {/* Centered Target Box (AAMS Brand Theme) */}
+          {/* Centered Target Box */}
           <View style={styles.centerTargetContainer}>
             <Animated.View
               style={[
@@ -801,28 +877,32 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               <View style={[styles.cornerBracket, styles.bracketBL]} />
               <View style={[styles.cornerBracket, styles.bracketBR]} />
 
-              {/* Saudi Plate Blueprint Grid Lines */}
-              <View style={styles.blueprintGrid}>
-                {/* Top Half: Arabic */}
+              {/* Saudi Motorcycle Plate Blueprint Guide */}
+              <View style={styles.blueprintGrid} pointerEvents="none">
+                {/* Top Row: Arabic Digits & Letters */}
                 <View style={styles.blueprintRow}>
                   <View style={styles.blueprintCellLeft}>
-                    <Text style={styles.blueprintWatermark}>٦ ٥ ٣ ٤</Text>
+                    <Text style={styles.blueprintWatermark}>٦٥٣٤</Text>
                   </View>
                   <View style={styles.blueprintCellRight}>
-                    <Text style={styles.blueprintWatermark}>د ا</Text>
+                    <Text style={styles.blueprintWatermark}>د  أ</Text>
                   </View>
                   <View style={styles.blueprintKsaCol}>
+                    <Ionicons name="shield-checkmark" size={14} color="rgba(34, 197, 94, 0.45)" />
                     <Text style={styles.blueprintKsaText}>السعودية</Text>
                   </View>
                 </View>
 
-                {/* Bottom Half: English */}
-                <View style={[styles.blueprintRow, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' }]}>
+                {/* Dashed Center Divider */}
+                <View style={styles.blueprintDivider} />
+
+                {/* Bottom Row: English Digits & Letters */}
+                <View style={styles.blueprintRow}>
                   <View style={styles.blueprintCellLeft}>
-                    <Text style={styles.blueprintWatermarkEn}>6 5 3 4</Text>
+                    <Text style={styles.blueprintWatermarkEn}>6534</Text>
                   </View>
                   <View style={styles.blueprintCellRight}>
-                    <Text style={styles.blueprintWatermarkEn}>A D</Text>
+                    <Text style={styles.blueprintWatermarkEn}>A  D</Text>
                   </View>
                   <View style={styles.blueprintKsaCol}>
                     <Text style={styles.blueprintKsaText}>KSA</Text>
@@ -830,11 +910,11 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                 </View>
               </View>
 
-              {/* Center Crosshair */}
-              <View style={styles.crosshairH} />
-              <View style={styles.crosshairV} />
+              {/* Center Crosshairs */}
+              <View style={styles.crosshairH} pointerEvents="none" />
+              <View style={styles.crosshairV} pointerEvents="none" />
 
-              {/* Glowing Laser Sweep Beam */}
+              {/* Laser Sweep Beam */}
               {!detectedResult && (
                 <Animated.View
                   style={[
@@ -845,19 +925,25 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               )}
             </Animated.View>
 
-            {/* Instruction Banner */}
+            {/* Instruction Guidance Pill */}
             <View style={styles.hintPill}>
               <Ionicons
-                name={detectedResult ? 'checkmark-circle' : isBusy ? 'sync' : 'camera-outline'}
+                name={
+                  detectedResult
+                    ? 'checkmark-circle'
+                    : isBusy
+                    ? 'sync'
+                    : 'scan-outline'
+                }
                 size={18}
-                color={detectedResult ? '#22c55e' : isBusy ? '#f97316' : '#94a3b8'}
+                color={detectedResult ? '#22c55e' : isBusy ? '#f97316' : '#38bdf8'}
               />
               <Text style={styles.hintPillText}>
                 {detectedResult
-                  ? 'تم التعرف على اللوحة بنجاح!'
+                  ? 'تم التعرف على لوحة الدباب بنجاح!'
                   : isBusy
-                  ? 'جاري فك تشفير وقراءة اللوحة بالذكاء الاصطناعي...'
-                  : 'وجّه اللوحة داخل الإطار — سيتم المسح والاستنتاج تلقائياً'}
+                  ? 'جاري فحص وقراءة اللوحة بالذكاء الاصطناعي...'
+                  : 'وجّه اللوحة داخل الإطار للالتقاط التلقائي'}
               </Text>
             </View>
           </View>
@@ -885,12 +971,12 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                 <View style={styles.resultHeader}>
                   <View style={styles.resultBadgeSuccess}>
                     <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
-                    <Text style={styles.resultBadgeText}>نتيجة التعرف الذكي</Text>
+                    <Text style={styles.resultBadgeText}>تم التعرف على اللوحة بنجاح</Text>
                   </View>
                   <Text style={styles.resultConfidence}>دقة 99% (مطابقة تامة)</Text>
                 </View>
 
-                {/* Saudi Plate Card Preview */}
+                {/* Saudi Motorcycle Plate Card Preview */}
                 <View style={styles.platePreviewWrap}>
                   <View style={styles.plateCardBox}>
                     <View style={styles.plateCardMain}>
@@ -915,7 +1001,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                     </View>
                     {/* KSA Side Banner */}
                     <View style={styles.plateCardSide}>
-                      <Ionicons name="leaf" size={14} color="#15803d" />
+                      <Ionicons name="shield-checkmark" size={14} color="#15803d" />
                       <Text style={styles.plateCardSideAr}>السعودية</Text>
                       <Text style={styles.plateCardSideEn}>KSA</Text>
                     </View>
@@ -967,6 +1053,117 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
             )}
           </View>
         </View>
+
+        {/* Full-screen Intro Animation Splash before Camera */}
+        {showIntroSplash && (
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              styles.introSplashContainer,
+              { opacity: introFadeAnim },
+            ]}
+          >
+            <View style={styles.introSplashContent}>
+              <View style={styles.introLottieBox}>
+                <LottieView
+                  source={require('../../../assets/Lottie/lottie/HLmkwb6vpO.lottie')}
+                  autoPlay
+                  loop={false}
+                  onAnimationFinish={handleIntroComplete}
+                  style={styles.introLottie}
+                />
+              </View>
+
+              <View style={styles.introBadge}>
+                <Ionicons name="scan" size={18} color="#f97316" />
+                <Text style={styles.introBadgeText}>الماسح الذكي للوحات الدبابات</Text>
+              </View>
+
+              <Text style={styles.introSubtitle}>
+                جاري تهيئة الكاميرا والذكاء الاصطناعي...
+              </Text>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Modern Bottom Sheet Error Alert */}
+        {showErrorSheet && (
+          <View style={StyleSheet.absoluteFill}>
+            <TouchableWithoutFeedback onPress={closeErrorSheet}>
+              <Animated.View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                    opacity: errorSheetAnim,
+                  },
+                ]}
+              />
+            </TouchableWithoutFeedback>
+
+            <Animated.View
+              style={[
+                styles.errorSheetContainer,
+                {
+                  transform: [
+                    {
+                      translateY: errorSheetAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [380, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.errorSheetPill} />
+
+              <View style={styles.errorIconCircle}>
+                <LottieView
+                  source={require('../../../assets/Lottie/json/Alerts/Attention.json')}
+                  autoPlay
+                  loop={false}
+                  style={{ width: 62, height: 62 }}
+                />
+              </View>
+
+              <Text style={styles.errorSheetTitle}>لم نتمكن من قراءة أرقام اللوحة</Text>
+              <Text style={styles.errorSheetMessage}>
+                {errorMessage || 'يرجى تقريب الكاميرا والتأكد من وضوح وإضاءة أرقام وحروف اللوحة ثم إعادة المحاولة.'}
+              </Text>
+
+              <View style={styles.errorTipsCard}>
+                <View style={styles.errorTipRow}>
+                  <Ionicons name="flash-outline" size={16} color="#f97316" />
+                  <Text style={styles.errorTipText}>شغّل إضاءة الفلاش إذا كان المكان مظلماً</Text>
+                </View>
+                <View style={styles.errorTipRow}>
+                  <Ionicons name="scan-outline" size={16} color="#f97316" />
+                  <Text style={styles.errorTipText}>اجعل اللوحة داخل إطار المسح البرتقالي</Text>
+                </View>
+              </View>
+
+              <View style={styles.errorSheetActions}>
+                <TouchableOpacity
+                  style={styles.errorRetryBtn}
+                  onPress={closeErrorSheet}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="refresh" size={18} color="#ffffff" style={{ marginHorizontal: 6 }} />
+                  <Text style={styles.errorRetryBtnText}>إعادة المحاولة الآن</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.errorDismissBtn}
+                  onPress={closeErrorSheet}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.errorDismissBtnText}>إغلاق</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -975,7 +1172,52 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#090d16',
+  },
+  introSplashContainer: {
+    backgroundColor: '#090d16',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  introSplashContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  introLottieBox: {
+    width: 220,
+    height: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  introLottie: {
+    width: 220,
+    height: 220,
+  },
+  introBadge: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.4)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 24,
+    gap: 8,
+    marginTop: 16,
+  },
+  introBadgeText: {
+    color: '#f8fafc',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  introSubtitle: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 10,
+    textAlign: 'center',
   },
   fallbackContainer: {
     justifyContent: 'center',
@@ -996,9 +1238,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    backgroundColor: 'rgba(9, 13, 22, 0.35)',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 48 : 32,
+    paddingTop: Platform.OS === 'ios' ? 48 : 36,
     paddingBottom: Platform.OS === 'ios' ? 36 : 24,
   },
   headerRow: {
@@ -1011,7 +1253,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(30, 41, 59, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
@@ -1021,31 +1263,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#f97316',
     borderColor: '#ea580c',
   },
-  headerActionGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   headerBadge: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.4)',
-    paddingHorizontal: 14,
+    borderColor: 'rgba(249, 115, 22, 0.45)',
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
+    gap: 8,
   },
   radarDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#f97316',
-    marginRight: 8,
+    backgroundColor: '#22c55e',
   },
   headerBadgeText: {
     color: '#f8fafc',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
   centerTargetContainer: {
     alignItems: 'center',
@@ -1054,27 +1292,27 @@ const styles = StyleSheet.create({
   },
   targetFrame: {
     width: SCREEN_WIDTH * 0.88,
-    height: (SCREEN_WIDTH * 0.88) * 0.62,
-    maxHeight: 230,
-    backgroundColor: 'rgba(15, 23, 42, 0.25)',
-    borderRadius: 16,
+    height: (SCREEN_WIDTH * 0.88) * 0.65,
+    maxHeight: 235,
+    backgroundColor: 'rgba(15, 23, 42, 0.22)',
+    borderRadius: 20,
     borderWidth: 2,
-    borderColor: 'rgba(249, 115, 22, 0.6)',
+    borderColor: 'rgba(249, 115, 22, 0.55)',
     position: 'relative',
     overflow: 'hidden',
     justifyContent: 'center',
   },
   targetFrameSuccess: {
     borderColor: '#22c55e',
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
   },
   targetFrameBusy: {
     borderColor: '#f97316',
   },
   cornerBracket: {
     position: 'absolute',
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     borderColor: '#f97316',
   },
   bracketTL: {
@@ -1082,28 +1320,28 @@ const styles = StyleSheet.create({
     left: -2,
     borderTopWidth: 4,
     borderLeftWidth: 4,
-    borderTopLeftRadius: 16,
+    borderTopLeftRadius: 20,
   },
   bracketTR: {
     top: -2,
     right: -2,
     borderTopWidth: 4,
     borderRightWidth: 4,
-    borderTopRightRadius: 16,
+    borderTopRightRadius: 20,
   },
   bracketBL: {
     bottom: -2,
     left: -2,
     borderBottomWidth: 4,
     borderLeftWidth: 4,
-    borderBottomLeftRadius: 16,
+    borderBottomLeftRadius: 20,
   },
   bracketBR: {
     bottom: -2,
     right: -2,
     borderBottomWidth: 4,
     borderRightWidth: 4,
-    borderBottomRightRadius: 16,
+    borderBottomRightRadius: 20,
   },
   blueprintGrid: {
     position: 'absolute',
@@ -1111,7 +1349,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    padding: 8,
+    padding: 10,
     justifyContent: 'space-between',
   },
   blueprintRow: {
@@ -1120,7 +1358,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   blueprintCellLeft: {
-    flex: 2,
+    flex: 2.2,
     justifyContent: 'center',
     alignItems: 'center',
     borderRightWidth: 1,
@@ -1134,39 +1372,45 @@ const styles = StyleSheet.create({
     borderRightColor: 'rgba(255, 255, 255, 0.12)',
   },
   blueprintKsaCol: {
-    flex: 1,
+    flex: 1.1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  blueprintDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 8,
+  },
   blueprintWatermark: {
-    color: 'rgba(255, 255, 255, 0.18)',
+    color: 'rgba(255, 255, 255, 0.22)',
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: 4,
   },
   blueprintWatermarkEn: {
-    color: 'rgba(255, 255, 255, 0.18)',
+    color: 'rgba(255, 255, 255, 0.2)',
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: 3,
   },
   blueprintKsaText: {
-    color: 'rgba(255, 255, 255, 0.2)',
-    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.25)',
+    fontSize: 9,
     fontWeight: '800',
+    marginTop: 2,
   },
   crosshairH: {
     position: 'absolute',
     width: 24,
     height: 2,
-    backgroundColor: 'rgba(249, 115, 22, 0.4)',
+    backgroundColor: 'rgba(249, 115, 22, 0.35)',
     alignSelf: 'center',
   },
   crosshairV: {
     position: 'absolute',
     width: 2,
     height: 24,
-    backgroundColor: 'rgba(249, 115, 22, 0.4)',
+    backgroundColor: 'rgba(249, 115, 22, 0.35)',
     alignSelf: 'center',
   },
   laserBeam: {
@@ -1178,27 +1422,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#f97316',
     shadowColor: '#f97316',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.95,
+    shadowRadius: 10,
+    elevation: 8,
   },
   hintPill: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 28,
     marginTop: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(249, 115, 22, 0.3)',
     maxWidth: SCREEN_WIDTH * 0.92,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   hintPillText: {
-    color: '#e2e8f0',
-    fontSize: 12,
-    fontWeight: '600',
-    marginRight: 8,
+    color: '#f1f5f9',
+    fontSize: 13,
+    fontWeight: '700',
     textAlign: 'center',
   },
   bottomSection: {
@@ -1209,9 +1458,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shutterBtn: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     backgroundColor: 'rgba(249, 115, 22, 0.2)',
     borderWidth: 3,
     borderColor: '#f97316',
@@ -1219,8 +1468,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: '#f97316',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
+    shadowOpacity: 0.55,
+    shadowRadius: 14,
     elevation: 8,
   },
   shutterBtnBusy: {
@@ -1228,51 +1477,51 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(234, 88, 12, 0.2)',
   },
   shutterInnerCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     backgroundColor: '#f97316',
     justifyContent: 'center',
     alignItems: 'center',
   },
   shutterLabel: {
     color: '#cbd5e1',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 10,
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 12,
   },
   resultCard: {
     width: '100%',
     backgroundColor: '#1e293b',
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.4)',
+    borderColor: 'rgba(249, 115, 22, 0.45)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.45,
     shadowRadius: 16,
     elevation: 10,
   },
   resultHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
   },
   resultBadgeSuccess: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    gap: 6,
   },
   resultBadgeText: {
     color: '#22c55e',
     fontSize: 12,
-    fontWeight: '700',
-    marginRight: 6,
+    fontWeight: '800',
   },
   resultConfidence: {
     color: '#94a3b8',
@@ -1286,7 +1535,7 @@ const styles = StyleSheet.create({
   plateCardBox: {
     width: '100%',
     backgroundColor: '#ffffff',
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: '#0f172a',
     flexDirection: 'row',
@@ -1354,7 +1603,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   resultActionRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     marginTop: 16,
     gap: 10,
@@ -1364,24 +1613,24 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
+    gap: 6,
   },
   rescanBtnText: {
     color: '#cbd5e1',
     fontSize: 13,
     fontWeight: '700',
-    marginRight: 6,
   },
   confirmBtn: {
     flex: 2,
     height: 48,
     borderRadius: 12,
     backgroundColor: '#f97316',
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#f97316',
@@ -1389,10 +1638,114 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+    gap: 6,
   },
   confirmBtnText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '800',
+  },
+  errorSheetContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#1e293b',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  errorSheetPill: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#475569',
+    marginBottom: 16,
+  },
+  errorIconCircle: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+  },
+  errorSheetTitle: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  errorSheetMessage: {
+    color: '#94a3b8',
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  errorTipsCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 8,
+  },
+  errorTipRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorTipText: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
+  },
+  errorSheetActions: {
+    width: '100%',
+    gap: 10,
+  },
+  errorRetryBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#f97316',
+    flexDirection: 'row-reverse',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorRetryBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  errorDismissBtn: {
+    width: '100%',
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorDismissBtnText: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

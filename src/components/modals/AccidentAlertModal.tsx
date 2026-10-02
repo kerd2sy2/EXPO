@@ -271,7 +271,7 @@ ${mapsUrl ? mapsUrl : 'https://maps.google.com'}
           {/* Large Lottie Car Accident Animation */}
           <View style={styles.lottieWrap}>
             <LottieView
-              source={require('../../../assets/Lottie/Car accident.json')}
+              source={require('../../../assets/Lottie/json/Car accident.json')}
               autoPlay
               loop
               style={styles.lottieAnim}

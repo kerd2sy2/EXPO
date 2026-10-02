@@ -136,7 +136,7 @@ export const AppUpdateBottomSheet: React.FC<AppUpdateBottomSheetProps> = ({
           {(state === 'READY' || state === 'DOWNLOADING') && (
             <View style={{ width: 140, height: 140, alignItems: 'center', justifyContent: 'center' }}>
               <LottieView
-                source={require('../../../assets/Lottie/update.json')}
+                source={require('../../../assets/Lottie/json/update.json')}
                 autoPlay={true}
                 loop={true}
                 style={{ width: 140, height: 140 }}

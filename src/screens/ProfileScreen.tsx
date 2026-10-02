@@ -44,6 +44,7 @@ interface ProfileScreenProps {
   lang: Language;
   onOpenQrModal: () => void;
   onOpenLangModal: () => void;
+  onToggleTheme?: () => void;
   onCheckForUpdates: () => void;
   onOpenDiagnostics?: () => void;
   setParentScrollEnabled?: (enabled: boolean) => void;
@@ -63,6 +64,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   empPhotoUrl,
   lang,
   onOpenLangModal,
+  onToggleTheme,
   onCheckForUpdates,
   onOpenDiagnostics,
   setParentScrollEnabled,
@@ -729,6 +731,35 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {lang === 'ar' ? 'العربية' : lang === 'en' ? 'English' : 'বাংলা'}
           </Text>
         </TouchableOpacity>
+
+        {/* Theme Mode Toggle (الوضع الفاتح / المظلم) */}
+        {onToggleTheme && (
+          <View
+            style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          >
+            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons
+                name={isDarkMode ? 'moon-outline' : 'sunny-outline'}
+                size={20}
+                color={isDarkMode ? '#fbbf24' : '#f59e0b'}
+              />
+              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
+                  {isRTL ? 'مظهر التطبيق' : 'App Theme'}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                  {isDarkMode ? (isRTL ? 'الوضع المظلم' : 'Dark Mode') : (isRTL ? 'الوضع الفاتح' : 'Light Mode')}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={isDarkMode}
+              onValueChange={onToggleTheme}
+              trackColor={{ false: '#cbd5e1', true: '#f59e0b' }}
+              thumbColor="#ffffff"
+            />
+          </View>
+        )}
 
         {/* Biometrics Toggle Row */}
         {biometricsAvailable && (

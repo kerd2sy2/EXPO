@@ -93,12 +93,7 @@ export const LogoutBottomSheet: React.FC<LogoutBottomSheetProps> = ({
 
   if (!visible) return null;
 
-  const roleLabel =
-    user?.role === 'SUPERVISOR'
-      ? 'مشرف التوصيل'
-      : user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
-      ? 'مدير النظام'
-      : 'المستخدم';
+  const roleLabel = 'مندوب توصيل معتمد';
 
   return (
     <Modal

@@ -106,19 +106,23 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   const fuelInputRef = useRef<TextInput>(null);
   const plateLettersRef = useRef<TextInput>(null);
 
-  // Dual Plate Fields State (Digits & Letters)
-  const initialParsed = parsePlateComponents(enteredMotorcycle || employee?.motorcycle_number || '');
+  // Dual Plate Fields State (Digits & Letters) - only populated when plate photo is captured/confirmed
+  const hasCapturedPhoto = Boolean(startPlateImage || isPlateConfirmed);
+  const initialParsed = parsePlateComponents(hasCapturedPhoto ? (enteredMotorcycle || '') : '');
   const [plateDigits, setPlateDigits] = useState(initialParsed.digits);
   const [plateLetters, setPlateLetters] = useState(initialParsed.letters);
 
-  // Synchronize internal plate fields when external enteredMotorcycle changes
+  // Synchronize internal plate fields when external enteredMotorcycle or startPlateImage changes
   useEffect(() => {
-    const parsed = parsePlateComponents(enteredMotorcycle);
-    if (parsed.digits !== plateDigits || parsed.letters !== plateLetters) {
+    if (startPlateImage || isPlateConfirmed) {
+      const parsed = parsePlateComponents(enteredMotorcycle);
       setPlateDigits(parsed.digits);
       setPlateLetters(parsed.letters);
+    } else {
+      setPlateDigits('');
+      setPlateLetters('');
     }
-  }, [enteredMotorcycle]);
+  }, [enteredMotorcycle, startPlateImage, isPlateConfirmed]);
 
   // Combine and update parent motorcycle state
   const handlePlateChange = (newDigits: string, newLetters: string) => {
@@ -136,6 +140,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   const isExemptOdometer = isOdometerBroken || (startKmNum === 0 && !activeSession?.start_km_image);
 
   const hasBikeNumber = Boolean(plateDigits.trim() || enteredMotorcycle.trim());
+  const isPlateCaptured = Boolean(startPlateImage && hasBikeNumber);
 
   const canStartShift = isOdometerBroken
     ? hasBikeNumber
@@ -190,7 +195,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
           {/* STEP 1: Capture & Confirm Motorcycle Plate */}
           {!isPlateConfirmed ? (
             <View style={styles.sectionContainer}>
-              {!hasBikeNumber ? (
+              {!isPlateCaptured ? (
                 /* Primary Scan Trigger Button */
                 <TouchableOpacity
                   style={[

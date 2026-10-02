@@ -15,6 +15,13 @@ export function useShiftWorkflow(
   const [autoKmFetched, setAutoKmFetched] = useState(false);
   const [isOdometerBroken, setIsOdometerBroken] = useState(false);
   const [activeBikeRegistrationImage, setActiveBikeRegistrationImage] = useState<string | null>(null);
+
+  // Plate Photo & OCR State
+  const [startPlateImage, setStartPlateImage] = useState<string | null>(null);
+  const startPlateImageRef = useRef<string | null>(null);
+  const [isPlateConfirmed, setIsPlateConfirmed] = useState(false);
+  const [isScanningPlate, setIsScanningPlate] = useState(false);
+
   const isTakingPhotoRef = useRef(false);
   const lastFetchedBikeRef = useRef<string>('');
   const bikeFetchSeqRef = useRef(0);
@@ -118,6 +125,9 @@ export function useShiftWorkflow(
     setStartKm('');
     setStartKmImage(null);
     startKmImageRef.current = null;
+    setStartPlateImage(null);
+    startPlateImageRef.current = null;
+    setIsPlateConfirmed(false);
     setStartNotes('');
     setAutoKmFetched(false);
   };
@@ -140,9 +150,17 @@ export function useShiftWorkflow(
     startKmImage,
     setStartKmImage,
     startKmImageRef,
+    startPlateImage,
+    setStartPlateImage,
+    startPlateImageRef,
+    isPlateConfirmed,
+    setIsPlateConfirmed,
+    isScanningPlate,
+    setIsScanningPlate,
     startNotes,
     setStartNotes,
     autoKmFetched,
+    setAutoKmFetched,
     isOdometerBroken,
     setIsOdometerBroken,
     activeBikeRegistrationImage,

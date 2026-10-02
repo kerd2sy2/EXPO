@@ -7,12 +7,14 @@ import {
   ScrollView,
   Image,
   StyleSheet,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { WorkSession, PreviewPhotoData, ThemeColors } from '../../types/delegate';
 import { API_BASE_URL } from '../../services/api';
 
-interface ShiftDetailsModalProps {
+export interface ShiftDetailsModalProps {
+  visible: boolean;
   session: WorkSession | null;
   colors: ThemeColors;
   isDarkMode: boolean;
@@ -25,6 +27,7 @@ interface ShiftDetailsModalProps {
 }
 
 export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
+  visible,
   session,
   colors,
   isDarkMode,
@@ -50,637 +53,587 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
   const startKmPhotoUrl = formatDocUrl(session.start_km_image);
   const endKmPhotoUrl = formatDocUrl(session.end_km_image);
 
+  const isApproved = Boolean(session.is_reviewed);
   const distance =
     session.distance ||
     (session.end_km && session.start_km ? session.end_km - session.start_km : 0);
 
+  const supervisorName = session.edited_by_name || 'المشرف';
+
   return (
     <Modal
-      visible={!!session}
-      transparent={true}
+      visible={visible}
+      transparent
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.bottomModalBackdrop}>
-        {/* Backdrop dismiss */}
-        <TouchableOpacity
-          style={StyleSheet.absoluteFill}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-
-        <View
-          style={[
-            styles.bottomSheetCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          {/* Drag Handle */}
-          <View
-            style={[
-              styles.bottomDragIndicator,
-              { backgroundColor: isDarkMode ? '#334155' : '#cbd5e1' },
-            ]}
-          />
-
-          {/* Close Icon */}
-          <TouchableOpacity
-            onPress={onClose}
-            style={[
-              styles.bottomModalCloseBtn,
-              isRTL ? { left: 16 } : { right: 16 },
-            ]}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="close" size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.modalScrollContent}
-          >
-            {/* Header Title */}
-            <View style={styles.modalHeaderSection}>
-              <View
-                style={[
-                  styles.headerIconCircle,
-                  { backgroundColor: colors.primaryLight },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="calendar-clock"
-                  size={30}
-                  color={colors.primary}
-                />
-              </View>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                {formatDateStr(session.start_time)}
-              </Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  { backgroundColor: '#dcfce7' },
-                ]}
-              >
-                <Ionicons
-                  name="checkmark-done-circle"
-                  size={14}
-                  color="#16a34a"
-                />
-                <Text
-                  style={[
-                    styles.statusBadgeText,
-                    { color: '#15803d' },
-                  ]}
-                >
-                  {t.reviewedBadge || 'معتمد وموثق'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Quick 3 Metrics Grid */}
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.modalBackdrop}>
+          <TouchableWithoutFeedback>
             <View
               style={[
-                styles.metricsGrid,
-                { flexDirection: isRTL ? 'row-reverse' : 'row' },
-              ]}
-            >
-              <View
-                style={[
-                  styles.metricCard,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Ionicons name="navigate-outline" size={18} color="#10b981" />
-                <Text style={[styles.metricValue, { color: '#10b981' }]}>
-                  {distance} {t.km}
-                </Text>
-                <Text
-                  style={[
-                    styles.metricLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {t.distanceTraveled}
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.metricCard,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="package-variant-closed"
-                  size={18}
-                  color={colors.primary}
-                />
-                <Text style={[styles.metricValue, { color: colors.primary }]}>
-                  {session.orders_count || 0} {t.ordersUnit}
-                </Text>
-                <Text
-                  style={[
-                    styles.metricLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {t.approvedOrders}
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.metricCard,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="gas-station"
-                  size={18}
-                  color="#eab308"
-                />
-                <Text
-                  style={[styles.metricValue, { color: colors.textPrimary }]}
-                >
-                  {session.fuel_cost || 0} {t.sar}
-                </Text>
-                <Text
-                  style={[
-                    styles.metricLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {t.fuelCostLabel}
-                </Text>
-              </View>
-            </View>
-
-            {/* Shift Comprehensive Breakdown */}
-            <View
-              style={[
-                styles.detailsBox,
+                styles.sheetContainer,
                 {
-                  backgroundColor: colors.inputBg,
+                  backgroundColor: colors.card,
                   borderColor: colors.border,
                 },
               ]}
             >
-              {/* Motorcycle Plate */}
-              <View
-                style={[
-                  styles.detailRow,
-                  {
-                    borderBottomColor: colors.border,
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
-                  },
-                ]}
-              >
+              {/* Top Handle Bar */}
+              <View style={styles.handleContainer}>
                 <View
                   style={[
-                    styles.detailLabelGroup,
-                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name="bike"
-                    size={17}
-                    color={colors.primary}
-                  />
-                  <Text
-                    style={[
-                      styles.detailLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {t.assignedBike}
-                  </Text>
-                </View>
-                <Text
-                  style={[styles.detailValue, { color: colors.textPrimary }]}
-                >
-                  {session.motorcycle_number || '—'}
-                </Text>
-              </View>
-
-              {/* Time Span */}
-              <View
-                style={[
-                  styles.detailRow,
-                  {
-                    borderBottomColor: colors.border,
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.detailLabelGroup,
-                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  ]}
-                >
-                  <Ionicons
-                    name="time-outline"
-                    size={17}
-                    color={colors.primary}
-                  />
-                  <Text
-                    style={[
-                      styles.detailLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {t.durationLabel}
-                  </Text>
-                </View>
-                <Text
-                  style={[styles.detailValue, { color: colors.textPrimary }]}
-                >
-                  {formatTimeStr(session.start_time)} -{' '}
-                  {session.end_time ? formatTimeStr(session.end_time) : '—'}
-                </Text>
-              </View>
-
-              {/* Start KM */}
-              <View
-                style={[
-                  styles.detailRow,
-                  {
-                    borderBottomColor: colors.border,
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.detailLabelGroup,
-                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  ]}
-                >
-                  <Ionicons
-                    name="speedometer-outline"
-                    size={17}
-                    color="#10b981"
-                  />
-                  <Text
-                    style={[
-                      styles.detailLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {t.startKmLabel}
-                  </Text>
-                </View>
-                <Text
-                  style={[styles.detailValue, { color: colors.textPrimary }]}
-                >
-                  {session.start_km?.toLocaleString()} {t.km}
-                </Text>
-              </View>
-
-              {/* End KM */}
-              <View
-                style={[
-                  styles.detailRow,
-                  {
-                    borderBottomWidth: 0,
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.detailLabelGroup,
-                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  ]}
-                >
-                  <Ionicons
-                    name="speedometer-outline"
-                    size={17}
-                    color="#ef4444"
-                  />
-                  <Text
-                    style={[
-                      styles.detailLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {t.endKmLabel}
-                  </Text>
-                </View>
-                <Text
-                  style={[styles.detailValue, { color: colors.textPrimary }]}
-                >
-                  {session.end_km
-                    ? `${session.end_km?.toLocaleString()} ${t.km}`
-                    : '—'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Odometer Photos Section */}
-            {(session.start_km_image || session.end_km_image) && (
-              <View style={styles.photosSection}>
-                <Text
-                  style={[
-                    styles.sectionHeading,
+                    styles.handleBar,
                     {
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
+                      backgroundColor: isDarkMode
+                        ? 'rgba(255,255,255,0.2)'
+                        : 'rgba(0,0,0,0.15)',
+                    },
+                  ]}
+                />
+              </View>
+
+              {/* Header: Date, Time & Status Badge */}
+              <View
+                style={[
+                  styles.sheetHeader,
+                  {
+                    borderBottomColor: colors.border,
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.headerInfoLeft,
+                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.headerIconCircle,
+                      { backgroundColor: colors.primaryLight },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="calendar-clock"
+                      size={20}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                    <Text
+                      style={[styles.headerDateTitle, { color: colors.textPrimary }]}
+                    >
+                      {formatDateStr(session.start_time)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.headerTimeSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {formatTimeStr(session.start_time)}
+                      {session.end_time ? `  ←  ${formatTimeStr(session.end_time)}` : ''}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Status Badge */}
+                <View
+                  style={[
+                    styles.statusPill,
+                    {
+                      backgroundColor: isApproved
+                        ? (isDarkMode ? 'rgba(34, 197, 94, 0.16)' : '#dcfce7')
+                        : (isDarkMode ? 'rgba(245, 158, 11, 0.16)' : '#fef3c7'),
+                      borderColor: isApproved
+                        ? (isDarkMode ? 'rgba(34, 197, 94, 0.3)' : '#bbf7d0')
+                        : (isDarkMode ? 'rgba(245, 158, 11, 0.3)' : '#fde68a'),
+                      flexDirection: isRTL ? 'row-reverse' : 'row',
                     },
                   ]}
                 >
-                  {t.odometerPhotoBadge}
-                </Text>
-
-                <View
-                  style={[
-                    styles.photosGrid,
-                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  ]}
-                >
-                  {startKmPhotoUrl && (
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      style={[
-                        styles.photoCard,
-                        {
-                          backgroundColor: colors.inputBg,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      onPress={() =>
-                        onPreviewPhoto({
-                          url: startKmPhotoUrl,
-                          title: `${t.startKmPhotoLabel} (${session.start_km} ${t.km})`,
-                        })
-                      }
-                    >
-                      <Image
-                        source={{ uri: startKmPhotoUrl }}
-                        style={styles.photoImg}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.photoOverlay}>
-                        <Text style={styles.photoTag}>{t.startKmLabel}</Text>
-                        <Ionicons name="expand" size={14} color="#ffffff" />
-                      </View>
-                    </TouchableOpacity>
-                  )}
-
-                  {endKmPhotoUrl && (
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      style={[
-                        styles.photoCard,
-                        {
-                          backgroundColor: colors.inputBg,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      onPress={() =>
-                        onPreviewPhoto({
-                          url: endKmPhotoUrl,
-                          title: `${t.endKmPhotoLabel} (${session.end_km} ${t.km})`,
-                        })
-                      }
-                    >
-                      <Image
-                        source={{ uri: endKmPhotoUrl }}
-                        style={styles.photoImg}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.photoOverlay}>
-                        <Text style={styles.photoTag}>{t.endKmLabel}</Text>
-                        <Ionicons name="expand" size={14} color="#ffffff" />
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            )}
-
-            {/* Start Notes */}
-            {session.notes ? (
-              <View
-                style={[
-                  styles.notesBox,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.notesHeader,
-                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  ]}
-                >
                   <Ionicons
-                    name="document-text-outline"
-                    size={16}
-                    color={colors.textSecondary}
+                    name={isApproved ? 'checkmark-circle' : 'time-outline'}
+                    size={13}
+                    color={isApproved ? '#16a34a' : '#d97706'}
                   />
                   <Text
                     style={[
-                      styles.notesLabel,
-                      { color: colors.textSecondary },
+                      styles.statusPillText,
+                      { color: isApproved ? '#15803d' : '#b45309' },
                     ]}
                   >
-                    {t.startNotesLabel}
+                    {isApproved
+                      ? (t.reviewedBadge || 'مصادق عليه')
+                      : (t.pendingBadge || 'بانتظار المشرف')}
                   </Text>
                 </View>
-                <Text
-                  style={[
-                    styles.notesText,
-                    {
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                >
-                  {session.notes}
-                </Text>
               </View>
-            ) : null}
 
-            {/* Supervisor Review Notice */}
-            {session.is_edited_by_supervisor && (
-              <View
-                style={[
-                  styles.supervisorBox,
-                  { backgroundColor: '#fef3c7', borderColor: '#fcd34d' },
-                ]}
+              {/* Scrollable Dynamic Body (takes size of content up to 2/3 screen) */}
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
               >
+                {/* 3 KPI Summary Boxes */}
                 <View
                   style={[
-                    styles.notesHeader,
+                    styles.kpiRow,
                     { flexDirection: isRTL ? 'row-reverse' : 'row' },
                   ]}
                 >
-                  <MaterialCommunityIcons
-                    name="shield-account-outline"
-                    size={16}
-                    color="#d97706"
-                  />
-                  <Text
-                    style={[styles.supervisorLabel, { color: '#92400e' }]}
-                  >
-                    {t.editedBySupervisor}
-                  </Text>
-                </View>
-                {session.review_notes ? (
-                  <Text
+                  {/* Orders */}
+                  <View
                     style={[
-                      styles.notesText,
+                      styles.kpiCard,
                       {
-                        color: '#92400e',
-                        textAlign: isRTL ? 'right' : 'left',
+                        backgroundColor: colors.inputBg,
+                        borderColor: colors.border,
                       },
                     ]}
                   >
-                    {session.review_notes}
-                  </Text>
-                ) : null}
-              </View>
-            )}
+                    <MaterialCommunityIcons
+                      name="package-variant-closed"
+                      size={18}
+                      color={colors.primary}
+                    />
+                    <Text style={[styles.kpiValue, { color: colors.primary }]}>
+                      {session.orders_count || 0}
+                    </Text>
+                    <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+                      {isApproved ? (t.approvedOrders || 'الطلبات المعتمدة') : (t.ordersUnit || 'الطلبات')}
+                    </Text>
+                  </View>
 
-            {/* Close Button */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[
-                styles.closeBtn,
-                {
-                  backgroundColor: colors.inputBg,
-                  borderColor: colors.border,
-                },
-              ]}
-              onPress={onClose}
-            >
-              <Text
-                style={[styles.closeBtnText, { color: colors.textPrimary }]}
-              >
-                {t.close}
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
+                  {/* Distance */}
+                  <View
+                    style={[
+                      styles.kpiCard,
+                      {
+                        backgroundColor: colors.inputBg,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Ionicons name="navigate" size={18} color="#16a34a" />
+                    <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
+                      {distance}
+                    </Text>
+                    <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+                      {t.distanceTraveled || 'المسافة (كم)'}
+                    </Text>
+                  </View>
+
+                  {/* Fuel */}
+                  <View
+                    style={[
+                      styles.kpiCard,
+                      {
+                        backgroundColor: colors.inputBg,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="gas-station"
+                      size={18}
+                      color="#d97706"
+                    />
+                    <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
+                      {session.fuel_cost || 0}
+                    </Text>
+                    <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
+                      {t.fuelCostLabel || 'البنزين (ر.س)'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Shift Details Box */}
+                <View
+                  style={[
+                    styles.detailsBox,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  {/* Motorcycle Plate */}
+                  <View
+                    style={[
+                      styles.detailRow,
+                      {
+                        borderBottomColor: colors.border,
+                        flexDirection: isRTL ? 'row-reverse' : 'row',
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.detailLabelGroup,
+                        { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name="bike"
+                        size={17}
+                        color={colors.primary}
+                      />
+                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                        {t.assignedBike || 'لوحة الدراجة'}
+                      </Text>
+                    </View>
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+                      {session.motorcycle_number || '—'}
+                    </Text>
+                  </View>
+
+                  {/* Start KM */}
+                  <View
+                    style={[
+                      styles.detailRow,
+                      {
+                        borderBottomColor: colors.border,
+                        flexDirection: isRTL ? 'row-reverse' : 'row',
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.detailLabelGroup,
+                        { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                      ]}
+                    >
+                      <Ionicons
+                        name="speedometer-outline"
+                        size={17}
+                        color="#16a34a"
+                      />
+                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                        {t.startKmLabel || 'عداد البداية'}
+                      </Text>
+                    </View>
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+                      {session.start_km?.toLocaleString()} {t.km || 'كم'}
+                    </Text>
+                  </View>
+
+                  {/* End KM */}
+                  <View
+                    style={[
+                      styles.detailRow,
+                      {
+                        borderBottomWidth: 0,
+                        flexDirection: isRTL ? 'row-reverse' : 'row',
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.detailLabelGroup,
+                        { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                      ]}
+                    >
+                      <Ionicons
+                        name="speedometer-outline"
+                        size={17}
+                        color="#ef4444"
+                      />
+                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                        {t.endKmLabel || 'عداد النهاية'}
+                      </Text>
+                    </View>
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
+                      {session.end_km
+                        ? `${session.end_km?.toLocaleString()} ${t.km || 'كم'}`
+                        : '—'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Supervisor Edit & Notes Box */}
+                {(session.is_edited_by_supervisor || session.review_notes) && (
+                  <View
+                    style={[
+                      styles.supervisorBox,
+                      {
+                        backgroundColor: isDarkMode
+                          ? 'rgba(245, 158, 11, 0.12)'
+                          : '#fef3c7',
+                        borderColor: isDarkMode
+                          ? 'rgba(245, 158, 11, 0.3)'
+                          : '#fcd34d',
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.supervisorHeader,
+                        { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name="shield-account"
+                        size={18}
+                        color="#d97706"
+                      />
+                      <Text
+                        style={[
+                          styles.supervisorTitle,
+                          { color: isDarkMode ? '#fbbf24' : '#92400e' },
+                        ]}
+                      >
+                        {isRTL
+                          ? `تم التعديل بواسطة المشرف (${supervisorName})`
+                          : `Edited by Supervisor (${supervisorName})`}
+                      </Text>
+                    </View>
+
+                    {session.original_orders_count ? (
+                      <Text
+                        style={[
+                          styles.supervisorSubText,
+                          {
+                            color: isDarkMode ? '#fde68a' : '#b45309',
+                            textAlign: isRTL ? 'right' : 'left',
+                          },
+                        ]}
+                      >
+                        {isRTL
+                          ? `الطلبات المدخلة: ${session.original_orders_count}  ←  المعتمدة: ${session.orders_count}`
+                          : `Original: ${session.original_orders_count}  →  Approved: ${session.orders_count}`}
+                      </Text>
+                    ) : null}
+
+                    {session.review_notes ? (
+                      <Text
+                        style={[
+                          styles.supervisorNotes,
+                          {
+                            color: isDarkMode ? '#fef3c7' : '#78350f',
+                            textAlign: isRTL ? 'right' : 'left',
+                          },
+                        ]}
+                      >
+                        {session.review_notes}
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
+
+                {/* Odometer Photos */}
+                {(startKmPhotoUrl || endKmPhotoUrl) && (
+                  <View style={styles.photosSection}>
+                    <View
+                      style={[
+                        styles.photosRow,
+                        { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                      ]}
+                    >
+                      {startKmPhotoUrl && (
+                        <TouchableOpacity
+                          style={[
+                            styles.photoBox,
+                            {
+                              backgroundColor: colors.inputBg,
+                              borderColor: colors.border,
+                            },
+                          ]}
+                          activeOpacity={0.85}
+                          onPress={() =>
+                            onPreviewPhoto({
+                              url: startKmPhotoUrl,
+                              title: `${t.startKmPhotoLabel || 'عداد البداية'} (${session.start_km} ${t.km})`,
+                            })
+                          }
+                        >
+                          <Image
+                            source={{ uri: startKmPhotoUrl }}
+                            style={styles.photoImg}
+                            resizeMode="cover"
+                          />
+                          <View style={styles.photoOverlay}>
+                            <Text style={styles.photoTag}>
+                              {t.startKmLabel || 'البداية'}
+                            </Text>
+                            <Ionicons name="expand" size={13} color="#ffffff" />
+                          </View>
+                        </TouchableOpacity>
+                      )}
+
+                      {endKmPhotoUrl && (
+                        <TouchableOpacity
+                          style={[
+                            styles.photoBox,
+                            {
+                              backgroundColor: colors.inputBg,
+                              borderColor: colors.border,
+                            },
+                          ]}
+                          activeOpacity={0.85}
+                          onPress={() =>
+                            onPreviewPhoto({
+                              url: endKmPhotoUrl,
+                              title: `${t.endKmPhotoLabel || 'عداد النهاية'} (${session.end_km} ${t.km})`,
+                            })
+                          }
+                        >
+                          <Image
+                            source={{ uri: endKmPhotoUrl }}
+                            style={styles.photoImg}
+                            resizeMode="cover"
+                          />
+                          <View style={styles.photoOverlay}>
+                            <Text style={styles.photoTag}>
+                              {t.endKmLabel || 'النهاية'}
+                            </Text>
+                            <Ionicons name="expand" size={13} color="#ffffff" />
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {/* Delegate Notes */}
+                {session.notes ? (
+                  <View
+                    style={[
+                      styles.notesBox,
+                      {
+                        backgroundColor: colors.inputBg,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.notesText,
+                        {
+                          color: colors.textPrimary,
+                          textAlign: isRTL ? 'right' : 'left',
+                        },
+                      ]}
+                    >
+                      {session.notes}
+                    </Text>
+                  </View>
+                ) : null}
+              </ScrollView>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
 
+// Backwards compatibility alias
+export const ShiftDetailsView = ShiftDetailsModal;
+
 const styles = StyleSheet.create({
-  bottomModalBackdrop: {
+  modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
-  bottomSheetCard: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    maxHeight: '88%',
-    paddingBottom: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    elevation: 24,
+  sheetContainer: {
+    width: '100%',
+    maxHeight: '68%', // Takes ~2/3 of the screen dynamically fitting data size
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
   },
-  bottomDragIndicator: {
-    width: 44,
-    height: 5,
-    borderRadius: 3,
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  bottomModalCloseBtn: {
-    position: 'absolute',
-    top: 14,
-    zIndex: 10,
-    padding: 4,
-  },
-  modalScrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 20,
-  },
-  modalHeaderSection: {
+  handleContainer: {
     alignItems: 'center',
-    marginBottom: 16,
-    paddingTop: 4,
+    paddingVertical: 10,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  sheetHeader: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  headerInfoLeft: {
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
   },
   headerIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  modalTitle: {
-    fontSize: 18,
+  headerDateTitle: {
+    fontSize: 15,
     fontWeight: '800',
-    marginBottom: 6,
   },
-  statusBadge: {
-    flexDirection: 'row',
+  headerTimeSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  statusPill: {
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
+    borderWidth: 1,
     gap: 4,
   },
-  statusBadgeText: {
-    fontSize: 12,
+  statusPillText: {
+    fontSize: 11,
     fontWeight: '700',
   },
-  metricsGrid: {
-    gap: 10,
-    marginBottom: 14,
+  scrollContent: {
+    paddingVertical: 12,
+    gap: 12,
   },
-  metricCard: {
+  kpiRow: {
+    gap: 8,
+  },
+  kpiCard: {
     flex: 1,
-    padding: 12,
     borderRadius: 14,
     borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 2,
   },
-  metricValue: {
-    fontSize: 15,
+  kpiValue: {
+    fontSize: 16,
     fontWeight: '800',
     marginTop: 2,
   },
-  metricLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+  kpiLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   detailsBox: {
     borderRadius: 14,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    marginBottom: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
   },
   detailRow: {
-    paddingVertical: 11,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -690,27 +643,45 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   detailLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
+  },
+  supervisorBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    gap: 4,
+  },
+  supervisorHeader: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  supervisorTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
+  },
+  supervisorSubText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  supervisorNotes: {
+    fontSize: 11,
+    lineHeight: 16,
   },
   photosSection: {
-    marginBottom: 14,
+    marginTop: 2,
   },
-  sectionHeading: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  photosGrid: {
+  photosRow: {
     gap: 10,
   },
-  photoCard: {
+  photoBox: {
     flex: 1,
-    height: 110,
+    height: 105,
     borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
@@ -727,55 +698,23 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   photoTag: {
     color: '#ffffff',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   notesBox: {
-    padding: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    marginBottom: 14,
-  },
-  notesHeader: {
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  notesLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    padding: 10,
   },
   notesText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  supervisorBox: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  supervisorLabel: {
     fontSize: 12,
-    fontWeight: '700',
-  },
-  closeBtn: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  closeBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    lineHeight: 16,
   },
 });

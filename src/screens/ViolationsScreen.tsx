@@ -4,6 +4,8 @@ import {
   Text,
   StyleSheet,
   Platform,
+  ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemeColors } from '../types/delegate';
@@ -26,6 +28,7 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
   loading = false,
   totalAmount,
   deductedAmount,
+  onRefresh,
   colors,
   isDarkMode,
   isRTL,
@@ -103,102 +106,120 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
 
   return (
     <View style={styles.tabContainer}>
-      {/* 1. Summary KPI Header */}
-      <View style={[styles.kpiRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <View
-          style={[
-            styles.kpiCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.25)' : '#FEE2E2',
-            },
-          ]}
-        >
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>إجمالي المخالفات</Text>
-          <Text style={[styles.kpiValue, { color: '#EF4444' }]}>
-            {totalAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
-          </Text>
-        </View>
+      {/* 1. Sticky / Fixed Summary KPI Header (Never Scrolls) */}
+      <View style={[styles.fixedHeaderWrap, { backgroundColor: colors.bg }]}>
+        <View style={[styles.kpiRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View
+            style={[
+              styles.kpiCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.25)' : '#FEE2E2',
+              },
+            ]}
+          >
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>إجمالي المخالفات</Text>
+            <Text style={[styles.kpiValue, { color: '#EF4444' }]}>
+              {totalAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
+            </Text>
+          </View>
 
-        <View
-          style={[
-            styles.kpiCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.25)' : '#D1FAE5',
-            },
-          ]}
-        >
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>تم خصمه</Text>
-          <Text style={[styles.kpiValue, { color: '#10B981' }]}>
-            {deductedAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
-          </Text>
-        </View>
+          <View
+            style={[
+              styles.kpiCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.25)' : '#D1FAE5',
+              },
+            ]}
+          >
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>تم خصمه</Text>
+            <Text style={[styles.kpiValue, { color: '#10B981' }]}>
+              {deductedAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
+            </Text>
+          </View>
 
-        <View
-          style={[
-            styles.kpiCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDarkMode ? 'rgba(245, 158, 11, 0.25)' : '#FEF3C7',
-            },
-          ]}
-        >
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>المتبقي عليك</Text>
-          <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>
-            {pendingAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
-          </Text>
+          <View
+            style={[
+              styles.kpiCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: isDarkMode ? 'rgba(245, 158, 11, 0.25)' : '#FEF3C7',
+              },
+            ]}
+          >
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>المتبقي عليك</Text>
+            <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>
+              {pendingAmount.toLocaleString()} <Text style={styles.kpiUnit}>ر.س</Text>
+            </Text>
+          </View>
         </View>
       </View>
 
-      {/* 2. Loading State */}
-      {loading && violations.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          {[1, 2, 3].map((k) => (
+      {/* 2. Scrollable Body for Violations Content */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={Boolean(loading)}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          ) : undefined
+        }
+      >
+        {/* Loading State */}
+        {loading && violations.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            {[1, 2, 3].map((k) => (
+              <View
+                key={k}
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    opacity: 0.6,
+                  },
+                ]}
+              >
+                <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={[styles.skeletonLine, { width: 140, backgroundColor: colors.inputBg }]} />
+                  <View style={[styles.skeletonBadge, { backgroundColor: colors.inputBg }]} />
+                </View>
+                <View style={[styles.skeletonLine, { width: 100, backgroundColor: colors.inputBg, marginTop: 8 }]} />
+              </View>
+            ))}
+          </View>
+        ) : violations.length === 0 ? (
+          /* Empty State */
+          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View
-              key={k}
               style={[
-                styles.card,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                  opacity: 0.6,
-                },
+                styles.emptyIconCircle,
+                { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5' },
               ]}
             >
-              <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.skeletonLine, { width: 140, backgroundColor: colors.inputBg }]} />
-                <View style={[styles.skeletonBadge, { backgroundColor: colors.inputBg }]} />
-              </View>
-              <View style={[styles.skeletonLine, { width: 100, backgroundColor: colors.inputBg, marginTop: 8 }]} />
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={48}
+                color={isDarkMode ? '#34D399' : '#10B981'}
+              />
             </View>
-          ))}
-        </View>
-      ) : violations.length === 0 ? (
-        /* 3. Empty State */
-        <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View
-            style={[
-              styles.emptyIconCircle,
-              { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5' },
-            ]}
-          >
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={48}
-              color={isDarkMode ? '#34D399' : '#10B981'}
-            />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+              {t.noViolations || 'سجلك نظيف! لا توجد مخالفات مسجلة.'}
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+              {t.noViolationsSub || 'التزام ممتاز بقواعد وأنظمة السلامة المرورية'}
+            </Text>
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-            {t.noViolations || 'سجلك نظيف! لا توجد مخالفات مسجلة.'}
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            {t.noViolationsSub || 'التزام ممتاز بقواعد وأنظمة السلامة المرورية'}
-          </Text>
-        </View>
-      ) : (
-        /* 4. Streamlined, Elegant Violations & Penalties List */
-        <View style={styles.listContainer}>
+        ) : (
+          /* Streamlined, Elegant Violations & Penalties List */
+          <View style={styles.listContainer}>
           {violations.map((item) => {
             const badge = getStatusBadge(item.status);
             const paid = item.paid_amount !== undefined
@@ -396,20 +417,25 @@ export const ViolationsScreen: React.FC<ViolationsScreenProps> = ({
               </View>
             );
           })}
-        </View>
-      )}
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   tabContainer: {
-    padding: 16,
-    gap: 12,
+    flex: 1,
+  },
+  fixedHeaderWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    zIndex: 10,
   },
   kpiRow: {
     gap: 8,
-    marginBottom: 4,
   },
   kpiCard: {
     flex: 1,
@@ -432,6 +458,11 @@ const styles = StyleSheet.create({
   kpiUnit: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 32,
   },
   listContainer: {
     gap: 10,
