@@ -1094,6 +1094,17 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               <View style={[styles.cornerBracket, styles.bracketBL]} />
               <View style={[styles.cornerBracket, styles.bracketBR]} />
 
+              {/* Guidance Text Centered Inside Target Frame (No Icon) */}
+              <View style={styles.frameInnerGuidance} pointerEvents="none">
+                <Text style={styles.frameGuidanceText}>
+                  {detectedResult
+                    ? 'تم التعرف على اللوحة بنجاح!'
+                    : isBusy
+                    ? 'جاري فحص وقراءة اللوحة...'
+                    : 'وجّه اللوحة داخل الإطار والتقط'}
+                </Text>
+              </View>
+
               {/* Laser Sweep Beam */}
               {!detectedResult && (
                 <Animated.View
@@ -1104,28 +1115,6 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                 />
               )}
             </Animated.View>
-
-            {/* Clean Transparent Instruction Guidance */}
-            <View style={styles.hintPill}>
-              <Ionicons
-                name={
-                  detectedResult
-                    ? 'checkmark-circle'
-                    : isBusy
-                    ? 'sync'
-                    : 'scan-outline'
-                }
-                size={20}
-                color={detectedResult ? '#22c55e' : isBusy ? '#f97316' : '#f97316'}
-              />
-              <Text style={styles.hintPillText}>
-                {detectedResult
-                  ? 'تم التعرف على لوحة الدباب بنجاح!'
-                  : isBusy
-                  ? 'جاري فحص وقراءة اللوحة بالذكاء الاصطناعي...'
-                  : 'وجّه اللوحة داخل الإطار والتقط'}
-              </Text>
-            </View>
           </View>
 
           {/* Bottom Control / Result Popover */}
@@ -1372,7 +1361,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'space-between',
     paddingTop: Platform.OS === 'ios' ? 52 : 40,
-    paddingBottom: Platform.OS === 'ios' ? 76 : 58,
+    paddingBottom: Platform.OS === 'ios' ? 95 : 75,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1471,6 +1460,26 @@ const styles = StyleSheet.create({
     borderRightWidth: 5,
     borderBottomRightRadius: 20,
   },
+  frameInnerGuidance: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  frameGuidanceText: {
+    color: 'rgba(255, 255, 255, 0.88)',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.95)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+    letterSpacing: 0.3,
+  },
   laserBeam: {
     position: 'absolute',
     left: 0,
@@ -1484,29 +1493,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
   },
-  hintPill: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginTop: 18,
-    maxWidth: SCREEN_WIDTH * 0.92,
-    gap: 8,
-  },
-  hintPillText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.85)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
   bottomSection: {
     paddingHorizontal: 20,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 20,
   },
   shutterRow: {
     alignItems: 'center',
