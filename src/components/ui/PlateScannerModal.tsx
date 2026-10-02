@@ -262,50 +262,228 @@ export const formatPlateLetters = (enLettersStr: string): { ar: string; en: stri
   return { ar: arDisplay, en: enDisplay };
 };
 
-// Registered fleet motorcycles database for instantaneous 100% precision boost
-export const KNOWN_FLEET_PLATES: Record<string, { en: string; ar: string }> = {
-  '6534': { en: 'A D', ar: 'د أ' },
-  '6238': { en: 'B T', ar: 'ط ب' },
-  '8022': { en: 'B E', ar: 'ع ب' },
-  '7572': { en: 'B E', ar: 'ع ب' },
-  '5443': { en: 'A J', ar: 'ح أ' },
-  '7570': { en: 'B E', ar: 'ع ب' },
-  '8874': { en: 'A J', ar: 'ح أ' },
-  '6242': { en: 'B T', ar: 'ط ب' },
-  '5098': { en: 'A J', ar: 'ح أ' },
-  '6536': { en: 'A D', ar: 'د أ' },
-  '5442': { en: 'A J', ar: 'ح أ' },
-  '5447': { en: 'A J', ar: 'ح أ' },
-  '8044': { en: 'B E', ar: 'ع ب' },
-  '8035': { en: 'B E', ar: 'ع ب' },
-  '6241': { en: 'B T', ar: 'ط ب' },
-  '7578': { en: 'B E', ar: 'ع ب' },
-  '6535': { en: 'A D', ar: 'د أ' },
-  '8020': { en: 'B E', ar: 'ع ب' },
-  '8036': { en: 'B E', ar: 'ع ب' },
-  '7036': { en: 'A J', ar: 'ح أ' },
-  '8040': { en: 'B E', ar: 'ع ب' },
-  '7577': { en: 'B E', ar: 'ع ب' },
-  '7038': { en: 'B E', ar: 'ع ب' },
-  '8875': { en: 'A J', ar: 'ح أ' },
-  '5097': { en: 'A J', ar: 'ح أ' },
-  '651':  { en: 'R E', ar: 'ر ع' },
-  '5099': { en: 'A J', ar: 'ح أ' },
-  '7035': { en: 'A J', ar: 'ح أ' },
-  '6240': { en: 'B T', ar: 'ط ب' },
-  '6546': { en: 'A D', ar: 'د أ' },
-  '8039': { en: 'B E', ar: 'ع ب' },
-  '5446': { en: 'A J', ar: 'ح أ' },
-  '7030': { en: 'B E', ar: 'ع ب' },
-  '653':  { en: 'R E', ar: 'ر ع' },
-  '8037': { en: 'B E', ar: 'ع ب' },
+// Load comprehensive motorcycle fleet dataset
+let rawFleetDataset: any[] = [];
+try {
+  rawFleetDataset = require('../../../assets/license_plates_dataset.json.json');
+} catch (e) {
+  console.warn('Could not load license plates dataset:', e);
+}
+
+export interface FleetPlateEntry {
+  enDigits: string;
+  arDigits: string;
+  enLetters: string;
+  arLetters: string;
+}
+
+export const FLEET_PLATES_REGISTRY: Record<string, FleetPlateEntry> = {};
+
+// 1. Initial hardcoded fleet plates
+const INITIAL_FLEET_DATA: Record<string, { en: string; ar: string }> = {
+  '6534': { en: 'AD', ar: 'ا د' },
+  '6238': { en: 'BT', ar: 'ط ب' },
+  '8022': { en: 'BE', ar: 'ع ب' },
+  '7572': { en: 'BE', ar: 'ع ب' },
+  '5443': { en: 'AJ', ar: 'ا ح' },
+  '7570': { en: 'BE', ar: 'ع ب' },
+  '8874': { en: 'AJ', ar: 'ا ح' },
+  '6242': { en: 'BT', ar: 'ط ب' },
+  '5098': { en: 'AJ', ar: 'ا ح' },
+  '6536': { en: 'AD', ar: 'ا د' },
+  '5442': { en: 'AJ', ar: 'ا ح' },
+  '5447': { en: 'AJ', ar: 'ا ح' },
+  '8044': { en: 'BE', ar: 'ع ب' },
+  '8035': { en: 'BE', ar: 'ع ب' },
+  '6241': { en: 'BT', ar: 'ط ب' },
+  '7578': { en: 'BE', ar: 'ع ب' },
+  '6535': { en: 'AD', ar: 'ا د' },
+  '8020': { en: 'BE', ar: 'ع ب' },
+  '8036': { en: 'BE', ar: 'ع ب' },
+  '7036': { en: 'AJ', ar: 'ا ح' },
+  '8040': { en: 'BE', ar: 'ع ب' },
+  '7577': { en: 'BE', ar: 'ع ب' },
+  '7038': { en: 'BE', ar: 'ع ب' },
+  '8875': { en: 'AJ', ar: 'ا ح' },
+  '5097': { en: 'AJ', ar: 'ا ح' },
+  '651':  { en: 'RA', ar: 'ر ع' },
+  '5099': { en: 'AJ', ar: 'ا ح' },
+  '7035': { en: 'AJ', ar: 'ا ح' },
+  '6240': { en: 'BT', ar: 'ط ب' },
+  '6546': { en: 'AD', ar: 'ا د' },
+  '8039': { en: 'BE', ar: 'ع ب' },
+  '5446': { en: 'AJ', ar: 'ا ح' },
+  '7030': { en: 'BE', ar: 'ع ب' },
+  '653':  { en: 'RA', ar: 'ر ع' },
+  '8037': { en: 'BE', ar: 'ع ب' },
+};
+
+for (const key in INITIAL_FLEET_DATA) {
+  const item = INITIAL_FLEET_DATA[key];
+  FLEET_PLATES_REGISTRY[key] = {
+    enDigits: key,
+    arDigits: toArabicDigits(key),
+    enLetters: item.en.replace(/\s+/g, ''),
+    arLetters: item.ar,
+  };
+}
+
+// 2. Populate and override with dataset JSON entries
+if (Array.isArray(rawFleetDataset)) {
+  for (const item of rawFleetDataset) {
+    const enNum = String(item.plate_english?.numbers || item.plate_arabic?.numbers || '').trim().replace(/[٠-٩]/g, (w) => {
+      const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+      return `${ar.indexOf(w)}`;
+    });
+    const arNum = String(item.plate_arabic?.numbers || toArabicDigits(enNum)).trim();
+    const enLet = String(item.plate_english?.letters || '').trim().toUpperCase().replace(/\s+/g, '');
+    const arLet = String(item.plate_arabic?.letters || '').trim();
+
+    if (enNum && enNum.length >= 2) {
+      FLEET_PLATES_REGISTRY[enNum] = {
+        enDigits: enNum,
+        arDigits: arNum || toArabicDigits(enNum),
+        enLetters: enLet || (FLEET_PLATES_REGISTRY[enNum]?.enLetters || ''),
+        arLetters: arLet || (FLEET_PLATES_REGISTRY[enNum]?.arLetters || ''),
+      };
+    }
+  }
+}
+
+// Calculate OCR similarity score with character confusion penalties
+function getOcrSimilarityScore(ocrCandidate: string, targetDigits: string): number {
+  if (ocrCandidate === targetDigits) return 1.0;
+  if (!ocrCandidate || !targetDigits) return 0.0;
+
+  const normalizeOcrDigits = (s: string) =>
+    s.toUpperCase()
+     .replace(/S/g, '5')
+     .replace(/B/g, '8')
+     .replace(/[ODQ]/g, '0')
+     .replace(/Z/g, '2')
+     .replace(/[IL|T]/g, '1')
+     .replace(/A/g, '4')
+     .replace(/G/g, '6')
+     .replace(/[^0-9]/g, '');
+
+  const normCand = normalizeOcrDigits(ocrCandidate);
+  const normTarget = normalizeOcrDigits(targetDigits);
+
+  if (normCand === normTarget && normCand.length >= 3) return 0.96;
+  if (!normCand || !normTarget) return 0.0;
+
+  const m = normCand.length;
+  const n = normTarget.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = normCand[i - 1] === normTarget[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+
+  const dist = dp[m][n];
+  const maxLen = Math.max(m, n);
+  if (maxLen === 0) return 1.0;
+  return Math.max(0, 1.0 - dist / maxLen);
+}
+
+// Find matching fleet plate from OCR text with exact + fuzzy matching
+export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null => {
+  if (!rawText || typeof rawText !== 'string' || rawText.trim().length === 0) return null;
+
+  // Convert Arabic numerals to standard 0-9
+  const textWithAsciiDigits = rawText.replace(/[٠-٩]/g, (w) => {
+    const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    return `${ar.indexOf(w)}`;
+  });
+
+  // Check 1: Direct exact digit tokens in text
+  const digitTokens = textWithAsciiDigits.match(/\b\d{1,4}\b/g) || [];
+  for (const dig of digitTokens) {
+    if (FLEET_PLATES_REGISTRY[dig]) {
+      const entry = FLEET_PLATES_REGISTRY[dig];
+      const { ar: formattedAr, en: formattedEn } = formatPlateLetters(entry.enLetters);
+      return {
+        digits: entry.enDigits,
+        letters: entry.arLetters || formattedAr || entry.enLetters,
+        full_plate: `${entry.enDigits} ${entry.arLetters || formattedAr || entry.enLetters}`.trim(),
+        arabic_digits: entry.arDigits,
+        arabic_letters: entry.arLetters || formattedAr,
+        english_letters: entry.enLetters || formattedEn,
+      };
+    }
+  }
+
+  // Check 2: Embedded digits in lines
+  const embeddedMatches = textWithAsciiDigits.match(/\d{3,4}/g) || [];
+  for (const emb of embeddedMatches) {
+    if (FLEET_PLATES_REGISTRY[emb]) {
+      const entry = FLEET_PLATES_REGISTRY[emb];
+      const { ar: formattedAr, en: formattedEn } = formatPlateLetters(entry.enLetters);
+      return {
+        digits: entry.enDigits,
+        letters: entry.arLetters || formattedAr || entry.enLetters,
+        full_plate: `${entry.enDigits} ${entry.arLetters || formattedAr || entry.enLetters}`.trim(),
+        arabic_digits: entry.arDigits,
+        arabic_letters: entry.arLetters || formattedAr,
+        english_letters: entry.enLetters || formattedEn,
+      };
+    }
+  }
+
+  // Check 3: Fuzzy Matching against all fleet plates (handles OCR character substitutions)
+  const words = textWithAsciiDigits.split(/[\s\r\n\t]+/).map((w) => w.trim()).filter(Boolean);
+  let bestEntry: FleetPlateEntry | null = null;
+  let bestScore = 0;
+
+  for (const word of words) {
+    const cleanWord = word.replace(/[^A-Za-z0-9]/g, '');
+    if (cleanWord.length < 3 || cleanWord.length > 5) continue;
+
+    for (const enNum in FLEET_PLATES_REGISTRY) {
+      const score = getOcrSimilarityScore(cleanWord, enNum);
+      if (score > bestScore && score >= 0.75) {
+        bestScore = score;
+        bestEntry = FLEET_PLATES_REGISTRY[enNum];
+      }
+    }
+  }
+
+  if (bestEntry && bestScore >= 0.75) {
+    const { ar: formattedAr, en: formattedEn } = formatPlateLetters(bestEntry.enLetters);
+    return {
+      digits: bestEntry.enDigits,
+      letters: bestEntry.arLetters || formattedAr || bestEntry.enLetters,
+      full_plate: `${bestEntry.enDigits} ${bestEntry.arLetters || formattedAr || bestEntry.enLetters}`.trim(),
+      arabic_digits: bestEntry.arDigits,
+      arabic_letters: bestEntry.arLetters || formattedAr,
+      english_letters: bestEntry.enLetters || formattedEn,
+    };
+  }
+
+  return null;
 };
 
 // Flexible Character-by-Character Plate Parser for Google ML Kit
 export const parseMLKitPlateText = (text: string): PlateResultData | null => {
   if (!text || typeof text !== 'string' || text.trim().length === 0) return null;
 
-  // Convert Arabic numerals to standard English digits
+  // 1. Check Fleet Database first for 100% precision
+  const fleetMatch = findBestFleetPlateMatch(text);
+  if (fleetMatch) {
+    return fleetMatch;
+  }
+
+  // 2. Convert Arabic numerals to standard English digits
   const normalizedText = (text || '').replace(/[٠-٩]/g, (w) => {
     const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     return `${ar.indexOf(w)}`;
@@ -313,14 +491,13 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
 
   const lines = normalizedText.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
 
-  // 1. Extract Digits (1 to 4 digits)
+  // 3. Extract Digits (1 to 4 digits)
   const allDigitMatches = normalizedText.match(/\b\d{1,4}\b/g) || [];
   const filteredDigits = allDigitMatches.filter((d) => !['2024', '2025', '2026', '2027', '1000', '100'].includes(d));
 
   let detectedDigits = '';
   if (filteredDigits.length > 0) {
-    const fleetMatch = filteredDigits.find((d) => KNOWN_FLEET_PLATES[d]);
-    detectedDigits = fleetMatch || filteredDigits[0];
+    detectedDigits = filteredDigits[0];
   } else {
     const embeddedNum = normalizedText.match(/\d{1,4}/);
     if (embeddedNum) {
@@ -332,7 +509,7 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
     return null;
   }
 
-  // 2. Extract Letters
+  // 4. Extract Letters
   let detectedEnLetters = '';
 
   // Strategy A: Check lines for explicit Combo "6534 AD" or "AD 6534"
@@ -381,11 +558,6 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
     } else if (arParsed && !detectedEnLetters) {
       detectedEnLetters = arParsed;
     }
-  }
-
-  // Strategy D: If detected digits are in registered fleet database, assist missing/blurred letters
-  if ((!detectedEnLetters || detectedEnLetters.length < 2) && KNOWN_FLEET_PLATES[detectedDigits]) {
-    detectedEnLetters = KNOWN_FLEET_PLATES[detectedDigits].en.replace(/\s+/g, '');
   }
 
   if (detectedEnLetters.length > 2) {
