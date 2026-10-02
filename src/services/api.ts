@@ -646,10 +646,10 @@ export const revokeTrustedDevice = async (nationalId: string, uuid: string): Pro
 
 const APP_LANGUAGE_KEY = '@aams_app_language';
 
-export const getStoredLanguage = async (): Promise<'ar' | 'en' | 'bn' | null> => {
+export const getStoredLanguage = async (): Promise<'ar' | 'en' | 'bn' | 'ur' | null> => {
   try {
     const l = await AsyncStorage.getItem(APP_LANGUAGE_KEY);
-    if (l === 'ar' || l === 'en' || l === 'bn') {
+    if (l === 'ar' || l === 'en' || l === 'bn' || l === 'ur') {
       return l;
     }
     return null;
@@ -658,7 +658,7 @@ export const getStoredLanguage = async (): Promise<'ar' | 'en' | 'bn' | null> =>
   }
 };
 
-export const saveStoredLanguage = async (l: 'ar' | 'en' | 'bn'): Promise<void> => {
+export const saveStoredLanguage = async (l: 'ar' | 'en' | 'bn' | 'ur'): Promise<void> => {
   try {
     await AsyncStorage.setItem(APP_LANGUAGE_KEY, l);
     const storedUser = await AsyncStorage.getItem('aams_delegate_user');

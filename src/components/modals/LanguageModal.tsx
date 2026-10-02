@@ -28,6 +28,7 @@ const cancelLabels: Record<Language, string> = {
   ar: 'إلغاء',
   en: 'Cancel',
   bn: 'বাতিল',
+  ur: 'منسوخ کریں',
 };
 
 export const LanguageModal: React.FC<LanguageModalProps> = ({
@@ -35,7 +36,7 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
   currentLang,
   colors,
   isDarkMode = false,
-  isRTL = currentLang === 'ar',
+  isRTL = currentLang === 'ar' || currentLang === 'ur',
   t,
   onSelectLang,
   onClose,
@@ -120,7 +121,13 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
       code: 'bn' as Language,
       badge: 'BN',
       name: 'বাংলা',
-      subName: 'Bengali',
+      subName: 'Bengali (বাংলাদেশ)',
+    },
+    {
+      code: 'ur' as Language,
+      badge: 'UR',
+      name: 'اردو',
+      subName: 'Urdu (پاکستان)',
     },
   ];
 
@@ -209,6 +216,8 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
               >
                 {currentLang === 'ar'
                   ? 'حدد لغة العرض المفضلة لواجهة التطبيق'
+                  : currentLang === 'ur'
+                  ? 'ایپ کے انٹرفیس کے لیے اپنی پسندیدہ زبان منتخب کریں'
                   : currentLang === 'bn'
                   ? 'অ্যাপের জন্য আপনার পছন্দের ভাষা নির্বাচন করুন'
                   : 'Choose your preferred display language'}

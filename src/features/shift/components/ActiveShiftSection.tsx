@@ -2,8 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WorkSession, EmployeeProfile, ThemeColors } from '../../../types/delegate';
-import { SaudiMotorcyclePlate } from '../../../components/ui/SaudiMotorcyclePlate';
-import { parsePlateComponents } from '../../../utils/plateUtils';
 
 export interface ActiveShiftSectionProps {
   activeSession: WorkSession;
@@ -27,7 +25,6 @@ export const ActiveShiftSection: React.FC<ActiveShiftSectionProps> = ({
   isRTL,
 }) => {
   const bikeNum = activeSession.motorcycle_number || employee?.motorcycle_number || '';
-  const parsed = parsePlateComponents(bikeNum);
 
   return (
     <View style={[styles.activeShiftLiveCard, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border }]}>
@@ -42,15 +39,6 @@ export const ActiveShiftSection: React.FC<ActiveShiftSectionProps> = ({
           <Ionicons name="time-outline" size={14} color="#22c55e" />
           <Text style={styles.timerBadgeText}>{elapsedTime}</Text>
         </View>
-      </View>
-
-      <View style={{ alignItems: 'center', marginVertical: 6 }}>
-        <SaudiMotorcyclePlate
-          digits={parsed.digits}
-          letters={parsed.letters}
-          editable={false}
-          isDarkMode={isDarkMode}
-        />
       </View>
 
       <View style={[styles.liveSessionInfoGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>

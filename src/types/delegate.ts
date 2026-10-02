@@ -65,7 +65,7 @@ export interface PreviewPhotoData {
 }
 
 export type TabType = 'home' | 'shift' | 'history' | 'profile' | 'violations';
-export type Language = 'ar' | 'en' | 'bn';
+export type Language = 'ar' | 'en' | 'bn' | 'ur';
 
 export interface ThemeColors {
   bg: string;

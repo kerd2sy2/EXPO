@@ -48,6 +48,10 @@ export function getLocalizedBroadcast(item: BroadcastNotificationItem, lang: str
     title = item.title_bn?.trim() || item.title_ar?.trim() || item.title;
     body = item.body_bn?.trim() || item.body_ar?.trim() || item.body;
     poll_question = item.poll_question_bn?.trim() || item.poll_question_ar?.trim() || item.poll_question;
+  } else if (lang === 'ur') {
+    title = (item as any).title_ur?.trim() || item.title_ar?.trim() || item.title;
+    body = (item as any).body_ur?.trim() || item.body_ar?.trim() || item.body;
+    poll_question = (item as any).poll_question_ur?.trim() || item.poll_question_ar?.trim() || item.poll_question;
   } else {
     // Arabic (default)
     title = item.title_ar?.trim() || item.title;

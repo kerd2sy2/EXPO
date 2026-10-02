@@ -109,7 +109,7 @@ export default function DelegateApp() {
   const [currentTab, setCurrentTab] = useState<TabType>('home');
   const [lang, setLang] = useState<Language>('ar');
   const t = translations[lang];
-  const isRTL = lang === 'ar';
+  const isRTL = lang === 'ar' || lang === 'ur';
 
   // Authentication State
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);

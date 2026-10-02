@@ -204,7 +204,7 @@ export const EndShiftSection: React.FC<EndShiftSectionProps> = ({
               keyboardType="numeric"
               returnKeyType="next"
               onSubmitEditing={() => fuelInputRef.current?.focus()}
-              onFocus={() => onScrollToInput?.(100)}
+              onFocus={() => onScrollToInput?.(320)}
             />
             <View style={[styles.unitBadge, { backgroundColor: colors.primaryLight }]}>
               <Text style={[styles.unitBadgeText, { color: colors.primary }]}>{t.ordersUnit || 'طلب'}</Text>
@@ -232,28 +232,11 @@ export const EndShiftSection: React.FC<EndShiftSectionProps> = ({
               onChangeText={setFuelCost}
               keyboardType="numeric"
               returnKeyType="done"
-              onFocus={() => onScrollToInput?.(160)}
+              onFocus={() => onScrollToInput?.(420)}
             />
             <View style={[styles.unitBadge, { backgroundColor: 'rgba(234, 179, 8, 0.15)' }]}>
               <Text style={[styles.unitBadgeText, { color: '#ca8a04' }]}>{t.sar || 'ر.س'}</Text>
             </View>
-          </View>
-        </View>
-
-        {/* End Notes Input (Optional) */}
-        <View style={styles.formGroup}>
-          <Text style={[styles.photoSectionLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {t.endNotesLabel || (isRTL ? 'ملاحظات ختامية (اختياري)' : 'End Notes (Optional)')}
-          </Text>
-          <View style={[styles.modernTextAreaBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-            <TextInput
-              style={[styles.modernTextAreaInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-              placeholder={t.endNotesPlaceholder || (isRTL ? 'أي ملاحظات حول الشفت أو الدباب...' : 'Any shift notes...')}
-              placeholderTextColor="#94a3b8"
-              value={endNotes}
-              onChangeText={setEndNotes}
-              multiline
-            />
           </View>
         </View>
       </View>
