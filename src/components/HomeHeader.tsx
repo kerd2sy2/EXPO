@@ -80,11 +80,11 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
 
 const styles = StyleSheet.create({
   headerContainer: {
-    height: 74,
+    height: 72,
     borderBottomWidth: 0,
     backgroundColor: 'transparent',
     paddingHorizontal: 16,
-    paddingVertical: 0,
+    paddingVertical: 14,
     justifyContent: 'space-between',
     alignItems: 'center',
   },

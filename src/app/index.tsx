@@ -199,7 +199,7 @@ export default function DelegateApp() {
   const [mainScrollEnabled, setMainScrollEnabled] = useState(true);
 
   // Collapsible Home Header Animation (Google Play Store Style)
-  const HOME_HEADER_HEIGHT = 74;
+  const HOME_HEADER_HEIGHT = 72;
   const headerTranslateY = useRef(new Animated.Value(0)).current;
   const lastScrollY = useRef(0);
   const isHeaderHidden = useRef(false);
@@ -1455,7 +1455,7 @@ export default function DelegateApp() {
 
   // Logged In Portal
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+    <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
       {/* Status Bar Cover (keeps notification bar clean and solid when header collapses) */}
@@ -1497,7 +1497,7 @@ export default function DelegateApp() {
           />
         </Animated.View>
       ) : (
-        <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.appHeader, { marginTop: topInset, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           {/* Sub-Page Header: Back Button + Start-Aligned Title with Orange Underline */}
           <View style={[styles.subPageHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <TouchableOpacity
@@ -1583,7 +1583,7 @@ export default function DelegateApp() {
             contentContainerStyle={[
               styles.mainScrollContent,
               {
-                paddingTop: currentTab === 'home' ? HOME_HEADER_HEIGHT : 0,
+                paddingTop: currentTab === 'home' ? topInset + HOME_HEADER_HEIGHT : 0,
                 paddingBottom: 24 + (keyboardOffset > 0 ? keyboardOffset + 24 : 0),
               },
             ]}
@@ -1593,7 +1593,7 @@ export default function DelegateApp() {
                 onRefresh={onRefresh}
                 colors={[colors.primary]}
                 tintColor={colors.primary}
-                progressViewOffset={currentTab === 'home' ? HOME_HEADER_HEIGHT : 0}
+                progressViewOffset={topInset + (currentTab === 'home' ? HOME_HEADER_HEIGHT : 0)}
               />
             }
           >
