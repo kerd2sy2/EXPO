@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmployeeProfile, WorkSession, TabType, ThemeColors } from '../types/delegate';
@@ -104,11 +105,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={[styles.targetTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <Ionicons name="flag-outline" size={17} color={colors.primary} />
             <Text style={[styles.targetCardTitle, { color: colors.textPrimary }]}>
-              {t.monthlyTarget}
+              {t.monthlyTarget || 'الهدف الشهري'}
             </Text>
           </View>
           <Text style={[styles.targetRatioText, { color: colors.textSecondary }]}>
-            <Text style={[styles.targetRatioBold, { color: colors.textPrimary }]}>{totalApprovedOrdersCount}</Text> / {monthlyTarget} {t.ordersUnit}
+            <Text style={[styles.targetRatioBold, { color: colors.primary }]}>{totalApprovedOrdersCount}</Text> من {monthlyTarget} {t.ordersUnit || 'طلب'}
           </Text>
         </View>
 
@@ -137,8 +138,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             numberOfLines={1}
           >
             {isTargetAchieved
-              ? t.targetAchievedBadge
-              : t.targetRemainingNotice.replace('{n}', String(remainingOrdersToTarget))}
+              ? (t.targetAchievedBadge || 'تم تحقيق الهدف الشهري بنجاح 🎉')
+              : (isRTL ? `متبقي ${remainingOrdersToTarget} طلب للوصول للهدف` : `${remainingOrdersToTarget} orders left to target`)}
           </Text>
           <Text style={[styles.targetFooterPct, { color: isTargetAchieved ? '#22c55e' : colors.primary }]}>
             {targetProgressPct}%
@@ -243,10 +244,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={[styles.statIconCircle, { backgroundColor: isTargetAchieved ? 'rgba(34,197,94,0.12)' : colors.primaryLight }]}>
             <Ionicons name="wallet-outline" size={22} color={isTargetAchieved ? '#22c55e' : colors.primary} />
           </View>
-          <Text style={[styles.statNumber, { color: isTargetAchieved ? '#22c55e' : colors.textPrimary }]}>
-            {expectedSalary > 0 ? expectedSalary.toLocaleString('en-US') : '0'}
-          </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.expectedSalary}</Text>
+          <View style={[styles.salaryAmountRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Text style={[styles.statNumber, { color: isTargetAchieved ? '#22c55e' : colors.textPrimary, marginBottom: 0 }]}>
+              {expectedSalary > 0 ? expectedSalary.toLocaleString('en-US') : '0'}
+            </Text>
+            <Image
+              source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
+              style={[
+                styles.riyalSymbolImg,
+                { tintColor: isTargetAchieved ? '#22c55e' : colors.textPrimary },
+              ]}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.expectedSalary || 'متوقع الراتب'}</Text>
         </View>
       </View>
 
@@ -455,6 +466,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 2,
+  },
+  salaryAmountRow: {
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  riyalSymbolImg: {
+    width: 16,
+    height: 16,
   },
   statLabel: {
     fontSize: 12,
