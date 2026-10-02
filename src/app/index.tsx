@@ -55,7 +55,7 @@ import {
 // Screens
 import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
-import { ShiftScreen } from '../screens/ShiftScreen';
+import { ShiftScreen } from '../features/shift';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { ViolationsScreen } from '../screens/ViolationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -71,9 +71,10 @@ import { AppUpdateBottomSheet } from '../components/modals/AppUpdateBottomSheet'
 import { DiagnosticsModal } from '../components/modals/DiagnosticsModal';
 import { BroadcastModal } from '../components/modals/BroadcastModal';
 import { BroadcastHistoryModal } from '../components/modals/BroadcastHistoryModal';
-import { PlateScannerModal } from '../components/ui/PlateScannerModal';
+import { PlateScannerModal } from '../features/plate-scanner';
 import { AccidentAlertModal } from '../components/modals/AccidentAlertModal';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
+
 
 // Modular Hooks
 import { useSessionTimer } from '../hooks/useSessionTimer';

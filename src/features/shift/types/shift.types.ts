@@ -1,0 +1,42 @@
+import { EmployeeProfile, WorkSession, PreviewPhotoData, ThemeColors } from '../../../types/delegate';
+
+export interface ShiftScreenProps {
+  employee: EmployeeProfile | null;
+  activeSession: WorkSession | null;
+  enteredMotorcycle: string;
+  setEnteredMotorcycle: (val: string) => void;
+  startKm: string;
+  setStartKm: (val: string) => void;
+  autoKmFetched: boolean;
+  isOdometerBroken?: boolean;
+  startKmImage: string | null;
+  startPlateImage?: string | null;
+  isPlateConfirmed?: boolean;
+  setIsPlateConfirmed?: (val: boolean) => void;
+  startNotes?: string;
+  setStartNotes?: (val: string) => void;
+  endKm: string;
+  setEndKm: (val: string) => void;
+  endKmImage: string | null;
+  ordersCount: string;
+  setOrdersCount: (val: string) => void;
+  fuelCost: string;
+  setFuelCost: (val: string) => void;
+  endNotes: string;
+  setEndNotes: (val: string) => void;
+  calculatedDistance: number;
+  elapsedTime: string;
+  onScrollToInput?: (yOffset: number) => void;
+  submitting: boolean;
+  onTakeOdometerPhoto: (type: 'start' | 'end') => Promise<void>;
+  onScanPlate?: () => void;
+  isScanningPlate?: boolean;
+  onStartShift: () => Promise<void>;
+  onEndShift: () => Promise<void>;
+  onPreviewPhoto: (photo: PreviewPhotoData) => void;
+  formatTimeStr: (iso?: string) => string;
+  colors: ThemeColors;
+  isDarkMode: boolean;
+  isRTL: boolean;
+  t: any;
+}
