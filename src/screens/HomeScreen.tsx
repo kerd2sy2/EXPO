@@ -9,8 +9,6 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmployeeProfile, WorkSession, TabType, ThemeColors } from '../types/delegate';
 import { getMyViolationsApi, DelegateViolation } from '../services/api';
-import { AchievementsSummaryCards } from '../components/dashboard/AchievementsSummaryCards';
-
 
 interface HomeScreenProps {
   employee: EmployeeProfile;
@@ -156,19 +154,112 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </Text>
       </View>
 
-      <AchievementsSummaryCards
-        employee={employee}
-        activeSession={activeSession}
-        historySessions={historySessions}
-        expectedSalary={expectedSalary}
-        isDifferentBike={isDifferentBike}
-        isTargetAchieved={isTargetAchieved}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        t={t}
-      />
+      <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        {/* Row 1: Bike & Key */}
+        <View
+          style={[
+            styles.statBox,
+            {
+              backgroundColor: colors.card,
+              borderColor: isDifferentBike ? '#f59e0b' : colors.border,
+              borderWidth: isDifferentBike ? 1.5 : 1,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.statIconCircle,
+              {
+                backgroundColor: isDifferentBike
+                  ? (isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7')
+                  : colors.primaryLight,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="bike"
+              size={22}
+              color={isDifferentBike ? '#d97706' : colors.primary}
+            />
+          </View>
+          <Text
+            style={[
+              styles.statNumber,
+              { color: isDifferentBike ? '#d97706' : colors.textPrimary },
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit={true}
+          >
+            {isDifferentBike
+              ? activeSession?.motorcycle_number
+              : (employee.motorcycle_number || '—')}
+          </Text>
+          <Text
+            style={[
+              styles.statLabel,
+              {
+                color: isDifferentBike ? '#d97706' : colors.textSecondary,
+                fontWeight: isDifferentBike ? '700' : '500',
+              },
+            ]}
+            numberOfLines={2}
+          >
+            {isDifferentBike ? (t.outOnDifferentBike || 'أنت طالع الآن بدباب') : t.assignedBike}
+          </Text>
+          {isDifferentBike && employee.motorcycle_number ? (
+            <Text
+              style={[
+                styles.originalBikeNotice,
+                { color: colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              ({t.assignedBike}: {employee.motorcycle_number})
+            </Text>
+          ) : null}
+        </View>
 
+        <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.statIconCircle, { backgroundColor: colors.accentLight }]}>
+            <MaterialCommunityIcons name="key-variant" size={22} color={colors.accent} />
+          </View>
+          <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
+            {employee.key_number || '—'}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
+        </View>
+
+        {/* Row 2: Shifts & Expected Salary */}
+        <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
+            <MaterialCommunityIcons name="calendar-check" size={22} color={colors.primary} />
+          </View>
+          <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
+            {historySessions.filter((s) => s.status !== 'ACTIVE').length}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalShifts}</Text>
+        </View>
+
+        <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.statIconCircle, { backgroundColor: isTargetAchieved ? 'rgba(34,197,94,0.12)' : colors.primaryLight }]}>
+            <Ionicons name="wallet-outline" size={22} color={isTargetAchieved ? '#22c55e' : colors.primary} />
+          </View>
+          <View style={[styles.salaryAmountRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Text style={[styles.statNumber, { color: isTargetAchieved ? '#22c55e' : colors.textPrimary, marginBottom: 0 }]}>
+              {expectedSalary > 0 ? expectedSalary.toLocaleString('en-US') : '0'}
+            </Text>
+            <Image
+              source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
+              style={[
+                styles.riyalSymbolImg,
+                { tintColor: isTargetAchieved ? '#22c55e' : colors.textPrimary },
+              ]}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.expectedSalary || 'متوقع الراتب'}</Text>
+        </View>
+      </View>
 
       {/* Quick Navigation Cards */}
       <View style={styles.sectionHeader}>
@@ -349,8 +440,53 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  statsGrid: {
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  statBox: {
+    width: '48%',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 125,
+  },
+  statIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  salaryAmountRow: {
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  riyalSymbolImg: {
+    width: 16,
+    height: 16,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  originalBikeNotice: {
+    fontSize: 10,
+    marginTop: 3,
+    textAlign: 'center',
+  },
   quickCardRow: {
-
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,
