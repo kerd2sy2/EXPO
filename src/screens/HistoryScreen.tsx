@@ -51,6 +51,8 @@ interface HistoryScreenProps {
   loading?: boolean;
   selectedSession?: WorkSession | null;
   onSelectSession?: (session: WorkSession | null) => void;
+  selectedMonthKey?: string | null;
+  onSelectMonthKey?: (key: string | null, label: string | null) => void;
   onPreviewPhoto: (photo: PreviewPhotoData) => void;
   formatDateStr: (iso?: string) => string;
   formatTimeStr: (iso?: string) => string;
@@ -66,6 +68,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   loading = false,
   selectedSession,
   onSelectSession,
+  selectedMonthKey: controlledMonthKey,
+  onSelectMonthKey: controlledSetMonthKey,
   onPreviewPhoto,
   formatDateStr,
   formatTimeStr,
@@ -79,7 +83,17 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const setActiveSelected = onSelectSession || setInternalSelectedSession;
 
   // Selected Month Page (null = viewing all months list, string = viewing shifts of that month)
-  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
+  const [internalMonthKey, setInternalMonthKey] = useState<string | null>(null);
+  const selectedMonthKey = controlledMonthKey !== undefined ? controlledMonthKey : internalMonthKey;
+
+  const setMonthKey = (key: string | null, label: string | null) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (controlledSetMonthKey) {
+      controlledSetMonthKey(key, label);
+    } else {
+      setInternalMonthKey(key);
+    }
+  };
 
   // Group all completed sessions by calendar month (YYYY-MM)
   const monthGroups = useMemo<MonthGroup[]>(() => {
@@ -157,81 +171,13 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     return monthGroups.find((g) => g.key === selectedMonthKey) || null;
   }, [monthGroups, selectedMonthKey]);
 
-  // Navigate to Month Page
-  const openMonthPage = (key: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSelectedMonthKey(key);
-  };
-
-  // Back from Month Page to Months List
-  const backToMonthsList = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSelectedMonthKey(null);
-  };
-
   return (
     <View style={styles.tabContainer}>
       {/* ========================================================================= */}
-      {/* VIEW A: DEDICATED MONTH PAGE (When a month card is tapped)                */}
+      {/* VIEW A: DEDICATED MONTH PAGE (Direct List of shifts for selected month)   */}
       {/* ========================================================================= */}
       {activeMonthGroup ? (
         <View style={styles.monthPageContainer}>
-          {/* Top Bar Header with Title: "طلبات شهر ..." */}
-          <View
-            style={[
-              styles.monthPageTopBar,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.backBtn,
-                {
-                  backgroundColor: colors.inputBg,
-                  borderColor: colors.border,
-                  flexDirection: isRTL ? 'row-reverse' : 'row',
-                },
-              ]}
-              onPress={backToMonthsList}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={isRTL ? 'arrow-forward' : 'arrow-back'}
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={[styles.backBtnText, { color: colors.primary }]}>
-                {isRTL ? 'الشهور' : 'Months'}
-              </Text>
-            </TouchableOpacity>
-
-            <View
-              style={[
-                styles.monthPageTitleGroup,
-                { alignItems: isRTL ? 'flex-end' : 'flex-start' },
-              ]}
-            >
-              <Text
-                style={[styles.monthPageTitle, { color: colors.textPrimary }]}
-              >
-                {isRTL
-                  ? `طلبات شهر ${activeMonthGroup.label}`
-                  : `${activeMonthGroup.label} Orders`}
-              </Text>
-              <Text
-                style={[
-                  styles.monthPageSubtitle,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                {activeMonthGroup.shiftsCount} {isRTL ? 'شفت عمل مسجل' : 'recorded shifts'}
-              </Text>
-            </View>
-          </View>
 
           {/* Direct List of Shifts for this Month */}
           {activeMonthGroup.sessions.length === 0 ? (
@@ -549,7 +495,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 },
               ]}
               activeOpacity={0.8}
-              onPress={() => openMonthPage(group.key)}
+              onPress={() => setMonthKey(group.key, group.label)}
             >
               {/* Card Top: Month Icon + Title + Current Badge + Nav Circle */}
               <View

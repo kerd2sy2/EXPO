@@ -179,6 +179,8 @@ export default function DelegateApp() {
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
   const [showPlateScannerModal, setShowPlateScannerModal] = useState(false);
   const [showAccidentModal, setShowAccidentModal] = useState(false);
+  const [selectedHistoryMonthKey, setSelectedHistoryMonthKey] = useState<string | null>(null);
+  const [selectedHistoryMonthLabel, setSelectedHistoryMonthLabel] = useState<string | null>(null);
 
   // Success Sheet Animations
   const sheetTranslateY = useRef(new Animated.Value(600)).current;
@@ -1420,7 +1422,14 @@ export default function DelegateApp() {
           <View style={[styles.subPageHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <TouchableOpacity
               style={styles.headerBackBtn}
-              onPress={() => setCurrentTab('home')}
+              onPress={() => {
+                if (currentTab === 'history' && selectedHistoryMonthKey) {
+                  setSelectedHistoryMonthKey(null);
+                  setSelectedHistoryMonthLabel(null);
+                } else {
+                  setCurrentTab('home');
+                }
+              }}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons
@@ -1435,7 +1444,9 @@ export default function DelegateApp() {
                 {currentTab === 'shift'
                   ? (activeSession ? t.endShiftTitle : t.startShiftTitle)
                   : currentTab === 'history'
-                  ? t.historyTitle
+                  ? (selectedHistoryMonthLabel
+                      ? (isRTL ? `طلبات شهر ${selectedHistoryMonthLabel}` : `${selectedHistoryMonthLabel} Orders`)
+                      : t.historyTitle)
                   : currentTab === 'violations'
                   ? (t.violationsTitle || 'سجل المخالفات والجزاءات')
                   : t.profileTitle}
@@ -1575,6 +1586,11 @@ export default function DelegateApp() {
                   loading={loadingHistory}
                   selectedSession={selectedHistorySession}
                   onSelectSession={setSelectedHistorySession}
+                  selectedMonthKey={selectedHistoryMonthKey}
+                  onSelectMonthKey={(key, label) => {
+                    setSelectedHistoryMonthKey(key);
+                    setSelectedHistoryMonthLabel(label);
+                  }}
                   onPreviewPhoto={setPreviewPhoto}
                   formatDateStr={formatDateStr}
                   formatTimeStr={formatTimeStr}
