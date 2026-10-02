@@ -616,6 +616,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
 
   // Dedicated Intro Splash Animation state
   const [showIntroSplash, setShowIntroSplash] = useState(true);
+  const [cameraMounted, setCameraMounted] = useState(false);
   const introFadeAnim = useRef(new Animated.Value(1)).current;
 
   const isAutoScanningRef = useRef(false);
@@ -684,6 +685,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
 
   // Transition from Intro Animation to Live Camera
   const handleIntroComplete = () => {
+    setCameraMounted(true);
     Animated.timing(introFadeAnim, {
       toValue: 0,
       duration: 350,
@@ -697,6 +699,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
   useEffect(() => {
     if (visible) {
       setShowIntroSplash(true);
+      setCameraMounted(false);
       introFadeAnim.setValue(1);
       setIsCameraReady(false);
       setDetectedResult(null);
@@ -706,10 +709,10 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
       isFinishedRef.current = false;
       resultCardAnim.setValue(0);
 
-      // Intro safety timer (ensures camera opens after 1.8s even if animation finish event doesn't fire)
+      // Intro safety timer (ensures camera opens smoothly after 1.5s)
       const introTimer = setTimeout(() => {
         handleIntroComplete();
-      }, 1800);
+      }, 1500);
 
       const laser = Animated.loop(
         Animated.sequence([
@@ -1003,8 +1006,8 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
         translucent={true}
       />
       <View style={[styles.container, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]}>
-        {/* Fullscreen Live Camera Stream */}
-        {hasNativeCamera && (permission?.granted || hasPermission) ? (
+        {/* Fullscreen Live Camera Stream (Mounted seamlessly after intro animation) */}
+        {cameraMounted && hasNativeCamera && (permission?.granted || hasPermission) ? (
           <CameraErrorBoundary
             fallback={
               <View style={[StyleSheet.absoluteFill, styles.fallbackContainer, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]}>
@@ -1029,15 +1032,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
             />
           </CameraErrorBoundary>
         ) : (
-          <View style={[StyleSheet.absoluteFill, styles.fallbackContainer, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]}>
-            <LottieView
-              source={require('../../../assets/Lottie/lottie/HLmkwb6vpO.lottie')}
-              autoPlay
-              loop
-              style={{ width: 160, height: 160 }}
-            />
-            <Text style={[styles.fallbackText, { color: isDark ? '#94a3b8' : '#64748b' }]}>جاري فتح عدسة الكاميرا...</Text>
-          </View>
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]} />
         )}
 
         {/* HUD Viewfinder Overlay */}
@@ -1194,9 +1189,6 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                     </View>
                   )}
                 </TouchableOpacity>
-                <Text style={styles.shutterLabel}>
-                  {isBusy ? 'جاري التحليل...' : 'التقاط فوري يدوي'}
-                </Text>
               </View>
             )}
           </View>
@@ -1361,7 +1353,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'space-between',
     paddingTop: Platform.OS === 'ios' ? 52 : 40,
-    paddingBottom: Platform.OS === 'ios' ? 95 : 75,
+    paddingBottom: Platform.OS === 'ios' ? 130 : 105,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1496,15 +1488,15 @@ const styles = StyleSheet.create({
   bottomSection: {
     paddingHorizontal: 20,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 30,
   },
   shutterRow: {
     alignItems: 'center',
   },
   shutterBtn: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
+    width: 82,
+    height: 82,
+    borderRadius: 41,
     backgroundColor: 'rgba(249, 115, 22, 0.2)',
     borderWidth: 3,
     borderColor: '#f97316',
@@ -1521,21 +1513,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(234, 88, 12, 0.2)',
   },
   shutterInnerCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     backgroundColor: '#f97316',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  shutterLabel: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
-    marginTop: 10,
-    textShadowColor: 'rgba(0, 0, 0, 0.85)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   resultCard: {
     width: '100%',
