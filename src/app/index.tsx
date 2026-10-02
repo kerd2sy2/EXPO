@@ -21,7 +21,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -96,6 +96,9 @@ initGlobalErrorLogger();
 analytics.init();
 
 export default function DelegateApp() {
+  const insets = useSafeAreaInsets();
+  const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0);
+
   // Theme state: Default is Light Mode ('light')
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
   const isDarkMode = themeMode === 'dark';
@@ -1438,12 +1441,26 @@ export default function DelegateApp() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
+      {/* Status Bar Cover (keeps notification bar clean and solid when header collapses) */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: topInset,
+          backgroundColor: colors.bg,
+          zIndex: 40,
+        }}
+        pointerEvents="none"
+      />
+
       {/* Collapsible Header on 'home', Sub-Page Header on other tabs */}
       {currentTab === 'home' ? (
         <Animated.View
           style={{
             position: 'absolute',
-            top: 0,
+            top: topInset,
             left: 0,
             right: 0,
             height: HOME_HEADER_HEIGHT,
