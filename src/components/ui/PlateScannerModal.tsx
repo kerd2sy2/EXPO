@@ -1035,164 +1035,166 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
           <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]} />
         )}
 
-        {/* HUD Viewfinder Overlay */}
-        <View style={styles.hudOverlay}>
-          {/* Top Header Controls */}
-          <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.headerGlassBtn}
-              onPress={onClose}
-              activeOpacity={0.7}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Ionicons name="close" size={28} color="#ffffff" />
-            </TouchableOpacity>
-
-            {/* Header Badge */}
-            <View style={styles.headerBadge}>
-              <View style={styles.radarDot} />
-              <Text style={styles.headerBadgeText}>ماسح اللوحات الذكي</Text>
-            </View>
-
-            {/* Torch toggle button */}
-            {hasNativeCamera ? (
+        {/* HUD Viewfinder Overlay (Shown after intro animation) */}
+        {(cameraMounted || !showIntroSplash) && (
+          <View style={styles.hudOverlay}>
+            {/* Top Header Controls */}
+            <View style={styles.headerRow}>
               <TouchableOpacity
-                style={[styles.headerGlassBtn, torchOn && styles.headerBtnActive]}
-                onPress={() => setTorchOn((prev) => !prev)}
+                style={styles.headerGlassBtn}
+                onPress={onClose}
                 activeOpacity={0.7}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <Ionicons
-                  name={torchOn ? 'flashlight' : 'flashlight-outline'}
-                  size={24}
-                  color={torchOn ? '#f97316' : '#ffffff'}
-                />
+                <Ionicons name="close" size={28} color="#ffffff" />
               </TouchableOpacity>
-            ) : (
-              <View style={{ width: 44 }} />
-            )}
-          </View>
 
-          {/* Centered Target Box */}
-          <View style={styles.centerTargetContainer}>
-            <Animated.View
-              style={[
-                styles.targetFrame,
-                { transform: [{ scale: pulseAnim }] },
-                detectedResult && styles.targetFrameSuccess,
-                isBusy && styles.targetFrameBusy,
-              ]}
-            >
-              {/* 4 Glowing Corner Brackets */}
-              <View style={[styles.cornerBracket, styles.bracketTL]} />
-              <View style={[styles.cornerBracket, styles.bracketTR]} />
-              <View style={[styles.cornerBracket, styles.bracketBL]} />
-              <View style={[styles.cornerBracket, styles.bracketBR]} />
-
-              {/* Guidance Text Centered Inside Target Frame (No Icon) */}
-              <View style={styles.frameInnerGuidance} pointerEvents="none">
-                <Text style={styles.frameGuidanceText}>
-                  {detectedResult
-                    ? 'تم التعرف على اللوحة بنجاح!'
-                    : isBusy
-                    ? 'جاري فحص وقراءة اللوحة...'
-                    : 'وجّه اللوحة داخل الإطار والتقط'}
-                </Text>
+              {/* Header Badge */}
+              <View style={styles.headerBadge}>
+                <View style={styles.radarDot} />
+                <Text style={styles.headerBadgeText}>ماسح اللوحات الذكي</Text>
               </View>
 
-              {/* Laser Sweep Beam */}
-              {!detectedResult && (
-                <Animated.View
-                  style={[
-                    styles.laserBeam,
-                    { transform: [{ translateY }] },
-                  ]}
-                />
+              {/* Torch toggle button */}
+              {hasNativeCamera ? (
+                <TouchableOpacity
+                  style={[styles.headerGlassBtn, torchOn && styles.headerBtnActive]}
+                  onPress={() => setTorchOn((prev) => !prev)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <Ionicons
+                    name={torchOn ? 'flashlight' : 'flashlight-outline'}
+                    size={24}
+                    color={torchOn ? '#f97316' : '#ffffff'}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <View style={{ width: 44 }} />
               )}
-            </Animated.View>
-          </View>
+            </View>
 
-          {/* Bottom Control / Result Popover */}
-          <View style={styles.bottomSection}>
-            {detectedResult ? (
-              /* Detected Plate Result Confirmation Card */
+            {/* Centered Target Box */}
+            <View style={styles.centerTargetContainer}>
               <Animated.View
                 style={[
-                  styles.resultCard,
-                  {
-                    opacity: resultCardAnim,
-                    transform: [
-                      {
-                        translateY: resultCardAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [60, 0],
-                        }),
-                      },
-                    ],
-                  },
+                  styles.targetFrame,
+                  { transform: [{ scale: pulseAnim }] },
+                  detectedResult && styles.targetFrameSuccess,
+                  isBusy && styles.targetFrameBusy,
                 ]}
               >
-                <View style={styles.resultHeader}>
-                  <View style={styles.resultBadgeSuccess}>
-                    <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
-                    <Text style={styles.resultBadgeText}>تم التعرف على اللوحة بنجاح</Text>
-                  </View>
-                  <Text style={styles.resultConfidence}>دقة 99% (مطابقة تامة)</Text>
+                {/* 4 Glowing Corner Brackets */}
+                <View style={[styles.cornerBracket, styles.bracketTL]} />
+                <View style={[styles.cornerBracket, styles.bracketTR]} />
+                <View style={[styles.cornerBracket, styles.bracketBL]} />
+                <View style={[styles.cornerBracket, styles.bracketBR]} />
+
+                {/* Guidance Text Centered Inside Target Frame (No Icon) */}
+                <View style={styles.frameInnerGuidance} pointerEvents="none">
+                  <Text style={styles.frameGuidanceText}>
+                    {detectedResult
+                      ? 'تم التعرف على اللوحة بنجاح!'
+                      : isBusy
+                      ? 'جاري فحص وقراءة اللوحة...'
+                      : 'وجّه اللوحة داخل الإطار والتقط'}
+                  </Text>
                 </View>
 
-                {/* Authentic Saudi Motorcycle Plate Preview (Exact 1:1 Matching Start Shift Screen) */}
-                <View style={styles.platePreviewWrap}>
-                  <SaudiMotorcyclePlate
-                    digits={detectedResult.digits}
-                    letters={detectedResult.letters}
-                    editable={false}
-                    isDarkMode={false}
-                    scale={0.94}
+                {/* Laser Sweep Beam */}
+                {!detectedResult && (
+                  <Animated.View
+                    style={[
+                      styles.laserBeam,
+                      { transform: [{ translateY }] },
+                    ]}
                   />
-                </View>
+                )}
+              </Animated.View>
+            </View>
 
-                {/* Action Buttons */}
-                <View style={styles.resultActionRow}>
-                  <TouchableOpacity
-                    style={styles.rescanBtn}
-                    onPress={handleRescan}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="refresh" size={18} color="#94a3b8" />
-                    <Text style={styles.rescanBtnText}>إعادة المسح</Text>
-                  </TouchableOpacity>
+            {/* Bottom Control / Result Popover */}
+            <View style={styles.bottomSection}>
+              {detectedResult ? (
+                /* Detected Plate Result Confirmation Card */
+                <Animated.View
+                  style={[
+                    styles.resultCard,
+                    {
+                      opacity: resultCardAnim,
+                      transform: [
+                        {
+                          translateY: resultCardAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [60, 0],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <View style={styles.resultHeader}>
+                    <View style={styles.resultBadgeSuccess}>
+                      <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
+                      <Text style={styles.resultBadgeText}>تم التعرف على اللوحة بنجاح</Text>
+                    </View>
+                    <Text style={styles.resultConfidence}>دقة 99% (مطابقة تامة)</Text>
+                  </View>
 
+                  {/* Authentic Saudi Motorcycle Plate Preview (Exact 1:1 Matching Start Shift Screen) */}
+                  <View style={styles.platePreviewWrap}>
+                    <SaudiMotorcyclePlate
+                      digits={detectedResult.digits}
+                      letters={detectedResult.letters}
+                      editable={false}
+                      isDarkMode={false}
+                      scale={0.94}
+                    />
+                  </View>
+
+                  {/* Action Buttons */}
+                  <View style={styles.resultActionRow}>
+                    <TouchableOpacity
+                      style={styles.rescanBtn}
+                      onPress={handleRescan}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="refresh" size={18} color="#94a3b8" />
+                      <Text style={styles.rescanBtnText}>إعادة المسح</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.confirmBtn}
+                      onPress={handleConfirmResult}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="checkmark" size={20} color="#ffffff" style={{ marginLeft: 6 }} />
+                      <Text style={styles.confirmBtnText}>تأكيد واستخدام اللوحة</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Animated.View>
+              ) : (
+                /* Floating Shutter Action Button */
+                <View style={styles.shutterRow}>
                   <TouchableOpacity
-                    style={styles.confirmBtn}
-                    onPress={handleConfirmResult}
+                    style={[styles.shutterBtn, isBusy && styles.shutterBtnBusy]}
+                    onPress={handleManualScan}
+                    disabled={isBusy}
                     activeOpacity={0.85}
                   >
-                    <Ionicons name="checkmark" size={20} color="#ffffff" style={{ marginLeft: 6 }} />
-                    <Text style={styles.confirmBtnText}>تأكيد واستخدام اللوحة</Text>
+                    {isBusy ? (
+                      <ActivityIndicator color="#ffffff" size="small" />
+                    ) : (
+                      <View style={styles.shutterInnerCircle}>
+                        <Ionicons name="scan" size={28} color="#ffffff" />
+                      </View>
+                    )}
                   </TouchableOpacity>
                 </View>
-              </Animated.View>
-            ) : (
-              /* Floating Shutter Action Button */
-              <View style={styles.shutterRow}>
-                <TouchableOpacity
-                  style={[styles.shutterBtn, isBusy && styles.shutterBtnBusy]}
-                  onPress={handleManualScan}
-                  disabled={isBusy}
-                  activeOpacity={0.85}
-                >
-                  {isBusy ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <View style={styles.shutterInnerCircle}>
-                      <Ionicons name="scan" size={28} color="#ffffff" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Full-screen Intro Animation Splash before Camera */}
         {showIntroSplash && (

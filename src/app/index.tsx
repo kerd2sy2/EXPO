@@ -911,26 +911,24 @@ export default function DelegateApp() {
 
   const handleClosePlateScanner = () => {
     setShowPlateScannerModal(false);
-    // إذا رجع المندوب أو أغلق الماسح دون التقاط اللوحة، يرجع فوراً للداشبورد الرئيسية
-    if (!activeSession && !startPlateImageRef.current && !isPlateConfirmed) {
-      setCurrentTab('home');
-    }
   };
 
   // Open Shift & Camera directly when clicking "بدء الدوام"
   const handleStartShiftClick = () => {
-    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
     if (!activeSession && !isPlateConfirmed) {
       setShowPlateScannerModal(true);
+    } else {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+      setCurrentTab('shift');
     }
-    setCurrentTab('shift');
   };
 
   const handleNavigateToTab = (tab: TabType) => {
-    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
     if (tab === 'shift' && !activeSession && !isPlateConfirmed) {
       setShowPlateScannerModal(true);
+      return;
     }
+    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
     setCurrentTab(tab);
   };
 
@@ -939,6 +937,8 @@ export default function DelegateApp() {
     startPlateImageRef.current = base64Uri;
     setStartPlateImage(imageUri);
     setIsPlateConfirmed(true);
+    setCurrentTab('shift');
+    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
 
     if (plateData && (plateData.full_plate || plateData.digits)) {
       const combined = plateData.full_plate || (plateData.letters ? `${plateData.digits} ${plateData.letters}` : plateData.digits);
