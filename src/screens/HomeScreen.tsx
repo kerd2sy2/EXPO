@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmployeeProfile, WorkSession, TabType, ThemeColors, Language } from '../types/delegate';
-import { getMyViolationsApi, DelegateViolation } from '../services/api';
+import { DelegateViolation } from '../services/api';
 import { formatBikePlateForDisplay } from '../utils/plateUtils';
 
 interface HomeScreenProps {
@@ -30,6 +30,9 @@ interface HomeScreenProps {
   lang?: Language;
   onNavigateToTab: (tab: TabType) => void;
   onStartShiftClick?: () => void;
+  violations?: DelegateViolation[];
+  totalViolationsAmount?: number;
+  deductedViolationsAmount?: number;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -51,29 +54,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   lang = 'ar',
   onNavigateToTab,
   onStartShiftClick,
+  violations = [],
+  totalViolationsAmount = 0,
+  deductedViolationsAmount = 0,
 }) => {
-  const [violations, setViolations] = useState<DelegateViolation[]>([]);
-  const [violationsLoading, setViolationsLoading] = useState(false);
-  const [totalViolationsAmount, setTotalViolationsAmount] = useState(0);
-  const [deductedViolationsAmount, setDeductedViolationsAmount] = useState(0);
-
-  const fetchViolations = useCallback(async () => {
-    setViolationsLoading(true);
-    try {
-      const res = await getMyViolationsApi(employee?.id);
-      setViolations(res.data || []);
-      setTotalViolationsAmount(res.total_amount || 0);
-      setDeductedViolationsAmount(res.deducted_amount || 0);
-    } catch (err) {
-      console.warn('[HomeScreen] Error fetching violations:', err);
-    } finally {
-      setViolationsLoading(false);
-    }
-  }, [employee?.id]);
-
-  useEffect(() => {
-    fetchViolations();
-  }, [fetchViolations]);
 
   const isDifferentBike = Boolean(
     activeSession &&

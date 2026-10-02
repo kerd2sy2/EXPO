@@ -1500,6 +1500,9 @@ export default function DelegateApp() {
                   isRTL={isRTL}
                   t={t}
                   lang={lang}
+                  violations={violations}
+                  totalViolationsAmount={totalViolationsAmount}
+                  deductedViolationsAmount={deductedViolationsAmount}
                   onNavigateToTab={handleNavigateToTab}
                   onStartShiftClick={handleStartShiftClick}
                 />
