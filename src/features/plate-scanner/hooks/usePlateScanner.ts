@@ -42,8 +42,12 @@ export const usePlateScanner = ({
 
   // Dedicated Intro Splash Animation state
   const [showIntroSplash, setShowIntroSplash] = useState(true);
-  const [cameraMounted, setCameraMounted] = useState(false);
+  const [cameraMounted, setCameraMounted] = useState(true);
   const introFadeAnim = useRef(new Animated.Value(1)).current;
+
+  const isCameraReadyRef = useRef(false);
+  const isMinTimeElapsedRef = useRef(false);
+  const isSplashDismissedRef = useRef(false);
 
   const isMountedRef = useRef(false);
   const isFinishedRef = useRef(false);
@@ -108,25 +112,42 @@ export const usePlateScanner = ({
     }
   }, [visible, permission, requestPermission]);
 
-  // Transition from Intro Animation to Live Camera
-  const handleIntroComplete = useCallback(() => {
-    setCameraMounted(true);
-    Animated.timing(introFadeAnim, {
-      toValue: 0,
-      duration: 350,
-      useNativeDriver: true,
-    }).start(() => {
-      setShowIntroSplash(false);
-    });
+  // Transition from Intro Animation to Live Camera ONLY when camera is confirmed ready
+  const tryDismissIntroSplash = useCallback(() => {
+    if (isSplashDismissedRef.current) return;
+    if (isCameraReadyRef.current && isMinTimeElapsedRef.current) {
+      isSplashDismissedRef.current = true;
+      Animated.timing(introFadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowIntroSplash(false);
+      });
+    }
   }, [introFadeAnim]);
+
+  const onCameraReady = useCallback(() => {
+    setIsCameraReady(true);
+    isCameraReadyRef.current = true;
+    tryDismissIntroSplash();
+  }, [tryDismissIntroSplash]);
+
+  const onAnimationFinish = useCallback(() => {
+    isMinTimeElapsedRef.current = true;
+    tryDismissIntroSplash();
+  }, [tryDismissIntroSplash]);
 
   // Intro Splash & Laser Sweep & Radar Animations lifecycle
   useEffect(() => {
     if (visible) {
       setShowIntroSplash(true);
-      setCameraMounted(false);
+      setCameraMounted(true); // Mount camera IMMEDIATELY so it prepares in background behind splash
       introFadeAnim.setValue(1);
       setIsCameraReady(false);
+      isCameraReadyRef.current = false;
+      isMinTimeElapsedRef.current = false;
+      isSplashDismissedRef.current = false;
       setDetectedResult(null);
       setCapturedPhotoUri(null);
       setShowErrorSheet(false);
@@ -134,10 +155,18 @@ export const usePlateScanner = ({
       isFinishedRef.current = false;
       resultCardAnim.setValue(0);
 
-      // Intro safety timer (ensures camera opens smoothly after 1.5s)
-      const introTimer = setTimeout(() => {
-        handleIntroComplete();
-      }, 1500);
+      // Minimum animation playback timer (1.2s)
+      const minTimer = setTimeout(() => {
+        isMinTimeElapsedRef.current = true;
+        tryDismissIntroSplash();
+      }, 1200);
+
+      // Safety timeout: if camera hardware takes longer or doesn't fire, force dismiss splash after 2.5s
+      const safetyTimer = setTimeout(() => {
+        isCameraReadyRef.current = true;
+        isMinTimeElapsedRef.current = true;
+        tryDismissIntroSplash();
+      }, 2500);
 
       const laser = Animated.loop(
         Animated.sequence([
@@ -172,12 +201,21 @@ export const usePlateScanner = ({
       pulse.start();
 
       return () => {
-        clearTimeout(introTimer);
+        clearTimeout(minTimer);
+        clearTimeout(safetyTimer);
         laser.stop();
         pulse.stop();
       };
+    } else {
+      setCameraMounted(false);
+      setShowIntroSplash(true);
+      setIsCameraReady(false);
+      isCameraReadyRef.current = false;
+      isMinTimeElapsedRef.current = false;
+      isSplashDismissedRef.current = false;
     }
-  }, [visible, errorSheetAnim, handleIntroComplete, introFadeAnim, laserAnim, pulseAnim, resultCardAnim]);
+  }, [visible, errorSheetAnim, introFadeAnim, laserAnim, pulseAnim, resultCardAnim, tryDismissIntroSplash]);
+
 
   // Trigger result card appearance animation & compress image for database proof
   const showResultPopup = async (data: PlateResultData, photoUri: string, b64: string) => {
@@ -310,7 +348,9 @@ export const usePlateScanner = ({
     cameraMounted,
     showIntroSplash,
     introFadeAnim,
-    handleIntroComplete,
+    onCameraReady,
+    onAnimationFinish,
+    handleIntroComplete: onAnimationFinish,
     pulseAnim,
     laserAnim,
     detectedResult,
@@ -326,3 +366,4 @@ export const usePlateScanner = ({
     handleRescan,
   };
 };
+

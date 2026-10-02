@@ -42,7 +42,8 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     cameraMounted,
     showIntroSplash,
     introFadeAnim,
-    handleIntroComplete,
+    onCameraReady,
+    onAnimationFinish,
     pulseAnim,
     laserAnim,
     detectedResult,
@@ -96,10 +97,11 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               enableTorch={torchOn}
               flash={torchOn ? 'on' : 'off'}
               mode="picture"
-              onCameraReady={() => setIsCameraReady(true)}
+              onCameraReady={onCameraReady}
               onMountError={(e: any) => {
                 console.warn('Camera mount error:', e);
                 setCameraFailed(true);
+                onCameraReady();
               }}
             />
           </CameraErrorBoundary>
@@ -107,8 +109,8 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
           <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]} />
         )}
 
-        {/* HUD Viewfinder Overlay (Shown after intro animation) */}
-        {(cameraMounted || !showIntroSplash) && (
+        {/* HUD Viewfinder Overlay (Revealed cleanly when intro animation finishes and camera is live) */}
+        {!showIntroSplash && (
           <View style={styles.hudOverlay}>
             {/* Top Header Controls */}
             <ScannerHeader
@@ -149,10 +151,11 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
         {showIntroSplash && (
           <ScannerIntroSplash
             introFadeAnim={introFadeAnim}
-            onAnimationFinish={handleIntroComplete}
+            onAnimationFinish={onAnimationFinish}
             isDark={isDark}
           />
         )}
+
 
         {/* Modern Bottom Sheet Error Alert */}
         <ScannerErrorSheet
