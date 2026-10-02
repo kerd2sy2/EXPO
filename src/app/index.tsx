@@ -203,11 +203,13 @@ export default function DelegateApp() {
   const headerTranslateY = useRef(new Animated.Value(0)).current;
   const lastScrollY = useRef(0);
   const isHeaderHidden = useRef(false);
+  const scrollDelta = useRef(0);
 
   useEffect(() => {
     headerTranslateY.setValue(0);
     isHeaderHidden.current = false;
     lastScrollY.current = 0;
+    scrollDelta.current = 0;
   }, [currentTab]);
 
   const handleHomeScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -215,9 +217,11 @@ export default function DelegateApp() {
 
     const currentY = event.nativeEvent.contentOffset.y;
     const diff = currentY - lastScrollY.current;
+    lastScrollY.current = currentY;
 
     // At the very top (or pulling down to refresh): Always show header in its natural place
-    if (currentY <= 15) {
+    if (currentY <= 10) {
+      scrollDelta.current = 0;
       if (isHeaderHidden.current) {
         isHeaderHidden.current = false;
         Animated.spring(headerTranslateY, {
@@ -227,31 +231,44 @@ export default function DelegateApp() {
           useNativeDriver: true,
         }).start();
       }
-      lastScrollY.current = currentY;
       return;
     }
 
-    // Scrolling down the page / swiping up (diff > 6 and past top): Hide Header
-    if (diff > 6 && currentY > 30 && !isHeaderHidden.current) {
-      isHeaderHidden.current = true;
-      Animated.timing(headerTranslateY, {
-        toValue: -HOME_HEADER_HEIGHT,
-        duration: 180,
-        useNativeDriver: true,
-      }).start();
-    }
-    // Scrolling up towards top / swiping down (diff < -6): Show Header
-    else if (diff < -6 && isHeaderHidden.current) {
-      isHeaderHidden.current = false;
-      Animated.spring(headerTranslateY, {
-        toValue: 0,
-        damping: 20,
-        stiffness: 220,
-        useNativeDriver: true,
-      }).start();
-    }
+    // Accumulate directional scroll delta to capture both slow and fast scrolling
+    if (diff > 0) {
+      // Swiping up / scrolling down page
+      if (scrollDelta.current < 0) {
+        scrollDelta.current = 0;
+      }
+      scrollDelta.current += diff;
 
-    lastScrollY.current = currentY;
+      // When accumulated movement reaches 6px and past the top zone: Hide Header
+      if (scrollDelta.current >= 6 && currentY > 15 && !isHeaderHidden.current) {
+        isHeaderHidden.current = true;
+        Animated.timing(headerTranslateY, {
+          toValue: -HOME_HEADER_HEIGHT,
+          duration: 180,
+          useNativeDriver: true,
+        }).start();
+      }
+    } else if (diff < 0) {
+      // Swiping down / scrolling up towards top
+      if (scrollDelta.current > 0) {
+        scrollDelta.current = 0;
+      }
+      scrollDelta.current += diff;
+
+      // When accumulated movement reaches -6px: Show Header
+      if (scrollDelta.current <= -6 && isHeaderHidden.current) {
+        isHeaderHidden.current = false;
+        Animated.spring(headerTranslateY, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 220,
+          useNativeDriver: true,
+        }).start();
+      }
+    }
   };
 
   // Modular Hooks: Active Shift Timer
