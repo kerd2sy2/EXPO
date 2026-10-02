@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -96,6 +96,43 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const totalPenaltiesAmt = penaltyRecords.reduce((acc, v) => acc + (v.amount || 0), 0);
   const totalDuePending = Math.max(0, totalViolationsAmount - deductedViolationsAmount);
 
+  // Calculate distinct working days for the current month
+  // Multiple shifts on the same day count as 1 working day
+  const currentMonthWorkingDays = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const uniqueDays = new Set<string>();
+
+    historySessions.forEach((s) => {
+      if (s.status === 'CANCELLED' || !s.start_time) return;
+      try {
+        const d = new Date(s.start_time);
+        if (!isNaN(d.getTime()) && d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
+          const dayKey = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+          uniqueDays.add(dayKey);
+        }
+      } catch (err) {
+        // ignore invalid dates
+      }
+    });
+
+    if (activeSession?.start_time) {
+      try {
+        const d = new Date(activeSession.start_time);
+        if (!isNaN(d.getTime()) && d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
+          const dayKey = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+          uniqueDays.add(dayKey);
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    return uniqueDays.size;
+  }, [historySessions, activeSession]);
+
   return (
     <View style={styles.tabContainer}>
       {/* Clean Monthly Target & Earnings Card */}
@@ -155,7 +192,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       </View>
 
       <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        {/* Row 1: Bike & Key */}
+        {/* 1. Bike */}
         <View
           style={[
             styles.statBox,
@@ -163,6 +200,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               backgroundColor: colors.card,
               borderColor: isDifferentBike ? '#f59e0b' : colors.border,
               borderWidth: isDifferentBike ? 1.5 : 1,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
             },
           ]}
         >
@@ -178,87 +216,121 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           >
             <MaterialCommunityIcons
               name="bike"
-              size={22}
+              size={18}
               color={isDifferentBike ? '#d97706' : colors.primary}
             />
           </View>
-          <Text
-            style={[
-              styles.statNumber,
-              { color: isDifferentBike ? '#d97706' : colors.textPrimary },
-            ]}
-            numberOfLines={1}
-            adjustsFontSizeToFit={true}
-          >
-            {isDifferentBike
-              ? activeSession?.motorcycle_number
-              : (employee.motorcycle_number || '—')}
-          </Text>
-          <Text
-            style={[
-              styles.statLabel,
-              {
-                color: isDifferentBike ? '#d97706' : colors.textSecondary,
-                fontWeight: isDifferentBike ? '700' : '500',
-              },
-            ]}
-            numberOfLines={2}
-          >
-            {isDifferentBike ? (t.outOnDifferentBike || 'أنت طالع الآن بدباب') : t.assignedBike}
-          </Text>
-          {isDifferentBike && employee.motorcycle_number ? (
+          <View style={[styles.statTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
             <Text
               style={[
-                styles.originalBikeNotice,
-                { color: colors.textSecondary },
+                styles.statNumber,
+                { color: isDifferentBike ? '#d97706' : colors.textPrimary },
               ]}
               numberOfLines={1}
+              adjustsFontSizeToFit={true}
             >
-              ({t.assignedBike}: {employee.motorcycle_number})
+              {isDifferentBike
+                ? activeSession?.motorcycle_number
+                : (employee.motorcycle_number || '—')}
             </Text>
-          ) : null}
-        </View>
-
-        <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-            <MaterialCommunityIcons name="key-variant" size={22} color={colors.primary} />
-          </View>
-          <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-            {employee.key_number || '—'}
-          </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
-        </View>
-
-
-        {/* Row 2: Shifts & Expected Salary */}
-        <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-            <MaterialCommunityIcons name="calendar-check" size={22} color={colors.primary} />
-          </View>
-          <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-            {historySessions.filter((s) => s.status !== 'ACTIVE').length}
-          </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.totalShifts}</Text>
-        </View>
-
-        <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.statIconCircle, { backgroundColor: isTargetAchieved ? 'rgba(34,197,94,0.12)' : colors.primaryLight }]}>
-            <Ionicons name="wallet-outline" size={22} color={isTargetAchieved ? '#22c55e' : colors.primary} />
-          </View>
-          <View style={[styles.salaryAmountRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={[styles.statNumber, { color: isTargetAchieved ? '#22c55e' : colors.textPrimary, marginBottom: 0 }]}>
-              {expectedSalary > 0 ? expectedSalary.toLocaleString('en-US') : '0'}
+            <Text style={[styles.statLabel, { color: isDifferentBike ? '#d97706' : colors.textSecondary }]} numberOfLines={1}>
+              {isDifferentBike ? (t.outOnDifferentBike || 'دباب بديل') : t.assignedBike}
             </Text>
-            <Image
-              source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-              style={[
-                styles.riyalSymbolImg,
-                { tintColor: isTargetAchieved ? '#22c55e' : colors.textPrimary },
-              ]}
-              resizeMode="contain"
-            />
           </View>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.expectedSalary || 'متوقع الراتب'}</Text>
+        </View>
+
+        {/* 2. Key */}
+        <View
+          style={[
+            styles.statBox,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            },
+          ]}
+        >
+          <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
+            <MaterialCommunityIcons name="key-variant" size={18} color={colors.primary} />
+          </View>
+          <View style={[styles.statTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.statNumber, { color: colors.textPrimary }]} numberOfLines={1}>
+              {employee.key_number || '—'}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+              {t.keyNumber}
+            </Text>
+          </View>
+        </View>
+
+        {/* 3. Working Days */}
+        <View
+          style={[
+            styles.statBox,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            },
+          ]}
+        >
+          <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
+            <MaterialCommunityIcons name="calendar-check" size={18} color={colors.primary} />
+          </View>
+          <View style={[styles.statTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.statNumber, { color: colors.textPrimary }]} numberOfLines={1}>
+              {currentMonthWorkingDays}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+              {t.workingDays || 'أيام العمل'}
+            </Text>
+          </View>
+        </View>
+
+        {/* 4. Expected Salary */}
+        <View
+          style={[
+            styles.statBox,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.statIconCircle,
+              { backgroundColor: isTargetAchieved ? 'rgba(34,197,94,0.12)' : colors.primaryLight },
+            ]}
+          >
+            <Ionicons name="wallet-outline" size={18} color={isTargetAchieved ? '#22c55e' : colors.primary} />
+          </View>
+          <View style={[styles.statTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <View style={[styles.salaryAmountRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text
+                style={[
+                  styles.statNumber,
+                  { color: isTargetAchieved ? '#22c55e' : colors.textPrimary },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit={true}
+              >
+                {expectedSalary > 0 ? expectedSalary.toLocaleString('en-US') : '0'}
+              </Text>
+              <Image
+                source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
+                style={[
+                  styles.riyalSymbolImg,
+                  { tintColor: isTargetAchieved ? '#22c55e' : colors.textPrimary },
+                ]}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+              {t.expectedSalary || 'متوقع الراتب'}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -269,9 +341,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </Text>
       </View>
 
-      {/* 1. Shift Quick Access */}
+      {/* 1. Shift Quick Access Row */}
       <TouchableOpacity
-        style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+        style={[
+          styles.quickShiftCard,
+          {
+            backgroundColor: activeSession
+              ? (isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fff1f2')
+              : colors.card,
+            borderColor: activeSession ? '#ef4444' : colors.border,
+            flexDirection: isRTL ? 'row-reverse' : 'row',
+          },
+        ]}
         onPress={() => {
           if (!activeSession && onStartShiftClick) {
             onStartShiftClick();
@@ -279,145 +360,154 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onNavigateToTab('shift');
           }
         }}
+        activeOpacity={0.8}
       >
         <View
           style={[
-            styles.quickCardIconCircle,
+            styles.quickShiftIconCircle,
             {
               backgroundColor: activeSession
-                ? isDarkMode
-                  ? 'rgba(239, 68, 68, 0.18)'
-                  : '#fee2e2'
-                : colors.primaryLight,
+                ? '#ef4444'
+                : colors.primary,
             },
           ]}
         >
           <Ionicons
-            name={activeSession ? 'stop-circle-outline' : 'play-circle-outline'}
-            size={24}
-            color={activeSession ? '#ef4444' : colors.primary}
+            name={activeSession ? 'stop-circle' : 'play'}
+            size={18}
+            color="#ffffff"
           />
         </View>
-        <View style={styles.quickCardTextCol}>
-          <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+        <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+          <Text style={[styles.quickCardTitle, { color: activeSession ? '#ef4444' : colors.textPrimary }]}>
             {activeSession ? t.endShiftNow : t.quickShiftTitle}
           </Text>
-          <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+          <Text style={[styles.quickCardSub, { color: colors.textSecondary }]}>
             {activeSession ? `${t.durationLabel}: ${elapsedTime}` : t.quickShiftSub}
           </Text>
         </View>
-        <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+        <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textSecondary} />
       </TouchableOpacity>
 
-      {/* 2. History Quick Access */}
-      <TouchableOpacity
-        style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-        onPress={() => onNavigateToTab('history')}
-      >
-        <View style={[styles.quickCardIconCircle, { backgroundColor: colors.accentLight }]}>
-          <Ionicons name="receipt-outline" size={24} color={colors.accent} />
-        </View>
-        <View style={styles.quickCardTextCol}>
-          <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {t.quickHistoryTitle}
-          </Text>
-          <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {t.quickHistorySub}
-          </Text>
-        </View>
-        <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
-
-      {/* 3. Violations & Penalties Quick Access (المخالفات والجزاءات) */}
-      <TouchableOpacity
-        style={[
-          styles.quickCardRow,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            borderWidth: 1,
-            flexDirection: isRTL ? 'row-reverse' : 'row',
-          },
-        ]}
-        onPress={() => onNavigateToTab('violations')}
-      >
-        <View
+      {/* 2. History & Violations Side-by-Side Dual Row */}
+      <View style={[styles.dualQuickRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        {/* History */}
+        <TouchableOpacity
           style={[
-            styles.quickCardIconCircle,
-            {
-              backgroundColor: violations.length > 0
-                ? (isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2')
-                : (isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5'),
-            },
+            styles.compactQuickCard,
+            { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
           ]}
+          onPress={() => onNavigateToTab('history')}
+          activeOpacity={0.8}
         >
-          <MaterialCommunityIcons
-            name={violations.length > 0 ? 'shield-alert-outline' : 'shield-check-outline'}
-            size={24}
-            color={violations.length > 0 ? (isDarkMode ? '#F87171' : '#DC2626') : (isDarkMode ? '#34D399' : '#059669')}
-          />
-        </View>
-        <View style={styles.quickCardTextCol}>
-          <View style={[styles.quickCardTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.quickViolationsTitle || 'المخالفات والجزاءات'}
+          <View style={[styles.compactQuickIcon, { backgroundColor: colors.accentLight }]}>
+            <Ionicons name="receipt-outline" size={17} color={colors.accent} />
+          </View>
+          <View style={[styles.compactQuickTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.compactQuickTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+              {t.quickHistoryTitle}
+            </Text>
+            <Text style={[styles.compactQuickSub, { color: colors.textSecondary }]} numberOfLines={1}>
+              سجل الشفتات
             </Text>
           </View>
-          <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 2 }]}>
-            {violations.length > 0
-              ? (totalDuePending > 0
-                  ? `المتبقي عليك: ${totalDuePending.toLocaleString('en-US')} ر.س`
-                  : 'تم سداد كامل المستحقات (لا يوجد متبقي)')
-              : (t.noViolationsSub || 'سجلك نظيف! لا توجد مخالفات أو جزاءات مسجلة')}
-          </Text>
-        </View>
-        <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
+        </TouchableOpacity>
+
+        {/* Violations */}
+        <TouchableOpacity
+          style={[
+            styles.compactQuickCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: violations.length > 0 && totalDuePending > 0 ? '#ef4444' : colors.border,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            },
+          ]}
+          onPress={() => onNavigateToTab('violations')}
+          activeOpacity={0.8}
+        >
+          <View
+            style={[
+              styles.compactQuickIcon,
+              {
+                backgroundColor: violations.length > 0
+                  ? (isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2')
+                  : (isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5'),
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={violations.length > 0 ? 'shield-alert-outline' : 'shield-check-outline'}
+              size={17}
+              color={violations.length > 0 ? (isDarkMode ? '#F87171' : '#DC2626') : (isDarkMode ? '#34D399' : '#059669')}
+            />
+          </View>
+          <View style={[styles.compactQuickTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.compactQuickTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+              {t.quickViolationsTitle || 'المخالفات'}
+            </Text>
+            <Text
+              style={[
+                styles.compactQuickSub,
+                { color: violations.length > 0 && totalDuePending > 0 ? '#ef4444' : '#10b981' },
+              ]}
+              numberOfLines={1}
+            >
+              {violations.length > 0
+                ? (totalDuePending > 0 ? `${totalDuePending} ر.س` : 'مسددة')
+                : 'سجل نظيف'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   tabContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 16,
   },
   targetCardContainer: {
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 18,
-    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 10,
   },
   targetCardHeader: {
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   targetTitleGroup: {
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   targetCardTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   targetRatioText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   targetRatioBold: {
     fontWeight: '800',
   },
   targetProgressContainer: {
-    marginBottom: 10,
+    marginBottom: 8,
   },
   progressBarTrack: {
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 3,
   },
   targetFooterRow: {
     justifyContent: 'space-between',
@@ -425,121 +515,124 @@ const styles = StyleSheet.create({
   },
   targetFooterNotice: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   targetFooterPct: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     marginLeft: 8,
   },
   sectionHeader: {
-    marginBottom: 12,
-    marginTop: 4,
+    marginBottom: 6,
+    marginTop: 2,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   statsGrid: {
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 10,
+    justifyContent: 'space-between',
   },
   statBox: {
-    width: '48%',
-    borderRadius: 16,
+    width: '48.5%',
+    borderRadius: 12,
     borderWidth: 1,
-    padding: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 125,
+    gap: 8,
+    minHeight: 56,
   },
   statIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+  },
+  statTextCol: {
+    flex: 1,
+    justifyContent: 'center',
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: '800',
-    marginBottom: 2,
+    letterSpacing: -0.2,
   },
   salaryAmountRow: {
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 2,
+    gap: 3,
   },
   riyalSymbolImg: {
-    width: 16,
-    height: 16,
+    width: 13,
+    height: 13,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 10.5,
     fontWeight: '500',
-    textAlign: 'center',
+    marginTop: 1,
   },
-  originalBikeNotice: {
-    fontSize: 10,
-    marginTop: 3,
-    textAlign: 'center',
-  },
-  quickCardRow: {
-    borderRadius: 16,
+  quickShiftCard: {
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 8,
   },
-  quickCardIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  quickShiftIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
   quickCardTextCol: {
     flex: 1,
   },
-  quickCardTitleRow: {
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 2,
-  },
   quickCardTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
   },
-  violationCountBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 1,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  violationCountText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-  },
   quickCardSub: {
-    fontSize: 12,
+    fontSize: 11,
+    marginTop: 1,
   },
-  pendingBadgeRow: {
-    marginTop: 10,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
+  dualQuickRow: {
+    gap: 8,
     alignItems: 'center',
-    gap: 6,
   },
-  pendingOrdersText: {
-    fontSize: 11.5,
-    fontWeight: '600',
+  compactQuickCard: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    gap: 8,
+  },
+  compactQuickIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  compactQuickTextCol: {
+    flex: 1,
+  },
+  compactQuickTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  compactQuickSub: {
+    fontSize: 10.5,
+    marginTop: 1,
+    fontWeight: '500',
   },
 });
