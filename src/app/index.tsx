@@ -195,8 +195,8 @@ export default function DelegateApp() {
   const [keyboardOffset, setKeyboardOffset] = useState<number>(0);
   const [mainScrollEnabled, setMainScrollEnabled] = useState(true);
 
-  // Collapsible Home Header Animation
-  const HOME_HEADER_HEIGHT = 70;
+  // Collapsible Home Header Animation (Google Play Store Style)
+  const HOME_HEADER_HEIGHT = 74;
   const headerTranslateY = useRef(new Animated.Value(0)).current;
   const lastScrollY = useRef(0);
   const isHeaderHidden = useRef(false);
@@ -213,14 +213,14 @@ export default function DelegateApp() {
     const currentY = event.nativeEvent.contentOffset.y;
     const diff = currentY - lastScrollY.current;
 
-    // At the very top (or pulling down to refresh): Always show header
+    // At the very top (or pulling down to refresh): Always show header in its natural place
     if (currentY <= 15) {
       if (isHeaderHidden.current) {
         isHeaderHidden.current = false;
         Animated.spring(headerTranslateY, {
           toValue: 0,
           damping: 20,
-          stiffness: 180,
+          stiffness: 220,
           useNativeDriver: true,
         }).start();
       }
@@ -228,22 +228,22 @@ export default function DelegateApp() {
       return;
     }
 
-    // Scrolling down the page / reading further down (finger moves up, diff > 8): Hide Header
-    if (diff > 8 && currentY > 40 && !isHeaderHidden.current) {
+    // Scrolling down the page / swiping up (diff > 6 and past top): Hide Header
+    if (diff > 6 && currentY > 30 && !isHeaderHidden.current) {
       isHeaderHidden.current = true;
       Animated.timing(headerTranslateY, {
         toValue: -HOME_HEADER_HEIGHT,
-        duration: 200,
+        duration: 180,
         useNativeDriver: true,
       }).start();
     }
-    // Scrolling up towards top (finger moves down, diff < -8): Show Header
-    else if (diff < -8 && isHeaderHidden.current) {
+    // Scrolling up towards top / swiping down (diff < -6): Show Header
+    else if (diff < -6 && isHeaderHidden.current) {
       isHeaderHidden.current = false;
       Animated.spring(headerTranslateY, {
         toValue: 0,
         damping: 20,
-        stiffness: 180,
+        stiffness: 220,
         useNativeDriver: true,
       }).start();
     }
@@ -1449,9 +1449,6 @@ export default function DelegateApp() {
             height: HOME_HEADER_HEIGHT,
             backgroundColor: colors.bg,
             zIndex: 30,
-            elevation: 4,
-            borderBottomWidth: 1,
-            borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
             transform: [{ translateY: headerTranslateY }],
           }}
         >
@@ -1562,6 +1559,7 @@ export default function DelegateApp() {
                 onRefresh={onRefresh}
                 colors={[colors.primary]}
                 tintColor={colors.primary}
+                progressViewOffset={currentTab === 'home' ? HOME_HEADER_HEIGHT : 0}
               />
             }
           >
