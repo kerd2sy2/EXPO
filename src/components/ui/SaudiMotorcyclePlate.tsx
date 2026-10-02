@@ -75,33 +75,70 @@ export const toEnglishDigits = (numStr: string): string => {
   return (numStr || '').replace(/[٠-٩]/g, (w) => `${ar.indexOf(w)}`);
 };
 
-export const convertLettersToBoth = (input: string): { ar: string; en: string } => {
+export const getPlateLetterSlots = (input: string): {
+  leftAr: string;
+  rightAr: string;
+  leftEn: string;
+  rightEn: string;
+} => {
   const clean = (input || '').trim();
-  if (!clean) return { ar: '', en: '' };
+  if (!clean) return { leftAr: '', rightAr: '', leftEn: '', rightEn: '' };
 
-  const chars = clean.split('').filter((c) => c !== ' ');
-  const isInputArabic = chars.some((c) => AR_TO_EN_LETTERS[c]);
+  const normClean = clean.replace(/\s+/g, '');
+  if (/^(BE|EB|ع ب|ب ع|عب|بع)$/i.test(clean) || normClean === 'BE' || normClean === 'EB' || normClean === 'ع ب' || normClean === 'ب ع') {
+    return { leftAr: 'ب', rightAr: 'ع', leftEn: 'B', rightEn: 'E' };
+  }
+  if (/^(AJ|JA|ا ح|ح ا|اح|حا|أ ح|ح أ)$/i.test(clean) || normClean === 'AJ' || normClean === 'JA' || normClean === 'ا ح' || normClean === 'ح ا') {
+    return { leftAr: 'ا', rightAr: 'ح', leftEn: 'A', rightEn: 'J' };
+  }
+  if (/^(AD|DA|ا د|د ا|اد|دا|أ د|د أ)$/i.test(clean) || normClean === 'AD' || normClean === 'DA' || normClean === 'ا د' || normClean === 'د ا') {
+    return { leftAr: 'ا', rightAr: 'د', leftEn: 'A', rightEn: 'D' };
+  }
+  if (/^(BT|TB|ط ب|ب ط|طب|بط)$/i.test(clean) || normClean === 'BT' || normClean === 'TB' || normClean === 'ط ب' || normClean === 'ب ط') {
+    return { leftAr: 'ب', rightAr: 'ط', leftEn: 'B', rightEn: 'T' };
+  }
+  if (/^(RA|AR|ر ع|ع ر|رع|عر)$/i.test(clean) || normClean === 'RA' || normClean === 'AR' || normClean === 'ر ع' || normClean === 'ع ر') {
+    return { leftAr: 'ر', rightAr: 'ع', leftEn: 'R', rightEn: 'A' };
+  }
+
+  const rawChars = clean.replace(/[\s\-_]/g, '').split('');
+  const isInputArabic = rawChars.some((c) => AR_TO_EN_LETTERS[c]);
 
   if (isInputArabic) {
-    const arChars = chars.map((c) => (c === 'أ' || c === 'إ' || c === 'آ' ? 'ا' : c));
-    const enChars = arChars.map((c) => AR_TO_EN_LETTERS[c] || c);
-
-    return {
-      ar: arChars.join('  '),
-      en: enChars.join(' '),
-    };
+    const ar1 = rawChars[0] === 'أ' || rawChars[0] === 'إ' ? 'ا' : rawChars[0];
+    const ar2 = rawChars[1] ? (rawChars[1] === 'أ' || rawChars[1] === 'إ' ? 'ا' : rawChars[1]) : '';
+    const en1 = AR_TO_EN_LETTERS[ar1] || ar1;
+    const en2 = ar2 ? (AR_TO_EN_LETTERS[ar2] || ar2) : '';
+    return { leftAr: ar1, rightAr: ar2, leftEn: en1, rightEn: en2 };
   } else {
-    const enChars = chars.map((c) => c.toUpperCase());
-    const arChars = enChars.map((c) => {
-      const ar = EN_TO_AR_LETTERS[c] || c;
-      return ar === 'أ' || ar === 'إ' ? 'ا' : ar;
-    });
-
+    const en1 = rawChars[0].toUpperCase();
+    const en2 = rawChars[1] ? rawChars[1].toUpperCase() : '';
+    const ar1 = EN_TO_AR_LETTERS[en1] || en1;
+    const ar2 = en2 ? (EN_TO_AR_LETTERS[en2] || en2) : '';
     return {
-      ar: arChars.join('  '),
-      en: enChars.join(' '),
+      leftAr: ar1 === 'أ' || ar1 === 'إ' ? 'ا' : ar1,
+      rightAr: ar2 === 'أ' || ar2 === 'إ' ? 'ا' : ar2,
+      leftEn: en1,
+      rightEn: en2,
     };
   }
+};
+
+export const convertLettersToBoth = (input: string): { ar: string; en: string } => {
+  const slots = getPlateLetterSlots(input);
+  if (!slots.leftEn && !slots.leftAr) return { ar: '', en: '' };
+  return {
+    ar: [slots.leftAr, slots.rightAr].filter(Boolean).join('  '),
+    en: [slots.leftEn, slots.rightEn].filter(Boolean).join(' '),
+  };
+};
+
+export const getAlignedDigits = (englishDigits: string) => {
+  const clean = (englishDigits || '').replace(/\D/g, '');
+  const padded = clean.padEnd(4, ' ');
+  const enArray = padded.split('').slice(0, 4);
+  const arArray = enArray.map((d) => (d === ' ' ? ' ' : toArabicDigits(d)));
+  return { enArray, arArray, isEmptyDigits: !clean };
 };
 
 export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
@@ -121,9 +158,8 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
   const lettersInputRef = useRef<TextInput>(null);
 
   const englishDigits = toEnglishDigits(digits);
-  const arabicDigits = toArabicDigits(englishDigits);
-
-  const { ar: arabicLetters, en: englishLetters } = convertLettersToBoth(letters);
+  const { enArray: enDigitsArray, arArray: arDigitsArray, isEmptyDigits } = getAlignedDigits(englishDigits);
+  const { leftAr, rightAr, leftEn, rightEn } = getPlateLetterSlots(letters);
 
   return (
     <View style={[styles.plateOuterContainer, isDarkMode && styles.plateDarkShadow]}>
@@ -189,7 +225,7 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
         <View style={[styles.rivetDot, styles.rivetTopLeft]} />
         <View style={[styles.rivetDot, styles.rivetTopRight]} />
 
-        {/* Main Grid Area (4 Quadrants) */}
+        {/* Main Grid Area (4 Quadrants with 1:1 Aligned Columns) */}
         <View style={styles.mainGrid}>
           {/* Top Row: Arabic Numbers (Left) & Arabic Letters (Right) */}
           <View style={styles.gridRow}>
@@ -199,9 +235,15 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
               onPress={() => editable && digitsInputRef.current?.focus()}
               style={[styles.quadrantCell, styles.topLeftCell]}
             >
-              <Text style={[styles.arabicNumbersText, !arabicDigits && { opacity: 0.3 }]}>
-                {arabicDigits || '٠٠٠٠'}
-              </Text>
+              <View style={styles.alignedRow}>
+                {arDigitsArray.map((d, i) => (
+                  <View key={`ar-dig-${i}`} style={styles.alignedDigitSlot}>
+                    <Text style={[styles.arabicNumbersText, isEmptyDigits && { opacity: 0.3 }]}>
+                      {isEmptyDigits ? '٠' : d}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </TouchableOpacity>
 
             {/* Top-Right: Arabic Letters */}
@@ -210,9 +252,18 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
               onPress={() => editable && lettersInputRef.current?.focus()}
               style={[styles.quadrantCell, styles.topRightCell]}
             >
-              <Text style={[styles.arabicLettersText, !arabicLetters && { opacity: 0.3 }]}>
-                {arabicLetters || 'ـ ـ'}
-              </Text>
+              <View style={styles.alignedRow}>
+                <View style={styles.alignedLetterSlot}>
+                  <Text style={[styles.arabicLettersText, !leftAr && { opacity: 0.3 }]}>
+                    {leftAr || 'ـ'}
+                  </Text>
+                </View>
+                <View style={styles.alignedLetterSlot}>
+                  <Text style={[styles.arabicLettersText, !rightAr && { opacity: 0.3 }]}>
+                    {rightAr || 'ـ'}
+                  </Text>
+                </View>
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -224,9 +275,15 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
               onPress={() => editable && digitsInputRef.current?.focus()}
               style={[styles.quadrantCell, styles.bottomLeftCell]}
             >
-              <Text style={[styles.englishNumbersText, !englishDigits && { opacity: 0.3 }]}>
-                {englishDigits || '0000'}
-              </Text>
+              <View style={styles.alignedRow}>
+                {enDigitsArray.map((d, i) => (
+                  <View key={`en-dig-${i}`} style={styles.alignedDigitSlot}>
+                    <Text style={[styles.englishNumbersText, isEmptyDigits && { opacity: 0.3 }]}>
+                      {isEmptyDigits ? '0' : d}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </TouchableOpacity>
 
             {/* Bottom-Right: English Letters */}
@@ -235,9 +292,18 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
               onPress={() => editable && lettersInputRef.current?.focus()}
               style={[styles.quadrantCell, styles.bottomRightCell]}
             >
-              <Text style={[styles.englishLettersText, !englishLetters && { opacity: 0.3 }]}>
-                {englishLetters || '- -'}
-              </Text>
+              <View style={styles.alignedRow}>
+                <View style={styles.alignedLetterSlot}>
+                  <Text style={[styles.englishLettersText, !leftEn && { opacity: 0.3 }]}>
+                    {leftEn || '-'}
+                  </Text>
+                </View>
+                <View style={styles.alignedLetterSlot}>
+                  <Text style={[styles.englishLettersText, !rightEn && { opacity: 0.3 }]}>
+                    {rightEn || '-'}
+                  </Text>
+                </View>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -417,31 +483,48 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     backgroundColor: '#ffffff',
   },
+  alignedRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  alignedDigitSlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alignedLetterSlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   arabicNumbersText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '900',
     color: '#0f172a',
-    letterSpacing: 4,
+    textAlign: 'center',
     fontFamily: Platform.OS === 'android' ? 'sans-serif-medium' : undefined,
   },
   arabicLettersText: {
-    fontSize: 30,
+    fontSize: 27,
     fontWeight: '900',
     color: '#0f172a',
-    letterSpacing: 6,
+    textAlign: 'center',
   },
   englishNumbersText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '900',
     color: '#0f172a',
-    letterSpacing: 4,
+    textAlign: 'center',
     fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
   },
   englishLettersText: {
-    fontSize: 30,
+    fontSize: 27,
     fontWeight: '900',
     color: '#0f172a',
-    letterSpacing: 6,
+    textAlign: 'center',
     fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
   },
   /* Right Sidebar (KSA) */
