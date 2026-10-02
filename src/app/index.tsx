@@ -911,10 +911,6 @@ export default function DelegateApp() {
 
   const handleClosePlateScanner = () => {
     setShowPlateScannerModal(false);
-    // إذا أغلق المندوب الماسح دون تصوير اللوحة ولم يبدأ الشفت، يرجع فوراً للرئيسية
-    if (!activeSession && !startPlateImage && !isPlateConfirmed) {
-      setCurrentTab('home');
-    }
   };
 
   // Open Shift & Camera directly when clicking "بدء الدوام"

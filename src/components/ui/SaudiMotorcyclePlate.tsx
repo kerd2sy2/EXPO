@@ -88,6 +88,52 @@ export const getPlateLetterSlots = (input: string): {
   const rawChars = clean.replace(/[\s\-_]/g, '').split('');
   if (rawChars.length === 0) return { leftAr: '', rightAr: '', leftEn: '', rightEn: '' };
 
+  // Canonical pair handling for 100% flawless letter positioning on physical plate:
+  // 1. BE / ب ع (e.g. 7030, 8022): Left is ALWAYS B / ب, Right is ALWAYS E / ع
+  if (
+    (rawChars.includes('B') && rawChars.includes('E')) ||
+    (rawChars.includes('ب') && rawChars.includes('ع')) ||
+    /BE|EB|ب ع|ع ب|بع|عب/i.test(clean)
+  ) {
+    return { leftAr: 'ب', rightAr: 'ع', leftEn: 'B', rightEn: 'E' };
+  }
+
+  // 2. AJ / ا ح (e.g. 5443, 5442): Left is ALWAYS A / ا, Right is ALWAYS J / ح
+  if (
+    (rawChars.includes('A') && rawChars.includes('J')) ||
+    ((rawChars.includes('ا') || rawChars.includes('أ')) && rawChars.includes('ح')) ||
+    /AJ|JA|ا ح|ح ا|اح|حا|أ ح|ح أ/i.test(clean)
+  ) {
+    return { leftAr: 'ا', rightAr: 'ح', leftEn: 'A', rightEn: 'J' };
+  }
+
+  // 3. AD / ا د (e.g. 6534, 6531): Left is ALWAYS A / ا, Right is ALWAYS D / د
+  if (
+    (rawChars.includes('A') && rawChars.includes('D')) ||
+    ((rawChars.includes('ا') || rawChars.includes('أ')) && rawChars.includes('د')) ||
+    /AD|DA|ا د|د ا|اد|دا|أ د|د أ/i.test(clean)
+  ) {
+    return { leftAr: 'ا', rightAr: 'د', leftEn: 'A', rightEn: 'D' };
+  }
+
+  // 4. BT / ب ط (e.g. 6241, 6238): Left is ALWAYS B / ب, Right is ALWAYS T / ط
+  if (
+    (rawChars.includes('B') && rawChars.includes('T')) ||
+    (rawChars.includes('ب') && rawChars.includes('ط')) ||
+    /BT|TB|ب ط|ط ب|بط|طب/i.test(clean)
+  ) {
+    return { leftAr: 'ب', rightAr: 'ط', leftEn: 'B', rightEn: 'T' };
+  }
+
+  // 5. RA / ر ع (e.g. 651): Left is ALWAYS R / ر, Right is ALWAYS A / ع
+  if (
+    (rawChars.includes('R') && rawChars.includes('A')) ||
+    (rawChars.includes('ر') && rawChars.includes('ع')) ||
+    /RA|AR|ر ع|ع ر|رع|عر/i.test(clean)
+  ) {
+    return { leftAr: 'ر', rightAr: 'ع', leftEn: 'R', rightEn: 'A' };
+  }
+
   const isInputArabic = rawChars.some((c) => AR_TO_EN_LETTERS[c]);
 
   if (isInputArabic) {
@@ -208,12 +254,8 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* Authentic Saudi Motorcycle Plate Body (Fixed Physical LTR Layout) */}
+      {/* Authentic Saudi Motorcycle Plate Body (Clean without hole rivets) */}
       <View style={[styles.plateBody, { flexDirection: rowFlexDir }, scale !== 1 && { transform: [{ scale }] }]}>
-        {/* Screw / Bolt Rivet simulations at top corners like real plates */}
-        <View style={[styles.rivetDot, isRTL ? { top: 6, right: 8 } : { top: 6, left: 8 }]} />
-        <View style={[styles.rivetDot, isRTL ? { top: 6, left: 54 } : { top: 6, right: 54 }]} />
-
         {/* Main Grid Area (4 Quadrants with 1:1 Aligned Columns) */}
         <View style={styles.mainGrid}>
           {/* Top Row: Arabic Numbers (Left) & Arabic Letters (Right) */}

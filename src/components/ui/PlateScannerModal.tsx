@@ -893,57 +893,15 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     return null;
   };
 
-  // Real-time automatic background plate recognition loop while camera is active
+  // Lifecycle management: only scan when user taps shutter button
   useEffect(() => {
     isMountedRef.current = true;
     isFinishedRef.current = false;
 
-    if (!visible || showIntroSplash) return;
-
-    let autoScanInterval: any = null;
-
-    if (CameraViewComponent && !cameraFailed && MLKitTextRecognition) {
-      autoScanInterval = setInterval(async () => {
-        if (
-          !isMountedRef.current ||
-          isFinishedRef.current ||
-          isAutoScanningRef.current ||
-          internalScanning ||
-          !isCameraReady ||
-          !cameraRef.current
-        ) {
-          return;
-        }
-
-        try {
-          isAutoScanningRef.current = true;
-          const snap = await cameraRef.current.takePictureAsync({
-            quality: 0.6,
-            base64: false,
-            skipProcessing: true,
-            shutterSound: false,
-          });
-
-          if (snap && snap.uri && !isFinishedRef.current) {
-            const detected = await executeAiScan(snap.uri);
-            if (detected && detected.digits && detected.digits.length >= 2 && !isFinishedRef.current) {
-              const fullB64 = `data:image/jpeg;base64,${snap.base64 || ''}`;
-              showResultPopup(detected, snap.uri, fullB64);
-            }
-          }
-        } catch (e) {
-          // ignore background frame error
-        } finally {
-          isAutoScanningRef.current = false;
-        }
-      }, 1000);
-    }
-
     return () => {
       isMountedRef.current = false;
-      if (autoScanInterval) clearInterval(autoScanInterval);
     };
-  }, [visible, showIntroSplash, isCameraReady, cameraFailed, internalScanning]);
+  }, [visible, showIntroSplash]);
 
   // Manual Trigger Button
   const handleManualScan = async () => {
