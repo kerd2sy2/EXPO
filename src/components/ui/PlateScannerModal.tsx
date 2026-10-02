@@ -227,15 +227,6 @@ export const parseArabicLetters = (arRaw: string): string => {
   }
 
   if (validArChars.length === 0) return '';
-
-  if (validArChars.length === 2) {
-    const leftChar = validArChars[0];
-    const rightChar = validArChars[1];
-    const leftEn = SAUDI_AR_TO_EN_MAP[leftChar];
-    const rightEn = SAUDI_AR_TO_EN_MAP[rightChar];
-    return `${rightEn}${leftEn}`; // Reverse so "د ا" -> "AD", "ط ب" -> "BT"
-  }
-
   return validArChars.map((c) => SAUDI_AR_TO_EN_MAP[c]).join('');
 };
 
@@ -247,17 +238,10 @@ export const formatPlateLetters = (enLettersStr: string): { ar: string; en: stri
   const enChars = clean.split('');
   const enDisplay = enChars.join(' ');
 
-  let arDisplay = '';
-  if (enChars.length === 2) {
-    const ar1 = SAUDI_EN_TO_AR_MAP[enChars[0]] || enChars[0];
-    const ar2 = SAUDI_EN_TO_AR_MAP[enChars[1]] || enChars[1];
-    arDisplay = `${ar2 === 'أ' ? 'ا' : ar2} ${ar1 === 'أ' ? 'ا' : ar1}`;
-  } else {
-    arDisplay = enChars.map((c) => {
-      const ar = SAUDI_EN_TO_AR_MAP[c] || c;
-      return ar === 'أ' ? 'ا' : ar;
-    }).join(' ');
-  }
+  const arDisplay = enChars.map((c) => {
+    const ar = SAUDI_EN_TO_AR_MAP[c] || c;
+    return ar === 'أ' ? 'ا' : ar;
+  }).join(' ');
 
   return { ar: arDisplay, en: enDisplay };
 };

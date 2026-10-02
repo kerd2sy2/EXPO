@@ -86,13 +86,9 @@ export const convertLettersToBoth = (input: string): { ar: string; en: string } 
     const arChars = chars.map((c) => (c === 'أ' || c === 'إ' || c === 'آ' ? 'ا' : c));
     const enChars = arChars.map((c) => AR_TO_EN_LETTERS[c] || c);
 
-    let enFormatted = enChars.join(' ');
-    if (arChars.length === 2) {
-      enFormatted = `${enChars[1]} ${enChars[0]}`;
-    }
     return {
       ar: arChars.join('  '),
-      en: enFormatted,
+      en: enChars.join(' '),
     };
   } else {
     const enChars = chars.map((c) => c.toUpperCase());
@@ -101,12 +97,8 @@ export const convertLettersToBoth = (input: string): { ar: string; en: string } 
       return ar === 'أ' || ar === 'إ' ? 'ا' : ar;
     });
 
-    let arFormatted = arChars.join('  ');
-    if (enChars.length === 2) {
-      arFormatted = `${arChars[1]}  ${arChars[0]}`;
-    }
     return {
-      ar: arFormatted,
+      ar: arChars.join('  '),
       en: enChars.join(' '),
     };
   }
