@@ -55,6 +55,7 @@ import {
 // Screens
 import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
+import { HomeHeader } from '../components/HomeHeader';
 import { ShiftScreen } from '../features/shift';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { ViolationsScreen } from '../screens/ViolationsScreen';
@@ -1369,58 +1370,10 @@ export default function DelegateApp() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Dynamic Header (Seamless & Transparent) */}
-      <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        {currentTab === 'home' ? (
-          /* Home Header: Delegate Profile & Quick QR Trigger */
-          <>
-            <TouchableOpacity
-              style={[styles.headerUserInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={() => setCurrentTab('profile')}
-              onLongPress={() => setShowDiagnosticsModal(true)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-                {empPhotoUrl ? (
-                  <Image source={{ uri: empPhotoUrl }} style={styles.headerAvatarImg} />
-                ) : (
-                  <Ionicons name="person" size={20} color={colors.primary} />
-                )}
-              </View>
-              <View style={[styles.headerUserText, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                <View style={[styles.headerNameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Ionicons name="person-outline" size={13} color={colors.primary} />
-                  <Text
-                    style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit={true}
-                    minimumFontScale={0.75}
-                  >
-                    {employee.name}
-                  </Text>
-                </View>
-                <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Ionicons name="card-outline" size={13} color={colors.primary} />
-                  <Text style={[styles.headerUserNationalId, { color: colors.textSecondary }]}>
-                    {employee.national_id || '—'}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <TouchableOpacity
-                style={styles.headerQrBtn}
-                onPress={() => setShowQrModal(true)}
-                activeOpacity={0.7}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Ionicons name="qr-code-outline" size={26} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : (
-          /* Sub-Page Header: Back Button + Start-Aligned Title with Orange Underline */
+      {/* Sub-Page Header (Only when not in 'home') */}
+      {currentTab !== 'home' && (
+        <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          {/* Sub-Page Header: Back Button + Start-Aligned Title with Orange Underline */}
           <View style={[styles.subPageHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <TouchableOpacity
               style={styles.headerBackBtn}
@@ -1456,8 +1409,8 @@ export default function DelegateApp() {
               <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
             </View>
           </View>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Main Content Body */}
       <KeyboardAvoidingView
@@ -1507,7 +1460,18 @@ export default function DelegateApp() {
             }
           >
             {currentTab === 'home' && (
-              <ModuleErrorBoundary moduleName="الرئيسية" colors={colors} onReset={onRefresh}>
+              <>
+                {/* Scrollable Home Header (Non-fixed) */}
+                <HomeHeader
+                  employee={employee}
+                  empPhotoUrl={empPhotoUrl}
+                  colors={colors}
+                  isRTL={isRTL}
+                  onPressProfile={() => setCurrentTab('profile')}
+                  onLongPressProfile={() => setShowDiagnosticsModal(true)}
+                  onPressQr={() => setShowQrModal(true)}
+                />
+                <ModuleErrorBoundary moduleName="الرئيسية" colors={colors} onReset={onRefresh}>
                 <HomeScreen
                   employee={employee}
                   activeSession={activeSession}
@@ -1528,7 +1492,8 @@ export default function DelegateApp() {
                   onStartShiftClick={handleStartShiftClick}
                 />
               </ModuleErrorBoundary>
-            )}
+            </>
+          )}
 
             {currentTab === 'shift' && (
               <ModuleErrorBoundary moduleName="إدارة الشفت" colors={colors} onReset={() => checkSession(false)}>
@@ -1822,83 +1787,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  headerUserInfo: {
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  headerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  headerAvatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  headerUserText: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 3,
-  },
-  headerNameRow: {
-    alignItems: 'center',
-    gap: 5,
-  },
-  headerUserName: {
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  headerIdBadgeRow: {
-    alignItems: 'center',
-    gap: 5,
-  },
-  headerUserNationalId: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  headerActions: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerQrBtn: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerActionBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  notifBadge: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    backgroundColor: '#ef4444',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: '#ffffff',
-  },
-  notifBadgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '800',
-  },
+
   subPageHeaderRow: {
     flex: 1,
     alignItems: 'center',
