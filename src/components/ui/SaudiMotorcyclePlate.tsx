@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  I18nManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -157,6 +158,9 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
   const digitsInputRef = useRef<TextInput>(null);
   const lettersInputRef = useRef<TextInput>(null);
 
+  const isRTL = I18nManager.isRTL;
+  const rowFlexDir = isRTL ? 'row-reverse' : 'row';
+
   const englishDigits = toEnglishDigits(digits);
   const { enArray: enDigitsArray, arArray: arDigitsArray, isEmptyDigits } = getAlignedDigits(englishDigits);
   const { leftAr, rightAr, leftEn, rightEn } = getPlateLetterSlots(letters);
@@ -219,23 +223,28 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* Authentic Saudi Motorcycle Plate Body */}
-      <View style={[styles.plateBody, scale !== 1 && { transform: [{ scale }] }]}>
+      {/* Authentic Saudi Motorcycle Plate Body (Fixed Physical LTR Layout) */}
+      <View style={[styles.plateBody, { flexDirection: rowFlexDir }, scale !== 1 && { transform: [{ scale }] }]}>
         {/* Screw / Bolt Rivet simulations at top corners like real plates */}
-        <View style={[styles.rivetDot, styles.rivetTopLeft]} />
-        <View style={[styles.rivetDot, styles.rivetTopRight]} />
+        <View style={[styles.rivetDot, isRTL ? { top: 6, right: 8 } : { top: 6, left: 8 }]} />
+        <View style={[styles.rivetDot, isRTL ? { top: 6, left: 54 } : { top: 6, right: 54 }]} />
 
         {/* Main Grid Area (4 Quadrants with 1:1 Aligned Columns) */}
         <View style={styles.mainGrid}>
           {/* Top Row: Arabic Numbers (Left) & Arabic Letters (Right) */}
-          <View style={styles.gridRow}>
+          <View style={[styles.gridRow, { flexDirection: rowFlexDir }]}>
             {/* Top-Left: Arabic Numbers */}
             <TouchableOpacity
               activeOpacity={editable ? 0.7 : 1}
               onPress={() => editable && digitsInputRef.current?.focus()}
-              style={[styles.quadrantCell, styles.topLeftCell]}
+              style={[
+                styles.quadrantCell,
+                styles.numbersQuadrant,
+                styles.topCellBorder,
+                isRTL ? { borderLeftWidth: 1.5, borderRightWidth: 0 } : { borderRightWidth: 1.5, borderLeftWidth: 0 },
+              ]}
             >
-              <View style={styles.alignedRow}>
+              <View style={[styles.alignedRow, { flexDirection: rowFlexDir }]}>
                 {arDigitsArray.map((d, i) => (
                   <View key={`ar-dig-${i}`} style={styles.alignedDigitSlot}>
                     <Text style={[styles.arabicNumbersText, isEmptyDigits && { opacity: 0.3 }]}>
@@ -250,9 +259,9 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
             <TouchableOpacity
               activeOpacity={editable ? 0.7 : 1}
               onPress={() => editable && lettersInputRef.current?.focus()}
-              style={[styles.quadrantCell, styles.topRightCell]}
+              style={[styles.quadrantCell, styles.lettersQuadrant, styles.topCellBorder]}
             >
-              <View style={styles.alignedRow}>
+              <View style={[styles.alignedRow, { flexDirection: rowFlexDir }]}>
                 <View style={styles.alignedLetterSlot}>
                   <Text style={[styles.arabicLettersText, !leftAr && { opacity: 0.3 }]}>
                     {leftAr || 'ـ'}
@@ -268,14 +277,19 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
           </View>
 
           {/* Bottom Row: English Numbers (Left) & English Letters (Right) */}
-          <View style={styles.gridRow}>
+          <View style={[styles.gridRow, { flexDirection: rowFlexDir }]}>
             {/* Bottom-Left: English Numbers */}
             <TouchableOpacity
               activeOpacity={editable ? 0.7 : 1}
               onPress={() => editable && digitsInputRef.current?.focus()}
-              style={[styles.quadrantCell, styles.bottomLeftCell]}
+              style={[
+                styles.quadrantCell,
+                styles.numbersQuadrant,
+                styles.bottomCellBorder,
+                isRTL ? { borderLeftWidth: 1.5, borderRightWidth: 0 } : { borderRightWidth: 1.5, borderLeftWidth: 0 },
+              ]}
             >
-              <View style={styles.alignedRow}>
+              <View style={[styles.alignedRow, { flexDirection: rowFlexDir }]}>
                 {enDigitsArray.map((d, i) => (
                   <View key={`en-dig-${i}`} style={styles.alignedDigitSlot}>
                     <Text style={[styles.englishNumbersText, isEmptyDigits && { opacity: 0.3 }]}>
@@ -290,9 +304,9 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
             <TouchableOpacity
               activeOpacity={editable ? 0.7 : 1}
               onPress={() => editable && lettersInputRef.current?.focus()}
-              style={[styles.quadrantCell, styles.bottomRightCell]}
+              style={[styles.quadrantCell, styles.lettersQuadrant, styles.bottomCellBorder]}
             >
-              <View style={styles.alignedRow}>
+              <View style={[styles.alignedRow, { flexDirection: rowFlexDir }]}>
                 <View style={styles.alignedLetterSlot}>
                   <Text style={[styles.englishLettersText, !leftEn && { opacity: 0.3 }]}>
                     {leftEn || '-'}
@@ -309,7 +323,14 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
         </View>
 
         {/* Right Sidebar: Emblem, 'السعودية', 'K S A' */}
-        <View style={styles.sidebar}>
+        <View
+          style={[
+            styles.sidebar,
+            isRTL
+              ? { borderRightWidth: 2.5, borderRightColor: '#1e293b', borderLeftWidth: 0 }
+              : { borderLeftWidth: 2.5, borderLeftColor: '#1e293b', borderRightWidth: 0 },
+          ]}
+        >
           {/* Saudi Palm & Crossed Swords Emblem */}
           <View style={styles.emblemWrap}>
             <Ionicons name="leaf" size={13} color="#1e3a29" style={{ transform: [{ rotate: '45deg' }] }} />
@@ -455,32 +476,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
-  topLeftCell: {
+  numbersQuadrant: {
+    flex: 1.35,
+  },
+  lettersQuadrant: {
+    flex: 1,
+  },
+  topCellBorder: {
     borderTopWidth: 0,
-    borderLeftWidth: 0,
-    borderRightWidth: 1.5,
     borderBottomWidth: 1.5,
     backgroundColor: '#f8fafc',
   },
-  topRightCell: {
+  bottomCellBorder: {
     borderTopWidth: 0,
-    borderRightWidth: 0,
-    borderLeftWidth: 0,
-    borderBottomWidth: 1.5,
-    backgroundColor: '#f8fafc',
-  },
-  bottomLeftCell: {
     borderBottomWidth: 0,
-    borderLeftWidth: 0,
-    borderRightWidth: 1.5,
-    borderTopWidth: 0,
-    backgroundColor: '#ffffff',
-  },
-  bottomRightCell: {
-    borderBottomWidth: 0,
-    borderRightWidth: 0,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
     backgroundColor: '#ffffff',
   },
   alignedRow: {
