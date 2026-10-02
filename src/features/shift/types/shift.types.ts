@@ -33,6 +33,7 @@ export interface ShiftScreenProps {
   isScanningPlate?: boolean;
   onStartShift: () => Promise<void>;
   onEndShift: () => Promise<void>;
+  activeBikeRegistrationImage?: string | null;
   onPreviewPhoto: (photo: PreviewPhotoData) => void;
   formatTimeStr: (iso?: string) => string;
   colors: ThemeColors;

@@ -1037,16 +1037,34 @@ export default function DelegateApp() {
     if (plateData && (plateData.full_plate || plateData.digits)) {
       const combined = plateData.full_plate || (plateData.letters ? `${plateData.digits} ${plateData.letters}` : plateData.digits);
       setEnteredMotorcycle(combined || '');
+      if (combined && employee) {
+        workApi.getLastKM(employee.id, combined).then((res) => {
+          if (res?.registration_image) {
+            setActiveBikeRegistrationImage(res.registration_image);
+          }
+        }).catch(() => {});
+      }
       setIsScanningPlate(false);
       return;
     }
 
     try {
       const scanRes = await workApi.scanPlate(base64Uri);
+      let detectedBike = '';
       if (scanRes && scanRes.full_plate) {
-        setEnteredMotorcycle(scanRes.full_plate);
+        detectedBike = scanRes.full_plate;
       } else if (scanRes && scanRes.digits) {
-        setEnteredMotorcycle(scanRes.letters ? `${scanRes.digits} ${scanRes.letters}` : scanRes.digits);
+        detectedBike = scanRes.letters ? `${scanRes.digits} ${scanRes.letters}` : scanRes.digits;
+      }
+      if (detectedBike) {
+        setEnteredMotorcycle(detectedBike);
+        if (employee) {
+          workApi.getLastKM(employee.id, detectedBike).then((res) => {
+            if (res?.registration_image) {
+              setActiveBikeRegistrationImage(res.registration_image);
+            }
+          }).catch(() => {});
+        }
       }
     } catch (scanErr) {
       console.error('Plate scan API error:', scanErr);
@@ -1293,6 +1311,7 @@ export default function DelegateApp() {
 
       // 2. تنظيف الحالة بعد الانتقال
       setActiveSession(null);
+      setActiveBikeRegistrationImage(null);
       setEndKm('');
       endKmImageRef.current = null;
       setEndKmImage(null);
@@ -1667,6 +1686,7 @@ export default function DelegateApp() {
                   isScanningPlate={isScanningPlate}
                   onStartShift={handleStartShift}
                   onEndShift={handleEndShift}
+                  activeBikeRegistrationImage={activeBikeRegistrationImage}
                   onPreviewPhoto={setPreviewPhoto}
                   formatTimeStr={formatTimeStr}
                   colors={colors}

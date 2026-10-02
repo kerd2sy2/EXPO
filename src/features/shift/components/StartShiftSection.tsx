@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors, PreviewPhotoData, Language } from '../../../types/delegate';
 import { formatBikePlateForDisplay } from '../../../utils/plateUtils';
+import { formatImageUrl } from '../../../services/api';
 
 interface StartShiftSectionProps {
   enteredMotorcycle: string;
@@ -25,6 +26,7 @@ interface StartShiftSectionProps {
   startKmImage: string | null;
   canStartShift: boolean;
   submitting: boolean;
+  activeBikeRegistrationImage?: string | null;
   onScanPlate?: () => void;
   onTakeOdometerPhoto: (type: 'start' | 'end') => Promise<void>;
   onStartShift: () => Promise<void>;
@@ -49,6 +51,7 @@ export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
   startKmImage,
   canStartShift,
   submitting,
+  activeBikeRegistrationImage,
   onScanPlate,
   onTakeOdometerPhoto,
   onStartShift,
@@ -134,6 +137,75 @@ export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
                 ? (t.bikeMatchingSuccess || (isRTL ? 'مطابق للدباب المربوط بك بالنظام' : 'Matches assigned motorcycle'))
                 : (t.bikeMismatchWarning || (isRTL ? 'تنبيه: الدباب مختلف عن المربوط بك' : 'Different bike from assigned'))}
             </Text>
+          </View>
+        )}
+
+        {/* Fleet Registration Card Verification Badge */}
+        {Boolean(enteredMotorcycle && activeBikeRegistrationImage) && (
+          <View
+            style={[
+              styles.regCardVerifiedBadge,
+              {
+                backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5',
+                borderColor: isDarkMode ? '#059669' : '#a7f3d0',
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+                marginBottom: 10,
+              },
+            ]}
+          >
+            <Ionicons name="shield-checkmark" size={22} color="#10b981" />
+            <View style={{ flex: 1, marginHorizontal: 8 }}>
+              <Text
+                style={{
+                  color: isDarkMode ? '#6ee7b7' : '#065f46',
+                  fontSize: 12,
+                  fontWeight: '700',
+                  textAlign: isRTL ? 'right' : 'left',
+                }}
+              >
+                {isRTL ? 'دباب معتمد بالأسطول - الاستمارة مربوطة' : 'Fleet Verified - Registration Linked'}
+              </Text>
+              <Text
+                style={{
+                  color: isDarkMode ? '#a7f3d0' : '#047857',
+                  fontSize: 11,
+                  marginTop: 2,
+                  textAlign: isRTL ? 'right' : 'left',
+                }}
+              >
+                {!isBikeMatching
+                  ? (isRTL
+                      ? 'دباب بديل معتمد: ستظهر استمارته بملفك وتختفي تلقائياً فور إنهاء الشفت'
+                      : 'Authorized alternate bike: Registration appears in documents and vanishes upon shift end')
+                  : (isRTL
+                      ? 'الاستمارة الرسمية جاهزة ومتاحة بملفك في قسم الوثائق'
+                      : 'Official registration ready in your profile documents')}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.viewRegDocBtn,
+                {
+                  backgroundColor: isDarkMode ? '#064e3b' : '#d1fae5',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+              onPress={() => {
+                const fullUrl = formatImageUrl(activeBikeRegistrationImage);
+                if (fullUrl) {
+                  onPreviewPhoto({
+                    url: fullUrl,
+                    title: isRTL ? 'استمارة الدباب' : 'Motorcycle Registration',
+                  });
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="eye-outline" size={14} color="#10b981" />
+              <Text style={{ color: '#059669', fontSize: 11, fontWeight: '700', marginHorizontal: 4 }}>
+                {isRTL ? 'معاينة' : 'View'}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -509,5 +581,21 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '800',
+  },
+  regCardVerifiedBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1.2,
+    alignItems: 'center',
+    gap: 8,
+  },
+  viewRegDocBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
 });
