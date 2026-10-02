@@ -220,14 +220,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
 
         <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.statIconCircle, { backgroundColor: colors.accentLight }]}>
-            <MaterialCommunityIcons name="key-variant" size={22} color={colors.accent} />
+          <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
+            <MaterialCommunityIcons name="key-variant" size={22} color={colors.primary} />
           </View>
           <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
             {employee.key_number || '—'}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
         </View>
+
 
         {/* Row 2: Shifts & Expected Salary */}
         <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
