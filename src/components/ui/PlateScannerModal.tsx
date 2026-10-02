@@ -1047,15 +1047,16 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
             <TouchableOpacity
               style={styles.headerGlassBtn}
               onPress={onClose}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Ionicons name="close" size={24} color="#ffffff" />
+              <Ionicons name="close" size={28} color="#ffffff" />
             </TouchableOpacity>
 
             {/* Header Badge */}
             <View style={styles.headerBadge}>
               <View style={styles.radarDot} />
-              <Text style={styles.headerBadgeText}>مسح لوحة الدباب</Text>
+              <Text style={styles.headerBadgeText}>ماسح اللوحات الذكي</Text>
             </View>
 
             {/* Torch toggle button */}
@@ -1063,12 +1064,13 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               <TouchableOpacity
                 style={[styles.headerGlassBtn, torchOn && styles.headerBtnActive]}
                 onPress={() => setTorchOn((prev) => !prev)}
-                activeOpacity={0.8}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <Ionicons
                   name={torchOn ? 'flashlight' : 'flashlight-outline'}
-                  size={20}
-                  color={torchOn ? '#0f172a' : '#ffffff'}
+                  size={24}
+                  color={torchOn ? '#f97316' : '#ffffff'}
                 />
               </TouchableOpacity>
             ) : (
@@ -1092,43 +1094,6 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               <View style={[styles.cornerBracket, styles.bracketBL]} />
               <View style={[styles.cornerBracket, styles.bracketBR]} />
 
-              {/* Saudi Motorcycle Plate Blueprint Guide */}
-              <View style={styles.blueprintGrid} pointerEvents="none">
-                {/* Top Row: Arabic Digits & Letters */}
-                <View style={styles.blueprintRow}>
-                  <View style={styles.blueprintCellLeft}>
-                    <Text style={styles.blueprintWatermark}>٦٥٣٤</Text>
-                  </View>
-                  <View style={styles.blueprintCellRight}>
-                    <Text style={styles.blueprintWatermark}>د  أ</Text>
-                  </View>
-                  <View style={styles.blueprintKsaCol}>
-                    <Ionicons name="shield-checkmark" size={14} color="rgba(34, 197, 94, 0.45)" />
-                    <Text style={styles.blueprintKsaText}>السعودية</Text>
-                  </View>
-                </View>
-
-                {/* Dashed Center Divider */}
-                <View style={styles.blueprintDivider} />
-
-                {/* Bottom Row: English Digits & Letters */}
-                <View style={styles.blueprintRow}>
-                  <View style={styles.blueprintCellLeft}>
-                    <Text style={styles.blueprintWatermarkEn}>6534</Text>
-                  </View>
-                  <View style={styles.blueprintCellRight}>
-                    <Text style={styles.blueprintWatermarkEn}>A  D</Text>
-                  </View>
-                  <View style={styles.blueprintKsaCol}>
-                    <Text style={styles.blueprintKsaText}>KSA</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Center Crosshairs */}
-              <View style={styles.crosshairH} pointerEvents="none" />
-              <View style={styles.crosshairV} pointerEvents="none" />
-
               {/* Laser Sweep Beam */}
               {!detectedResult && (
                 <Animated.View
@@ -1140,7 +1105,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               )}
             </Animated.View>
 
-            {/* Instruction Guidance Pill */}
+            {/* Clean Transparent Instruction Guidance */}
             <View style={styles.hintPill}>
               <Ionicons
                 name={
@@ -1150,15 +1115,15 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                     ? 'sync'
                     : 'scan-outline'
                 }
-                size={18}
-                color={detectedResult ? '#22c55e' : isBusy ? '#f97316' : '#38bdf8'}
+                size={20}
+                color={detectedResult ? '#22c55e' : isBusy ? '#f97316' : '#f97316'}
               />
               <Text style={styles.hintPillText}>
                 {detectedResult
                   ? 'تم التعرف على لوحة الدباب بنجاح!'
                   : isBusy
                   ? 'جاري فحص وقراءة اللوحة بالذكاء الاصطناعي...'
-                  : 'وجّه اللوحة داخل الإطار للالتقاط التلقائي'}
+                  : 'وجّه اللوحة داخل الإطار والتقط'}
               </Text>
             </View>
           </View>
@@ -1447,10 +1412,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(9, 13, 22, 0.35)',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 48 : 36,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    paddingTop: Platform.OS === 'ios' ? 52 : 40,
+    paddingBottom: Platform.OS === 'ios' ? 76 : 58,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1462,25 +1427,19 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerBtnActive: {
-    backgroundColor: '#f97316',
-    borderColor: '#ea580c',
+    backgroundColor: 'rgba(249, 115, 22, 0.45)',
   },
   headerBadge: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.45)',
-    paddingHorizontal: 16,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 20,
     gap: 8,
   },
   radarDot: {
@@ -1490,9 +1449,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#22c55e',
   },
   headerBadgeText: {
-    color: '#f8fafc',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: '800',
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   centerTargetContainer: {
     alignItems: 'center',
@@ -1500,13 +1462,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   targetFrame: {
-    width: SCREEN_WIDTH * 0.88,
-    height: (SCREEN_WIDTH * 0.88) * 0.65,
+    width: SCREEN_WIDTH * 0.86,
+    height: (SCREEN_WIDTH * 0.86) * 0.65,
     maxHeight: 235,
-    backgroundColor: 'rgba(15, 23, 42, 0.22)',
+    backgroundColor: 'transparent',
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(249, 115, 22, 0.55)',
+    borderWidth: 2.5,
+    borderColor: '#f97316',
     position: 'relative',
     overflow: 'hidden',
     justifyContent: 'center',
@@ -1516,111 +1478,41 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 197, 94, 0.12)',
   },
   targetFrameBusy: {
-    borderColor: '#f97316',
+    borderColor: '#ea580c',
   },
   cornerBracket: {
     position: 'absolute',
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     borderColor: '#f97316',
   },
   bracketTL: {
     top: -2,
     left: -2,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
+    borderTopWidth: 5,
+    borderLeftWidth: 5,
     borderTopLeftRadius: 20,
   },
   bracketTR: {
     top: -2,
     right: -2,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
+    borderTopWidth: 5,
+    borderRightWidth: 5,
     borderTopRightRadius: 20,
   },
   bracketBL: {
     bottom: -2,
     left: -2,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
+    borderBottomWidth: 5,
+    borderLeftWidth: 5,
     borderBottomLeftRadius: 20,
   },
   bracketBR: {
     bottom: -2,
     right: -2,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
+    borderBottomWidth: 5,
+    borderRightWidth: 5,
     borderBottomRightRadius: 20,
-  },
-  blueprintGrid: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 10,
-    justifyContent: 'space-between',
-  },
-  blueprintRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  blueprintCellLeft: {
-    flex: 2.2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  blueprintCellRight: {
-    flex: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  blueprintKsaCol: {
-    flex: 1.1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  blueprintDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    marginHorizontal: 8,
-  },
-  blueprintWatermark: {
-    color: 'rgba(255, 255, 255, 0.22)',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 4,
-  },
-  blueprintWatermarkEn: {
-    color: 'rgba(255, 255, 255, 0.2)',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 3,
-  },
-  blueprintKsaText: {
-    color: 'rgba(255, 255, 255, 0.25)',
-    fontSize: 9,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  crosshairH: {
-    position: 'absolute',
-    width: 24,
-    height: 2,
-    backgroundColor: 'rgba(249, 115, 22, 0.35)',
-    alignSelf: 'center',
-  },
-  crosshairV: {
-    position: 'absolute',
-    width: 2,
-    height: 24,
-    backgroundColor: 'rgba(249, 115, 22, 0.35)',
-    alignSelf: 'center',
   },
   laserBeam: {
     position: 'absolute',
@@ -1638,30 +1530,26 @@ const styles = StyleSheet.create({
   hintPill: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 28,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     marginTop: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.3)',
     maxWidth: SCREEN_WIDTH * 0.92,
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
   },
   hintPillText: {
-    color: '#f1f5f9',
-    fontSize: 13,
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   bottomSection: {
     paddingHorizontal: 20,
     alignItems: 'center',
+    marginBottom: 12,
   },
   shutterRow: {
     alignItems: 'center',
@@ -1694,10 +1582,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shutterLabel: {
-    color: '#cbd5e1',
-    fontSize: 13,
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '800',
-    marginTop: 12,
+    marginTop: 10,
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   resultCard: {
     width: '100%',
