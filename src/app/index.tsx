@@ -963,6 +963,7 @@ export default function DelegateApp() {
         allowsEditing: false,
         quality: 0.08,
         base64: true,
+        cameraType: ImagePicker.CameraType.back,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
