@@ -459,14 +459,11 @@ export default function DelegateApp() {
         closeSuccessModal();
         return true;
       }
-      if (currentTab === 'history' && selectedHistoryMonthKey) {
+      if (currentTab !== 'home') {
         setSelectedHistoryMonthKey(null);
         setSelectedHistoryMonthLabel(null);
-        return true;
-      }
-      if (currentTab !== 'home') {
         setCurrentTab('home');
-        return true; // Go back to home page without exiting
+        return true; // Go back directly to Dashboard
       }
       // On home page, return false to exit the app
       return false;
@@ -474,7 +471,7 @@ export default function DelegateApp() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backHandler.remove();
-  }, [currentTab, previewPhoto, showQrModal, showLangModal, successModalData, selectedHistoryMonthKey]);
+  }, [currentTab, previewPhoto, showQrModal, showLangModal, successModalData]);
 
 
 
