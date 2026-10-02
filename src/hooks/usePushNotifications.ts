@@ -5,7 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { workApi } from '../services/work';
 import { getCachedUser } from '../services/api';
 import { notificationService, BroadcastNotificationItem } from '../services/notificationService';
-import { EmployeeProfile, WorkSession, TabType } from '../types/delegate';
+import { EmployeeProfile, WorkSession, TabType, Language } from '../types/delegate';
+import { getCurrentMonthInfo } from '../screens/HistoryScreen';
 
 interface UsePushNotificationsProps {
   employee: EmployeeProfile | null;
@@ -17,6 +18,9 @@ interface UsePushNotificationsProps {
   setActiveBroadcast: (broadcast: BroadcastNotificationItem | null) => void;
   setShowBroadcastModal: (show: boolean) => void;
   fetchViolations?: (empId?: string) => Promise<void>;
+  setSelectedHistoryMonthKey?: (key: string | null) => void;
+  setSelectedHistoryMonthLabel?: (label: string | null) => void;
+  lang?: Language;
 }
 
 export function usePushNotifications({
@@ -29,6 +33,9 @@ export function usePushNotifications({
   setActiveBroadcast,
   setShowBroadcastModal,
   fetchViolations,
+  setSelectedHistoryMonthKey,
+  setSelectedHistoryMonthLabel,
+  lang = 'ar',
 }: UsePushNotificationsProps) {
   const handledNotifIdentifierRef = useRef<string | null>(null);
 
@@ -69,6 +76,11 @@ export function usePushNotifications({
           body.includes('نگران');
 
         if (isShiftApproval) {
+          // 1. Immediately select current month so user sees month orders, not month cards
+          const currentMonth = getCurrentMonthInfo(lang);
+          setSelectedHistoryMonthKey?.(currentMonth.key);
+          setSelectedHistoryMonthLabel?.(currentMonth.label);
+
           setCurrentTab('history');
           mainScrollRef.current?.scrollTo({ y: 0, animated: false });
 
@@ -78,6 +90,20 @@ export function usePushNotifications({
             const cached = await getCachedUser();
             empId = cached?.id;
           }
+
+          const selectSessionAndMonth = (target: WorkSession) => {
+            if (!target) return;
+            if (target.start_time) {
+              try {
+                const d = new Date(target.start_time);
+                if (!isNaN(d.getTime())) {
+                  const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                  setSelectedHistoryMonthKey?.(mKey);
+                }
+              } catch {}
+            }
+            setSelectedHistorySession(target);
+          };
 
           // Apply cached history sessions immediately
           try {
@@ -90,7 +116,7 @@ export function usePushNotifications({
                 const match = sid ? list.find((s) => s.id === sid) : null;
                 const target = match || list.find((s) => s.is_reviewed) || list[0];
                 if (target) {
-                  setSelectedHistorySession(target);
+                  selectSessionAndMonth(target);
                 }
               }
             }
@@ -107,7 +133,7 @@ export function usePushNotifications({
                 const match = sid ? fresh.find((s) => s.id === sid) : null;
                 const target = match || fresh.find((s) => s.is_reviewed) || fresh[0];
                 if (target) {
-                  setSelectedHistorySession(target);
+                  selectSessionAndMonth(target);
                 }
                 return;
               }

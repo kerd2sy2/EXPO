@@ -36,6 +36,14 @@ const MONTH_NAMES: Record<string, string[]> = {
   ],
 };
 
+export function getCurrentMonthInfo(lang: Language = 'ar') {
+  const now = new Date();
+  const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const monthList = MONTH_NAMES[lang] || MONTH_NAMES.ar;
+  const label = `${monthList[now.getMonth()]} ${now.getFullYear()}`;
+  return { key: currentKey, label };
+}
+
 interface MonthGroup {
   key: string; // YYYY-MM
   label: string;

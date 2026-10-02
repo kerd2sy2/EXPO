@@ -57,7 +57,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { HomeHeader } from '../components/HomeHeader';
 import { ShiftScreen } from '../features/shift';
-import { HistoryScreen } from '../screens/HistoryScreen';
+import { HistoryScreen, getCurrentMonthInfo } from '../screens/HistoryScreen';
 import { ViolationsScreen } from '../screens/ViolationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { getMyViolationsApi, DelegateViolation } from '../services/api';
@@ -235,6 +235,9 @@ export default function DelegateApp() {
     setActiveBroadcast,
     setShowBroadcastModal,
     fetchViolations,
+    setSelectedHistoryMonthKey,
+    setSelectedHistoryMonthLabel,
+    lang,
   });
 
   // Emergency Accident Shake Detection (Impact & Shake Sensor)
@@ -1196,7 +1199,10 @@ export default function DelegateApp() {
         notes: savedNotes,
       });
 
-      // 1. الانتقال فوراً لسجل الشفتات والتمرير لأعلى الصفحة مباشرة دون أي موديول
+      // 1. الانتقال فوراً لصفحة طلبات الشهر الحالي بسجل الشفتات مباشرة (وليس صفحة كروت الشهور)
+      const currentMonth = getCurrentMonthInfo(lang);
+      setSelectedHistoryMonthKey(currentMonth.key);
+      setSelectedHistoryMonthLabel(currentMonth.label);
       mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       setCurrentTab('history');
 
@@ -1374,8 +1380,20 @@ export default function DelegateApp() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Sub-Page Header (Only when not in 'home') */}
-      {currentTab !== 'home' && (
+      {/* Fixed Sticky Header: Home Header on 'home', Sub-Page Header on other tabs */}
+      {currentTab === 'home' ? (
+        <View style={{ backgroundColor: colors.bg, zIndex: 10, borderBottomWidth: 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
+          <HomeHeader
+            employee={employee}
+            empPhotoUrl={empPhotoUrl}
+            colors={colors}
+            isRTL={isRTL}
+            onPressProfile={() => setCurrentTab('profile')}
+            onLongPressProfile={() => setShowDiagnosticsModal(true)}
+            onPressQr={() => setShowQrModal(true)}
+          />
+        </View>
+      ) : (
         <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           {/* Sub-Page Header: Back Button + Start-Aligned Title with Orange Underline */}
           <View style={[styles.subPageHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -1471,18 +1489,7 @@ export default function DelegateApp() {
             }
           >
             {currentTab === 'home' && (
-              <>
-                {/* Scrollable Home Header (Non-fixed) */}
-                <HomeHeader
-                  employee={employee}
-                  empPhotoUrl={empPhotoUrl}
-                  colors={colors}
-                  isRTL={isRTL}
-                  onPressProfile={() => setCurrentTab('profile')}
-                  onLongPressProfile={() => setShowDiagnosticsModal(true)}
-                  onPressQr={() => setShowQrModal(true)}
-                />
-                <ModuleErrorBoundary moduleName="الرئيسية" colors={colors} onReset={onRefresh}>
+              <ModuleErrorBoundary moduleName="الرئيسية" colors={colors} onReset={onRefresh}>
                 <HomeScreen
                   employee={employee}
                   activeSession={activeSession}
@@ -1507,8 +1514,7 @@ export default function DelegateApp() {
                   onStartShiftClick={handleStartShiftClick}
                 />
               </ModuleErrorBoundary>
-            </>
-          )}
+            )}
 
             {currentTab === 'shift' && (
               <ModuleErrorBoundary moduleName="إدارة الشفت" colors={colors} onReset={() => checkSession(false)}>
