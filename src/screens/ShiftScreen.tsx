@@ -185,292 +185,207 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
                 {t.startShiftTitle || (isRTL ? 'تسجيل بدء الدوام' : 'Start Shift')}
               </Text>
               <Text style={[styles.cardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {isPlateConfirmed
-                  ? (isRTL ? 'الخطوة 2: تصوير عداد البداية وتأكيد الكيلومترات' : 'Step 2: Capture start odometer & verify KM')
-                  : (isRTL ? 'الخطوة 1: تصوير لوحة الدباب والتحقق منها' : 'Step 1: Capture & verify motorcycle plate')}
+                {isRTL ? 'تسجيل قراءة عداد البداية وتأكيد الدوام' : 'Record start odometer & start shift'}
               </Text>
             </View>
           </View>
 
-          {/* STEP 1: Capture & Confirm Motorcycle Plate */}
-          {!isPlateConfirmed ? (
-            <View style={styles.sectionContainer}>
-              {!isPlateCaptured ? (
-                /* Primary Scan Trigger Button */
-                <TouchableOpacity
+          {/* Unified Start Shift Section */}
+          <View style={styles.sectionContainer}>
+            {/* Confirmed / Scanned Plate Summary Header */}
+            <View style={[styles.confirmedPlateBanner, { backgroundColor: isDarkMode ? '#1e293b' : '#f0fdf4', borderColor: isDarkMode ? '#334155' : '#86efac', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="checkmark-circle" size={22} color="#16a34a" />
+              <View style={{ flex: 1, marginHorizontal: 8 }}>
+                <Text style={[styles.confirmedPlateLabel, { color: isDarkMode ? '#4ade80' : '#166534', textAlign: isRTL ? 'right' : 'left' }]}>
+                  {isRTL ? 'لوحة الدباب المعتمدة:' : 'Confirmed Plate:'}
+                </Text>
+                <Text style={[styles.confirmedPlateVal, { color: isDarkMode ? '#ffffff' : '#0f172a', textAlign: isRTL ? 'right' : 'left' }]}>
+                  {enteredMotorcycle || `${plateDigits} ${plateLetters}` || (isRTL ? 'يرجى مسح اللوحة' : 'Please scan plate')}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.editPlateBtn, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0', flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center' }]}
+                onPress={onScanPlate}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="camera" size={14} color={colors.primary} />
+                <Text style={[styles.editPlateBtnText, { color: colors.textPrimary, marginHorizontal: 4 }]}>
+                  {isRTL ? 'إعادة مسح' : 'Rescan'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Bike Matching Verification Badge */}
+            {Boolean(assignedBike && enteredMotorcycle) && (
+              <View
+                style={[
+                  styles.verificationBadge,
+                  {
+                    backgroundColor: isBikeMatching ? 'rgba(34, 197, 94, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                    borderColor: isBikeMatching ? '#22c55e' : '#f59e0b',
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                    marginBottom: 10,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={isBikeMatching ? 'checkmark-circle' : 'alert-circle'}
+                  size={18}
+                  color={isBikeMatching ? '#22c55e' : '#f59e0b'}
+                />
+                <Text
                   style={[
-                    styles.cameraCard,
+                    styles.verificationText,
                     {
-                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderColor: colors.primary,
-                      marginVertical: 10,
-                      paddingVertical: 24,
+                      color: isBikeMatching
+                        ? (isDarkMode ? '#4ade80' : '#15803d')
+                        : (isDarkMode ? '#fbbf24' : '#b45309'),
+                      textAlign: isRTL ? 'right' : 'left',
                     },
                   ]}
-                  onPress={onScanPlate}
-                  disabled={isScanningPlate}
-                  activeOpacity={0.8}
                 >
-                  <View style={[styles.cameraIconWrap, { backgroundColor: colors.primary }]}>
-                    <Ionicons name="camera" size={26} color="#ffffff" />
-                  </View>
-                  <Text style={[styles.cameraTitle, { color: colors.textPrimary, marginTop: 10 }]}>
-                    {isScanningPlate
-                      ? (isRTL ? 'جاري قراءة اللوحة والتعرف عليها...' : 'Scanning plate...')
-                      : (isRTL ? 'مسح لوحة الدباب بالكاميرا' : 'Scan Motorcycle Plate')}
-                  </Text>
-                  <Text style={[styles.cameraSubtitle, { color: colors.textSecondary }]}>
-                    {isRTL
-                      ? 'التقط صورة واضحة للوحة لقراءة الأرقام والحروف تلقائياً'
-                      : 'Capture plate photo to auto-read numbers & letters'}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                /* Plate Scanned -> Show Authentic Saudi Plate & Confirmation */
-                <View style={{ marginTop: 4 }}>
-                  <SaudiMotorcyclePlate
-                    digits={plateDigits}
-                    letters={plateLetters}
-                    onChangeDigits={(d) => handlePlateChange(d, plateLetters)}
-                    onChangeLetters={(l) => handlePlateChange(plateDigits, l)}
-                    editable={true}
-                    isDarkMode={isDarkMode}
-                    onScanPlate={onScanPlate}
-                    isScanning={isScanningPlate}
-                  />
-
-                  {/* Bike Matching Verification Badge */}
-                  {Boolean(assignedBike) && (
-                    <View
-                      style={[
-                        styles.verificationBadge,
-                        {
-                          backgroundColor: isBikeMatching ? 'rgba(34, 197, 94, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                          borderColor: isBikeMatching ? '#22c55e' : '#f59e0b',
-                          flexDirection: isRTL ? 'row-reverse' : 'row',
-                          marginVertical: 10,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name={isBikeMatching ? 'checkmark-circle' : 'alert-circle'}
-                        size={18}
-                        color={isBikeMatching ? '#22c55e' : '#f59e0b'}
-                      />
-                      <Text
-                        style={[
-                          styles.verificationText,
-                          {
-                            color: isBikeMatching
-                              ? (isDarkMode ? '#4ade80' : '#15803d')
-                              : (isDarkMode ? '#fbbf24' : '#b45309'),
-                            textAlign: isRTL ? 'right' : 'left',
-                          },
-                        ]}
-                      >
-                        {isBikeMatching
-                          ? (t.bikeMatchingSuccess || (isRTL ? 'مطابق للدباب المربوط بك بالنظام' : 'Matches assigned motorcycle'))
-                          : (t.bikeMismatchWarning || (isRTL ? 'تنبيه: الدباب مختلف عن المربوط بك' : 'Different bike from assigned'))}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Action Buttons: Confirm & Retake */}
-                  <View style={[styles.stepButtonContainer, { marginTop: 10 }]}>
-                    <TouchableOpacity
-                      style={[styles.confirmPlateBtn, { backgroundColor: '#16a34a' }]}
-                      onPress={() => setIsPlateConfirmed?.(true)}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
-                      <Text style={styles.confirmPlateBtnText}>
-                        {isRTL ? 'تأكيد اللوحة والانتقال لعداد البداية' : 'Confirm Plate & Proceed'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.retakePlateBtn,
-                        {
-                          backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-                          borderColor: isDarkMode ? '#334155' : '#cbd5e1',
-                        },
-                      ]}
-                      onPress={onScanPlate}
-                      disabled={isScanningPlate}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="camera-reverse-outline" size={18} color={colors.primary} />
-                      <Text style={[styles.retakePlateBtnText, { color: colors.primary }]}>
-                        {isRTL ? 'إعادة مسح اللوحة' : 'Rescan Plate'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </View>
-          ) : (
-            /* STEP 2: Capture Odometer & Enter KM (Plate is confirmed) */
-            <View style={styles.sectionContainer}>
-              {/* Confirmed Plate Summary Header */}
-              <View style={[styles.confirmedPlateBanner, { backgroundColor: isDarkMode ? '#1e293b' : '#f0fdf4', borderColor: isDarkMode ? '#334155' : '#86efac', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Ionicons name="checkmark-circle" size={22} color="#16a34a" />
-                <View style={{ flex: 1, marginHorizontal: 8 }}>
-                  <Text style={[styles.confirmedPlateLabel, { color: isDarkMode ? '#4ade80' : '#166534', textAlign: isRTL ? 'right' : 'left' }]}>
-                    {isRTL ? 'لوحة الدباب المعتمدة:' : 'Confirmed Plate:'}
-                  </Text>
-                  <Text style={[styles.confirmedPlateVal, { color: isDarkMode ? '#ffffff' : '#0f172a', textAlign: isRTL ? 'right' : 'left' }]}>
-                    {enteredMotorcycle || `${plateDigits} ${plateLetters}`}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.editPlateBtn, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]}
-                  onPress={() => setIsPlateConfirmed?.(false)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="pencil" size={14} color={colors.textPrimary} />
-                  <Text style={[styles.editPlateBtnText, { color: colors.textPrimary }]}>
-                    {isRTL ? 'تعديل' : 'Edit'}
-                  </Text>
-                </TouchableOpacity>
+                  {isBikeMatching
+                    ? (t.bikeMatchingSuccess || (isRTL ? 'مطابق للدباب المربوط بك بالنظام' : 'Matches assigned motorcycle'))
+                    : (t.bikeMismatchWarning || (isRTL ? 'تنبيه: الدباب مختلف عن المربوط بك' : 'Different bike from assigned'))}
+                </Text>
               </View>
+            )}
 
-              {/* Odometer Section */}
-              {isOdometerBroken ? (
-                <View style={[styles.brokenOdometerCard, { backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.12)' : '#fef3c7', borderColor: '#f59e0b' }]}>
-                  <Ionicons name="warning" size={24} color="#d97706" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: isDarkMode ? '#fbbf24' : '#92400e', fontSize: 13, fontWeight: '700', textAlign: isRTL ? 'right' : 'left' }}>
-                      {t.odometerBrokenNotice || (isRTL ? 'عداد هذه المركبة معطل ومسجل كـ (تالف) بالنظام' : 'Odometer is recorded broken')}
-                    </Text>
-                    <Text style={{ color: isDarkMode ? '#fde68a' : '#b45309', fontSize: 11, marginTop: 4, textAlign: isRTL ? 'right' : 'left' }}>
-                      {t.odometerExempt || (isRTL ? 'تم الإعفاء من قراءة العداد وتصويره' : 'Exempted from odometer photo')}
-                    </Text>
+            {/* Odometer Section */}
+            {isOdometerBroken ? (
+              <View style={[styles.brokenOdometerCard, { backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.12)' : '#fef3c7', borderColor: '#f59e0b' }]}>
+                <Ionicons name="warning" size={24} color="#d97706" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: isDarkMode ? '#fbbf24' : '#92400e', fontSize: 13, fontWeight: '700', textAlign: isRTL ? 'right' : 'left' }}>
+                    {t.odometerBrokenNotice || (isRTL ? 'عداد هذه المركبة معطل ومسجل كـ (تالف) بالنظام' : 'Odometer is recorded broken')}
+                  </Text>
+                  <Text style={{ color: isDarkMode ? '#fde68a' : '#b45309', fontSize: 11, marginTop: 4, textAlign: isRTL ? 'right' : 'left' }}>
+                    {t.odometerExempt || (isRTL ? 'تم الإعفاء من قراءة العداد وتصويره' : 'Exempted from odometer photo')}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={{ marginTop: 10 }}>
+                <View style={[styles.sectionLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="speedometer-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                    {t.startKmInputLabel || (isRTL ? 'قراءة عداد البداية (Start KM)' : 'Start KM')}
+                  </Text>
+                </View>
+
+                {/* Manual KM Input Box */}
+                <View style={[styles.modernInputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="speedometer" size={20} color={colors.primary} />
+                  <TextInput
+                    style={[styles.modernTextInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.startKmPlaceholder || '15400'}
+                    placeholderTextColor="#94a3b8"
+                    value={startKm}
+                    onChangeText={(val) => {
+                      const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                      setStartKm(val.replace(/[٠-٩]/g, (w) => `${arabicDigits.indexOf(w)}`));
+                    }}
+                    keyboardType="numeric"
+                  />
+                  <View style={[styles.unitBadge, { backgroundColor: colors.primaryLight }]}>
+                    <Text style={[styles.unitBadgeText, { color: colors.primary }]}>{t.km || 'كم'}</Text>
                   </View>
                 </View>
-              ) : (
-                <View style={{ marginTop: 10 }}>
-                  <View style={[styles.sectionLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Ionicons name="speedometer-outline" size={18} color={colors.primary} />
-                    <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                      {t.startKmInputLabel || (isRTL ? 'قراءة عداد البداية (Start KM)' : 'Start KM')}
+
+                {autoKmFetched && (
+                  <View style={[styles.autoFetchedNotice, { backgroundColor: colors.primaryLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Ionicons name="information-circle" size={15} color={colors.primary} />
+                    <Text style={[styles.autoFetchedText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {t.autoKmFetched || (isRTL ? 'تم جلب عداد نهاية الشفت السابق لهذا الدباب تلقائياً' : 'Auto-fetched last recorded KM')}
                     </Text>
                   </View>
+                )}
 
-                  {/* Manual KM Input Box */}
-                  <View style={[styles.modernInputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Ionicons name="speedometer" size={20} color={colors.primary} />
-                    <TextInput
-                      style={[styles.modernTextInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                      placeholder={t.startKmPlaceholder || '15400'}
-                      placeholderTextColor="#94a3b8"
-                      value={startKm}
-                      onChangeText={(val) => {
-                        const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-                        setStartKm(val.replace(/[٠-٩]/g, (w) => `${arabicDigits.indexOf(w)}`));
-                      }}
-                      keyboardType="numeric"
-                    />
-                    <View style={[styles.unitBadge, { backgroundColor: colors.primaryLight }]}>
-                      <Text style={[styles.unitBadgeText, { color: colors.primary }]}>{t.km || 'كم'}</Text>
-                    </View>
-                  </View>
+                {/* Odometer Photo Capture Section */}
+                <View style={{ marginTop: 14 }}>
+                  <Text style={[styles.photoSectionLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {t.startKmPhotoLabel || (isRTL ? 'صورة عداد البداية (مطلوبة)' : 'Start Odometer Photo')}
+                  </Text>
 
-                  {autoKmFetched && (
-                    <View style={[styles.autoFetchedNotice, { backgroundColor: colors.primaryLight, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Ionicons name="information-circle" size={15} color={colors.primary} />
-                      <Text style={[styles.autoFetchedText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
-                        {t.autoKmFetched || (isRTL ? 'تم جلب عداد نهاية الشفت السابق لهذا الدباب تلقائياً' : 'Auto-fetched last recorded KM')}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Odometer Photo Capture Section */}
-                  <View style={{ marginTop: 14 }}>
-                    <Text style={[styles.photoSectionLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      {t.startKmPhotoLabel || (isRTL ? 'صورة عداد البداية (مطلوبة)' : 'Start Odometer Photo')}
-                    </Text>
-
-                    {startKmImage ? (
-                      <View style={[styles.photoPreviewCard, { borderColor: colors.primary, backgroundColor: colors.inputBg }]}>
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          onPress={() => onPreviewPhoto({ url: startKmImage, title: t.startKmPhotoLabel })}
-                          style={styles.photoPreviewTouch}
-                        >
-                          <Image source={{ uri: startKmImage }} style={styles.photoPreviewImage} resizeMode="cover" />
-                          <View style={[styles.photoZoomBadge, isRTL ? { left: 10 } : { right: 10 }]}>
-                            <Ionicons name="expand-outline" size={14} color="#ffffff" />
-                            <Text style={styles.photoZoomText}>{isRTL ? 'معاينة مكبرة' : 'Preview'}</Text>
-                          </View>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[
-                            styles.photoRetakeButton,
-                            isRTL ? { right: 10 } : { left: 10 },
-                            { backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.95)' },
-                          ]}
-                          onPress={() => onTakeOdometerPhoto('start')}
-                          activeOpacity={0.8}
-                        >
-                          <Ionicons name="camera-reverse-outline" size={16} color={colors.primary} />
-                          <Text style={[styles.photoRetakeText, { color: colors.primary }]}>
-                            {t.retakePhoto || (isRTL ? 'إعادة التصوير' : 'Retake')}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
+                  {startKmImage ? (
+                    <View style={[styles.photoPreviewCard, { borderColor: colors.primary, backgroundColor: colors.inputBg }]}>
                       <TouchableOpacity
-                        style={[styles.cameraCard, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}
+                        activeOpacity={0.9}
+                        onPress={() => onPreviewPhoto({ url: startKmImage, title: t.startKmPhotoLabel })}
+                        style={styles.photoPreviewTouch}
+                      >
+                        <Image source={{ uri: startKmImage }} style={styles.photoPreviewImage} resizeMode="cover" />
+                        <View style={[styles.photoZoomBadge, isRTL ? { left: 10 } : { right: 10 }]}>
+                          <Ionicons name="expand-outline" size={14} color="#ffffff" />
+                          <Text style={styles.photoZoomText}>{isRTL ? 'معاينة مكبرة' : 'Preview'}</Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.photoRetakeButton,
+                          isRTL ? { right: 10 } : { left: 10 },
+                          { backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.95)' },
+                        ]}
                         onPress={() => onTakeOdometerPhoto('start')}
                         activeOpacity={0.8}
                       >
-                        <View style={[styles.cameraIconWrap, { backgroundColor: colors.primary }]}>
-                          <Ionicons name="camera" size={26} color="#ffffff" />
-                        </View>
-                        <Text style={[styles.cameraTitle, { color: colors.textPrimary }]}>
-                          {t.captureCamera || (isRTL ? 'فتح الكاميرا وتصوير العداد' : 'Open Camera')}
-                        </Text>
-                        <Text style={[styles.cameraSubtitle, { color: colors.textSecondary }]}>
-                          {t.odometerGuideSub || (isRTL ? 'وجّه الكاميرا نحو شاشة العداد وتأكد من وضوح الأرقام' : 'Point camera at odometer display')}
+                        <Ionicons name="camera-reverse-outline" size={16} color={colors.primary} />
+                        <Text style={[styles.photoRetakeText, { color: colors.primary }]}>
+                          {t.retakePhoto || (isRTL ? 'إعادة التصوير' : 'Retake')}
                         </Text>
                       </TouchableOpacity>
-                    )}
-                  </View>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.cameraCard, { backgroundColor: colors.inputBg, borderColor: colors.primary }]}
+                      onPress={() => onTakeOdometerPhoto('start')}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.cameraIconWrap, { backgroundColor: colors.primary }]}>
+                        <Ionicons name="camera" size={26} color="#ffffff" />
+                      </View>
+                      <Text style={[styles.cameraTitle, { color: colors.textPrimary }]}>
+                        {t.captureCamera || (isRTL ? 'فتح الكاميرا وتصوير العداد' : 'Open Camera')}
+                      </Text>
+                      <Text style={[styles.cameraSubtitle, { color: colors.textSecondary }]}>
+                        {t.odometerGuideSub || (isRTL ? 'وجّه الكاميرا نحو شاشة العداد وتأكد من وضوح الأرقام' : 'Point camera at odometer display')}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Confirm Start Shift Action Button */}
+            <TouchableOpacity
+              style={[
+                styles.actionSubmitBtn,
+                {
+                  backgroundColor: canStartShift ? colors.primary : (isDarkMode ? '#334155' : '#cbd5e1'),
+                  opacity: canStartShift && !submitting ? 1 : 0.65,
+                  marginTop: 20,
+                },
+              ]}
+              onPress={onStartShift}
+              disabled={!canStartShift || submitting}
+              activeOpacity={0.85}
+            >
+              {submitting ? (
+                <View style={[styles.btnRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <ActivityIndicator color="#ffffff" size="small" />
+                  <Text style={[styles.btnText, { marginHorizontal: 8 }]}>
+                    {t.savingStartBtn || (isRTL ? 'جاري بدء الدوام وحفظ البيانات...' : 'Starting shift...')}
+                  </Text>
+                </View>
+              ) : (
+                <View style={[styles.btnRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="play" size={20} color="#ffffff" />
+                  <Text style={styles.btnText}>{t.confirmStartBtn || (isRTL ? 'تأكيد وبدء الدوام الآن' : 'Start Shift')}</Text>
                 </View>
               )}
-
-              {/* Confirm Start Shift Action Button */}
-              <TouchableOpacity
-                style={[
-                  styles.actionSubmitBtn,
-                  {
-                    backgroundColor: canStartShift ? colors.primary : (isDarkMode ? '#334155' : '#cbd5e1'),
-                    opacity: canStartShift && !submitting ? 1 : 0.65,
-                    marginTop: 20,
-                  },
-                ]}
-                onPress={onStartShift}
-                disabled={!canStartShift || submitting}
-                activeOpacity={0.85}
-              >
-                {submitting ? (
-                  <View style={[styles.btnRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <ActivityIndicator color="#ffffff" size="small" />
-                    <Text style={[styles.btnText, { marginHorizontal: 8 }]}>
-                      {t.savingStartBtn || (isRTL ? 'جاري بدء الدوام وحفظ البيانات...' : 'Starting shift...')}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={[styles.btnRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Ionicons name="play" size={20} color="#ffffff" />
-                    <Text style={styles.btnText}>{t.confirmStartBtn || (isRTL ? 'تأكيد وبدء الدوام الآن' : 'Start Shift')}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         /* =========================================================================

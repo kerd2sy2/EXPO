@@ -911,6 +911,10 @@ export default function DelegateApp() {
 
   const handleClosePlateScanner = () => {
     setShowPlateScannerModal(false);
+    // إذا رجع المندوب أو أغلق الماسح دون التقاط اللوحة، يرجع فوراً للداشبورد الرئيسية
+    if (!activeSession && !startPlateImageRef.current && !isPlateConfirmed) {
+      setCurrentTab('home');
+    }
   };
 
   // Open Shift & Camera directly when clicking "بدء الدوام"
@@ -934,6 +938,7 @@ export default function DelegateApp() {
     setIsScanningPlate(true);
     startPlateImageRef.current = base64Uri;
     setStartPlateImage(imageUri);
+    setIsPlateConfirmed(true);
 
     if (plateData && (plateData.full_plate || plateData.digits)) {
       const combined = plateData.full_plate || (plateData.letters ? `${plateData.digits} ${plateData.letters}` : plateData.digits);
