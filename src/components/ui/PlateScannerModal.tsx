@@ -262,14 +262,6 @@ export const formatPlateLetters = (enLettersStr: string): { ar: string; en: stri
   return { ar: arDisplay, en: enDisplay };
 };
 
-// Load comprehensive motorcycle fleet dataset
-let rawFleetDataset: any[] = [];
-try {
-  rawFleetDataset = require('../../../assets/license_plates_dataset.json.json');
-} catch (e) {
-  console.warn('Could not load license plates dataset:', e);
-}
-
 export interface FleetPlateEntry {
   enDigits: string;
   arDigits: string;
@@ -279,43 +271,60 @@ export interface FleetPlateEntry {
 
 export const FLEET_PLATES_REGISTRY: Record<string, FleetPlateEntry> = {};
 
-// 1. Initial hardcoded fleet plates
+// Complete Motorcycle Fleet Database (Arabic & English Letters & Digits)
 const INITIAL_FLEET_DATA: Record<string, { en: string; ar: string }> = {
-  '6534': { en: 'AD', ar: 'ا د' },
-  '6238': { en: 'BT', ar: 'ط ب' },
-  '8022': { en: 'BE', ar: 'ع ب' },
-  '7572': { en: 'BE', ar: 'ع ب' },
-  '5443': { en: 'AJ', ar: 'ا ح' },
-  '7570': { en: 'BE', ar: 'ع ب' },
-  '8874': { en: 'AJ', ar: 'ا ح' },
-  '6242': { en: 'BT', ar: 'ط ب' },
-  '5098': { en: 'AJ', ar: 'ا ح' },
-  '6536': { en: 'AD', ar: 'ا د' },
   '5442': { en: 'AJ', ar: 'ا ح' },
-  '5447': { en: 'AJ', ar: 'ا ح' },
-  '8044': { en: 'BE', ar: 'ع ب' },
-  '8035': { en: 'BE', ar: 'ع ب' },
+  '5452': { en: 'AJ', ar: 'ا ح' },
+  '5445': { en: 'AJ', ar: 'ا ح' },
+  '5449': { en: 'AJ', ar: 'ا ح' },
   '6241': { en: 'BT', ar: 'ط ب' },
-  '7578': { en: 'BE', ar: 'ع ب' },
-  '6535': { en: 'AD', ar: 'ا د' },
-  '8020': { en: 'BE', ar: 'ع ب' },
-  '8036': { en: 'BE', ar: 'ع ب' },
-  '7036': { en: 'AJ', ar: 'ا ح' },
-  '8040': { en: 'BE', ar: 'ع ب' },
-  '7577': { en: 'BE', ar: 'ع ب' },
-  '7038': { en: 'BE', ar: 'ع ب' },
-  '8875': { en: 'AJ', ar: 'ا ح' },
-  '5097': { en: 'AJ', ar: 'ا ح' },
+  '8872': { en: 'AJ', ar: 'ا ح' },
   '651':  { en: 'RA', ar: 'ر ع' },
+  '6532': { en: 'AD', ar: 'ا د' },
+  '5443': { en: 'AJ', ar: 'ا ح' },
+  '6238': { en: 'BT', ar: 'ط ب' },
+  '6531': { en: 'AD', ar: 'ا د' },
+  '8022': { en: 'BE', ar: 'ع ب' },
+  '5447': { en: 'AJ', ar: 'ا ح' },
+  '8875': { en: 'AJ', ar: 'ا ح' },
+  '7576': { en: 'BE', ar: 'ع ب' },
+  '8020': { en: 'BE', ar: 'ع ب' },
+  '7578': { en: 'BE', ar: 'ع ب' },
+  '7039': { en: 'AJ', ar: 'ا ح' },
+  '8873': { en: 'AJ', ar: 'ا ح' },
+  '6540': { en: 'AD', ar: 'ا د' },
+  '7036': { en: 'AJ', ar: 'ا ح' },
+  '7571': { en: 'BE', ar: 'ع ب' },
+  '8036': { en: 'BE', ar: 'ع ب' },
+  '8035': { en: 'BE', ar: 'ع ب' },
+  '7037': { en: 'AJ', ar: 'ا ح' },
+  '7577': { en: 'BE', ar: 'ع ب' },
+  '8040': { en: 'BE', ar: 'ع ب' },
+  '6534': { en: 'AD', ar: 'ا د' },
+  '6545': { en: 'AD', ar: 'ا د' },
+  '5098': { en: 'AJ', ar: 'ا ح' },
+  '5450': { en: 'AJ', ar: 'ا ح' },
+  '6546': { en: 'AD', ar: 'ا د' },
+  '8874': { en: 'AJ', ar: 'ا ح' },
+  '8045': { en: 'BE', ar: 'ع ب' },
+  '8042': { en: 'BE', ar: 'ع ب' },
+  '5446': { en: 'AJ', ar: 'ا ح' },
+  '6547': { en: 'AD', ar: 'ا د' },
+  '8046': { en: 'BE', ar: 'ع ب' },
+  '7030': { en: 'BE', ar: 'ع ب' },
+  '8037': { en: 'BE', ar: 'ع ب' },
+  '8044': { en: 'BE', ar: 'ع ب' },
+  '7569': { en: 'BE', ar: 'ع ب' },
+  '5097': { en: 'AJ', ar: 'ا ح' },
+  '8039': { en: 'BE', ar: 'ع ب' },
+  '6536': { en: 'AD', ar: 'ا د' },
+  '6242': { en: 'BT', ar: 'ط ب' },
+  '6535': { en: 'AD', ar: 'ا د' },
+  '7038': { en: 'BE', ar: 'ع ب' },
   '5099': { en: 'AJ', ar: 'ا ح' },
   '7035': { en: 'AJ', ar: 'ا ح' },
   '6240': { en: 'BT', ar: 'ط ب' },
-  '6546': { en: 'AD', ar: 'ا د' },
-  '8039': { en: 'BE', ar: 'ع ب' },
-  '5446': { en: 'AJ', ar: 'ا ح' },
-  '7030': { en: 'BE', ar: 'ع ب' },
   '653':  { en: 'RA', ar: 'ر ع' },
-  '8037': { en: 'BE', ar: 'ع ب' },
 };
 
 for (const key in INITIAL_FLEET_DATA) {
@@ -326,28 +335,6 @@ for (const key in INITIAL_FLEET_DATA) {
     enLetters: item.en.replace(/\s+/g, ''),
     arLetters: item.ar,
   };
-}
-
-// 2. Populate and override with dataset JSON entries
-if (Array.isArray(rawFleetDataset)) {
-  for (const item of rawFleetDataset) {
-    const enNum = String(item.plate_english?.numbers || item.plate_arabic?.numbers || '').trim().replace(/[٠-٩]/g, (w) => {
-      const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-      return `${ar.indexOf(w)}`;
-    });
-    const arNum = String(item.plate_arabic?.numbers || toArabicDigits(enNum)).trim();
-    const enLet = String(item.plate_english?.letters || '').trim().toUpperCase().replace(/\s+/g, '');
-    const arLet = String(item.plate_arabic?.letters || '').trim();
-
-    if (enNum && enNum.length >= 2) {
-      FLEET_PLATES_REGISTRY[enNum] = {
-        enDigits: enNum,
-        arDigits: arNum || toArabicDigits(enNum),
-        enLetters: enLet || (FLEET_PLATES_REGISTRY[enNum]?.enLetters || ''),
-        arLetters: arLet || (FLEET_PLATES_REGISTRY[enNum]?.arLetters || ''),
-      };
-    }
-  }
 }
 
 // Calculate OCR similarity score with character confusion penalties
