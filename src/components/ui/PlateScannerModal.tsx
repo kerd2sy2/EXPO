@@ -19,7 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
 import { workApi } from '../../services/work';
-import { toArabicDigits, convertLettersToBoth } from './SaudiMotorcyclePlate';
+import { SaudiMotorcyclePlate, toArabicDigits, convertLettersToBoth } from './SaudiMotorcyclePlate';
 
 let CameraViewComponent: any = null;
 let useCameraPermsHook: any = null;
@@ -1233,36 +1233,15 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                   <Text style={styles.resultConfidence}>دقة 99% (مطابقة تامة)</Text>
                 </View>
 
-                {/* Saudi Motorcycle Plate Card Preview */}
+                {/* Authentic Saudi Motorcycle Plate Preview (Exact 1:1 Matching Start Shift Screen) */}
                 <View style={styles.platePreviewWrap}>
-                  <View style={styles.plateCardBox}>
-                    <View style={styles.plateCardMain}>
-                      {/* Top Arabic */}
-                      <View style={styles.plateCardRow}>
-                        <Text style={styles.plateCardDigitsAr}>
-                          {toArabicDigits(detectedResult.digits)}
-                        </Text>
-                        <Text style={styles.plateCardLettersAr}>
-                          {formattedDualLetters.ar || detectedResult.letters || '- -'}
-                        </Text>
-                      </View>
-                      {/* Divider */}
-                      <View style={styles.plateCardDivider} />
-                      {/* Bottom English */}
-                      <View style={styles.plateCardRow}>
-                        <Text style={styles.plateCardDigitsEn}>{detectedResult.digits || '----'}</Text>
-                        <Text style={styles.plateCardLettersEn}>
-                          {formattedDualLetters.en || '- -'}
-                        </Text>
-                      </View>
-                    </View>
-                    {/* KSA Side Banner */}
-                    <View style={styles.plateCardSide}>
-                      <Ionicons name="shield-checkmark" size={14} color="#15803d" />
-                      <Text style={styles.plateCardSideAr}>السعودية</Text>
-                      <Text style={styles.plateCardSideEn}>KSA</Text>
-                    </View>
-                  </View>
+                  <SaudiMotorcyclePlate
+                    digits={detectedResult.digits}
+                    letters={detectedResult.letters}
+                    editable={false}
+                    isDarkMode={false}
+                    scale={0.94}
+                  />
                 </View>
 
                 {/* Action Buttons */}
@@ -1764,150 +1743,83 @@ const styles = StyleSheet.create({
   },
   resultCard: {
     width: '100%',
-    backgroundColor: '#1e293b',
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.45)',
-    shadowColor: '#000',
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
     elevation: 10,
   },
   resultHeader: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 8,
   },
   resultBadgeSuccess: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: '#f0fdf4',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
     gap: 6,
   },
   resultBadgeText: {
-    color: '#22c55e',
+    color: '#16a34a',
     fontSize: 12,
     fontWeight: '800',
   },
   resultConfidence: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '600',
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '700',
   },
   platePreviewWrap: {
-    alignItems: 'center',
-    marginVertical: 6,
-  },
-  plateCardBox: {
     width: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#0f172a',
-    flexDirection: 'row',
-    overflow: 'hidden',
-  },
-  plateCardMain: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  plateCardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  plateCardDigitsAr: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#0f172a',
-    letterSpacing: 4,
-  },
-  plateCardLettersAr: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0f172a',
-    letterSpacing: 4,
-  },
-  plateCardDivider: {
-    height: 1,
-    backgroundColor: '#cbd5e1',
-    marginVertical: 6,
-  },
-  plateCardDigitsEn: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0f172a',
-    letterSpacing: 4,
-  },
-  plateCardLettersEn: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0f172a',
-    letterSpacing: 4,
-  },
-  plateCardSide: {
-    width: 68,
-    backgroundColor: '#f1f5f9',
-    borderLeftWidth: 1,
-    borderLeftColor: '#cbd5e1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  plateCardSideAr: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#15803d',
-    marginTop: 2,
-  },
-  plateCardSideEn: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#0f172a',
-    marginTop: 2,
-    letterSpacing: 1,
+    marginVertical: 4,
   },
   resultActionRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 12,
     gap: 10,
   },
   rescanBtn: {
     flex: 1,
     height: 48,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
+    backgroundColor: '#f1f5f9',
     flexDirection: 'row-reverse',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1.2,
+    borderColor: '#cbd5e1',
     gap: 6,
   },
   rescanBtnText: {
-    color: '#cbd5e1',
+    color: '#334155',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   confirmBtn: {
     flex: 2,
     height: 48,
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: '#f97316',
     flexDirection: 'row-reverse',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#f97316',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 4,
     gap: 6,
