@@ -1235,25 +1235,6 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                   style={styles.introLottie}
                 />
               </View>
-
-              <View
-                style={[
-                  styles.introBadge,
-                  {
-                    backgroundColor: isDark ? 'rgba(249, 115, 22, 0.15)' : 'rgba(249, 115, 22, 0.12)',
-                    borderColor: isDark ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.35)',
-                  },
-                ]}
-              >
-                <Ionicons name="scan" size={18} color="#f97316" />
-                <Text style={[styles.introBadgeText, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
-                  الماسح الذكي للوحات الدبابات
-                </Text>
-              </View>
-
-              <Text style={[styles.introSubtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-                جاري تهيئة الكاميرا والذكاء الاصطناعي...
-              </Text>
             </View>
           </Animated.View>
         )}
@@ -1360,38 +1341,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   introLottieBox: {
-    width: 220,
-    height: 220,
+    width: Math.min(SCREEN_WIDTH * 0.85, 340),
+    height: Math.min(SCREEN_WIDTH * 0.85, 340),
     justifyContent: 'center',
     alignItems: 'center',
   },
   introLottie: {
-    width: 220,
-    height: 220,
-  },
-  introBadge: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: 'rgba(249, 115, 22, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.4)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 24,
-    gap: 8,
-    marginTop: 16,
-  },
-  introBadgeText: {
-    color: '#f8fafc',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  introSubtitle: {
-    color: '#94a3b8',
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 10,
-    textAlign: 'center',
+    width: '100%',
+    height: '100%',
   },
   fallbackContainer: {
     justifyContent: 'center',
