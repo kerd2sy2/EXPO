@@ -1781,6 +1781,7 @@ export default function DelegateApp() {
           onClose={handleClosePlateScanner}
           onScanned={handleProcessPlateScan}
           isProcessing={isScanningPlate}
+          isDarkMode={isDarkMode}
         />
       </ModuleErrorBoundary>
 

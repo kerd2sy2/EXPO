@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   StatusBar,
   TouchableWithoutFeedback,
+  useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
@@ -403,11 +404,12 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
   };
 };
 
-interface PlateScannerModalProps {
+export interface PlateScannerModalProps {
   visible: boolean;
   onClose: () => void;
   onScanned: (imageUri: string, base64: string, data?: PlateResultData) => Promise<void>;
   isProcessing?: boolean;
+  isDarkMode?: boolean;
 }
 
 export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
@@ -415,7 +417,10 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
   onClose,
   onScanned,
   isProcessing = false,
+  isDarkMode: propIsDarkMode,
 }) => {
+  const systemScheme = useColorScheme();
+  const isDark = propIsDarkMode !== undefined ? propIsDarkMode : systemScheme === 'dark';
   const cameraRef = useRef<any>(null);
   const [torchOn, setTorchOn] = useState(false);
   const [cameraFailed, setCameraFailed] = useState(false);
@@ -786,15 +791,19 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
       statusBarTranslucent={true}
       onRequestClose={onClose}
     >
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
-      <View style={styles.container}>
+      <StatusBar
+        barStyle={showIntroSplash ? (isDark ? 'light-content' : 'dark-content') : 'light-content'}
+        backgroundColor="transparent"
+        translucent={true}
+      />
+      <View style={[styles.container, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]}>
         {/* Fullscreen Live Camera Stream */}
         {hasNativeCamera && (permission?.granted || hasPermission) ? (
           <CameraErrorBoundary
             fallback={
-              <View style={[StyleSheet.absoluteFill, styles.fallbackContainer]}>
+              <View style={[StyleSheet.absoluteFill, styles.fallbackContainer, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]}>
                 <Ionicons name="scan-circle" size={72} color="#f97316" />
-                <Text style={styles.fallbackText}>كاميرا مسح اللوحات الذكية</Text>
+                <Text style={[styles.fallbackText, { color: isDark ? '#94a3b8' : '#64748b' }]}>كاميرا مسح اللوحات الذكية</Text>
               </View>
             }
           >
@@ -814,14 +823,14 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
             />
           </CameraErrorBoundary>
         ) : (
-          <View style={[StyleSheet.absoluteFill, styles.fallbackContainer]}>
+          <View style={[StyleSheet.absoluteFill, styles.fallbackContainer, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]}>
             <LottieView
               source={require('../../../assets/Lottie/lottie/HLmkwb6vpO.lottie')}
               autoPlay
               loop
               style={{ width: 160, height: 160 }}
             />
-            <Text style={styles.fallbackText}>جاري فتح عدسة الكاميرا...</Text>
+            <Text style={[styles.fallbackText, { color: isDark ? '#94a3b8' : '#64748b' }]}>جاري فتح عدسة الكاميرا...</Text>
           </View>
         )}
 
@@ -1060,7 +1069,10 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
             style={[
               StyleSheet.absoluteFill,
               styles.introSplashContainer,
-              { opacity: introFadeAnim },
+              {
+                backgroundColor: isDark ? '#090d16' : '#f8fafc',
+                opacity: introFadeAnim,
+              },
             ]}
           >
             <View style={styles.introSplashContent}>
@@ -1074,12 +1086,22 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                 />
               </View>
 
-              <View style={styles.introBadge}>
+              <View
+                style={[
+                  styles.introBadge,
+                  {
+                    backgroundColor: isDark ? 'rgba(249, 115, 22, 0.15)' : 'rgba(249, 115, 22, 0.12)',
+                    borderColor: isDark ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.35)',
+                  },
+                ]}
+              >
                 <Ionicons name="scan" size={18} color="#f97316" />
-                <Text style={styles.introBadgeText}>الماسح الذكي للوحات الدبابات</Text>
+                <Text style={[styles.introBadgeText, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                  الماسح الذكي للوحات الدبابات
+                </Text>
               </View>
 
-              <Text style={styles.introSubtitle}>
+              <Text style={[styles.introSubtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
                 جاري تهيئة الكاميرا والذكاء الاصطناعي...
               </Text>
             </View>
@@ -1105,6 +1127,8 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               style={[
                 styles.errorSheetContainer,
                 {
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
                   transform: [
                     {
                       translateY: errorSheetAnim.interpolate({
@@ -1116,7 +1140,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                 },
               ]}
             >
-              <View style={styles.errorSheetPill} />
+              <View style={[styles.errorSheetPill, { backgroundColor: isDark ? '#475569' : '#cbd5e1' }]} />
 
               <View style={styles.errorIconCircle}>
                 <LottieView
@@ -1127,19 +1151,19 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                 />
               </View>
 
-              <Text style={styles.errorSheetTitle}>لم نتمكن من قراءة أرقام اللوحة</Text>
-              <Text style={styles.errorSheetMessage}>
+              <Text style={[styles.errorSheetTitle, { color: isDark ? '#ffffff' : '#0f172a' }]}>لم نتمكن من قراءة أرقام اللوحة</Text>
+              <Text style={[styles.errorSheetMessage, { color: isDark ? '#94a3b8' : '#64748b' }]}>
                 {errorMessage || 'يرجى تقريب الكاميرا والتأكد من وضوح وإضاءة أرقام وحروف اللوحة ثم إعادة المحاولة.'}
               </Text>
 
-              <View style={styles.errorTipsCard}>
+              <View style={[styles.errorTipsCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc', borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#e2e8f0' }]}>
                 <View style={styles.errorTipRow}>
                   <Ionicons name="flash-outline" size={16} color="#f97316" />
-                  <Text style={styles.errorTipText}>شغّل إضاءة الفلاش إذا كان المكان مظلماً</Text>
+                  <Text style={[styles.errorTipText, { color: isDark ? '#cbd5e1' : '#334155' }]}>شغّل إضاءة الفلاش إذا كان المكان مظلماً</Text>
                 </View>
                 <View style={styles.errorTipRow}>
                   <Ionicons name="scan-outline" size={16} color="#f97316" />
-                  <Text style={styles.errorTipText}>اجعل اللوحة داخل إطار المسح البرتقالي</Text>
+                  <Text style={[styles.errorTipText, { color: isDark ? '#cbd5e1' : '#334155' }]}>اجعل اللوحة داخل إطار المسح البرتقالي</Text>
                 </View>
               </View>
 
@@ -1154,11 +1178,11 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.errorDismissBtn}
+                  style={[styles.errorDismissBtn, { backgroundColor: isDark ? 'transparent' : '#f1f5f9', borderRadius: 12 }]}
                   onPress={closeErrorSheet}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.errorDismissBtnText}>إغلاق</Text>
+                  <Text style={[styles.errorDismissBtnText, { color: isDark ? '#94a3b8' : '#64748b' }]}>إغلاق</Text>
                 </TouchableOpacity>
               </View>
             </Animated.View>
