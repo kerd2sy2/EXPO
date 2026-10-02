@@ -18,6 +18,8 @@ import {
   Platform,
   StyleSheet,
   AppState,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -192,6 +194,62 @@ export default function DelegateApp() {
 
   const [keyboardOffset, setKeyboardOffset] = useState<number>(0);
   const [mainScrollEnabled, setMainScrollEnabled] = useState(true);
+
+  // Collapsible Home Header Animation
+  const HOME_HEADER_HEIGHT = 70;
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
+  const lastScrollY = useRef(0);
+  const isHeaderHidden = useRef(false);
+
+  useEffect(() => {
+    headerTranslateY.setValue(0);
+    isHeaderHidden.current = false;
+    lastScrollY.current = 0;
+  }, [currentTab]);
+
+  const handleHomeScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (currentTab !== 'home') return;
+
+    const currentY = event.nativeEvent.contentOffset.y;
+    const diff = currentY - lastScrollY.current;
+
+    // At the very top (or pulling down to refresh): Always show header
+    if (currentY <= 15) {
+      if (isHeaderHidden.current) {
+        isHeaderHidden.current = false;
+        Animated.spring(headerTranslateY, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 180,
+          useNativeDriver: true,
+        }).start();
+      }
+      lastScrollY.current = currentY;
+      return;
+    }
+
+    // Scrolling down the page / reading further down (finger moves up, diff > 8): Hide Header
+    if (diff > 8 && currentY > 40 && !isHeaderHidden.current) {
+      isHeaderHidden.current = true;
+      Animated.timing(headerTranslateY, {
+        toValue: -HOME_HEADER_HEIGHT,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+    // Scrolling up towards top (finger moves down, diff < -8): Show Header
+    else if (diff < -8 && isHeaderHidden.current) {
+      isHeaderHidden.current = false;
+      Animated.spring(headerTranslateY, {
+        toValue: 0,
+        damping: 20,
+        stiffness: 180,
+        useNativeDriver: true,
+      }).start();
+    }
+
+    lastScrollY.current = currentY;
+  };
 
   // Modular Hooks: Active Shift Timer
   const { elapsedTime } = useSessionTimer(activeSession);
@@ -1380,9 +1438,23 @@ export default function DelegateApp() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Fixed Sticky Header: Home Header on 'home', Sub-Page Header on other tabs */}
+      {/* Collapsible Header on 'home', Sub-Page Header on other tabs */}
       {currentTab === 'home' ? (
-        <View style={{ backgroundColor: colors.bg, zIndex: 10, borderBottomWidth: 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: HOME_HEADER_HEIGHT,
+            backgroundColor: colors.bg,
+            zIndex: 30,
+            elevation: 4,
+            borderBottomWidth: 1,
+            borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+            transform: [{ translateY: headerTranslateY }],
+          }}
+        >
           <HomeHeader
             employee={employee}
             empPhotoUrl={empPhotoUrl}
@@ -1392,7 +1464,7 @@ export default function DelegateApp() {
             onLongPressProfile={() => setShowDiagnosticsModal(true)}
             onPressQr={() => setShowQrModal(true)}
           />
-        </View>
+        </Animated.View>
       ) : (
         <View style={[styles.appHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           {/* Sub-Page Header: Back Button + Start-Aligned Title with Orange Underline */}
@@ -1475,9 +1547,14 @@ export default function DelegateApp() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            onScroll={handleHomeScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={[
               styles.mainScrollContent,
-              { paddingBottom: 24 + (keyboardOffset > 0 ? keyboardOffset + 24 : 0) },
+              {
+                paddingTop: currentTab === 'home' ? HOME_HEADER_HEIGHT : 0,
+                paddingBottom: 24 + (keyboardOffset > 0 ? keyboardOffset + 24 : 0),
+              },
             ]}
             refreshControl={
               <RefreshControl
