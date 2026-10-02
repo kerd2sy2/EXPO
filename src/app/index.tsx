@@ -459,6 +459,11 @@ export default function DelegateApp() {
         closeSuccessModal();
         return true;
       }
+      if (currentTab === 'history' && selectedHistoryMonthKey) {
+        setSelectedHistoryMonthKey(null);
+        setSelectedHistoryMonthLabel(null);
+        return true;
+      }
       if (currentTab !== 'home') {
         setCurrentTab('home');
         return true; // Go back to home page without exiting
@@ -469,7 +474,7 @@ export default function DelegateApp() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backHandler.remove();
-  }, [currentTab, previewPhoto, showQrModal, showLangModal, successModalData]);
+  }, [currentTab, previewPhoto, showQrModal, showLangModal, successModalData, selectedHistoryMonthKey]);
 
 
 
@@ -1014,6 +1019,11 @@ export default function DelegateApp() {
     if (tab === 'shift' && !activeSession && !isPlateConfirmed) {
       setShowPlateScannerModal(true);
       return;
+    }
+    if (tab === 'history') {
+      const currentMonth = getCurrentMonthInfo(lang);
+      setSelectedHistoryMonthKey(currentMonth.key);
+      setSelectedHistoryMonthLabel(currentMonth.label);
     }
     mainScrollRef.current?.scrollTo({ y: 0, animated: false });
     setCurrentTab(tab);
@@ -1787,6 +1797,11 @@ export default function DelegateApp() {
             formatTimeStr={formatTimeStr}
             onClose={closeSuccessModal}
             onNavigateToTab={(tab) => {
+              if (tab === 'history') {
+                const currentMonth = getCurrentMonthInfo(lang);
+                setSelectedHistoryMonthKey(currentMonth.key);
+                setSelectedHistoryMonthLabel(currentMonth.label);
+              }
               mainScrollRef.current?.scrollTo({ y: 0, animated: false });
               setCurrentTab(tab);
             }}
