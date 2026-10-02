@@ -32,7 +32,7 @@ export const en: Record<TranslationKeys, string> = {
   expectedSalary: 'Estimated Earnings',
   ratePerOrder: 'Order Rate',
   targetAchievedBadge: 'Target Achieved & Bonus Unlocked (6 SAR/order)',
-  targetRemainingNotice: '{n} orders left to reach 6 SAR/order tier',
+  targetRemainingNotice: '{n} orders left to reach target',
   qrTitle: 'Delegate Digital Badge (QR Code)',
   qrSub: 'Present this code to supervisor or branch for scanning',
   close: 'Close',
@@ -194,4 +194,29 @@ export const en: Record<TranslationKeys, string> = {
   savePasswordBtn: 'Save New Password',
   passwordChangedSuccess: 'Password changed successfully!',
   passwordMismatchError: 'New passwords do not match',
+
+  // Settings & Theme
+  appTheme: 'App Theme',
+  darkMode: 'Dark Mode',
+  lightMode: 'Light Mode',
+  checkForUpdates: 'Check for Updates',
+
+  // Phone Addition
+  addPhone: 'Add Phone',
+  addPhoneTitle: 'Add Phone Number',
+  addPhoneSub: 'Enter your Saudi mobile number for field communications',
+  enterPhoneLabel: 'Enter Phone Number',
+  phoneHelperHint: 'Must start with 05 and contain 10 digits',
+  phoneValidHint: 'Valid Saudi number ({phone})',
+  savePhoneBtn: 'Save & Lock Phone',
+
+  // Ratio & Pending
+  ofRatio: 'of',
+  pendingDuesNotice: 'Pending Dues: {amount} SAR',
+  allDuesPaid: 'All dues are fully settled (No balance)',
+
+  // Branches
+  firstBranch: 'First Branch (Branch 1)',
+  secondBranch: 'Second Branch (Branch 2)',
+  mainBranch: 'Main Branch',
 };

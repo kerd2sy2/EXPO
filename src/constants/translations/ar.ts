@@ -192,6 +192,31 @@ export const ar = {
   savePasswordBtn: 'حفظ وتحديث كلمة المرور',
   passwordChangedSuccess: 'تم تغيير كلمة المرور بنجاح!',
   passwordMismatchError: 'كلمات المرور الجديدة غير متطابقة',
+
+  // Settings & Theme
+  appTheme: 'مظهر التطبيق',
+  darkMode: 'الوضع المظلم',
+  lightMode: 'الوضع الفاتح',
+  checkForUpdates: 'تحديث التطبيق',
+
+  // Phone Addition
+  addPhone: 'إضافة رقم',
+  addPhoneTitle: 'إضافة رقم الهاتف',
+  addPhoneSub: 'يرجى تسجيل رقم هاتفك السعودي للتواصل الميداني',
+  enterPhoneLabel: 'اكتب رقم الهاتف',
+  phoneHelperHint: 'يجب أن يبدأ بـ 05 ويتكون من 10 أرقام',
+  phoneValidHint: 'رقم سعودي صالح ({phone})',
+  savePhoneBtn: 'حفظ وتثبيت الرقم',
+
+  // Ratio & Pending
+  ofRatio: 'من',
+  pendingDuesNotice: 'المتبقي عليك: {amount} ر.س',
+  allDuesPaid: 'تم سداد كامل المستحقات (لا يوجد متبقي)',
+
+  // Branches
+  firstBranch: 'الفرع الأول (فرع 1)',
+  secondBranch: 'الفرع الثاني (فرع 2)',
+  mainBranch: 'الفرع الرئيسي',
 };
 
 export type TranslationKeys = keyof typeof ar;

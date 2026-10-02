@@ -32,7 +32,7 @@ export const bn: Record<TranslationKeys, string> = {
   expectedSalary: 'আনুমানিক মোট আয়',
   ratePerOrder: 'প্রতি অর্ডারের রেট',
   targetAchievedBadge: 'টার্গেট সম্পন্ন ও বোনাস অর্জিত (৬ রিয়াল/অর্ডার)',
-  targetRemainingNotice: '৬ রিয়াল স্তরে পৌঁছাতে বাকি {n} অর্ডার',
+  targetRemainingNotice: 'টার্গেটে পৌঁছাতে বাকি {n} অর্ডার',
   qrTitle: 'প্রতিনিধি ডিজিটাল আইডি (QR কোড)',
   qrSub: 'যাচাইয়ের জন্য সুপারভাইজারকে এই কোডটি দেখান',
   close: 'বন্ধ করুন',
@@ -194,4 +194,29 @@ export const bn: Record<TranslationKeys, string> = {
   savePasswordBtn: 'পাসওয়ার্ড পরিবর্তন সংরক্ষণ করুন',
   passwordChangedSuccess: 'পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে!',
   passwordMismatchError: 'নতুন পাসওয়ার্ড মিলছে না',
+
+  // Settings & Theme
+  appTheme: 'অ্যাপের থিম',
+  darkMode: 'ডার্ক মোড',
+  lightMode: 'লাইট মোড',
+  checkForUpdates: 'অ্যাপ আপডেট চেক করুন',
+
+  // Phone Addition
+  addPhone: 'নম্বর যোগ করুন',
+  addPhoneTitle: 'ফোন নম্বর যোগ করুন',
+  addPhoneSub: 'মাঠপর্যায়ে যোগাযোগের জন্য আপনার সৌদি মোবাইল নম্বর দিন',
+  enterPhoneLabel: 'ফোন নম্বর লিখুন',
+  phoneHelperHint: '০৫ দিয়ে শুরু হতে হবে এবং ১০ সংখ্যার হতে হবে',
+  phoneValidHint: 'সঠিক সৌদি নম্বর ({phone})',
+  savePhoneBtn: 'সংরক্ষণ ও নিশ্চিত করুন',
+
+  // Ratio & Pending
+  ofRatio: 'এর মধ্যে',
+  pendingDuesNotice: 'বকেয়া পাওনা: {amount} রিয়াল',
+  allDuesPaid: 'সকল বকেয়া পরিশোধিত (কোন দেনা নেই)',
+
+  // Branches
+  firstBranch: 'প্রথম শাখা (শাখা ১)',
+  secondBranch: 'দ্বিতীয় শাখা (শাখা ২)',
+  mainBranch: 'প্রধান শাখা',
 };

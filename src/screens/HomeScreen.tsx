@@ -146,7 +146,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </Text>
           </View>
           <Text style={[styles.targetRatioText, { color: colors.textSecondary }]}>
-            <Text style={[styles.targetRatioBold, { color: colors.primary }]}>{totalApprovedOrdersCount}</Text> من {monthlyTarget} {t.ordersUnit || 'طلب'}
+            <Text style={[styles.targetRatioBold, { color: colors.primary }]}>{totalApprovedOrdersCount}</Text> {t.ofRatio || 'من'} {monthlyTarget} {t.ordersUnit || 'طلب'}
           </Text>
         </View>
 
@@ -176,7 +176,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           >
             {isTargetAchieved
               ? (t.targetAchievedBadge || 'تم تحقيق الهدف الشهري بنجاح 🎉')
-              : (isRTL ? `متبقي ${remainingOrdersToTarget} طلب للوصول للهدف` : `${remainingOrdersToTarget} orders left to target`)}
+              : (t.targetRemainingNotice
+                  ? t.targetRemainingNotice.replace('{n}', String(remainingOrdersToTarget))
+                  : `متبقي ${remainingOrdersToTarget} طلب للوصول للهدف`)}
           </Text>
           <Text style={[styles.targetFooterPct, { color: isTargetAchieved ? '#22c55e' : colors.primary }]}>
             {targetProgressPct}%
@@ -405,8 +407,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 2 }]}>
             {violations.length > 0
               ? (totalDuePending > 0
-                  ? `المتبقي عليك: ${totalDuePending.toLocaleString('en-US')} ر.س`
-                  : 'تم سداد كامل المستحقات (لا يوجد متبقي)')
+                  ? (t.pendingDuesNotice
+                      ? t.pendingDuesNotice.replace('{amount}', totalDuePending.toLocaleString('en-US'))
+                      : `المتبقي عليك: ${totalDuePending.toLocaleString('en-US')} ر.س`)
+                  : (t.allDuesPaid || 'تم سداد كامل المستحقات (لا يوجد متبقي)'))
               : (t.noViolationsSub || 'سجلك نظيف! لا توجد مخالفات أو جزاءات مسجلة')}
           </Text>
         </View>

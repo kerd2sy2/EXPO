@@ -251,14 +251,14 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
               ]}
             >
               <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                {isRTL ? 'إضافة رقم الهاتف' : 'Add Phone Number'}
+                {t.addPhoneTitle || (isRTL ? 'إضافة رقم الهاتف' : 'Add Phone Number')}
               </Text>
               <Text
                 style={[styles.headerSubtitle, { color: colors.textSecondary }]}
               >
-                {isRTL
+                {t.addPhoneSub || (isRTL
                   ? 'يرجى تسجيل رقم هاتفك السعودي للتواصل الميداني'
-                  : 'Enter your Saudi phone number for field communications'}
+                  : 'Enter your Saudi phone number for field communications')}
               </Text>
             </View>
 
@@ -294,7 +294,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                 ]}
               >
                 <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>
-                  {isRTL ? 'اكتب رقم الهاتف' : 'Enter Phone Number'}
+                  {t.enterPhoneLabel || (isRTL ? 'اكتب رقم الهاتف' : 'Enter Phone Number')}
                 </Text>
                 <Text style={[styles.requiredStar, { color: '#ef4444' }]}>*</Text>
               </View>
@@ -390,12 +390,10 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                   style={[styles.hintText, { color: isValid ? '#10b981' : colors.textSecondary }]}
                 >
                   {isValid
-                    ? isRTL
-                      ? `رقم سعودي صالح (${normalized})`
-                      : `Valid Saudi number (${normalized})`
-                    : isRTL
-                    ? 'يجب أن يبدأ بـ 05 ويتكون من 10 أرقام'
-                    : 'Must start with 05 and contain 10 digits'}
+                    ? (t.phoneValidHint
+                        ? t.phoneValidHint.replace('{phone}', normalized)
+                        : (isRTL ? `رقم سعودي صالح (${normalized})` : `Valid Saudi number (${normalized})`))
+                    : (t.phoneHelperHint || (isRTL ? 'يجب أن يبدأ بـ 05 ويتكون من 10 أرقام' : 'Must start with 05 and contain 10 digits'))}
                 </Text>
               </View>
 
@@ -448,7 +446,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                   >
                     <Ionicons name="checkmark-done" size={20} color="#ffffff" />
                     <Text style={styles.submitBtnText}>
-                      {isRTL ? 'حفظ وتثبيت الرقم' : 'Save & Lock Phone'}
+                      {t.savePhoneBtn || (isRTL ? 'حفظ وتثبيت الرقم' : 'Save & Lock Phone')}
                     </Text>
                   </View>
                 )}
@@ -469,7 +467,7 @@ export const AddPhoneBottomSheet: React.FC<AddPhoneBottomSheetProps> = ({
                 activeOpacity={0.7}
               >
                 <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>
-                  {isRTL ? 'إلغاء' : 'Cancel'}
+                  {t.cancelBtn || (isRTL ? 'إلغاء' : 'Cancel')}
                 </Text>
               </TouchableOpacity>
             </View>

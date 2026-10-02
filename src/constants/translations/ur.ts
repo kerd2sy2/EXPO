@@ -194,4 +194,29 @@ export const ur: Record<TranslationKeys, string> = {
   savePasswordBtn: 'نیا پاس ورڈ محفوظ کریں',
   passwordChangedSuccess: 'پاس ورڈ کامیابی سے تبدیل ہو گیا!',
   passwordMismatchError: 'نئے پاس ورڈ ایک جیسے نہیں ہیں',
+
+  // Settings & Theme
+  appTheme: 'ایپ کی تھیم',
+  darkMode: 'ڈارک موڈ',
+  lightMode: 'لائٹ موڈ',
+  checkForUpdates: 'ایپ اپ ڈیٹ چیک کریں',
+
+  // Phone Addition
+  addPhone: 'نمبر شامل کریں',
+  addPhoneTitle: 'فون نمبر شامل کریں',
+  addPhoneSub: 'فیلڈ رابطہ کاری کے لیے اپنا سعودی موبائل نمبر درج کریں',
+  enterPhoneLabel: 'فون نمبر درج کریں',
+  phoneHelperHint: '05 سے شروع ہونا چاہیے اور 10 ہندسوں پر مشتمل ہو',
+  phoneValidHint: 'درست سعودی نمبر ({phone})',
+  savePhoneBtn: 'نمبر محفوظ اور تصدیق کریں',
+
+  // Ratio & Pending
+  ofRatio: 'میں سے',
+  pendingDuesNotice: 'باقی واجب الادا: {amount} ریال',
+  allDuesPaid: 'تمام واجبات ادا کر دیے گئے ہیں (کوئی بقایا نہیں)',
+
+  // Branches
+  firstBranch: 'پہلی برانچ (برانچ 1)',
+  secondBranch: 'دوسری برانچ (برانچ 2)',
+  mainBranch: 'مرکزی برانچ',
 };

@@ -21,6 +21,7 @@ import { EmployeeProfile, WorkSession, Language, ThemeColors, PreviewPhotoData }
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import { ChangePasswordModal } from '../components/modals/ChangePasswordModal';
 import { AddPhoneBottomSheet } from '../components/modals/AddPhoneBottomSheet';
+import { formatBranchName } from '../utils/branchUtils';
 import {
   API_BASE_URL,
   getTrustedDevicesList,
@@ -141,12 +142,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const confirmRevokeDevice = (device: TrustedDeviceItem) => {
     setAlertConfig({
       type: 'confirm',
-      title: isRTL ? 'إزالة توثيق الجهاز' : 'Remove Trusted Device',
-      message: isRTL
-        ? `هل أنت متأكد من رغبتك في حذف توثيق (${device.name})؟\nسيتطلب تسجيل الدخول القادم رمز تحقق OTP جديد من المشرف.`
-        : `Are you sure you want to revoke trust for (${device.name})?\nNext login will require a new supervisor OTP.`,
-      primaryButtonText: isRTL ? 'إزالة التوثيق' : 'Revoke',
-      secondaryButtonText: isRTL ? 'إلغاء' : 'Cancel',
+      title: t.revokeDeviceTitle || (isRTL ? 'إزالة توثيق الجهاز' : 'Remove Trusted Device'),
+      message: t.revokeDeviceMsg
+        ? t.revokeDeviceMsg.replace('{name}', device.name)
+        : (isRTL
+            ? `هل أنت متأكد من رغبتك في حذف توثيق (${device.name})؟\nسيتطلب تسجيل الدخول القادم رمز تحقق OTP جديد من المشرف.`
+            : `Are you sure you want to revoke trust for (${device.name})?\nNext login will require a new supervisor OTP.`),
+      primaryButtonText: t.revokeDeviceBtn || (isRTL ? 'إزالة التوثيق' : 'Revoke'),
+      secondaryButtonText: t.cancelBtn || (isRTL ? 'إلغاء' : 'Cancel'),
       onPrimaryPress: async () => {
         if (employee?.national_id) {
           await revokeTrustedDevice(employee.national_id, device.uuid);
@@ -181,8 +184,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (val) {
       try {
         const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: isRTL ? 'تأكيد البصمة لتفعيل الدخول السريع' : 'Confirm Biometrics to Enable',
-          cancelLabel: isRTL ? 'إلغاء' : 'Cancel',
+          promptMessage: t.biometricConfirmTitle || (isRTL ? 'تأكيد البصمة لتفعيل الدخول السريع' : 'Confirm Biometrics to Enable'),
+          cancelLabel: t.cancelBtn || (isRTL ? 'إلغاء' : 'Cancel'),
           disableDeviceFallback: false,
         });
         if (result.success) {
@@ -194,11 +197,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           setBiometricsOn(true);
           setAlertConfig({
             type: 'info',
-            title: isRTL ? 'تم التفعيل بنجاح' : 'Enabled Successfully',
-            message: isRTL
+            title: t.biometricEnabledTitle || (isRTL ? 'تم التفعيل بنجاح' : 'Enabled Successfully'),
+            message: t.biometricEnabledMsg || (isRTL
               ? 'تم تفعيل الدخول بالبصمة بنجاح لهذا الجهاز.'
-              : 'Biometric login has been activated on this device.',
-            primaryButtonText: isRTL ? 'حسناً' : 'OK',
+              : 'Biometric login has been activated on this device.'),
+            primaryButtonText: t.okBtn || (isRTL ? 'حسناً' : 'OK'),
           });
         }
       } catch (e) {
@@ -244,7 +247,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     {
       id: 'national_id',
       title: t.idAndIqamaPhoto || 'صورة الهوية / الإقامة',
-      shortTitle: isRTL ? 'الهوية الوطنية / الإقامة' : 'National ID / Iqama',
+      shortTitle: t.idAndIqamaPhoto || (isRTL ? 'الهوية الوطنية / الإقامة' : 'National ID / Iqama'),
       icon: 'card-outline' as const,
       iconFamily: 'ion',
       accentColor: '#3b82f6',
@@ -254,7 +257,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     {
       id: 'driving_license',
       title: t.drivingLicensePhoto || 'صورة رخصة القيادة',
-      shortTitle: isRTL ? 'رخصة القيادة' : 'Driving License',
+      shortTitle: t.drivingLicensePhoto || (isRTL ? 'رخصة القيادة' : 'Driving License'),
       icon: 'card-account-details-outline' as const,
       iconFamily: 'material',
       accentColor: '#10b981',
@@ -267,8 +270,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         ? `${t.vehicleRegistrationPhoto || 'صورة استمارة الدباب'} (${activeBikeNumber})`
         : (t.vehicleRegistrationPhoto || 'صورة رخصة الدباب (الاستمارة)'),
       shortTitle: activeBikeNumber
-        ? (isRTL ? `استمارة (${activeBikeNumber})` : `Reg. (${activeBikeNumber})`)
-        : (isRTL ? 'رخصة الدباب (الاستمارة)' : 'Vehicle Registration'),
+        ? `${t.vehicleRegistrationPhoto || 'استمارة'} (${activeBikeNumber})`
+        : (t.vehicleRegistrationPhoto || 'رخصة الدباب'),
       icon: 'file-document-outline' as const,
       iconFamily: 'material',
       accentColor: '#f59e0b',
@@ -278,7 +281,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     {
       id: 'passport',
       title: t.passportPhoto || 'صورة جواز السفر',
-      shortTitle: isRTL ? 'جواز السفر' : 'Passport',
+      shortTitle: t.passportPhoto || (isRTL ? 'جواز السفر' : 'Passport'),
       icon: 'passport' as const,
       iconFamily: 'material',
       accentColor: '#8b5cf6',
@@ -463,7 +466,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               >
                 <Ionicons name="add-circle" size={16} color="#10b981" />
                 <Text style={styles.addPhoneBadgeText}>
-                  {isRTL ? 'إضافة رقم' : 'Add Phone'}
+                  {t.addPhone || (isRTL ? 'إضافة رقم' : 'Add Phone')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -476,7 +479,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 <Ionicons name="business-outline" size={15} color={colors.textSecondary} />
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t.branch}</Text>
               </View>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{currentEmp.branch_name}</Text>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
+                {formatBranchName(currentEmp.branch_name, lang)}
+              </Text>
             </View>
           )}
         </View>
@@ -683,7 +688,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     <View style={[styles.currentDeviceBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Ionicons name="checkmark-circle" size={13} color="#10b981" />
                       <Text style={styles.currentDeviceBadgeText}>
-                        {isRTL ? 'هذا الجهاز الحالي' : (t.currentDeviceBadge || 'Current Device')}
+                        {t.currentDeviceBadge || (isRTL ? 'هذا الجهاز الحالي' : 'Current Device')}
                       </Text>
                     </View>
                   )}
@@ -728,7 +733,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </Text>
           </View>
           <Text style={[styles.settingRowVal, { color: colors.primary }]}>
-            {lang === 'ar' ? 'العربية' : lang === 'en' ? 'English' : 'বাংলা'}
+            {lang === 'ar' ? 'العربية' : lang === 'en' ? 'English' : lang === 'bn' ? 'বাংলা' : 'اردو'}
           </Text>
         </TouchableOpacity>
 
@@ -745,10 +750,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               />
               <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
                 <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                  {isRTL ? 'مظهر التطبيق' : 'App Theme'}
+                  {t.appTheme || (isRTL ? 'مظهر التطبيق' : 'App Theme')}
                 </Text>
                 <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                  {isDarkMode ? (isRTL ? 'الوضع المظلم' : 'Dark Mode') : (isRTL ? 'الوضع الفاتح' : 'Light Mode')}
+                  {isDarkMode ? (t.darkMode || 'الوضع المظلم') : (t.lightMode || 'الوضع الفاتح')}
                 </Text>
               </View>
             </View>
@@ -809,7 +814,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <Ionicons name="cloud-download-outline" size={20} color={colors.primary} />
             <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-              {isRTL ? 'تحديث التطبيق' : 'Check for Updates'}
+              {t.checkForUpdates || (isRTL ? 'تحديث التطبيق' : 'Check for Updates')}
             </Text>
           </View>
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
