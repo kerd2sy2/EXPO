@@ -85,24 +85,9 @@ export const getPlateLetterSlots = (input: string): {
   const clean = (input || '').trim();
   if (!clean) return { leftAr: '', rightAr: '', leftEn: '', rightEn: '' };
 
-  const normClean = clean.replace(/\s+/g, '');
-  if (/^(BE|EB|ع ب|ب ع|عب|بع)$/i.test(clean) || normClean === 'BE' || normClean === 'EB' || normClean === 'ع ب' || normClean === 'ب ع') {
-    return { leftAr: 'ب', rightAr: 'ع', leftEn: 'B', rightEn: 'E' };
-  }
-  if (/^(AJ|JA|ا ح|ح ا|اح|حا|أ ح|ح أ)$/i.test(clean) || normClean === 'AJ' || normClean === 'JA' || normClean === 'ا ح' || normClean === 'ح ا') {
-    return { leftAr: 'ا', rightAr: 'ح', leftEn: 'A', rightEn: 'J' };
-  }
-  if (/^(AD|DA|ا د|د ا|اد|دا|أ د|د أ)$/i.test(clean) || normClean === 'AD' || normClean === 'DA' || normClean === 'ا د' || normClean === 'د ا') {
-    return { leftAr: 'ا', rightAr: 'د', leftEn: 'A', rightEn: 'D' };
-  }
-  if (/^(BT|TB|ط ب|ب ط|طب|بط)$/i.test(clean) || normClean === 'BT' || normClean === 'TB' || normClean === 'ط ب' || normClean === 'ب ط') {
-    return { leftAr: 'ب', rightAr: 'ط', leftEn: 'B', rightEn: 'T' };
-  }
-  if (/^(RA|AR|ر ع|ع ر|رع|عر)$/i.test(clean) || normClean === 'RA' || normClean === 'AR' || normClean === 'ر ع' || normClean === 'ع ر') {
-    return { leftAr: 'ر', rightAr: 'ع', leftEn: 'R', rightEn: 'A' };
-  }
-
   const rawChars = clean.replace(/[\s\-_]/g, '').split('');
+  if (rawChars.length === 0) return { leftAr: '', rightAr: '', leftEn: '', rightEn: '' };
+
   const isInputArabic = rawChars.some((c) => AR_TO_EN_LETTERS[c]);
 
   if (isInputArabic) {

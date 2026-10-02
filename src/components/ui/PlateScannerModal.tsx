@@ -255,70 +255,27 @@ export interface FleetPlateEntry {
 
 export const FLEET_PLATES_REGISTRY: Record<string, FleetPlateEntry> = {};
 
-// Complete Motorcycle Fleet Database (Arabic & English Letters & Digits)
-const INITIAL_FLEET_DATA: Record<string, { en: string; ar: string }> = {
-  '5442': { en: 'AJ', ar: 'ا ح' },
-  '5452': { en: 'AJ', ar: 'ا ح' },
-  '5445': { en: 'AJ', ar: 'ا ح' },
-  '5449': { en: 'AJ', ar: 'ا ح' },
-  '6241': { en: 'BT', ar: 'ب ط' },
-  '8872': { en: 'AJ', ar: 'ا ح' },
-  '651':  { en: 'RA', ar: 'ر ع' },
-  '6532': { en: 'AD', ar: 'ا د' },
-  '5443': { en: 'AJ', ar: 'ا ح' },
-  '6238': { en: 'BT', ar: 'ب ط' },
-  '6531': { en: 'AD', ar: 'ا د' },
-  '8022': { en: 'BE', ar: 'ب ع' },
-  '5447': { en: 'AJ', ar: 'ا ح' },
-  '8875': { en: 'AJ', ar: 'ا ح' },
-  '7576': { en: 'BE', ar: 'ب ع' },
-  '8020': { en: 'BE', ar: 'ب ع' },
-  '7578': { en: 'BE', ar: 'ب ع' },
-  '7039': { en: 'AJ', ar: 'ا ح' },
-  '8873': { en: 'AJ', ar: 'ا ح' },
-  '6540': { en: 'AD', ar: 'ا د' },
-  '7036': { en: 'AJ', ar: 'ا ح' },
-  '7571': { en: 'BE', ar: 'ب ع' },
-  '8036': { en: 'BE', ar: 'ب ع' },
-  '8035': { en: 'BE', ar: 'ب ع' },
-  '7037': { en: 'AJ', ar: 'ا ح' },
-  '7577': { en: 'BE', ar: 'ب ع' },
-  '8040': { en: 'BE', ar: 'ب ع' },
-  '6534': { en: 'AD', ar: 'ا د' },
-  '6545': { en: 'AD', ar: 'ا د' },
-  '5098': { en: 'AJ', ar: 'ا ح' },
-  '5450': { en: 'AJ', ar: 'ا ح' },
-  '6546': { en: 'AD', ar: 'ا د' },
-  '8874': { en: 'AJ', ar: 'ا ح' },
-  '8045': { en: 'BE', ar: 'ب ع' },
-  '8042': { en: 'BE', ar: 'ب ع' },
-  '5446': { en: 'AJ', ar: 'ا ح' },
-  '6547': { en: 'AD', ar: 'ا د' },
-  '8046': { en: 'BE', ar: 'ب ع' },
-  '7030': { en: 'BE', ar: 'ب ع' },
-  '8037': { en: 'BE', ar: 'ب ع' },
-  '8044': { en: 'BE', ar: 'ب ع' },
-  '7569': { en: 'BE', ar: 'ب ع' },
-  '5097': { en: 'AJ', ar: 'ا ح' },
-  '8039': { en: 'BE', ar: 'ب ع' },
-  '6536': { en: 'AD', ar: 'ا د' },
-  '6242': { en: 'BT', ar: 'ب ط' },
-  '6535': { en: 'AD', ar: 'ا د' },
-  '7038': { en: 'BE', ar: 'ب ع' },
-  '5099': { en: 'AJ', ar: 'ا ح' },
-  '7035': { en: 'AJ', ar: 'ا ح' },
-  '6240': { en: 'BT', ar: 'ب ط' },
-  '653':  { en: 'RA', ar: 'ر ع' },
-};
+// Load Motorcycle Fleet Database dynamically from license_plates_dataset.json
+let datasetPlates: any[] = [];
+try {
+  datasetPlates = require('../../../assets/license_plates_dataset.json');
+} catch (e) {
+  datasetPlates = [];
+}
 
-for (const key in INITIAL_FLEET_DATA) {
-  const item = INITIAL_FLEET_DATA[key];
-  FLEET_PLATES_REGISTRY[key] = {
-    enDigits: key,
-    arDigits: toArabicDigits(key),
-    enLetters: item.en.replace(/\s+/g, ''),
-    arLetters: item.ar,
-  };
+for (const it of datasetPlates) {
+  const enDigits = String(it.plate_english?.numbers || it.plate_arabic?.numbers || '').trim();
+  const arDigits = String(it.plate_arabic?.numbers || '').trim();
+  const enLetters = String(it.plate_english?.letters || '').replace(/\s+/g, '').toUpperCase();
+  const arLetters = String(it.plate_arabic?.letters || '').trim();
+  if (enDigits && enLetters) {
+    FLEET_PLATES_REGISTRY[enDigits] = {
+      enDigits,
+      arDigits: arDigits || toArabicDigits(enDigits),
+      enLetters,
+      arLetters: arLetters || formatPlateLetters(enLetters).ar,
+    };
+  }
 }
 
 // Calculate OCR similarity score with character confusion penalties
