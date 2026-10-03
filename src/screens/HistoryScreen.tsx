@@ -164,6 +164,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         group.totalOrders += orders;
         if (s.is_reviewed) {
           group.approvedOrders += orders;
+          group.totalFuel += Number(s.fuel_cost) || 0;
         } else {
           group.pendingOrders += orders;
         }
@@ -174,7 +175,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
             ? Number(s.end_km) - Number(s.start_km)
             : 0);
         group.totalDistance += dist;
-        group.totalFuel += Number(s.fuel_cost) || 0;
       } catch {}
     });
 
