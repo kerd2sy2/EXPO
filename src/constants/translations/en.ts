@@ -256,6 +256,7 @@ export const en: Record<TranslationKeys, string> = {
 
   // Oil Change Alert
   oilChangeAlertTitle: 'Oil Change Required',
-  oilChangeAlertMessage: 'Please return to supervisor to change the motorcycle oil first',
+  oilChangeAlertMessage: 'Motorcycle requires an oil change. Please return to supervisor to dispense oil.',
   oilChangeAlertBtn: 'Understood, will contact supervisor',
+  oilChangeScreenTitle: 'Oil Change Page',
 };

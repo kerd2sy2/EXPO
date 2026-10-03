@@ -256,6 +256,7 @@ export const bn: Record<TranslationKeys, string> = {
 
   // Oil Change Alert
   oilChangeAlertTitle: 'তেল পরিবর্তন প্রয়োজন',
-  oilChangeAlertMessage: 'প্রথমে মোটরসাইকেলের তেল পরিবর্তনের জন্য সুপারভাইজারের সাথে যোগাযোগ করুন',
+  oilChangeAlertMessage: 'বাইকে তেল পরিবর্তন প্রয়োজন, তেল পাওয়ার জন্য সুপারভাইজারের সাথে যোগাযোগ করুন',
   oilChangeAlertBtn: 'বুঝেছি, আমি সুপারভাইজারের সাথে যোগাযোগ করব',
+  oilChangeScreenTitle: 'তেল পরিবর্তন পৃষ্ঠা',
 };

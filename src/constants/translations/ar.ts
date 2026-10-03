@@ -254,8 +254,9 @@ export const ar = {
 
   // Oil Change Alert
   oilChangeAlertTitle: 'تغيير زيت الدباب مطلوب',
-  oilChangeAlertMessage: 'ارجع الى المشرف لتغير زيت الدباب اولا',
+  oilChangeAlertMessage: 'الدباب يحتاج الى تغير زيت ارجع لى المشرف لصرف زيت للدباب',
   oilChangeAlertBtn: 'فهمت، سأراجع المشرف',
+  oilChangeScreenTitle: 'صفحة تغيير الزيت',
 };
 
 export type TranslationKeys = keyof typeof ar;

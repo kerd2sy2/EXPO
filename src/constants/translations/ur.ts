@@ -256,6 +256,7 @@ export const ur: Record<TranslationKeys, string> = {
 
   // Oil Change Alert
   oilChangeAlertTitle: 'تیل تبدیل کرنا ضروری ہے',
-  oilChangeAlertMessage: 'پہلے موٹرسائیکل کا آئل تبدیل کروانے کے لیے نگران سے رجوع کریں',
+  oilChangeAlertMessage: 'موٹر سائیکل کو تیل تبدیل کرنے کی ضرورت ہے، آئل کے لیے سپروائزر سے رجوع کریں',
   oilChangeAlertBtn: 'سمجھ گیا، میں نگران سے رجوع کروں گا',
+  oilChangeScreenTitle: 'تیل کی تبدیلی کا صفحہ',
 };

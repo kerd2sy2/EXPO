@@ -292,7 +292,7 @@ export const usePlateScanner = ({
           allowsEditing: false,
           quality: 0.85,
           base64: true,
-          cameraType: ImagePicker.CameraType.back,
+          cameraType: (ImagePicker.CameraType?.back ?? 'back') as ImagePicker.CameraType,
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {

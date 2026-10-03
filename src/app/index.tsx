@@ -62,6 +62,7 @@ import { ShiftScreen } from '../features/shift';
 import { HistoryScreen, getCurrentMonthInfo } from '../screens/HistoryScreen';
 import { ViolationsScreen } from '../screens/ViolationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { OilChangeScreen } from '../screens/OilChangeScreen';
 import { getMyViolationsApi, DelegateViolation } from '../services/api';
 
 // Modals
@@ -967,9 +968,9 @@ export default function DelegateApp() {
 
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
-        quality: 0.08,
+        quality: 0.3,
         base64: true,
-        cameraType: ImagePicker.CameraType.back,
+        cameraType: (ImagePicker.CameraType?.back ?? 'back') as ImagePicker.CameraType,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -1033,29 +1034,89 @@ export default function DelegateApp() {
     setCurrentTab(tab);
   };
 
+  const handleRecheckOil = async () => {
+    if (!employee) return;
+    const bikeToCheck = enteredMotorcycle || employee.motorcycle_number;
+    if (!bikeToCheck) return;
+
+    try {
+      const res = await workApi.getLastKM(employee.id, bikeToCheck);
+      if (res?.needs_oil_change) {
+        setAlertConfig({
+          type: 'warning',
+          title: lang === 'ar' ? 'ما زال تغيير الزيت مطلوباً' : 'Oil Change Still Required',
+          message:
+            lang === 'ar'
+              ? 'الدباب يحتاج الى تغير زيت ارجع لى المشرف لصرف زيت للدباب'
+              : 'Motorcycle requires an oil change. Please return to supervisor to dispense oil.',
+        });
+      } else {
+        setIsPlateConfirmed(true);
+        if (res?.registration_image) {
+          setActiveBikeRegistrationImage(res.registration_image);
+        }
+        if (res && res.last_end_km > 0) {
+          setStartKm(String(res.last_end_km));
+          setAutoKmFetched(true);
+        }
+        setAlertConfig({
+          type: 'success',
+          title: lang === 'ar' ? 'تم التحقق بنجاح' : 'Oil Status Verified',
+          message:
+            lang === 'ar'
+              ? 'تم التحقق من جاهزية الدباب وصرف الزيت بنجاح. يمكنك الآن بدء الدوام.'
+              : 'Oil change has been verified successfully. You can now start your shift.',
+        });
+        setCurrentTab('shift');
+        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+      }
+    } catch (err) {
+      console.error('Error rechecking oil status:', err);
+      setAlertConfig({
+        type: 'error',
+        title: lang === 'ar' ? 'خطأ في الاتصال' : 'Connection Error',
+        message: lang === 'ar' ? 'تعذر التحقق من حالة الزيت، يرجى المحاولة مرة أخرى' : 'Could not check oil status, please try again.',
+      });
+    }
+  };
+
   const handleProcessPlateScan = async (imageUri: string, base64Uri: string, plateData?: any) => {
     setIsScanningPlate(true);
     startPlateImageRef.current = base64Uri;
     setStartPlateImage(imageUri);
-    setIsPlateConfirmed(true);
-    setCurrentTab('shift');
-    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
 
-    const checkBikeOilAndKm = async (bikeNumber: string) => {
+    const checkBikeOilAndProceed = async (bikeNumber: string) => {
       if (!bikeNumber || !employee) return;
       try {
         const res = await workApi.getLastKM(employee.id, bikeNumber);
         if (res?.registration_image) {
           setActiveBikeRegistrationImage(res.registration_image);
         }
+        if (res && res.last_end_km > 0) {
+          setStartKm(String(res.last_end_km));
+        }
+
         if (res?.needs_oil_change) {
+          // Bike needs oil change: DO NOT navigate to shift! Show dedicated oil change page
+          setIsPlateConfirmed(false);
           setOilChangeModalState({
-            visible: true,
+            visible: false,
             bikeNumber,
           });
+          setCurrentTab('oil-change');
+          mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+          return;
         }
+
+        // Oil is good: proceed to shift workflow
+        setIsPlateConfirmed(true);
+        setCurrentTab('shift');
+        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       } catch (err) {
         console.log('Error checking bike oil/km after scan:', err);
+        setIsPlateConfirmed(true);
+        setCurrentTab('shift');
+        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       }
     };
 
@@ -1063,7 +1124,11 @@ export default function DelegateApp() {
       const combined = plateData.full_plate || (plateData.letters ? `${plateData.digits} ${plateData.letters}` : plateData.digits);
       setEnteredMotorcycle(combined || '');
       if (combined) {
-        checkBikeOilAndKm(combined);
+        await checkBikeOilAndProceed(combined);
+      } else {
+        setIsPlateConfirmed(true);
+        setCurrentTab('shift');
+        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       }
       setIsScanningPlate(false);
       return;
@@ -1079,10 +1144,17 @@ export default function DelegateApp() {
       }
       if (detectedBike) {
         setEnteredMotorcycle(detectedBike);
-        checkBikeOilAndKm(detectedBike);
+        await checkBikeOilAndProceed(detectedBike);
+      } else {
+        setIsPlateConfirmed(true);
+        setCurrentTab('shift');
+        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       }
     } catch (scanErr) {
       console.error('Plate scan API error:', scanErr);
+      setIsPlateConfirmed(true);
+      setCurrentTab('shift');
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
     } finally {
       setIsScanningPlate(false);
     }
@@ -1576,6 +1648,8 @@ export default function DelegateApp() {
                       : t.historyTitle)
                   : currentTab === 'violations'
                   ? (t.violationsTitle || 'سجل المخالفات والجزاءات')
+                  : currentTab === 'oil-change'
+                  ? (t.oilChangeScreenTitle || (lang === 'ar' ? 'صفحة تغيير الزيت' : 'Oil Change Page'))
                   : t.profileTitle}
               </Text>
               <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
@@ -1775,6 +1849,23 @@ export default function DelegateApp() {
                   isDarkMode={isDarkMode}
                   isRTL={isRTL}
                   t={t}
+                />
+              </ModuleErrorBoundary>
+            )}
+
+            {currentTab === 'oil-change' && (
+              <ModuleErrorBoundary moduleName="صفحة تغيير الزيت" colors={colors} onReset={handleRecheckOil}>
+                <OilChangeScreen
+                  motorcycleNumber={enteredMotorcycle}
+                  distanceSinceOil={Number(startKm) || 0}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  isRTL={isRTL}
+                  lang={lang}
+                  t={t}
+                  onRecheck={handleRecheckOil}
+                  onScanAnother={() => setShowPlateScannerModal(true)}
+                  onBackToHome={() => setCurrentTab('home')}
                 />
               </ModuleErrorBoundary>
             )}

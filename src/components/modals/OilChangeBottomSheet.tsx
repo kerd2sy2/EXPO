@@ -44,7 +44,7 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
 
   useEffect(() => {
     if (visible) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => { });
       Animated.parallel([
         Animated.timing(backdropAnim, {
           toValue: 1,
@@ -97,7 +97,7 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
 
   const displayTitle = title || (isRTL ? 'تغيير زيت الدباب مطلوب' : 'Oil Change Required');
   const displayMessage =
-    message || (isRTL ? 'ارجع الى المشرف لتغير زيت الدباب اولا' : 'Please return to supervisor to change the motorcycle oil first');
+    message || (isRTL ? 'الدباب يحتاج الى تغير زيت ارجع لى المشرف لصرف زيت للدباب' : 'Motorcycle requires an oil change. Please return to supervisor to dispense oil.');
   const displayBtnText = buttonText || (isRTL ? 'فهمت، سأراجع المشرف' : 'Understood, will contact supervisor');
 
   return (
