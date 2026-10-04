@@ -218,23 +218,9 @@ export const usePlateScanner = ({
 
 
   // Trigger result card appearance animation & compress image for database proof
-  const showResultPopup = async (data: PlateResultData, photoUri: string, b64: string) => {
-    try {
-      const manipulated = await ImageManipulator.manipulateAsync(
-        photoUri,
-        [{ resize: { width: 640 } }],
-        { compress: 0.25, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-      );
-      const compressedB64 = manipulated.base64
-        ? `data:image/jpeg;base64,${manipulated.base64}`
-        : b64;
-      setCapturedPhotoUri(manipulated.uri || photoUri);
-      setCapturedBase64(compressedB64);
-    } catch (compErr) {
-      setCapturedPhotoUri(photoUri);
-      setCapturedBase64(b64);
-    }
-
+  const showResultPopup = (data: PlateResultData, photoUri: string, b64: string) => {
+    setCapturedPhotoUri(photoUri);
+    setCapturedBase64(b64);
     setDetectedResult(data);
     isFinishedRef.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -245,6 +231,19 @@ export const usePlateScanner = ({
       friction: 8,
       useNativeDriver: true,
     }).start();
+
+    // Compress in background for storage proof without blocking the UI
+    ImageManipulator.manipulateAsync(
+      photoUri,
+      [{ resize: { width: 640 } }],
+      { compress: 0.25, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+    ).then((manipulated) => {
+      const compressedB64 = manipulated.base64
+        ? `data:image/jpeg;base64,${manipulated.base64}`
+        : b64;
+      setCapturedPhotoUri(manipulated.uri || photoUri);
+      setCapturedBase64(compressedB64);
+    }).catch(() => {});
   };
 
   // Lifecycle management
@@ -316,10 +315,15 @@ export const usePlateScanner = ({
   };
 
   // Confirm and Apply Detected Result
-  const handleConfirmResult = async () => {
+  const handleConfirmResult = () => {
     if (detectedResult && capturedPhotoUri && capturedBase64) {
-      await onScanned(capturedPhotoUri, capturedBase64, detectedResult);
+      const uri = capturedPhotoUri;
+      const b64 = capturedBase64;
+      const res = detectedResult;
       onClose();
+      onScanned(uri, b64, res).catch((err) => {
+        console.error('onScanned error:', err);
+      });
     }
   };
 

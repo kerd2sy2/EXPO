@@ -1081,12 +1081,27 @@ export default function DelegateApp() {
   };
 
   const handleProcessPlateScan = async (imageUri: string, base64Uri: string, plateData?: any) => {
-    setIsScanningPlate(true);
+    // 1. Instantly dismiss modal and navigate to Shift screen without delay
+    setShowPlateScannerModal(false);
+    setIsPlateConfirmed(true);
+    setCurrentTab('shift');
+    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+
     startPlateImageRef.current = base64Uri;
     setStartPlateImage(imageUri);
 
-    const checkBikeOilAndProceed = async (bikeNumber: string) => {
-      if (!bikeNumber || !employee) return;
+    const combined =
+      plateData &&
+      (plateData.full_plate ||
+        (plateData.letters ? `${plateData.digits} ${plateData.letters}` : plateData.digits));
+
+    if (combined) {
+      setEnteredMotorcycle(combined);
+    }
+
+    // 2. Perform oil & last KM lookup in background to prefill odometer & verify oil status
+    const bikeNumber = combined || enteredMotorcycle;
+    if (bikeNumber && employee) {
       try {
         const res = await workApi.getLastKM(employee.id, bikeNumber);
         if (res?.registration_image) {
@@ -1094,10 +1109,11 @@ export default function DelegateApp() {
         }
         if (res && res.last_end_km > 0) {
           setStartKm(String(res.last_end_km));
+          setAutoKmFetched(true);
         }
 
         if (res?.needs_oil_change) {
-          // Bike needs oil change: DO NOT navigate to shift! Show dedicated oil change page
+          // Bike needs oil change: navigate to dedicated oil change page
           setIsPlateConfirmed(false);
           setOilChangeModalState({
             visible: false,
@@ -1105,58 +1121,10 @@ export default function DelegateApp() {
           });
           setCurrentTab('oil-change');
           mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-          return;
         }
-
-        // Oil is good: proceed to shift workflow
-        setIsPlateConfirmed(true);
-        setCurrentTab('shift');
-        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       } catch (err) {
         console.log('Error checking bike oil/km after scan:', err);
-        setIsPlateConfirmed(true);
-        setCurrentTab('shift');
-        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       }
-    };
-
-    if (plateData && (plateData.full_plate || plateData.digits)) {
-      const combined = plateData.full_plate || (plateData.letters ? `${plateData.digits} ${plateData.letters}` : plateData.digits);
-      setEnteredMotorcycle(combined || '');
-      if (combined) {
-        await checkBikeOilAndProceed(combined);
-      } else {
-        setIsPlateConfirmed(true);
-        setCurrentTab('shift');
-        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-      }
-      setIsScanningPlate(false);
-      return;
-    }
-
-    try {
-      const scanRes = await workApi.scanPlate(base64Uri);
-      let detectedBike = '';
-      if (scanRes && scanRes.full_plate) {
-        detectedBike = scanRes.full_plate;
-      } else if (scanRes && scanRes.digits) {
-        detectedBike = scanRes.letters ? `${scanRes.digits} ${scanRes.letters}` : scanRes.digits;
-      }
-      if (detectedBike) {
-        setEnteredMotorcycle(detectedBike);
-        await checkBikeOilAndProceed(detectedBike);
-      } else {
-        setIsPlateConfirmed(true);
-        setCurrentTab('shift');
-        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-      }
-    } catch (scanErr) {
-      console.error('Plate scan API error:', scanErr);
-      setIsPlateConfirmed(true);
-      setCurrentTab('shift');
-      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-    } finally {
-      setIsScanningPlate(false);
     }
   };
 
