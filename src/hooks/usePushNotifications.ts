@@ -208,7 +208,50 @@ export function usePushNotifications({
         console.log('[usePushNotifications] Safe catch on getLastNotificationResponseAsync:', e);
       });
 
-    const subscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
-    return () => subscription.remove();
+    const responseSub = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+
+    const foregroundSub = Notifications.addNotificationReceivedListener((notification) => {
+      try {
+        const data = (notification?.request?.content?.data || {}) as any;
+        const title = notification?.request?.content?.title || '';
+        const body = notification?.request?.content?.body || '';
+
+        const isShiftApproval =
+          data?.type === 'SESSION_APPROVED' ||
+          data?.type === 'SHIFT_APPROVED' ||
+          data?.type === 'WORK_REVIEWED' ||
+          data?.sessionId ||
+          data?.session_id ||
+          title.includes('المصادقة') ||
+          title.includes('Approved') ||
+          title.includes('অনুমোদিত') ||
+          title.includes('تصدیق') ||
+          body.includes('المشرف') ||
+          body.includes('Supervisor') ||
+          body.includes('سুপারভাইজার') ||
+          body.includes('نگران');
+
+        if (isShiftApproval && employee?.id) {
+          workApi.getMySessions(employee.id).then((fresh) => {
+            if (Array.isArray(fresh) && fresh.length > 0) {
+              setHistorySessions(fresh as WorkSession[]);
+              AsyncStorage.setItem('@aams_cached_history_sessions', JSON.stringify(fresh)).catch(() => {});
+              setLoadingHistory(false);
+            }
+          }).catch(() => {});
+        }
+
+        if (fetchViolations && employee?.id) {
+          fetchViolations(employee.id).catch(() => {});
+        }
+      } catch (e) {
+        console.log('[usePushNotifications] foreground notification handling notice:', e);
+      }
+    });
+
+    return () => {
+      responseSub.remove();
+      foregroundSub.remove();
+    };
   }, [employee?.id, fetchViolations]);
 }
