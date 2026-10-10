@@ -16,7 +16,13 @@ import {
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemeColors, Language } from '../../types/delegate';
-import { requestOtpApi, verifyOtpApi, setDeviceTrustedForNationalId } from '../../services/api';
+import {
+  requestOtpApi,
+  verifyOtpApi,
+  setDeviceTrustedForNationalId,
+  getDeviceDisplayName,
+  getDeviceOsDisplay,
+} from '../../services/api';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -148,7 +154,8 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
     setLoading(true);
     setErrorMessage('');
     try {
-      const res = await requestOtpApi(cleanId, 'تطبيق الجوال - توثيق المندوب');
+      const devName = `${getDeviceDisplayName()} (${getDeviceOsDisplay()})`.trim();
+      const res = await requestOtpApi(cleanId, devName || 'هاتف المندوب');
       setEmployeeName(res?.employee_name || '');
       setStep('VERIFY');
       setResendCountdown(45);

@@ -593,8 +593,26 @@ export interface TrustedDeviceItem {
 
 export const getTrustedDevicesList = async (nationalId: string): Promise<TrustedDeviceItem[]> => {
   try {
+    const currentUuid = await getOrCreateDeviceUUID();
+
+    // 1. Fetch from server (synced across all devices)
+    try {
+      const res = await apiRequest<{ data: any[] }>('/devices/my-devices', { timeoutMs: 5000 });
+      if (res && Array.isArray(res.data) && res.data.length > 0) {
+        return res.data.map((d) => ({
+          uuid: d.uuid,
+          name: d.name || 'هاتف المندوب',
+          os: d.os || '',
+          trustedAt: d.trusted_at,
+          isCurrent: d.uuid === currentUuid,
+        }));
+      }
+    } catch {
+      // Fallback to local storage if offline or not logged in yet
+    }
+
+    // 2. Local fallback
     const isTrusted = await isDeviceTrustedForNationalId(nationalId);
-    const uuid = await getOrCreateDeviceUUID();
     let rawList = await AsyncStorage.getItem(`aams_device_list_${nationalId}`);
     let list: TrustedDeviceItem[] = rawList ? JSON.parse(rawList) : [];
 
@@ -602,10 +620,10 @@ export const getTrustedDevicesList = async (nationalId: string): Promise<Trusted
     const realOs = getDeviceOsDisplay();
 
     if (isTrusted) {
-      const existingIdx = list.findIndex((d) => d.uuid === uuid);
+      const existingIdx = list.findIndex((d) => d.uuid === currentUuid);
       if (existingIdx === -1) {
         const currentItem: TrustedDeviceItem = {
-          uuid,
+          uuid: currentUuid,
           name: realName,
           os: realOs,
           trustedAt: new Date().toISOString(),
@@ -622,7 +640,7 @@ export const getTrustedDevicesList = async (nationalId: string): Promise<Trusted
 
     return list.map((d) => ({
       ...d,
-      isCurrent: d.uuid === uuid,
+      isCurrent: d.uuid === currentUuid,
     }));
   } catch {
     return [];
@@ -635,6 +653,14 @@ export const revokeTrustedDevice = async (nationalId: string, uuid: string): Pro
     if (uuid === currentUuid) {
       await AsyncStorage.removeItem(`${TRUSTED_DEVICE_PREFIX}${nationalId}`);
     }
+
+    // Revoke on server
+    try {
+      await apiRequest(`/devices/${uuid}`, { method: 'DELETE' });
+    } catch (apiErr) {
+      console.log('Notice revoking device on server:', apiErr);
+    }
+
     let rawList = await AsyncStorage.getItem(`aams_device_list_${nationalId}`);
     if (rawList) {
       let list: TrustedDeviceItem[] = JSON.parse(rawList);
