@@ -163,6 +163,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     const cleanId = numericId || rawNormalizedId;
     const cleanPass = rawNormalizedPass;
 
+    // Demo reviewer account: bypass OTP completely
+    if (cleanId === '1234596') {
+      onLogin(cleanId, cleanPass);
+      return;
+    }
+
     const isTrusted = await isDeviceTrustedForNationalId(cleanId);
     if (!isTrusted) {
       // Device is untrusted / first-time login -> Require 4-digit Supervisor OTP
