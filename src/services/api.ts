@@ -599,15 +599,40 @@ export const getTrustedDevicesList = async (nationalId: string): Promise<Trusted
     try {
       const res = await apiRequest<{ data: any[] }>('/devices/my-devices', { timeoutMs: 5000 });
       if (res && Array.isArray(res.data) && res.data.length > 0) {
-        return res.data.map((d) => ({
-          uuid: d.uuid,
-          name: d.name || 'هاتف المندوب',
-          os: d.os || '',
-          trustedAt: d.trusted_at,
-          isCurrent: d.uuid === currentUuid,
-        }));
+        const serverList = res.data.map((d, index) => {
+          let displayName = d.name;
+          if (!displayName || displayName === 'تطبيق الجوال - توثيق المندوب') {
+            displayName = d.uuid === currentUuid ? getDeviceDisplayName() : `جهاز موثق (${index + 1})`;
+          } else if (d.uuid === currentUuid) {
+            displayName = getDeviceDisplayName();
+          }
+          return {
+            uuid: d.uuid,
+            name: displayName,
+            os: d.os || '',
+            trustedAt: d.trusted_at,
+            isCurrent: d.uuid === currentUuid,
+          };
+        });
+
+        // Ensure current device is included if trusted locally
+        const hasCurrent = serverList.some((d) => d.uuid === currentUuid);
+        if (!hasCurrent) {
+          const isTrusted = await isDeviceTrustedForNationalId(nationalId);
+          if (isTrusted) {
+            serverList.unshift({
+              uuid: currentUuid,
+              name: getDeviceDisplayName(),
+              os: getDeviceOsDisplay(),
+              trustedAt: new Date().toISOString(),
+              isCurrent: true,
+            });
+          }
+        }
+        return serverList;
       }
-    } catch {
+    } catch (err) {
+      console.log('Notice fetching server devices:', err);
       // Fallback to local storage if offline or not logged in yet
     }
 
