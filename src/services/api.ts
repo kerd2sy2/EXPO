@@ -522,14 +522,16 @@ export const verifyOtpApi = async (nationalId: string, otpCode: string): Promise
       device_uuid: deviceUuid,
     }),
   });
-  if (res?.access_token) {
-    await setAuthToken(res.access_token, res.refresh_token);
+  const token = res?.access_token || res?.token;
+  if (token) {
+    await setAuthToken(token, res?.refresh_token || token);
     await setDeviceTrustedForNationalId(nationalId);
-    if (res.employee) {
-      await saveCachedUser(res.employee);
+    const emp = res?.employee || (res?.id ? res : null);
+    if (emp) {
+      await saveCachedUser(emp);
       const bioOn = await isBiometricEnabled();
       if (bioOn) {
-        await saveLastCredentialsForBiometrics(nationalId, res.access_token, res.employee, res.refresh_token);
+        await saveLastCredentialsForBiometrics(nationalId, token, emp, res?.refresh_token || token);
       }
     }
   }

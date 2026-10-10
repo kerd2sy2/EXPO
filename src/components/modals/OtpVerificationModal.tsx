@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemeColors, Language } from '../../types/delegate';
-import { requestOtpApi, verifyOtpApi } from '../../services/api';
+import { requestOtpApi, verifyOtpApi, setDeviceTrustedForNationalId } from '../../services/api';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -234,6 +234,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
     setErrorMessage('');
     try {
       const loginResp = await verifyOtpApi(natId, fullCode);
+      await setDeviceTrustedForNationalId(natId);
       setSuccessMessage(isRTL ? 'تم توثيق الجهاز بنجاح! جاري الدخول...' : 'Device trusted! Logging in...');
       onClose();
       await onSuccessLogin(loginResp);

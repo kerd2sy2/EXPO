@@ -871,8 +871,9 @@ export default function DelegateApp() {
 
   // Immediate Login via OTP Success or Biometrics
   const handleOtpSuccess = async (loginResp?: any) => {
-    if (loginResp?.access_token) {
-      await setAuthToken(loginResp.access_token, loginResp.refresh_token);
+    const token = loginResp?.access_token || loginResp?.token;
+    if (token) {
+      await setAuthToken(token, loginResp?.refresh_token || token);
     }
 
     const isActualAdmin =
@@ -886,7 +887,18 @@ export default function DelegateApp() {
       return;
     }
 
-    const emp = loginResp?.employee || (loginResp?.id ? loginResp : null);
+    let emp = loginResp?.employee || (loginResp?.id ? loginResp : null);
+    if (!emp) {
+      try {
+        const fresh = await workApi.getMe();
+        if (fresh && fresh.id) {
+          emp = fresh;
+        }
+      } catch (e) {
+        console.log('Notice getting fresh me:', e);
+      }
+    }
+
     if (emp && emp.id) {
       setEmployee(emp);
       await saveCachedUser(emp);
