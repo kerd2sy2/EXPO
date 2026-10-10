@@ -295,11 +295,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         textAlign: isRTL ? 'right' : 'left',
                       },
                     ]}
-                    placeholder={t.passwordPlaceholder}
+                    placeholder={isRTL ? 'كلمة المرور (آخر 4 أرقام من الإقامة)' : (t.passwordPlaceholder || 'Password')}
                     placeholderTextColor="#94a3b8"
                     value={passwordInput}
-                    onChangeText={(val) => setPasswordInput(val.replace(/[^0-9]/g, ''))}
-                    keyboardType="number-pad"
+                    onChangeText={setPasswordInput}
                     autoCapitalize="none"
                     secureTextEntry={!showPassword}
                   />
