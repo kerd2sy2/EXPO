@@ -87,7 +87,17 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keep class com.microsoft.clarity.** { *; }\n-dontwarn com.microsoft.clarity.**\n-keep class com.mixpanel.android.** { *; }\n-keepattributes *Annotation*\n-keep interface com.mixpanel.android.** { *; }\n-dontwarn com.mixpanel.android.**\n-keep class com.google.mlkit.** { *; }\n-dontwarn com.google.mlkit.**\n-keep class com.facebook.react.** { *; }\n-dontwarn com.facebook.react.**"
+          }
+        }
+      ]
     ],
     "runtimeVersion": {
       "policy": "appVersion"

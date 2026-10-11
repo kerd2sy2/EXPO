@@ -24,12 +24,17 @@
     "production": {
       "autoIncrement": true,
       "channel": "production",
+      "uploadSourceMaps": true,
       "android": {
         "buildType": "app-bundle"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "track": "beta"
+      }
+    }
   }
 }

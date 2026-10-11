@@ -18,10 +18,8 @@ import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors, Language } from '../types/delegate';
 import { LanguageModal } from '../components/modals/LanguageModal';
-import { OtpVerificationModal } from '../components/modals/OtpVerificationModal';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import {
-  isDeviceTrustedForNationalId,
   isBiometricEnabled,
   getSavedCredentialsForBiometrics,
   setAuthToken,
@@ -58,7 +56,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
-  const [showOtpModal, setShowOtpModal] = useState(false);
   const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
 
   // Biometric / Fingerprint State
@@ -162,19 +159,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     const numericId = rawNormalizedId.replace(/[^0-9]/g, '');
     const cleanId = numericId || rawNormalizedId;
     const cleanPass = rawNormalizedPass;
-
-    // Demo reviewer account: bypass OTP completely
-    if (cleanId === '1234596') {
-      onLogin(cleanId, cleanPass);
-      return;
-    }
-
-    const isTrusted = await isDeviceTrustedForNationalId(cleanId);
-    if (!isTrusted) {
-      // Device is untrusted / first-time login -> Require 4-digit Supervisor OTP
-      setShowOtpModal(true);
-      return;
-    }
 
     // Proceed directly with password login without OTP
     onLogin(cleanId, cleanPass);
@@ -364,20 +348,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         onClose={() => setShowLangModal(false)}
       />
 
-      <OtpVerificationModal
-        visible={showOtpModal}
-        onClose={() => setShowOtpModal(false)}
-        onSuccessLogin={async (loginResp) => {
-          setShowOtpModal(false);
-          await onOtpSuccess(loginResp);
-        }}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        t={t}
-        initialNationalId={loginInput}
-      />
-
       <ActionAlertBottomSheet
         config={alertConfig}
         colors={colors}
@@ -520,18 +490,5 @@ const styles = StyleSheet.create({
   biometricBtnText: {
     fontSize: 14,
     fontWeight: '700',
-  },
-  otpLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 18,
-    paddingVertical: 8,
-  },
-  otpLinkText: {
-    fontSize: 13,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
   },
 });

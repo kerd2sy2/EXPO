@@ -92,12 +92,14 @@ import { useViolations } from '../hooks/useViolations';
 import { initGlobalErrorLogger } from '../services/errorLogger';
 import { analytics } from '../services/analytics';
 import { notificationService } from '../services/notificationService';
+import { useObserve } from 'expo-observe';
 
 // Initialize global crash/error interception immediately on app boot
 initGlobalErrorLogger();
 analytics.init();
 
 export default function DelegateApp() {
+  const { markInteractive } = useObserve();
   const insets = useSafeAreaInsets();
   const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0);
 
@@ -124,6 +126,12 @@ export default function DelegateApp() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
+
+  useEffect(() => {
+    if (!loading) {
+      markInteractive();
+    }
+  }, [loading, markInteractive]);
 
   // Work Session State
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
