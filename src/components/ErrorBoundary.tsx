@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { logDebugError } from '../services/errorLogger';
-import { DiagnosticsModal } from './modals/DiagnosticsModal';
 
 interface Props {
   children: ReactNode;
@@ -138,33 +137,6 @@ export class ErrorBoundary extends Component<Props, State> {
               </View>
             </View>
           </ScrollView>
-
-          <DiagnosticsModal
-            visible={this.state.showDiagnostics}
-            colors={{
-              bg: '#0f172a',
-              card: '#1e293b',
-              cardHeader: '#334155',
-              textPrimary: '#ffffff',
-              textSecondary: '#94a3b8',
-              border: '#334155',
-              primary: '#f97316',
-              primaryLight: 'rgba(249, 115, 22, 0.16)',
-              primaryText: '#fb923c',
-              accent: '#38bdf8',
-              accentLight: 'rgba(56, 189, 248, 0.16)',
-              inputBg: '#0f172a',
-              inputBorder: '#334155',
-              warningBg: 'rgba(234, 179, 8, 0.15)',
-              warningBorder: 'rgba(234, 179, 8, 0.3)',
-              warningText: '#fef08a',
-              errorBg: 'rgba(239, 68, 68, 0.15)',
-              errorText: '#fca5a5',
-            }}
-            isDarkMode={true}
-            isRTL={true}
-            onClose={() => this.setState({ showDiagnostics: false })}
-          />
         </View>
       );
     }
