@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "AAMS | ahda",
+    "name": "AHDA",
     "slug": "aams",
     "owner": "aams2",
     "version": "1.0.0",
@@ -18,7 +18,8 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
@@ -56,13 +57,25 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-updates",
+        {
+          "username": "aams2"
+        }
+      ]
     ],
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "experiments": {
       "typedRoutes": true
+    },
+    "updates": {
+      "url": "https://u.expo.dev/1ec8ea7a-75d2-43be-b7cf-5505a283c042",
+      "enabled": true,
+      "fallbackToCacheTimeout": 2000,
+      "checkAutomatically": "ON_LOAD"
     },
     "extra": {
       "router": {},

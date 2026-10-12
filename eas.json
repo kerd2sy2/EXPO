@@ -9,14 +9,14 @@
     },
     "preview": {
       "distribution": "internal",
-      "channel": "production",
+      "channel": "ahda",
       "android": {
         "buildType": "apk"
       }
     },
     "production-apk": {
       "distribution": "internal",
-      "channel": "production",
+      "channel": "ahda",
       "android": {
         "buildType": "apk"
       }

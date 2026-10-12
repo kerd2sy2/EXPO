@@ -7,9 +7,17 @@ import {
   AppState,
   AppStateStatus,
   StatusBar,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import * as Updates from 'expo-updates';
-import LottieView from 'lottie-react-native';
+
+let LottieView: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    LottieView = require('lottie-react-native').default || require('lottie-react-native');
+  } catch {}
+}
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -82,14 +90,18 @@ export const AutoUpdateOverlay: React.FC = () => {
     <View style={[StyleSheet.absoluteFill, styles.overlayContainer, { zIndex: 9999999, elevation: 9999999 }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <Animated.View style={[styles.animationWrap, { opacity: fadeAnim }]}>
-        <LottieView
-          ref={lottieRef}
-          source={require('../../../assets/Lottie/json/update.json')}
-          autoPlay={true}
-          loop={true}
-          style={styles.lottieAnimation}
-          resizeMode="contain"
-        />
+        {LottieView ? (
+          <LottieView
+            ref={lottieRef}
+            source={require('../../../assets/Lottie/json/update.json')}
+            autoPlay={true}
+            loop={true}
+            style={styles.lottieAnimation}
+            resizeMode="contain"
+          />
+        ) : (
+          <ActivityIndicator size="large" color="#ea580c" />
+        )}
       </Animated.View>
     </View>
   );

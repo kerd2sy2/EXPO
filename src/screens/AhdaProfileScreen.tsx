@@ -64,7 +64,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
           ]
         );
       } else {
-        Alert.alert('التطبيق محدث', 'أنت تستخدم أحدث إصدار من تطبيق AAMS | ahda.');
+        Alert.alert('التطبيق محدث', 'أنت تستخدم أحدث إصدار من تطبيق AHDA.');
       }
     } catch (err: any) {
       console.warn('Update check error:', err);

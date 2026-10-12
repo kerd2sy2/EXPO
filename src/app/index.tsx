@@ -28,6 +28,7 @@ import {
 // Screens
 import { AhdaLoginScreen } from '../screens/AhdaLoginScreen';
 import { AhdaHomeScreen } from '../screens/AhdaHomeScreen';
+import { AutoUpdateOverlay } from '../components/modals/AutoUpdateOverlay';
 
 // Dark / Light Theme Tokens - Matching AAMS delegate design system
 const lightColors: ThemeColors = {
@@ -177,6 +178,7 @@ export default function AhdaApp() {
           onToggleTheme={toggleTheme}
         />
       )}
+      <AutoUpdateOverlay />
     </SafeAreaProvider>
   );
 }
