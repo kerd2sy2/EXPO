@@ -158,9 +158,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [exportingExcel, setExportingExcel] = useState<boolean>(false);
 
-  // Date Navigator Modal (Bottom sheet)
+  // Date Navigator Modal (Calendar Month Bottom sheet)
   const [showDatePickerModal, setShowDatePickerModal] = useState<boolean>(false);
-  const [customDateInput, setCustomDateInput] = useState<string>(getTodayStr());
+  const [pickerYear, setPickerYear] = useState<number>(new Date().getFullYear());
+  const [pickerMonth, setPickerMonth] = useState<number>(new Date().getMonth() + 1);
 
   // Fetch all days and logs for current date
   const loadCustodyData = useCallback(async () => {
@@ -439,6 +440,20 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      {/* ── Status Bar Solid Cover (Hides header completely when it slides up under status bar) ── */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: topInset,
+          backgroundColor: colors.bg,
+          zIndex: 40,
+        }}
+        pointerEvents="none"
+      />
+
       {/* ── 1. Collapsible Header (hides on scroll down, shows on scroll up) ── */}
       <Animated.View
         style={{
@@ -458,7 +473,9 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           isDarkMode={isDarkMode}
           onPressProfile={() => setShowProfile(true)}
           onPressDatePicker={() => {
-            setCustomDateInput(selectedDate);
+            const parts = selectedDate.split('-');
+            setPickerYear(parseInt(parts[0], 10) || new Date().getFullYear());
+            setPickerMonth(parseInt(parts[1], 10) || (new Date().getMonth() + 1));
             setShowDatePickerModal(true);
           }}
           onPressExportExcel={handleExportExcel}
@@ -467,48 +484,12 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       </Animated.View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: topInset + HOME_HEADER_HEIGHT + 10 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: topInset + HOME_HEADER_HEIGHT + 14 }]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />}
       >
-        {/* Date Navigator Header Row */}
-        <View style={styles.dateHeaderRow}>
-          <TouchableOpacity
-            style={[styles.dateNavArrowBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderColor: colors.border }]}
-            onPress={() => changeDateByDays(-1)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-forward" size={18} color={colors.textPrimary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.datePillBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderColor: colors.border }]}
-            onPress={() => {
-              setCustomDateInput(selectedDate);
-              setShowDatePickerModal(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="calendar-outline" size={16} color="#ea580c" />
-            <Text style={[styles.datePillText, { color: colors.textPrimary }]}>{selectedDate}</Text>
-            {selectedDate === getTodayStr() && (
-              <View style={styles.todayTag}>
-                <Text style={styles.todayTagText}>اليوم</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.dateNavArrowBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderColor: colors.border }]}
-            onPress={() => changeDateByDays(1)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
         {loading ? (
           <View style={styles.centerLoading}>
             <ActivityIndicator size="large" color="#ea580c" />
@@ -1141,85 +1122,152 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         </View>
       </Modal>
 
-      {/* ── 10. BOTTOM SHEET MODAL: Date Picker (Opens from Bottom) ── */}
+      {/* ── 10. BOTTOM SHEET MODAL: Date Picker (Full Month Calendar 30/31 Days) ── */}
       <Modal visible={showDatePickerModal} transparent animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardModalWrapper}
-        >
-          <View style={styles.bottomSheetBackdrop}>
-            <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.sheetIndicator} />
-              <View style={styles.sheetHeader}>
-                <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>اختر التاريخ المراد عرضه</Text>
-                <TouchableOpacity onPress={() => setShowDatePickerModal(false)}>
-                  <Ionicons name="close-circle-outline" size={24} color={colors.textSecondary} />
-                </TouchableOpacity>
+        <View style={styles.bottomSheetBackdrop}>
+          <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border, maxHeight: '85%' }]}>
+            <View style={styles.sheetIndicator} />
+            
+            {/* Header: Title + Close */}
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>اختر تاريخ العهدة</Text>
+              <TouchableOpacity onPress={() => setShowDatePickerModal(false)}>
+                <Ionicons name="close-circle-outline" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Month & Year Controller Bar */}
+            <View style={[styles.calendarMonthRow, { borderColor: colors.border, backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc' }]}>
+              <TouchableOpacity
+                style={styles.monthNavBtn}
+                onPress={() => {
+                  if (pickerMonth === 1) {
+                    setPickerMonth(12);
+                    setPickerYear(pickerYear - 1);
+                  } else {
+                    setPickerMonth(pickerMonth - 1);
+                  }
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+
+              <View style={{ alignItems: 'center' }}>
+                <Text style={[styles.calendarMonthTitle, { color: colors.textPrimary }]}>
+                  {new Date(pickerYear, pickerMonth - 1, 1).toLocaleDateString('ar-SA', { month: 'long', year: 'numeric' })}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, fontWeight: '600' }}>
+                  {pickerYear} / {String(pickerMonth).padStart(2, '0')}
+                </Text>
               </View>
 
-              <Text style={[styles.sheetDesc, { color: colors.textSecondary }]}>
-                اكتب التاريخ بصيغة: YYYY-MM-DD
-              </Text>
+              <TouchableOpacity
+                style={styles.monthNavBtn}
+                onPress={() => {
+                  if (pickerMonth === 12) {
+                    setPickerMonth(1);
+                    setPickerYear(pickerYear + 1);
+                  } else {
+                    setPickerMonth(pickerMonth + 1);
+                  }
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
 
-              <TextInput
-                style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary, textAlign: 'center', fontSize: 16 }]}
-                value={customDateInput}
-                onChangeText={setCustomDateInput}
-                placeholder="2026-10-12"
-                placeholderTextColor="#94a3b8"
-                autoFocus
-              />
+            {/* Days of Week Header */}
+            <View style={styles.calendarWeekRow}>
+              {['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'].map((w, idx) => (
+                <Text key={idx} style={[styles.calendarWeekDay, { color: colors.textSecondary }]}>
+                  {w}
+                </Text>
+              ))}
+            </View>
 
-              {/* Quick Preset Buttons */}
-              <View style={styles.presetDatesRow}>
-                <TouchableOpacity
-                  style={[styles.presetDateBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
-                  onPress={() => setCustomDateInput(getTodayStr())}
-                >
-                  <Text style={[styles.presetDateText, { color: colors.textPrimary }]}>اليوم</Text>
-                </TouchableOpacity>
+            {/* 30 / 31 Days Grid */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
+              <View style={styles.calendarDaysGrid}>
+                {(() => {
+                  const firstDayIndex = new Date(pickerYear, pickerMonth - 1, 1).getDay();
+                  const totalDaysInMonth = new Date(pickerYear, pickerMonth, 0).getDate();
+                  const blanks = Array.from({ length: firstDayIndex });
+                  const dayNumbers = Array.from({ length: totalDaysInMonth }, (_, i) => i + 1);
+                  const todayStr = getTodayStr();
 
-                <TouchableOpacity
-                  style={[styles.presetDateBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
-                  onPress={() => {
-                    const d = new Date();
-                    d.setDate(d.getDate() - 1);
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    setCustomDateInput(`${y}-${m}-${day}`);
-                  }}
-                >
-                  <Text style={[styles.presetDateText, { color: colors.textPrimary }]}>أمس</Text>
-                </TouchableOpacity>
+                  return (
+                    <>
+                      {blanks.map((_, i) => (
+                        <View key={`b-${i}`} style={styles.calendarDayCellEmpty} />
+                      ))}
+                      {dayNumbers.map((d) => {
+                        const dateFormatted = `${pickerYear}-${String(pickerMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                        const isSelected = dateFormatted === selectedDate;
+                        const isToday = dateFormatted === todayStr;
+                        const hasCustodyData = days.some((dayItem) => dayItem.date === dateFormatted);
+
+                        return (
+                          <TouchableOpacity
+                            key={`d-${d}`}
+                            style={[
+                              styles.calendarDayCell,
+                              { borderColor: colors.border },
+                              isSelected && { backgroundColor: '#ea580c', borderColor: '#ea580c' },
+                              !isSelected && isToday && { borderColor: '#ea580c', borderWidth: 1.5 },
+                              !isSelected && { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' },
+                            ]}
+                            onPress={() => {
+                              setSelectedDate(dateFormatted);
+                              setShowDatePickerModal(false);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.calendarDayNum,
+                                { color: isSelected ? '#ffffff' : colors.textPrimary },
+                                isToday && !isSelected && { color: '#ea580c', fontWeight: '800' },
+                              ]}
+                            >
+                              {d}
+                            </Text>
+                            {hasCustodyData && (
+                              <View
+                                style={[
+                                  styles.calendarDayDot,
+                                  { backgroundColor: isSelected ? '#ffffff' : '#16a34a' },
+                                ]}
+                              />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
               </View>
+            </ScrollView>
 
-              <View style={styles.sheetActions}>
-                <TouchableOpacity
-                  style={[styles.cancelBtn, { borderColor: colors.border }]}
-                  onPress={() => setShowDatePickerModal(false)}
-                >
-                  <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: '#ea580c' }]}
-                  onPress={() => {
-                    const trimmed = customDateInput.trim();
-                    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-                      setSelectedDate(trimmed);
-                      setShowDatePickerModal(false);
-                    } else {
-                      Alert.alert('تنسيق غير صحيح', 'يرجى كتابة التاريخ بصيغة YYYY-MM-DD (مثال: 2026-10-12)');
-                    }
-                  }}
-                >
-                  <Text style={styles.saveBtnText}>عرض هذا اليوم</Text>
-                </TouchableOpacity>
-              </View>
+            {/* Quick Action Footer: Go to Today */}
+            <View style={{ paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: '#ea580c' }]}
+                onPress={() => {
+                  const today = getTodayStr();
+                  const parts = today.split('-');
+                  setPickerYear(parseInt(parts[0], 10));
+                  setPickerMonth(parseInt(parts[1], 10));
+                  setSelectedDate(today);
+                  setShowDatePickerModal(false);
+                }}
+              >
+                <Text style={styles.saveBtnText}>الانتقال إلى اليوم الحالي ({getTodayStr()})</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* ── 11. Fullscreen Image Viewer Modal ── */}
@@ -1793,20 +1841,68 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  presetDatesRow: {
+  // ── Month Calendar Grid Styles ──
+  calendarMonthRow: {
     flexDirection: 'row-reverse',
-    gap: 10,
-    marginTop: 10,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
   },
-  presetDateBtn: {
-    flex: 1,
-    paddingVertical: 8,
+  monthNavBtn: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  presetDateText: {
-    fontSize: 12,
+  calendarMonthTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  calendarWeekRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginBottom: 8,
+  },
+  calendarWeekDay: {
+    width: '14.28%',
+    textAlign: 'center',
+    fontSize: 11,
     fontWeight: '700',
+  },
+  calendarDaysGrid: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+  },
+  calendarDayCellEmpty: {
+    width: '14.28%',
+    height: 44,
+  },
+  calendarDayCell: {
+    width: '13.2%',
+    height: 42,
+    margin: '0.54%',
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  calendarDayNum: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  calendarDayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    position: 'absolute',
+    bottom: 4,
   },
 
   logRow: {
