@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "AHDA",
-    "slug": "aams",
-    "owner": "aams2",
+    "slug": "ahda",
+    "owner": "1eff2027ef",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -61,7 +61,7 @@
       [
         "expo-updates",
         {
-          "username": "aams2"
+          "username": "1eff2027ef"
         }
       ]
     ],
@@ -72,7 +72,7 @@
       "typedRoutes": true
     },
     "updates": {
-      "url": "https://u.expo.dev/1ec8ea7a-75d2-43be-b7cf-5505a283c042",
+      "url": "https://u.expo.dev/cdadebab-754b-453e-9937-68839d0b9982",
       "enabled": true,
       "fallbackToCacheTimeout": 2000,
       "checkAutomatically": "ON_LOAD"
@@ -80,7 +80,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "1ec8ea7a-75d2-43be-b7cf-5505a283c042"
+        "projectId": "cdadebab-754b-453e-9937-68839d0b9982"
       }
     }
   }
