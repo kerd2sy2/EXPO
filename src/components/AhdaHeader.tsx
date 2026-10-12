@@ -15,8 +15,6 @@ export interface AhdaHeaderProps {
   isDarkMode: boolean;
   onPressProfile: () => void;
   onPressDatePicker?: () => void;
-  onPressExportExcel?: () => void;
-  exportingExcel?: boolean;
 }
 
 export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
@@ -25,8 +23,6 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
   isDarkMode,
   onPressProfile,
   onPressDatePicker,
-  onPressExportExcel,
-  exportingExcel = false,
 }) => {
   const avatarUrl = user?.google_avatar || user?.avatar || null;
 
@@ -47,34 +43,16 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
         </View>
       </TouchableOpacity>
 
-      {/* Left Side: Header Actions (Date/Calendar Modal & Excel Icon) */}
+      {/* Left Side: Header Actions (Date/Calendar Modal Icon) */}
       <View style={styles.headerActions}>
-        {/* Calendar Picker Icon -> Opens Date Picker Bottom Sheet Modal */}
         {onPressDatePicker && (
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border }]}
+            style={styles.actionBtn}
             onPress={onPressDatePicker}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="calendar-outline" size={20} color="#ea580c" />
-          </TouchableOpacity>
-        )}
-
-        {/* Excel Export Icon */}
-        {onPressExportExcel && (
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border }]}
-            onPress={onPressExportExcel}
-            activeOpacity={0.7}
-            disabled={exportingExcel}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            {exportingExcel ? (
-              <ActivityIndicator size="small" color="#16a34a" />
-            ) : (
-              <MaterialCommunityIcons name="file-excel-box" size={22} color="#16a34a" />
-            )}
+            <Ionicons name="calendar-outline" size={25} color="#ea580c" />
           </TouchableOpacity>
         )}
       </View>
@@ -114,11 +92,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   actionBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
+    width: 38,
+    height: 38,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
 });

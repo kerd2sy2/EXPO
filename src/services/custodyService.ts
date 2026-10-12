@@ -1,4 +1,4 @@
-import { apiRequest, API_BASE_URL, getStoredToken } from './api';
+import { apiRequest, API_BASE_URL, getStoredToken, loadStoredToken } from './api';
 
 export interface CustodyExpenseItem {
   id: string;
@@ -59,7 +59,8 @@ export interface CustodyLogItem {
 export const custodyService = {
   // 1. Get all custody days or filter by branch
   getDays: async (branchId?: string): Promise<CustodyDayData[]> => {
-    const query = branchId ? `?branch_id=${branchId}` : '';
+    const t = Date.now();
+    const query = branchId ? `?branch_id=${branchId}&_t=${t}` : `?_t=${t}`;
     const res = await apiRequest(`/custody${query}`, { method: 'GET' });
     return Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
   },
@@ -110,7 +111,8 @@ export const custodyService = {
 
   // 6. Get logs
   getLogs: async (date?: string): Promise<{ data: CustodyLogItem[]; total: number }> => {
-    const query = date ? `?date=${date}&limit=100` : `?limit=100`;
+    const t = Date.now();
+    const query = date ? `?date=${date}&limit=100&_t=${t}` : `?limit=100&_t=${t}`;
     const res = await apiRequest(`/custody/logs${query}`, { method: 'GET' });
     return {
       data: res?.data || [],
@@ -128,13 +130,16 @@ export const custodyService = {
 
   // 7. Upload invoice image
   uploadInvoiceImage: async (uri: string): Promise<string> => {
-    const token = getStoredToken();
+    let token = getStoredToken();
+    if (!token) {
+      token = await loadStoredToken();
+    }
     const cleanUrl = `${API_BASE_URL}/upload`;
 
     const formData = new FormData();
     const filename = uri.split('/').pop() || `invoice_${Date.now()}.jpg`;
     const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
+    const type = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
 
     formData.append('file', {
       uri,
@@ -155,11 +160,11 @@ export const custodyService = {
 
     if (!response.ok) {
       const err = await response.text();
-      throw new Error(`Upload failed: ${err || response.statusText}`);
+      throw new Error(`Upload failed (${response.status}): ${err || response.statusText}`);
     }
 
     const json = await response.json();
-    return json?.url || json?.file_url || json?.data?.url || '';
+    return json?.url || json?.file_url || json?.data?.url || json?.data?.file_url || '';
   },
 
   // 8. Google Login

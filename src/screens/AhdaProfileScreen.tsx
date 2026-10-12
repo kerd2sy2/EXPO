@@ -9,9 +9,10 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import { ThemeColors } from '../types/delegate';
 
@@ -38,6 +39,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
   const userEmail = currentUser?.email || currentUser?.google_email || 'kerd2sy@gmail.com';
   const userRole = currentUser?.role === 'SUPER_ADMIN' ? 'مدير عام للنظام (Super Admin)' : 'مسؤول عهدة وحسابات';
   const avatarUrl = currentUser?.google_avatar || currentUser?.avatar || null;
+  const userCode = currentUser?.code || currentUser?.username || '1eff2027ef';
 
   // Check OTA updates using expo-updates
   const handleCheckUpdates = async () => {
@@ -87,100 +89,150 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top', 'left', 'right']}>
-      {/* Top Navbar */}
-      <View style={[styles.navbar, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <Ionicons name="arrow-forward" size={22} color={colors.textPrimary} />
+      {/* ── Sub-Page Header Row (Matching Delegate Screens Style) ── */}
+      <View style={styles.subPageHeaderRow}>
+        <TouchableOpacity style={styles.headerBackBtn} onPress={onBack} activeOpacity={0.7}>
+          <Ionicons name="arrow-forward" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.navTitle, { color: colors.textPrimary }]}>الملف الشخصي والإعدادات</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.subPageTitleContainer}>
+          <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary }]}>الملف الشخصي</Text>
+          <View style={[styles.titleUnderlineBar, { backgroundColor: '#ea580c' }]} />
+        </View>
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* User Card */}
+        {/* ── 1. Profile Header Card (Delegate App Style) ── */}
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.avatarContainer, { backgroundColor: '#fff7ed', borderColor: '#ea580c' }]}>
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
-            ) : (
-              <Ionicons name="person" size={40} color="#ea580c" />
-            )}
+          <View style={styles.profileAvatarSection}>
+            <View style={[styles.profileAvatar, { backgroundColor: '#fff7ed', borderColor: '#ea580c' }]}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.profileAvatarImg} />
+              ) : (
+                <Ionicons name="person" size={44} color="#ea580c" />
+              )}
+            </View>
+            <Text style={[styles.profileName, { color: colors.textPrimary }]}>{userName}</Text>
+            <View style={styles.roleBadge}>
+              <Ionicons name="shield-checkmark" size={13} color="#16a34a" />
+              <Text style={styles.roleBadgeText}>{userRole}</Text>
+            </View>
           </View>
-          <Text style={[styles.userName, { color: colors.textPrimary }]}>{userName}</Text>
-          <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{userEmail}</Text>
 
-          <View style={styles.roleBadge}>
-            <Ionicons name="shield-checkmark" size={14} color="#16a34a" />
-            <Text style={styles.roleBadgeText}>{userRole}</Text>
+          {/* Info Rows List */}
+          <View style={[styles.profileInfoList, { borderTopColor: colors.border }]}>
+            {/* National ID / Username */}
+            <View style={styles.infoRow}>
+              <View style={styles.infoLabelGroup}>
+                <Ionicons name="card-outline" size={15} color="#ea580c" />
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>كود المستخدم</Text>
+              </View>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{userCode}</Text>
+            </View>
+
+            {/* Email */}
+            <View style={styles.infoRow}>
+              <View style={styles.infoLabelGroup}>
+                <Ionicons name="mail-outline" size={15} color="#ea580c" />
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>البريد الإلكتروني</Text>
+              </View>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]} numberOfLines={1}>
+                {userEmail}
+              </Text>
+            </View>
+
+            {/* Google Sync Status */}
+            <View style={styles.infoRow}>
+              <View style={styles.infoLabelGroup}>
+                <MaterialCommunityIcons name="google" size={15} color="#ea4335" />
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>ربط Google</Text>
+              </View>
+              <View style={styles.syncBadge}>
+                <Ionicons name="checkmark-circle" size={13} color="#16a34a" />
+                <Text style={styles.syncBadgeText}>مربوط وموثق</Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* Section: Google Account Link */}
-        <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>حساب Google المرتبط</Text>
+        {/* ── 2. Settings Card (Delegate App Style) ── */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoRowLeft}>
-              <View style={[styles.iconBox, { backgroundColor: '#fef2f2' }]}>
-                <MaterialCommunityIcons name="google" size={20} color="#ea4335" />
-              </View>
-              <View style={styles.infoTextCol}>
-                <Text style={[styles.infoTitle, { color: colors.textPrimary }]}>تسجيل الدخول السريع</Text>
-                <Text style={[styles.infoSub, { color: colors.textSecondary }]}>{userEmail}</Text>
-              </View>
-            </View>
-            <View style={styles.verifiedTag}>
-              <Text style={styles.verifiedTagText}>مرتبط وموثق ✓</Text>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.titleGroup}>
+              <Ionicons name="settings-outline" size={18} color="#ea580c" />
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>إعدادات التطبيق والمظهر</Text>
             </View>
           </View>
-        </View>
 
-        {/* Section: Application Settings */}
-        <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>إعدادات التطبيق والمظهر</Text>
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {/* Theme Toggle */}
-          <TouchableOpacity style={styles.settingRow} onPress={onToggleTheme} activeOpacity={0.7}>
-            <View style={styles.infoRowLeft}>
-              <View style={[styles.iconBox, { backgroundColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
-                <Ionicons
-                  name={isDarkMode ? 'sunny' : 'moon'}
-                  size={18}
-                  color={isDarkMode ? '#fbbf24' : '#0f172a'}
-                />
-              </View>
-              <View style={styles.infoTextCol}>
-                <Text style={[styles.infoTitle, { color: colors.textPrimary }]}>المظهر (Dark / Light)</Text>
-                <Text style={[styles.infoSub, { color: colors.textSecondary }]}>
-                  {isDarkMode ? 'الوضع الليلي (Dark Mode)' : 'الوضع النهاري (Light Mode)'}
+          {/* Theme Mode Toggle (الوضع الفاتح / المظلم) */}
+          <View style={[styles.settingRow, { borderBottomColor: colors.border }]}>
+            <View style={styles.settingRowRight}>
+              <Ionicons
+                name={isDarkMode ? 'moon-outline' : 'sunny-outline'}
+                size={20}
+                color={isDarkMode ? '#fbbf24' : '#ea580c'}
+              />
+              <View style={{ alignItems: 'flex-start' }}>
+                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>مظهر التطبيق</Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                  {isDarkMode ? 'الوضع المظلم (Dark)' : 'الوضع الفاتح (Light)'}
                 </Text>
               </View>
             </View>
-            <Ionicons name="swap-horizontal-outline" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
+            <Switch
+              value={isDarkMode}
+              onValueChange={onToggleTheme}
+              trackColor={{ false: '#cbd5e1', true: '#ea580c' }}
+              thumbColor="#ffffff"
+            />
+          </View>
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-          {/* Check for Updates */}
-          <TouchableOpacity style={styles.settingRow} onPress={handleCheckUpdates} activeOpacity={0.7} disabled={checkingUpdate}>
-            <View style={styles.infoRowLeft}>
-              <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
-                <Ionicons name="cloud-download-outline" size={18} color="#2563eb" />
-              </View>
-              <View style={styles.infoTextCol}>
-                <Text style={[styles.infoTitle, { color: colors.textPrimary }]}>فحص التحديثات السحابية</Text>
-                <Text style={[styles.infoSub, { color: colors.textSecondary }]}>الإصدار 1.0.0 (OTA Enabled)</Text>
+          {/* Check for OTA Updates Row */}
+          <TouchableOpacity
+            style={[styles.settingRow, { borderBottomColor: colors.border }]}
+            onPress={handleCheckUpdates}
+            activeOpacity={0.7}
+            disabled={checkingUpdate}
+          >
+            <View style={styles.settingRowRight}>
+              <Ionicons name="cloud-download-outline" size={20} color="#ea580c" />
+              <View style={{ alignItems: 'flex-start' }}>
+                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>تحديث التطبيق السحابي</Text>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                  قناة التحديث (ahda) • الإصدار 1.0.0
+                </Text>
               </View>
             </View>
             {checkingUpdate ? (
-              <ActivityIndicator size="small" color="#2563eb" />
+              <ActivityIndicator size="small" color="#ea580c" />
             ) : (
-              <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
+              <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
             )}
+          </TouchableOpacity>
+
+          {/* Logout Row */}
+          <TouchableOpacity
+            style={[styles.settingRow, { borderBottomWidth: 0 }]}
+            onPress={confirmLogout}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingRowRight}>
+              <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+              <Text style={[styles.settingRowText, { color: '#ef4444' }]}>تسجيل الخروج من الحساب</Text>
+            </View>
+            <Ionicons name="chevron-back" size={16} color="#ef4444" />
           </TouchableOpacity>
         </View>
 
-        {/* Section: About System */}
-        <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>حول المنظومة</Text>
+        {/* ── 3. System Info Card (Delegate App Style) ── */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.titleGroup}>
+              <Ionicons name="information-circle-outline" size={18} color="#ea580c" />
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>حول المنظومة</Text>
+            </View>
+          </View>
+
           <View style={styles.metaRow}>
             <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>اسم النظام:</Text>
             <Text style={[styles.metaValue, { color: colors.textPrimary }]}>AAMS Logistics - إدارة العهد والمحاسبة</Text>
@@ -192,20 +244,10 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
           </View>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.metaRow}>
-            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>حالة الاتصال بالباك إند:</Text>
-            <Text style={[styles.metaValue, { color: '#16a34a' }]}>متصل ومؤمن (api.kerd2sy.com)</Text>
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>حالة الاتصال:</Text>
+            <Text style={[styles.metaValue, { color: '#16a34a' }]}>متصل ومؤمن (api.kerd2sy.com) ✓</Text>
           </View>
         </View>
-
-        {/* Logout Button */}
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={confirmLogout}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="log-out-outline" size={20} color="#dc2626" />
-          <Text style={styles.logoutBtnText}>تسجيل الخروج من الحساب</Text>
-        </TouchableOpacity>
 
         <Text style={[styles.footerText, { color: colors.textSecondary }]}>
           جميع الحقوق محفوظة © {new Date().getFullYear()} AAMS Logistics
@@ -219,183 +261,195 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  navbar: {
+  // Sub-page header matching delegate app
+  subPageHeaderRow: {
     height: 56,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0,
   },
-  backBtn: {
-    width: 40,
-    height: 40,
+  headerBackBtn: {
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 12,
   },
-  navTitle: {
+  subPageTitleContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  subPageHeaderTitle: {
     fontSize: 17,
     fontWeight: '800',
+    marginBottom: 4,
+    textAlign: 'right',
+  },
+  titleUnderlineBar: {
+    width: 28,
+    height: 3,
+    borderRadius: 2,
+    alignSelf: 'flex-end',
   },
   scrollContent: {
     padding: 16,
     paddingBottom: 40,
   },
+  // Profile card matching delegate screen
   profileCard: {
     borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
     borderWidth: 1,
-    marginBottom: 20,
+    padding: 20,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
-  avatarContainer: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    borderWidth: 3,
+  profileAvatarSection: {
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  profileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2.5,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 10,
     overflow: 'hidden',
-    marginBottom: 12,
   },
-  avatarImg: {
+  profileAvatarImg: {
     width: '100%',
     height: '100%',
   },
-  userName: {
+  profileName: {
     fontSize: 18,
     fontWeight: '800',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  userEmail: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 12,
+    marginBottom: 6,
     textAlign: 'center',
   },
   roleBadge: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#f0fdf4',
+    gap: 5,
+    backgroundColor: 'rgba(22, 163, 74, 0.1)',
     paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
+    paddingVertical: 4,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#bbf7d0',
+    borderColor: 'rgba(22, 163, 74, 0.25)',
   },
   roleBadgeText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#16a34a',
   },
-  sectionHeading: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 8,
-    marginRight: 4,
-    textAlign: 'right',
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 20,
+  profileInfoList: {
+    borderTopWidth: 1,
+    paddingTop: 14,
+    gap: 12,
   },
   infoRow: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  infoRowLeft: {
+  infoLabelGroup: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 12,
-    flex: 1,
+    gap: 8,
   },
-  iconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: '600',
   },
-  infoTextCol: {
-    alignItems: 'flex-end',
-    flex: 1,
-  },
-  infoTitle: {
+  infoValue: {
     fontSize: 14,
     fontWeight: '700',
+    maxWidth: '55%',
   },
-  infoSub: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  verifiedTag: {
-    backgroundColor: '#f0fdf4',
+  syncBadge: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(22, 163, 74, 0.1)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
   },
-  verifiedTagText: {
+  syncBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#16a34a',
   },
-  settingRow: {
+  // Card matching delegate screen
+  card: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 18,
+    marginBottom: 16,
+  },
+  sectionHeaderRow: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    marginBottom: 10,
   },
-  divider: {
-    height: 1,
-    marginVertical: 10,
+  titleGroup: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  settingRow: {
+    paddingVertical: 14,
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  settingRowRight: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+  },
+  settingRowText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   metaRow: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 10,
   },
   metaLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   metaValue: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
   },
-  logoutBtn: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  logoutBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#dc2626',
+  divider: {
+    height: 1,
+    width: '100%',
   },
   footerText: {
-    fontSize: 11,
     textAlign: 'center',
-    marginTop: 8,
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 10,
+    marginBottom: 20,
   },
 });

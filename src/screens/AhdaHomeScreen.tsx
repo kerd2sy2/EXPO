@@ -18,6 +18,7 @@ import {
   NativeScrollEvent,
   KeyboardAvoidingView,
   Keyboard,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -31,8 +32,25 @@ import {
 } from '../services/custodyService';
 import { exportCustodyDayToExcel } from '../services/custodyExcelService';
 import { formatImageUrl } from '../services/api';
+import { toArabicDigits, formatArabicNumber } from '../utils/formatters';
 import { AhdaHeader } from '../components/AhdaHeader';
 import { AhdaProfileScreen } from './AhdaProfileScreen';
+import { AhdaDayExpensesScreen } from './AhdaDayExpensesScreen';
+import { AhdaNetCustodyCard } from '../components/AhdaNetCustodyCard';
+import { AhdaCategoryGrid } from '../components/AhdaCategoryGrid';
+import { AhdaDayExpensesSummaryCard } from '../components/AhdaDayExpensesSummaryCard';
+import { AhdaActionAlertModal, AhdaAlertConfig } from '../components/modals/AhdaActionAlertModal';
+import { AhdaAddExpenseModal } from '../components/modals/AhdaAddExpenseModal';
+import { AhdaEditExpenseModal } from '../components/modals/AhdaEditExpenseModal';
+import { AhdaAddCustodyModal } from '../components/modals/AhdaAddCustodyModal';
+import { AhdaCustodyLogsModal } from '../components/modals/AhdaCustodyLogsModal';
+import { AhdaDatePickerModal } from '../components/modals/AhdaDatePickerModal';
+import { AhdaImageViewerModal } from '../components/modals/AhdaImageViewerModal';
+import { AhdaShakeExcelModal } from '../components/modals/AhdaShakeExcelModal';
+import { AhdaSharedImageCategoryModal } from '../components/modals/AhdaSharedImageCategoryModal';
+import { useShareIntent } from 'expo-share-intent';
+import { useDeviceShake } from '../hooks/useDeviceShake';
+import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HOME_HEADER_HEIGHT = 64;
@@ -46,9 +64,9 @@ interface AhdaHomeScreenProps {
 }
 
 // Categories ordered according to user priority:
-// وقود / بنزين -> سلفة نت -> سلفة شخصية -> رخصة قيادة -> قطع غيار -> مصاريف أخرى
+// بنزين -> سلفة نت -> سلفة شخصية -> رخصة قيادة -> قطع غيار -> مصاريف أخرى
 const CATEGORIES = [
-  { key: 'fuel', label: 'بنزين / وقود', icon: 'speedometer-outline', color: '#ea580c', bg: '#fff7ed' },
+  { key: 'fuel', label: 'بنزين', icon: 'speedometer-outline', color: '#ea580c', bg: '#fff7ed' },
   { key: 'internet_advance', label: 'سلفة نت', icon: 'wifi-outline', color: '#0284c7', bg: '#f0f9ff' },
   { key: 'advance', label: 'سلفة شخصية', icon: 'person-add-outline', color: '#7c3aed', bg: '#f5f3ff' },
   { key: 'license', label: 'رخصة القيادة', icon: 'card-outline', color: '#2563eb', bg: '#eff6ff' },
@@ -138,6 +156,9 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [addCustodyAmount, setAddCustodyAmount] = useState<string>('');
   const [addCustodyLoading, setAddCustodyLoading] = useState<boolean>(false);
   const [showLogsSheet, setShowLogsSheet] = useState<boolean>(false);
+  const [showDayExpensesPage, setShowDayExpensesPage] = useState<boolean>(false);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
+  const [alertConfig, setAlertConfig] = useState<AhdaAlertConfig | null>(null);
 
   // Add Expense State
   const [showAddExpenseModal, setShowAddExpenseModal] = useState<boolean>(false);
@@ -157,11 +178,35 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   // Preview Image Modal
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [exportingExcel, setExportingExcel] = useState<boolean>(false);
+  const [showShakeExcelModal, setShowShakeExcelModal] = useState<boolean>(false);
+
+  // Incoming Shared Image from Android Share Sheet
+  const [sharedImagePending, setSharedImagePending] = useState<string | null>(null);
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntent();
+
+  useEffect(() => {
+    if (hasShareIntent && shareIntent?.files && shareIntent.files.length > 0) {
+      const incomingFile = shareIntent.files[0];
+      const targetUri = incomingFile?.path;
+      if (targetUri) {
+        setSharedImagePending(targetUri);
+        resetShareIntent();
+      }
+    }
+  }, [hasShareIntent, shareIntent, resetShareIntent]);
 
   // Date Navigator Modal (Calendar Month Bottom sheet)
   const [showDatePickerModal, setShowDatePickerModal] = useState<boolean>(false);
   const [pickerYear, setPickerYear] = useState<number>(new Date().getFullYear());
   const [pickerMonth, setPickerMonth] = useState<number>(new Date().getMonth() + 1);
+
+  // Shake detection with medium threshold (neither too weak nor too strong: 1.78g)
+  useDeviceShake(() => {
+    // Only open if no other primary modals are open
+    if (!showAddExpenseModal && !showAddCustodyModal && !editingExpense) {
+      setShowShakeExcelModal(true);
+    }
+  }, { threshold: 1.78, timeoutMs: 1200 });
 
   // Fetch all days and logs for current date
   const loadCustodyData = useCallback(async () => {
@@ -184,6 +229,69 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     loadCustodyData();
   }, [loadCustodyData]);
 
+  // Handle hardware Back button: return to previous view/modal instead of closing the entire app
+  useEffect(() => {
+    const onBackPress = () => {
+      if (sharedImagePending) {
+        setSharedImagePending(null);
+        return true;
+      }
+      if (showShakeExcelModal) {
+        setShowShakeExcelModal(false);
+        return true;
+      }
+      if (previewImage) {
+        setPreviewImage(null);
+        return true;
+      }
+      if (showDatePickerModal) {
+        setShowDatePickerModal(false);
+        return true;
+      }
+      if (showLogsSheet) {
+        setShowLogsSheet(false);
+        return true;
+      }
+      if (editingExpense) {
+        setEditingExpense(null);
+        return true;
+      }
+      if (showAddExpenseModal) {
+        setShowAddExpenseModal(false);
+        return true;
+      }
+      if (showAddCustodyModal) {
+        setShowAddCustodyModal(false);
+        return true;
+      }
+      if (showDayExpensesPage) {
+        setShowDayExpensesPage(false);
+        setSelectedCategoryFilter(null);
+        return true;
+      }
+      if (showProfile) {
+        setShowProfile(false);
+        return true;
+      }
+      // If we are on the main Home screen with nothing open, allow default behavior (exit app)
+      return false;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSubscription.remove();
+  }, [
+    sharedImagePending,
+    showShakeExcelModal,
+    previewImage,
+    showDatePickerModal,
+    showLogsSheet,
+    editingExpense,
+    showAddExpenseModal,
+    showAddCustodyModal,
+    showDayExpensesPage,
+    showProfile,
+  ]);
+
   const onRefresh = () => {
     setRefreshing(true);
     loadCustodyData();
@@ -193,6 +301,18 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const currentDay = useMemo(() => {
     return days.find((d) => d.date === selectedDate) || null;
   }, [days, selectedDate]);
+
+  // Fallback for opening balance (باقي أمس):
+  // If opening_balance is 0 or missing, take the previous day's closing balance
+  const effectiveOpeningBalance = useMemo(() => {
+    if (currentDay?.opening_balance && currentDay.opening_balance > 0) {
+      return currentDay.opening_balance;
+    }
+    const previousDays = days
+      .filter((d) => d.date < selectedDate)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    return previousDays[0]?.closing_balance ?? currentDay?.opening_balance ?? 0;
+  }, [days, selectedDate, currentDay]);
 
   // Handle Day Navigation
   const changeDateByDays = (delta: number) => {
@@ -208,7 +328,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const handleSaveCustodyAmount = async () => {
     const val = parseFloat(addCustodyAmount);
     if (isNaN(val) || val <= 0) {
-      Alert.alert('خطأ', 'يرجى إدخال مبلغ عهدة صحيح أكبر من الصفر');
+      setAlertConfig({
+        type: 'warning',
+        title: 'قيمة غير صالحة',
+        message: 'يرجى إدخال مبلغ عهدة صحيح أكبر من الصفر.',
+      });
       return;
     }
 
@@ -228,9 +352,17 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       setAddCustodyAmount('');
       setShowAddCustodyModal(false);
       await loadCustodyData();
-      Alert.alert('تمت الإضافة', `تمت إضافة ${val} ريال إلى عهدة يوم ${selectedDate} بنجاح`);
+      setAlertConfig({
+        type: 'success',
+        title: 'تمت إضافة العهدة بنجاح',
+        message: `تمت إضافة مبلغ ${formatArabicNumber(val, 0)} ريال إلى عهدة يوم ${toArabicDigits(selectedDate)} بنجاح.`,
+      });
     } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشل تحديث العهدة');
+      setAlertConfig({
+        type: 'error',
+        title: 'فشل التحديث',
+        message: err?.message || 'حدث خطأ أثناء إضافة مبلغ العهدة.',
+      });
     } finally {
       setAddCustodyLoading(false);
     }
@@ -238,26 +370,30 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   // 2. Delete / Undo an added custody amount from logs
   const handleDeleteCustodyEntry = (log: CustodyLogItem) => {
-    Alert.alert(
-      'تأكيد حذف مبلغ العهدة',
-      `هل أنت متأكد من حذف وإلغاء مبلغ العهدة (${log.amount} ريال) المضاف لهذا اليوم؟ سيتم إنقاص العهدة فوراً.`,
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'حذف المبلغ',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await custodyService.deleteLog(log.id);
-              await loadCustodyData();
-              Alert.alert('تم الحذف', 'تم حذف مبلغ العهدة وإعادة احتساب الرصيد بنجاح');
-            } catch (err: any) {
-              Alert.alert('خطأ', err?.message || 'فشل حذف مبلغ العهدة');
-            }
-          },
-        },
-      ]
-    );
+    setAlertConfig({
+      type: 'confirm',
+      title: 'تأكيد حذف مبلغ العهدة',
+      message: `هل أنت متأكد من حذف وإلغاء مبلغ العهدة (${formatArabicNumber(log.amount, 0)} ريال) المضاف لهذا اليوم؟ سيتم إنقاص الرصيد فوراً.`,
+      primaryButtonText: 'نعم، حذف المبلغ',
+      secondaryButtonText: 'إلغاء',
+      onPrimaryPress: async () => {
+        try {
+          await custodyService.deleteLog(log.id);
+          await loadCustodyData();
+          setAlertConfig({
+            type: 'success',
+            title: 'تم الحذف بنجاح',
+            message: 'تم حذف مبلغ العهدة وإعادة احتساب الرصيد بنجاح.',
+          });
+        } catch (err: any) {
+          setAlertConfig({
+            type: 'error',
+            title: 'فشل الحذف',
+            message: err?.message || 'تعذر حذف مبلغ العهدة من السيرفر.',
+          });
+        }
+      },
+    });
   };
 
   // 3. Pick or Capture Invoice Image
@@ -298,7 +434,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const handleSaveExpense = async () => {
     const amt = parseFloat(expenseAmount);
     if (isNaN(amt) || amt <= 0) {
-      Alert.alert('خطأ', 'يرجى إدخال مبلغ صحيح للفاتورة');
+      setAlertConfig({
+        type: 'warning',
+        title: 'قيمة غير صالحة',
+        message: 'يرجى إدخال مبلغ صحيح للفاتورة أكبر من الصفر.',
+      });
       return;
     }
 
@@ -318,8 +458,14 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       if (invoiceImageUri) {
         try {
           uploadedUrl = await custodyService.uploadInvoiceImage(invoiceImageUri);
-        } catch (uploadErr) {
-          console.warn('Invoice image upload error:', uploadErr);
+        } catch (uploadErr: any) {
+          console.error('Invoice image upload error:', uploadErr);
+          setAlertConfig({
+            type: 'error',
+            title: 'فشل رفع صورة الفاتورة',
+            message: `تعذر رفع الصورة إلى السيرفر: ${uploadErr?.message || 'خطأ في الشبكة'}. يرجى المحاولة مرة أخرى.`,
+          });
+          return;
         }
       }
 
@@ -335,9 +481,17 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       setInvoiceImageUri(null);
       setShowAddExpenseModal(false);
       await loadCustodyData();
-      Alert.alert('تم الحفظ', 'تم حفظ الفاتورة بنجاح وإدراجها في شيت العهدة');
+      setAlertConfig({
+        type: 'success',
+        title: 'تم حفظ الفاتورة بنجاح',
+        message: 'تم إدراج الفاتورة في جدول العهدة وخصمها من الرصيد المتاح بنجاح.',
+      });
     } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشل حفظ الفاتورة');
+      setAlertConfig({
+        type: 'error',
+        title: 'فشل حفظ الفاتورة',
+        message: err?.message || 'حدث خطأ أثناء الاتصال بالسيرفر لحفظ الفاتورة.',
+      });
     } finally {
       setAddExpenseLoading(false);
     }
@@ -356,7 +510,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     if (!editingExpense) return;
     const amt = parseFloat(editAmount);
     if (isNaN(amt) || amt <= 0) {
-      Alert.alert('خطأ', 'يرجى إدخال مبلغ صحيح للفاتورة');
+      setAlertConfig({
+        type: 'warning',
+        title: 'قيمة غير صالحة',
+        message: 'يرجى إدخال مبلغ صحيح للفاتورة أكبر من الصفر.',
+      });
       return;
     }
 
@@ -370,36 +528,48 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
       setEditingExpense(null);
       await loadCustodyData();
-      Alert.alert('تم التعديل', 'تم تعديل الفاتورة وتحديث شيت العهدة بنجاح');
+      setAlertConfig({
+        type: 'success',
+        title: 'تم تعديل الفاتورة',
+        message: 'تم تحديث بيانات الفاتورة وإعادة احتساب الرصيد بنجاح.',
+      });
     } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشل تعديل الفاتورة');
+      setAlertConfig({
+        type: 'error',
+        title: 'فشل التعديل',
+        message: err?.message || 'حدث خطأ أثناء تعديل بيانات الفاتورة.',
+      });
     } finally {
       setEditLoading(false);
     }
   };
 
-  // 5. Delete Expense
+  // 5. Delete Expense (Animated Confirm Modal)
   const handleDeleteExpense = (item: CustodyExpenseItem) => {
-    Alert.alert(
-      'تأكيد حذف الفاتورة',
-      `هل أنت متأكد من حذف فاتورة "${item.recipient_name || item.category}" بمبلغ ${item.amount} ريال؟`,
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'حذف',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await custodyService.deleteExpense(item.id);
-              await loadCustodyData();
-              Alert.alert('تم الحذف', 'تم حذف الفاتورة بنجاح');
-            } catch (err: any) {
-              Alert.alert('خطأ', err?.message || 'فشل حذف الفاتورة');
-            }
-          },
-        },
-      ]
-    );
+    setAlertConfig({
+      type: 'confirm',
+      title: 'هل تريد الحذف نهائياً؟',
+      message: `هل أنت متأكد من رغبتك في حذف فاتورة "${item.recipient_name || item.category}" بمبلغ ${formatArabicNumber(item.amount, 0)} ريال نهائياً؟ سيتم استرجاع المبلغ لحساب العهدة فوراً ولا يمكن التراجع.`,
+      primaryButtonText: 'نعم، حذف نهائياً',
+      secondaryButtonText: 'إلغاء',
+      onPrimaryPress: async () => {
+        try {
+          await custodyService.deleteExpense(item.id);
+          await loadCustodyData();
+          setAlertConfig({
+            type: 'success',
+            title: 'تم الحذف بنجاح',
+            message: 'تم حذف الفاتورة واستعادة المبلغ إلى رصيد العهدة.',
+          });
+        } catch (err: any) {
+          setAlertConfig({
+            type: 'error',
+            title: 'فشل الحذف',
+            message: err?.message || 'تعذر حذف الفاتورة من السيرفر.',
+          });
+        }
+      },
+    });
   };
 
   // 6. Excel Export
@@ -432,8 +602,93 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     );
   }
 
+  if (showDayExpensesPage) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <AhdaDayExpensesScreen
+          currentDay={currentDay}
+          selectedDate={selectedDate}
+          categoryFilter={selectedCategoryFilter}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          categories={CATEGORIES}
+          onBack={() => {
+            setShowDayExpensesPage(false);
+            setSelectedCategoryFilter(null);
+          }}
+          onOpenAddExpense={() => {
+            if (selectedCategoryFilter) {
+              setSelectedCategory(selectedCategoryFilter);
+            }
+            setShowAddExpenseModal(true);
+          }}
+          onEditExpense={handleOpenEditExpense}
+          onDeleteExpense={handleDeleteExpense}
+          onPreviewImage={(url) => setPreviewImage(url)}
+        />
+
+        {/* ── Add Expense Modal inside Day Expenses View (Isolated & Protected) ── */}
+        <ModuleErrorBoundary moduleName="AhdaAddExpenseModal">
+          <AhdaAddExpenseModal
+            visible={showAddExpenseModal}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            categories={CATEGORIES}
+            selectedCategory={selectedCategory}
+            expenseAmount={expenseAmount}
+            setExpenseAmount={setExpenseAmount}
+            expenseRecipient={expenseRecipient}
+            setExpenseRecipient={setExpenseRecipient}
+            invoiceImageUri={invoiceImageUri}
+            setInvoiceImageUri={setInvoiceImageUri}
+            loading={addExpenseLoading}
+            onPickImage={handlePickImage}
+            onSave={handleSaveExpense}
+            onClose={() => setShowAddExpenseModal(false)}
+          />
+        </ModuleErrorBoundary>
+
+        {/* ── Edit Expense Modal inside Day Expenses View (Isolated & Protected) ── */}
+        <ModuleErrorBoundary moduleName="AhdaEditExpenseModal">
+          <AhdaEditExpenseModal
+            visible={!!editingExpense}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            categories={CATEGORIES}
+            editCategory={editCategory}
+            setEditCategory={setEditCategory}
+            editAmount={editAmount}
+            setEditAmount={setEditAmount}
+            editRecipient={editRecipient}
+            setEditRecipient={setEditRecipient}
+            loading={editLoading}
+            onSave={handleSaveEditExpense}
+            onClose={() => setEditingExpense(null)}
+          />
+        </ModuleErrorBoundary>
+
+        {/* ── Image Viewer Modal inside Day Expenses View (Isolated & Protected) ── */}
+        <ModuleErrorBoundary moduleName="AhdaImageViewerModal">
+          <AhdaImageViewerModal
+            visible={!!previewImage}
+            imageUrl={previewImage}
+            onClose={() => setPreviewImage(null)}
+          />
+        </ModuleErrorBoundary>
+
+        {/* Animated Alert Modal with Lottie in Expenses Page */}
+        <AhdaActionAlertModal
+          config={alertConfig}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          onClose={() => setAlertConfig(null)}
+        />
+      </View>
+    );
+  }
+
   const custodyAddedLogs = dayLogs.filter((l) => l.action_type === 'ADD_CUSTODY');
-  const custodyTotalAvailable = (currentDay?.opening_balance ?? 0) + (currentDay?.added_amount ?? 0);
+  const custodyTotalAvailable = effectiveOpeningBalance + (currentDay?.added_amount ?? 0);
   const spentPct = custodyTotalAvailable > 0
     ? Math.min(100, Math.round(((currentDay?.total_expenses ?? 0) / custodyTotalAvailable) * 100))
     : 0;
@@ -478,13 +733,19 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             setPickerMonth(parseInt(parts[1], 10) || (new Date().getMonth() + 1));
             setShowDatePickerModal(true);
           }}
-          onPressExportExcel={handleExportExcel}
-          exportingExcel={exportingExcel}
         />
       </Animated.View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: topInset + HOME_HEADER_HEIGHT + 14 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: topInset + HOME_HEADER_HEIGHT + 14,
+            paddingBottom: 28,
+            flexGrow: 1,
+            justifyContent: 'space-around',
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -497,797 +758,184 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           </View>
         ) : (
           <>
-            {/* ── 2. Primary Custody Target Card (Delegate App Style) ── */}
-            <TouchableOpacity
-              style={[styles.targetCardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => setShowAddCustodyModal(true)}
-              activeOpacity={0.9}
-            >
-              {/* Header: Title + Net Balance */}
-              <View style={styles.targetCardHeader}>
-                <View style={styles.targetTitleGroup}>
-                  <View style={styles.walletIconCircle}>
-                    <Ionicons name="wallet-outline" size={18} color="#ea580c" />
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.targetCardTitle, { color: colors.textPrimary }]}>
-                      صافي العهدة المتبقي
-                    </Text>
-                    <Text style={styles.targetCardHint}>اضغط هنا لإضافة عهدة جديدة +</Text>
-                  </View>
-                </View>
+            {/* ── 2. Primary Custody Target Card (Delegate App Style - Isolated) ── */}
+            <ModuleErrorBoundary moduleName="AhdaNetCustodyCard">
+              <AhdaNetCustodyCard
+                currentDay={currentDay}
+                effectiveOpeningBalance={effectiveOpeningBalance}
+                custodyAddedLogs={custodyAddedLogs}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                onPressCard={() => setShowAddCustodyModal(true)}
+                onPressManageLogs={() => setShowLogsSheet(true)}
+              />
+            </ModuleErrorBoundary>
 
-                <View style={{ alignItems: 'flex-start' }}>
-                  <Text style={[styles.targetNetValue, { color: '#ea580c' }]}>
-                    {(currentDay?.closing_balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Text>
-                  <Text style={[styles.targetNetUnit, { color: colors.textSecondary }]}>ريال سعودي</Text>
-                </View>
-              </View>
+            {/* ── 3. Category Breakdown Grid (Isolated & Fault-Tolerant) ── */}
+            <ModuleErrorBoundary moduleName="AhdaCategoryGrid">
+              <AhdaCategoryGrid
+                categories={CATEGORIES}
+                currentDay={currentDay}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                onSelectCategory={(catKey) => {
+                  setSelectedCategoryFilter(catKey);
+                  setShowDayExpensesPage(true);
+                }}
+                onLongPressCategory={(catKey) => {
+                  setSelectedCategory(catKey);
+                  setShowAddExpenseModal(true);
+                }}
+              />
+            </ModuleErrorBoundary>
 
-              {/* Progress bar showing spent vs available */}
-              <View style={styles.targetProgressContainer}>
-                <View style={[styles.progressBarTrack, { backgroundColor: isDarkMode ? '#1f2433' : '#f1f5f9' }]}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      {
-                        width: `${Math.max(3, spentPct)}%`,
-                        backgroundColor: spentPct > 85 ? '#ef4444' : '#ea580c',
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-
-              {/* Footer 3-Stats Details: باقي أمس • المضاف للعهدة • إجمالي المصاريف */}
-              <View style={[styles.targetDetailsRow, { borderTopColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
-                {/* 1. باقي أمس (افتتاحي) */}
-                <View style={styles.detailCol}>
-                  <Text style={[styles.detailColLabel, { color: colors.textSecondary }]}>باقي أمس</Text>
-                  <Text style={[styles.detailColValue, { color: colors.textPrimary }]}>
-                    {(currentDay?.opening_balance ?? 0).toLocaleString()} <Text style={styles.detailColUnit}>ر.س</Text>
-                  </Text>
-                </View>
-
-                <View style={[styles.detailDivider, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
-
-                {/* 2. عهدة اليوم المضافة */}
-                <View style={styles.detailCol}>
-                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-                    <Text style={[styles.detailColLabel, { color: '#ea580c' }]}>العهدة المضافة</Text>
-                    <Ionicons name="add-circle" size={12} color="#ea580c" />
-                  </View>
-                  <Text style={[styles.detailColValue, { color: '#ea580c' }]}>
-                    +{(currentDay?.added_amount ?? 0).toLocaleString()} <Text style={styles.detailColUnit}>ر.س</Text>
-                  </Text>
-                  {custodyAddedLogs.length > 0 && (
-                    <TouchableOpacity
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setShowLogsSheet(true);
-                      }}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    >
-                      <Text style={styles.miniLogLink}>{custodyAddedLogs.length} إضافات (إدارة/حذف)</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <View style={[styles.detailDivider, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
-
-                {/* 3. إجمالي المصاريف */}
-                <View style={styles.detailCol}>
-                  <Text style={[styles.detailColLabel, { color: '#ef4444' }]}>إجمالي المصاريف</Text>
-                  <Text style={[styles.detailColValue, { color: '#ef4444' }]}>
-                    {(currentDay?.total_expenses ?? 0).toLocaleString()} <Text style={styles.detailColUnit}>ر.س</Text>
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            {/* ── 3. Single Action Button: Add Invoice (Refined & Clean) ── */}
-            <TouchableOpacity
-              style={styles.addInvoiceHeroBtn}
-              activeOpacity={0.88}
-              onPress={() => setShowAddExpenseModal(true)}
-            >
-              <View style={styles.addInvoiceIconCircle}>
-                <Ionicons name="add" size={20} color="#ffffff" />
-              </View>
-              <Text style={styles.addInvoiceHeroBtnText}>إضافة فاتورة / سند صرف جديد</Text>
-              <Ionicons name="receipt-outline" size={20} color="#ffffff" style={{ opacity: 0.8 }} />
-            </TouchableOpacity>
-
-            {/* ── 4. Category Breakdown Grid ── */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.cardHeaderRow}>
-                <Ionicons name="pie-chart-outline" size={17} color="#ea580c" />
-                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>تفصيل المصاريف حسب الأقسام</Text>
-              </View>
-              <View style={styles.categoryGrid}>
-                {CATEGORIES.map((cat) => {
-                  let val = 0;
-                  if (cat.key === 'fuel') val = currentDay?.totals?.fuel || 0;
-                  else if (cat.key === 'internet_advance') val = currentDay?.totals?.internet_advance || 0;
-                  else if (cat.key === 'advance') val = currentDay?.totals?.advance || 0;
-                  else if (cat.key === 'license') val = currentDay?.totals?.license || 0;
-                  else if (cat.key === 'spare_parts') val = currentDay?.totals?.spare_parts || 0;
-                  else if (cat.key === 'other') val = currentDay?.totals?.other || 0;
-
-                  return (
-                    <View key={cat.key} style={[styles.categoryCard, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border }]}>
-                      <View style={styles.categoryCardTop}>
-                        <View style={[styles.categoryIconCircle, { backgroundColor: cat.bg }]}>
-                          <Ionicons name={cat.icon as any} size={15} color={cat.color} />
-                        </View>
-                        <Text style={[styles.categoryCardName, { color: colors.textPrimary }]}>{cat.label}</Text>
-                      </View>
-                      <Text style={[styles.categoryCardValue, { color: cat.color }]}>
-                        {val.toLocaleString()} <Text style={styles.categoryCardUnit}>ر.س</Text>
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* ── 5. Invoices List (Clean Cards like Delegate App) ── */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.cardHeaderRow}>
-                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
-                  <Ionicons name="receipt-outline" size={18} color="#ea580c" />
-                  <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                    فواتير ومصاريف اليوم ({currentDay?.expenses?.length || 0})
-                  </Text>
-                </View>
-              </View>
-
-              {(!currentDay?.expenses || currentDay.expenses.length === 0) ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="document-text-outline" size={40} color={colors.textSecondary} style={{ opacity: 0.3 }} />
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    لا توجد فواتير أو مصاريف مسجلة لهذا اليوم حتى الآن
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.emptyAddBtn}
-                    onPress={() => setShowAddExpenseModal(true)}
-                  >
-                    <Text style={styles.emptyAddBtnText}>+ إضافة أول فاتورة الآن</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.invoicesList}>
-                  {currentDay.expenses.map((item, idx) => {
-                    const catObj = CATEGORIES.find((c) => c.key === item.category) || CATEGORIES[5];
-                    const fullImg = formatImageUrl(item.image_url);
-
-                    return (
-                      <View
-                        key={item.id || idx}
-                        style={[
-                          styles.invoiceCard,
-                          {
-                            backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-                            borderColor: colors.border,
-                          },
-                        ]}
-                      >
-                        {/* Top: Icon + Category + Time + Action Buttons */}
-                        <View style={styles.invoiceCardTop}>
-                          <View style={styles.invoiceLeftInfo}>
-                            <View style={[styles.catBadge, { backgroundColor: catObj.bg }]}>
-                              <Ionicons name={catObj.icon as any} size={18} color={catObj.color} />
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={[styles.invoiceCategory, { color: colors.textPrimary }]}>
-                                {catObj.label}
-                              </Text>
-                              <Text style={[styles.invoiceTime, { color: colors.textSecondary }]}>
-                                {item.created_at ? new Date(item.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : ''}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Actions: Edit & Delete */}
-                          <View style={styles.invoiceActionsRow}>
-                            <TouchableOpacity
-                              onPress={() => handleOpenEditExpense(item)}
-                              style={[styles.invoiceIconBtn, { backgroundColor: isDarkMode ? '#334155' : '#f1f5f9' }]}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                              <Feather name="edit-2" size={14} color="#ea580c" />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                              onPress={() => handleDeleteExpense(item)}
-                              style={[styles.invoiceIconBtn, { backgroundColor: '#fef2f2' }]}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                              <Ionicons name="trash-outline" size={15} color="#ef4444" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-
-                        {/* Middle: Recipient & Note */}
-                        <View style={styles.invoiceCardMiddle}>
-                          <View style={styles.invoiceRecipientRow}>
-                            <Ionicons name="person-outline" size={13} color="#ea580c" />
-                            <Text style={[styles.invoiceRecipientText, { color: colors.textPrimary }]} numberOfLines={2}>
-                              المستلم: {item.recipient_name || '—'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Bottom: Invoice Image (if exists) + Amount Badge */}
-                        <View style={styles.invoiceCardBottom}>
-                          {fullImg ? (
-                            <TouchableOpacity
-                              onPress={() => setPreviewImage(fullImg)}
-                              style={styles.imagePreviewBtn}
-                              activeOpacity={0.8}
-                            >
-                              <Image source={{ uri: fullImg }} style={styles.invoiceImgThumb} />
-                              <View style={styles.imageBadge}>
-                                <Ionicons name="image" size={11} color="#ffffff" />
-                                <Text style={styles.imageBadgeText}>عرض الفاتورة</Text>
-                              </View>
-                            </TouchableOpacity>
-                          ) : (
-                            <View style={styles.noImgBadge}>
-                              <Ionicons name="receipt-outline" size={12} color={colors.textSecondary} />
-                              <Text style={[styles.noImgText, { color: colors.textSecondary }]}>بدون مرفق</Text>
-                            </View>
-                          )}
-
-                          <View style={styles.amountPill}>
-                            <Text style={styles.amountPillVal}>
-                              {item.amount.toLocaleString()}
-                            </Text>
-                            <Text style={styles.amountPillUnit}> ر.س</Text>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
+            {/* ── 4. Simple Invoices Summary Card (Isolated & Fault-Tolerant) ── */}
+            <ModuleErrorBoundary moduleName="AhdaDayExpensesSummaryCard">
+              <AhdaDayExpensesSummaryCard
+                currentDay={currentDay}
+                onPress={() => setShowDayExpensesPage(true)}
+              />
+            </ModuleErrorBoundary>
           </>
         )}
       </ScrollView>
 
-      {/* ── 6. BOTTOM SHEET MODAL: Add Expense & Invoice (Input floats above keyboard) ── */}
-      <Modal visible={showAddExpenseModal} transparent animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardModalWrapper}
-        >
-          <View style={styles.bottomSheetBackdrop}>
-            <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.sheetIndicator} />
-              <View style={styles.sheetHeader}>
-                <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>إضافة فاتورة / سند صرف</Text>
-                <TouchableOpacity onPress={() => setShowAddExpenseModal(false)}>
-                  <Ionicons name="close-circle-outline" size={24} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
+      {/* ── 6. BOTTOM SHEET MODAL: Add Expense & Invoice (Isolated & Fault-Tolerant) ── */}
+      <ModuleErrorBoundary moduleName="AhdaAddExpenseModal">
+        <AhdaAddExpenseModal
+          visible={showAddExpenseModal}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          categories={CATEGORIES}
+          selectedCategory={selectedCategory}
+          expenseAmount={expenseAmount}
+          setExpenseAmount={setExpenseAmount}
+          expenseRecipient={expenseRecipient}
+          setExpenseRecipient={setExpenseRecipient}
+          invoiceImageUri={invoiceImageUri}
+          setInvoiceImageUri={setInvoiceImageUri}
+          loading={addExpenseLoading}
+          onPickImage={handlePickImage}
+          onSave={handleSaveExpense}
+          onClose={() => setShowAddExpenseModal(false)}
+        />
+      </ModuleErrorBoundary>
 
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                style={{ maxHeight: SCREEN_HEIGHT * 0.72 }}
-              >
-                {/* 1. Category Picker Tabs */}
-                <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>اختر نوع المصروف / القسم</Text>
-                <View style={styles.categoriesRadioList}>
-                  {CATEGORIES.map((c) => {
-                    const isSelected = selectedCategory === c.key;
-                    return (
-                      <TouchableOpacity
-                        key={c.key}
-                        style={[
-                          styles.catRadioItem,
-                          {
-                            backgroundColor: isSelected ? '#ea580c' : isDarkMode ? '#1e293b' : '#f8fafc',
-                            borderColor: isSelected ? '#ea580c' : colors.border,
-                          },
-                        ]}
-                        onPress={() => setSelectedCategory(c.key)}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons
-                          name={c.icon as any}
-                          size={15}
-                          color={isSelected ? '#ffffff' : c.color}
-                          style={{ marginLeft: 6 }}
-                        />
-                        <Text
-                          style={[
-                            styles.catRadioText,
-                            { color: isSelected ? '#ffffff' : colors.textPrimary, fontWeight: isSelected ? '800' : '600' },
-                          ]}
-                        >
-                          {c.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+      {/* ── 7. BOTTOM SHEET MODAL: Edit Expense (Isolated & Fault-Tolerant) ── */}
+      <ModuleErrorBoundary moduleName="AhdaEditExpenseModal">
+        <AhdaEditExpenseModal
+          visible={!!editingExpense}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          categories={CATEGORIES}
+          editCategory={editCategory}
+          setEditCategory={setEditCategory}
+          editAmount={editAmount}
+          setEditAmount={setEditAmount}
+          editRecipient={editRecipient}
+          setEditRecipient={setEditRecipient}
+          loading={editLoading}
+          onSave={handleSaveEditExpense}
+          onClose={() => setEditingExpense(null)}
+        />
+      </ModuleErrorBoundary>
 
-                {/* 2. Amount Input (Floating above keyboard) */}
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>المبلغ المصروف (ريال) *</Text>
-                  <TextInput
-                    style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
-                    placeholder="0.00"
-                    placeholderTextColor="#94a3b8"
-                    keyboardType="decimal-pad"
-                    value={expenseAmount}
-                    onChangeText={setExpenseAmount}
-                  />
-                </View>
+      {/* ── 8. BOTTOM SHEET MODAL: Add Custody Amount (Isolated & Fault-Tolerant) ── */}
+      <ModuleErrorBoundary moduleName="AhdaAddCustodyModal">
+        <AhdaAddCustodyModal
+          visible={showAddCustodyModal}
+          colors={colors}
+          selectedDate={selectedDate}
+          custodyTotalAvailable={custodyTotalAvailable}
+          addCustodyAmount={addCustodyAmount}
+          setAddCustodyAmount={setAddCustodyAmount}
+          loading={addCustodyLoading}
+          onSave={handleSaveCustodyAmount}
+          onClose={() => setShowAddCustodyModal(false)}
+        />
+      </ModuleErrorBoundary>
 
-                {/* 3. Recipient / Details */}
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>المستلم / البيان التفصيلي</Text>
-                  <TextInput
-                    style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
-                    placeholder="مثال: وقود دباب #412 أو سلفة فلان"
-                    placeholderTextColor="#94a3b8"
-                    value={expenseRecipient}
-                    onChangeText={setExpenseRecipient}
-                  />
-                </View>
+      {/* ── 9. BOTTOM SHEET MODAL: Manage Custody Logs (Isolated & Fault-Tolerant) ── */}
+      <ModuleErrorBoundary moduleName="AhdaCustodyLogsModal">
+        <AhdaCustodyLogsModal
+          visible={showLogsSheet}
+          colors={colors}
+          logs={custodyAddedLogs}
+          onDeleteLog={handleDeleteCustodyEntry}
+          onClose={() => setShowLogsSheet(false)}
+        />
+      </ModuleErrorBoundary>
 
-                {/* 4. Invoice Image Upload */}
-                <Text style={[styles.sheetLabel, { color: colors.textPrimary, marginTop: 4 }]}>صورة الفاتورة المعتمدة</Text>
-                {invoiceImageUri ? (
-                  <View style={styles.previewContainer}>
-                    <Image source={{ uri: invoiceImageUri }} style={styles.previewImage} />
-                    <TouchableOpacity
-                      style={styles.removeImageBtn}
-                      onPress={() => setInvoiceImageUri(null)}
-                    >
-                      <Ionicons name="trash" size={14} color="#ffffff" />
-                      <Text style={styles.removeImageText}>حذف الصورة</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={styles.imagePickRow}>
-                    <TouchableOpacity
-                      style={[styles.pickBtn, { backgroundColor: isDarkMode ? '#334155' : '#fff7ed', borderColor: '#fed7aa' }]}
-                      onPress={() => handlePickImage(true)}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="camera-outline" size={20} color="#ea580c" />
-                      <Text style={styles.pickBtnText}>تصوير بالكاميرا</Text>
-                    </TouchableOpacity>
+      {/* ── 10. BOTTOM SHEET MODAL: Date Picker (Isolated & Fault-Tolerant) ── */}
+      <ModuleErrorBoundary moduleName="AhdaDatePickerModal">
+        <AhdaDatePickerModal
+          visible={showDatePickerModal}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          selectedDate={selectedDate}
+          pickerYear={pickerYear}
+          setPickerYear={setPickerYear}
+          pickerMonth={pickerMonth}
+          setPickerMonth={setPickerMonth}
+          days={days}
+          onSelectDate={(newDate) => {
+            setSelectedDate(newDate);
+            setShowDatePickerModal(false);
+          }}
+          onClose={() => setShowDatePickerModal(false)}
+        />
+      </ModuleErrorBoundary>
 
-                    <TouchableOpacity
-                      style={[styles.pickBtn, { backgroundColor: isDarkMode ? '#334155' : '#f0f9ff', borderColor: '#bae6fd' }]}
-                      onPress={() => handlePickImage(false)}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="images-outline" size={20} color="#0284c7" />
-                      <Text style={[styles.pickBtnText, { color: '#0284c7' }]}>من المعرض</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+      {/* ── 11. Fullscreen Image Viewer Modal (Isolated & Fault-Tolerant) ── */}
+      <ModuleErrorBoundary moduleName="AhdaImageViewerModal">
+        <AhdaImageViewerModal
+          visible={!!previewImage}
+          imageUrl={previewImage}
+          onClose={() => setPreviewImage(null)}
+        />
+      </ModuleErrorBoundary>
 
-                {/* Actions */}
-                <View style={styles.sheetActions}>
-                  <TouchableOpacity
-                    style={[styles.cancelBtn, { borderColor: colors.border }]}
-                    onPress={() => setShowAddExpenseModal(false)}
-                  >
-                    <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
-                  </TouchableOpacity>
+      {/* ── 12. Shake to Export Excel Bottom Sheet Modal (Isolated & Fault-Tolerant) ── */}
+      <ModuleErrorBoundary moduleName="AhdaShakeExcelModal">
+        <AhdaShakeExcelModal
+          visible={showShakeExcelModal}
+          selectedDate={selectedDate}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          loading={exportingExcel}
+          onExportAndShare={async () => {
+            await handleExportExcel();
+            setShowShakeExcelModal(false);
+          }}
+          onClose={() => setShowShakeExcelModal(false)}
+        />
+      </ModuleErrorBoundary>
 
-                  <TouchableOpacity
-                    style={[styles.saveBtn, { backgroundColor: '#ea580c' }]}
-                    disabled={addExpenseLoading}
-                    onPress={handleSaveExpense}
-                  >
-                    {addExpenseLoading ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text style={styles.saveBtnText}>تأكيد وحفظ الفاتورة</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      {/* ── 13. Shared Image Category Selection Modal (From Android Share Sheet) ── */}
+      <ModuleErrorBoundary moduleName="AhdaSharedImageCategoryModal">
+        <AhdaSharedImageCategoryModal
+          visible={!!sharedImagePending}
+          imageUri={sharedImagePending}
+          categories={CATEGORIES}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          onSelectCategory={(catKey) => {
+            setSelectedCategory(catKey);
+            setInvoiceImageUri(sharedImagePending);
+            setSharedImagePending(null);
+            setShowAddExpenseModal(true);
+          }}
+          onClose={() => setSharedImagePending(null)}
+        />
+      </ModuleErrorBoundary>
 
-      {/* ── 7. BOTTOM SHEET MODAL: Edit Expense (Modify Amount & Recipient) ── */}
-      <Modal visible={!!editingExpense} transparent animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardModalWrapper}
-        >
-          <View style={styles.bottomSheetBackdrop}>
-            <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.sheetIndicator} />
-              <View style={styles.sheetHeader}>
-                <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>تعديل بيانات الفاتورة</Text>
-                <TouchableOpacity onPress={() => setEditingExpense(null)}>
-                  <Ionicons name="close-circle-outline" size={24} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                style={{ maxHeight: SCREEN_HEIGHT * 0.72 }}
-              >
-                {/* Category Radio Tabs */}
-                <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>نوع المصروف</Text>
-                <View style={styles.categoriesRadioList}>
-                  {CATEGORIES.map((c) => {
-                    const isSelected = editCategory === c.key;
-                    return (
-                      <TouchableOpacity
-                        key={c.key}
-                        style={[
-                          styles.catRadioItem,
-                          {
-                            backgroundColor: isSelected ? '#ea580c' : isDarkMode ? '#1e293b' : '#f8fafc',
-                            borderColor: isSelected ? '#ea580c' : colors.border,
-                          },
-                        ]}
-                        onPress={() => setEditCategory(c.key)}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons
-                          name={c.icon as any}
-                          size={14}
-                          color={isSelected ? '#ffffff' : c.color}
-                          style={{ marginLeft: 6 }}
-                        />
-                        <Text
-                          style={[
-                            styles.catRadioText,
-                            { color: isSelected ? '#ffffff' : colors.textPrimary, fontWeight: isSelected ? '800' : '600' },
-                          ]}
-                        >
-                          {c.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {/* Amount */}
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>المبلغ المصروف (ريال) *</Text>
-                  <TextInput
-                    style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
-                    placeholder="0.00"
-                    placeholderTextColor="#94a3b8"
-                    keyboardType="decimal-pad"
-                    value={editAmount}
-                    onChangeText={setEditAmount}
-                  />
-                </View>
-
-                {/* Recipient */}
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>المستلم / البيان التفصيلي</Text>
-                  <TextInput
-                    style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
-                    placeholder="اسم المستلم أو البيان"
-                    placeholderTextColor="#94a3b8"
-                    value={editRecipient}
-                    onChangeText={setEditRecipient}
-                  />
-                </View>
-
-                {/* Actions */}
-                <View style={styles.sheetActions}>
-                  <TouchableOpacity
-                    style={[styles.cancelBtn, { borderColor: colors.border }]}
-                    onPress={() => setEditingExpense(null)}
-                  >
-                    <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.saveBtn, { backgroundColor: '#ea580c' }]}
-                    disabled={editLoading}
-                    onPress={handleSaveEditExpense}
-                  >
-                    {editLoading ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text style={styles.saveBtnText}>حفظ التعديلات</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ── 8. BOTTOM SHEET MODAL: Add Custody Amount ── */}
-      <Modal visible={showAddCustodyModal} transparent animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardModalWrapper}
-        >
-          <View style={styles.bottomSheetBackdrop}>
-            <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.sheetIndicator} />
-              <View style={styles.sheetHeader}>
-                <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>إضافة مبالغ للعهدة</Text>
-                <TouchableOpacity onPress={() => setShowAddCustodyModal(false)}>
-                  <Ionicons name="close-circle-outline" size={24} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={[styles.sheetDesc, { color: colors.textSecondary }]}>
-                التاريخ: {selectedDate} • الرصيد المتاح الحالي: {(custodyTotalAvailable).toLocaleString()} ر.س
-              </Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>المبلغ المراد إضافته للعهدة (ريال) *</Text>
-                <TextInput
-                  style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
-                  placeholder="مثال: 500"
-                  placeholderTextColor="#94a3b8"
-                  keyboardType="numeric"
-                  value={addCustodyAmount}
-                  onChangeText={setAddCustodyAmount}
-                  autoFocus
-                />
-              </View>
-
-              <View style={styles.sheetActions}>
-                <TouchableOpacity
-                  style={[styles.cancelBtn, { borderColor: colors.border }]}
-                  onPress={() => setShowAddCustodyModal(false)}
-                >
-                  <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: '#ea580c' }]}
-                  disabled={addCustodyLoading}
-                  onPress={handleSaveCustodyAmount}
-                >
-                  {addCustodyLoading ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <Text style={styles.saveBtnText}>تأكيد الإضافة للعهدة</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ── 9. BOTTOM SHEET MODAL: Manage / Delete Added Custody Amounts ── */}
-      <Modal visible={showLogsSheet} transparent animationType="slide">
-        <View style={styles.bottomSheetBackdrop}>
-          <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.sheetIndicator} />
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>مبالغ العهدة المضافة لليوم</Text>
-              <TouchableOpacity onPress={() => setShowLogsSheet(false)}>
-                <Ionicons name="close-circle-outline" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={[styles.sheetDesc, { color: colors.textSecondary }]}>
-              إذا قمت بإضافة عهدة بالخطأ، يمكنك الضغط على أيقونة الحذف لإلغائها فوراً من الحسابات:
-            </Text>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: SCREEN_HEIGHT * 0.5 }}>
-              {custodyAddedLogs.length === 0 ? (
-                <Text style={[styles.emptyText, { color: colors.textSecondary, marginVertical: 20 }]}>
-                  لا توجد حركات إضافة مسجلة لهذا اليوم
-                </Text>
-              ) : (
-                custodyAddedLogs.map((log) => (
-                  <View key={log.id} style={[styles.logRow, { borderBottomColor: colors.border }]}>
-                    <View style={styles.logLeft}>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteCustodyEntry(log)}
-                        style={styles.logDeleteBtn}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="trash-outline" size={18} color="#ef4444" />
-                      </TouchableOpacity>
-                      <View style={{ alignItems: 'flex-start' }}>
-                        <Text style={[styles.logAmount, { color: '#ea580c' }]}>+{log.amount.toLocaleString()} ر.س</Text>
-                        <Text style={[styles.logTime, { color: colors.textSecondary }]}>
-                          {log.created_at ? new Date(log.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : ''}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={{ alignItems: 'flex-end', flex: 1 }}>
-                      <Text style={[styles.logDesc, { color: colors.textPrimary }]}>{log.description}</Text>
-                      <Text style={[styles.logAdmin, { color: colors.textSecondary }]}>بواسطة: {log.admin_name || 'المسؤول'}</Text>
-                    </View>
-                  </View>
-                ))
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── 10. BOTTOM SHEET MODAL: Date Picker (Full Month Calendar 30/31 Days) ── */}
-      <Modal visible={showDatePickerModal} transparent animationType="slide">
-        <View style={styles.bottomSheetBackdrop}>
-          <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border, maxHeight: '85%' }]}>
-            <View style={styles.sheetIndicator} />
-            
-            {/* Header: Title + Close */}
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>اختر تاريخ العهدة</Text>
-              <TouchableOpacity onPress={() => setShowDatePickerModal(false)}>
-                <Ionicons name="close-circle-outline" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Month & Year Controller Bar */}
-            <View style={[styles.calendarMonthRow, { borderColor: colors.border, backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc' }]}>
-              <TouchableOpacity
-                style={styles.monthNavBtn}
-                onPress={() => {
-                  if (pickerMonth === 1) {
-                    setPickerMonth(12);
-                    setPickerYear(pickerYear - 1);
-                  } else {
-                    setPickerMonth(pickerMonth - 1);
-                  }
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
-              </TouchableOpacity>
-
-              <View style={{ alignItems: 'center' }}>
-                <Text style={[styles.calendarMonthTitle, { color: colors.textPrimary }]}>
-                  {new Date(pickerYear, pickerMonth - 1, 1).toLocaleDateString('ar-SA', { month: 'long', year: 'numeric' })}
-                </Text>
-                <Text style={{ fontSize: 11, color: colors.textSecondary, fontWeight: '600' }}>
-                  {pickerYear} / {String(pickerMonth).padStart(2, '0')}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.monthNavBtn}
-                onPress={() => {
-                  if (pickerMonth === 12) {
-                    setPickerMonth(1);
-                    setPickerYear(pickerYear + 1);
-                  } else {
-                    setPickerMonth(pickerMonth + 1);
-                  }
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Days of Week Header */}
-            <View style={styles.calendarWeekRow}>
-              {['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'].map((w, idx) => (
-                <Text key={idx} style={[styles.calendarWeekDay, { color: colors.textSecondary }]}>
-                  {w}
-                </Text>
-              ))}
-            </View>
-
-            {/* 30 / 31 Days Grid */}
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
-              <View style={styles.calendarDaysGrid}>
-                {(() => {
-                  const firstDayIndex = new Date(pickerYear, pickerMonth - 1, 1).getDay();
-                  const totalDaysInMonth = new Date(pickerYear, pickerMonth, 0).getDate();
-                  const blanks = Array.from({ length: firstDayIndex });
-                  const dayNumbers = Array.from({ length: totalDaysInMonth }, (_, i) => i + 1);
-                  const todayStr = getTodayStr();
-
-                  return (
-                    <>
-                      {blanks.map((_, i) => (
-                        <View key={`b-${i}`} style={styles.calendarDayCellEmpty} />
-                      ))}
-                      {dayNumbers.map((d) => {
-                        const dateFormatted = `${pickerYear}-${String(pickerMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                        const isSelected = dateFormatted === selectedDate;
-                        const isToday = dateFormatted === todayStr;
-                        const hasCustodyData = days.some((dayItem) => dayItem.date === dateFormatted);
-
-                        return (
-                          <TouchableOpacity
-                            key={`d-${d}`}
-                            style={[
-                              styles.calendarDayCell,
-                              { borderColor: colors.border },
-                              isSelected && { backgroundColor: '#ea580c', borderColor: '#ea580c' },
-                              !isSelected && isToday && { borderColor: '#ea580c', borderWidth: 1.5 },
-                              !isSelected && { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' },
-                            ]}
-                            onPress={() => {
-                              setSelectedDate(dateFormatted);
-                              setShowDatePickerModal(false);
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Text
-                              style={[
-                                styles.calendarDayNum,
-                                { color: isSelected ? '#ffffff' : colors.textPrimary },
-                                isToday && !isSelected && { color: '#ea580c', fontWeight: '800' },
-                              ]}
-                            >
-                              {d}
-                            </Text>
-                            {hasCustodyData && (
-                              <View
-                                style={[
-                                  styles.calendarDayDot,
-                                  { backgroundColor: isSelected ? '#ffffff' : '#16a34a' },
-                                ]}
-                              />
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </>
-                  );
-                })()}
-              </View>
-            </ScrollView>
-
-            {/* Quick Action Footer: Go to Today */}
-            <View style={{ paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: '#ea580c' }]}
-                onPress={() => {
-                  const today = getTodayStr();
-                  const parts = today.split('-');
-                  setPickerYear(parseInt(parts[0], 10));
-                  setPickerMonth(parseInt(parts[1], 10));
-                  setSelectedDate(today);
-                  setShowDatePickerModal(false);
-                }}
-              >
-                <Text style={styles.saveBtnText}>الانتقال إلى اليوم الحالي ({getTodayStr()})</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── 11. Fullscreen Image Viewer Modal ── */}
-      <Modal visible={!!previewImage} transparent animationType="fade">
-        <View style={styles.imageViewerBackdrop}>
-          <TouchableOpacity
-            style={styles.closeViewerBtn}
-            onPress={() => setPreviewImage(null)}
-          >
-            <Ionicons name="close-circle" size={32} color="#ffffff" />
-          </TouchableOpacity>
-          {previewImage && (
-            <Image
-              source={{ uri: previewImage }}
-              style={styles.fullscreenImage}
-              resizeMode="contain"
-            />
-          )}
-        </View>
-      </Modal>
+      {/* ── 14. Animated Action Alert Modal with Lottie (Attention, Error, Success) ── */}
+      <AhdaActionAlertModal
+        config={alertConfig}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        onClose={() => setAlertConfig(null)}
+      />
     </SafeAreaView>
   );
 };
@@ -1355,608 +1003,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-
-  // ── Target Card (Delegate App Style) ──
-  targetCardContainer: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  targetCardHeader: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  targetTitleGroup: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 10,
-  },
-  walletIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#fff7ed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#fed7aa',
-  },
-  targetCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  targetCardHint: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#ea580c',
-    marginTop: 1,
-  },
-  targetNetValue: {
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  targetNetUnit: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  targetProgressContainer: {
-    marginBottom: 14,
-  },
-  progressBarTrack: {
-    height: 7,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  targetDetailsRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    paddingTop: 12,
-  },
-  detailCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  detailColLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  detailColValue: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  detailColUnit: {
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  detailDivider: {
-    width: 1,
-    height: 24,
-  },
-  miniLogLink: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#ea580c',
-    textDecorationLine: 'underline',
-    marginTop: 2,
-  },
-
-  // ── Hero Add Invoice Button ──
-  addInvoiceHeroBtn: {
-    height: 50,
-    backgroundColor: '#ea580c',
-    borderRadius: 16,
-    flexDirection: 'row-reverse',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
-    shadowColor: '#ea580c',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  addInvoiceIconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addInvoiceHeroBtnText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
-  // ── General Cards ──
-  card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 16,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  categoryGrid: {
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  categoryCard: {
-    width: '48.5%',
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 10,
-    alignItems: 'flex-end',
-  },
-  categoryCardTop: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  categoryIconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  categoryCardName: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  categoryCardValue: {
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  categoryCardUnit: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-
-  // ── Invoices List & Cards ──
-  invoicesList: {
-    gap: 12,
-  },
-  invoiceCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  invoiceCardTop: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  invoiceLeftInfo: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 10,
-  },
-  catBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  invoiceCategory: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  invoiceTime: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  invoiceActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  invoiceIconBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  invoiceCardMiddle: {
-    marginBottom: 10,
-  },
-  invoiceRecipientRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
-  },
-  invoiceRecipientText: {
-    fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'right',
-  },
-  invoiceCardBottom: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    paddingTop: 8,
-  },
-  imagePreviewBtn: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
-  },
-  invoiceImgThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-  },
-  imageBadge: {
-    backgroundColor: '#0284c7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 4,
-  },
-  imageBadgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  noImgBadge: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 4,
-  },
-  noImgText: {
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  amountPill: {
-    flexDirection: 'row-reverse',
-    alignItems: 'baseline',
-  },
-  amountPillVal: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#ea580c',
-  },
-  amountPillUnit: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#ea580c',
-  },
-
-  emptyContainer: {
-    paddingVertical: 32,
-    alignItems: 'center',
-    gap: 10,
-  },
-  emptyText: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  emptyAddBtn: {
-    backgroundColor: '#fff7ed',
-    borderWidth: 1,
-    borderColor: '#fed7aa',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginTop: 4,
-  },
-  emptyAddBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#ea580c',
-  },
-
-  // ── Bottom Sheet Modals (All slide up smoothly) ──
-  bottomSheetBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'flex-end',
-  },
-  bottomSheetBox: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderTopWidth: 1,
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    maxHeight: '92%',
-  },
-  sheetIndicator: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#cbd5e1',
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  sheetHeader: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  sheetDesc: {
-    fontSize: 12,
-    marginBottom: 14,
-    textAlign: 'right',
-  },
-  sheetLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 6,
-    textAlign: 'right',
-  },
-  categoriesRadioList: {
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
-  },
-  catRadioItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1.5,
-  },
-  catRadioText: {
-    fontSize: 11,
-  },
-  inputGroup: {
-    marginBottom: 12,
-  },
-  inputBox: {
-    height: 48,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'right',
-  },
-  previewContainer: {
-    height: 120,
-    borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  removeImageBtn: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(220, 38, 38, 0.85)',
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  removeImageText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  imagePickRow: {
-    flexDirection: 'row-reverse',
-    gap: 10,
-    marginBottom: 14,
-  },
-  pickBtn: {
-    flex: 1,
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row-reverse',
-    gap: 6,
-  },
-  pickBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#ea580c',
-  },
-  sheetActions: {
-    flexDirection: 'row-reverse',
-    gap: 10,
-    marginTop: 10,
-  },
-  cancelBtn: {
-    flex: 1,
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  saveBtn: {
-    flex: 2,
-    height: 46,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  // ── Month Calendar Grid Styles ──
-  calendarMonthRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 12,
-  },
-  monthNavBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  calendarMonthTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  calendarWeekRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    marginBottom: 8,
-  },
-  calendarWeekDay: {
-    width: '14.28%',
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  calendarDaysGrid: {
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-  },
-  calendarDayCellEmpty: {
-    width: '14.28%',
-    height: 44,
-  },
-  calendarDayCell: {
-    width: '13.2%',
-    height: 42,
-    margin: '0.54%',
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  calendarDayNum: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  calendarDayDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    position: 'absolute',
-    bottom: 4,
-  },
-
-  logRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    gap: 12,
-  },
-  logLeft: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 10,
-  },
-  logDeleteBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#fef2f2',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logAmount: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  logTime: {
-    fontSize: 10,
-  },
-  logDesc: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  logAdmin: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-
-  imageViewerBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeViewerBtn: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 10,
-    padding: 10,
-  },
-  fullscreenImage: {
-    width: '100%',
-    height: '80%',
-  },
 });
+

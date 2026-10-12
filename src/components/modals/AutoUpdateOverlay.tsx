@@ -23,7 +23,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const AutoUpdateOverlay: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
-  const lottieRef = useRef<LottieView>(null);
+  const lottieRef = useRef<any>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const isCheckingRef = useRef(false);
 
