@@ -17,7 +17,10 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
-    analytics.init().catch((err) => console.warn('[RootLayout] Analytics init notice:', err));
+    const timer = setTimeout(() => {
+      analytics.init().catch((err) => console.warn('[RootLayout] Analytics init notice:', err));
+    }, 1200);
+    return () => clearTimeout(timer);
   }, []);
 
   return (

@@ -3,13 +3,14 @@ import {
   StatusBar,
   View,
   Text,
-  ActivityIndicator,
+  ScrollView,
   useColorScheme,
   Platform,
   StyleSheet,
   Alert,
 } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Theme & Types
@@ -28,6 +29,11 @@ import {
 // Screens
 import { AhdaLoginScreen } from '../screens/AhdaLoginScreen';
 import { AhdaHomeScreen } from '../screens/AhdaHomeScreen';
+import {
+  AhdaNetCustodyCardSkeleton,
+  AhdaCategoryGridSkeleton,
+  AhdaDayExpensesSummaryCardSkeleton,
+} from '../components/skeleton/AhdaHomeSkeleton';
 import { AutoUpdateOverlay } from '../components/modals/AutoUpdateOverlay';
 
 // Dark / Light Theme Tokens - Matching AAMS delegate design system
@@ -71,6 +77,96 @@ const darkColors: ThemeColors = {
   warningText: '#fcd34d',
   errorBg: '#450a0a',
   errorText: '#fca5a5',
+};
+
+const AuthLoadingShell: React.FC<{ colors: ThemeColors; isDarkMode: boolean }> = ({
+  colors,
+  isDarkMode,
+}) => {
+  const insets = useSafeAreaInsets();
+  const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? 24 : 0);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      {/* ── Status Bar Solid Cover ── */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: topInset,
+          backgroundColor: colors.bg,
+          zIndex: 40,
+        }}
+      />
+
+      {/* ── Header Shell (Matches AhdaHeader 1:1) ── */}
+      <View
+        style={{
+          position: 'absolute',
+          top: topInset,
+          left: 0,
+          right: 0,
+          height: 64,
+          backgroundColor: colors.bg,
+          zIndex: 30,
+          flexDirection: 'row-reverse',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+        }}
+      >
+        {/* Right: Avatar Placeholder */}
+        <View
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            backgroundColor: '#fff7ed',
+            borderWidth: 1,
+            borderColor: '#ea580c',
+            justifyContent: 'center',
+            alignItems: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#fed7aa', opacity: 0.7 }} />
+        </View>
+
+        {/* Left: Calendar Icon Action Button */}
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Ionicons name="calendar-outline" size={25} color="#ea580c" />
+        </View>
+      </View>
+
+      {/* ── Body matching AhdaHomeScreen ScrollView ── */}
+      <ScrollView
+        scrollEnabled={false}
+        contentContainerStyle={{
+          paddingTop: topInset + 64 + 14,
+          paddingBottom: 28,
+          paddingHorizontal: 16,
+          flexGrow: 1,
+          justifyContent: 'space-around',
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <AhdaNetCustodyCardSkeleton colors={colors} isDarkMode={isDarkMode} />
+        <AhdaCategoryGridSkeleton colors={colors} isDarkMode={isDarkMode} />
+        <AhdaDayExpensesSummaryCardSkeleton colors={colors} isDarkMode={isDarkMode} />
+      </ScrollView>
+    </View>
+  );
 };
 
 export default function AhdaApp() {
@@ -148,12 +244,13 @@ export default function AhdaApp() {
 
   if (isLoadingAuth) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.bg }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          جاري تحميل بيانات العهدة...
-        </Text>
-      </View>
+      <SafeAreaProvider>
+        <StatusBar
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.bg}
+        />
+        <AuthLoadingShell colors={colors} isDarkMode={isDarkMode} />
+      </SafeAreaProvider>
     );
   }
 
@@ -178,7 +275,6 @@ export default function AhdaApp() {
           onToggleTheme={toggleTheme}
         />
       )}
-      <AutoUpdateOverlay />
     </SafeAreaProvider>
   );
 }

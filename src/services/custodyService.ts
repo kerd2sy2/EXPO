@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import { apiRequest, API_BASE_URL, getStoredToken, loadStoredToken } from './api';
 
 export interface CustodyExpenseItem {
@@ -112,7 +114,7 @@ export const custodyService = {
   // 6. Get logs
   getLogs: async (date?: string): Promise<{ data: CustodyLogItem[]; total: number }> => {
     const t = Date.now();
-    const query = date ? `?date=${date}&limit=100&_t=${t}` : `?limit=100&_t=${t}`;
+    const query = date ? `?date=${date}&limit=50&_t=${t}` : `?limit=50&_t=${t}`;
     const res = await apiRequest(`/custody/logs${query}`, { method: 'GET' });
     return {
       data: res?.data || [],
@@ -128,7 +130,7 @@ export const custodyService = {
     return res;
   },
 
-  // 7. Upload invoice image
+  // 7. Upload invoice image (Using FileSystem.uploadAsync on native to prevent Android FormData errors)
   uploadInvoiceImage: async (uri: string): Promise<string> => {
     let token = getStoredToken();
     if (!token) {
@@ -136,16 +138,43 @@ export const custodyService = {
     }
     const cleanUrl = `${API_BASE_URL}/upload`;
 
+    // 1. Native Android & iOS upload via expo-file-system
+    if (Platform.OS !== 'web' && typeof FileSystem.uploadAsync === 'function') {
+      try {
+        const uploadResult = await FileSystem.uploadAsync(cleanUrl, uri, {
+          httpMethod: 'POST',
+          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+          fieldName: 'image',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
+        if (uploadResult.status >= 200 && uploadResult.status < 300) {
+          const json = JSON.parse(uploadResult.body);
+          return json?.url || json?.file_url || json?.data?.url || json?.data?.file_url || '';
+        } else {
+          console.warn(`FileSystem upload failed (${uploadResult.status}):`, uploadResult.body);
+          throw new Error(`Upload failed (${uploadResult.status}): ${uploadResult.body}`);
+        }
+      } catch (nativeErr: any) {
+        console.error('FileSystem.uploadAsync error:', nativeErr);
+        throw nativeErr;
+      }
+    }
+
+    // 2. Web fallback
     const formData = new FormData();
     const filename = uri.split('/').pop() || `invoice_${Date.now()}.jpg`;
     const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
 
-    formData.append('file', {
+    const filePayload = {
       uri,
       name: filename,
       type,
-    } as any);
+    } as any;
+
+    formData.append('image', filePayload);
+    formData.append('file', filePayload);
 
     const headers: Record<string, string> = {};
     if (token) {
@@ -167,7 +196,16 @@ export const custodyService = {
     return json?.url || json?.file_url || json?.data?.url || json?.data?.file_url || '';
   },
 
-  // 8. Google Login
+  // 8. Regular Phone / Password Login
+  login: async (loginKey: string, password: string): Promise<any> => {
+    const res = await apiRequest('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: loginKey, password }),
+    });
+    return res;
+  },
+
+  // 9. Google Login
   googleLogin: async (email: string, googleId?: string): Promise<any> => {
     const res = await apiRequest('/auth/google/login', {
       method: 'POST',
@@ -175,4 +213,65 @@ export const custodyService = {
     });
     return res;
   },
+};
+
+/**
+ * Checks if a user has permission to access the Custody (العهدة) portal.
+ * Validates role, permissions list, and test accounts.
+ */
+export const hasCustodyPermission = (user: any): boolean => {
+  if (!user) return false;
+
+  // Google Reviewer test account / demo accounts pass naturally
+  if (
+    user.national_id === '1234596' ||
+    user.employee_number === 'EMP-1234596' ||
+    user.phone === '0500000000' ||
+    user.phone === '500000000' ||
+    user.email === 'kerd2sy@gmail.com' ||
+    user.email === 'demo.driver@kerd2sy.com'
+  ) {
+    return true;
+  }
+
+  const role = String(user.role || '').toUpperCase();
+  if (
+    role === 'SUPER_ADMIN' ||
+    role === 'ACCOUNTANT' ||
+    role === 'CUSTODY' ||
+    role === 'CUSTODY_ADMIN' ||
+    user.is_super_admin
+  ) {
+    return true;
+  }
+
+  // Check permissions array or string
+  let perms: string[] = [];
+  if (Array.isArray(user.permissions)) {
+    perms = user.permissions;
+  } else if (typeof user.permissions === 'string') {
+    try {
+      perms = JSON.parse(user.permissions);
+    } catch {
+      perms = [user.permissions];
+    }
+  }
+
+  const allowedPermissions = [
+    '*',
+    'custody',
+    'custody.access',
+    'custody.view',
+    'custody.manage',
+    'custody.add',
+    'custody:access',
+  ];
+
+  for (const perm of allowedPermissions) {
+    if (perms.includes(perm)) {
+      return true;
+    }
+  }
+
+  return false;
 };

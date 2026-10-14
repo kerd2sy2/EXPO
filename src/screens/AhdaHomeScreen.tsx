@@ -21,6 +21,7 @@ import {
   BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { ThemeColors } from '../types/delegate';
@@ -30,7 +31,7 @@ import {
   CustodyExpenseItem,
   CustodyLogItem,
 } from '../services/custodyService';
-import { exportCustodyDayToExcel } from '../services/custodyExcelService';
+import { exportCustodyDayToPdf } from '../services/custodyPdfService';
 import { formatImageUrl } from '../services/api';
 import { toArabicDigits, formatArabicNumber } from '../utils/formatters';
 import { AhdaHeader } from '../components/AhdaHeader';
@@ -51,9 +52,16 @@ import { AhdaSharedImageCategoryModal } from '../components/modals/AhdaSharedIma
 import { useShareIntent } from 'expo-share-intent';
 import { useDeviceShake } from '../hooks/useDeviceShake';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
+import {
+  AhdaNetCustodyCardSkeleton,
+  AhdaCategoryGridSkeleton,
+  AhdaDayExpensesSummaryCardSkeleton,
+} from '../components/skeleton/AhdaHomeSkeleton';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HOME_HEADER_HEIGHT = 64;
+const CUSTODY_DAYS_CACHE_KEY = 'aams_custody_days_cache';
+const getLogsCacheKey = (date: string) => `aams_custody_logs_cache_${date}`;
 
 interface AhdaHomeScreenProps {
   colors: ThemeColors;
@@ -173,6 +181,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [editCategory, setEditCategory] = useState<string>('fuel');
   const [editAmount, setEditAmount] = useState<string>('');
   const [editRecipient, setEditRecipient] = useState<string>('');
+  const [editImageUri, setEditImageUri] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState<boolean>(false);
 
   // Preview Image Modal
@@ -208,26 +217,65 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     }
   }, { threshold: 1.78, timeoutMs: 1200 });
 
-  // Fetch all days and logs for current date
-  const loadCustodyData = useCallback(async () => {
+  // 1. Instant cache restoration on mount / date change (0ms screen load)
+  useEffect(() => {
+    let isMounted = true;
+    const restoreFromCache = async () => {
+      try {
+        const [cachedDaysStr, cachedLogsStr] = await Promise.all([
+          AsyncStorage.getItem(CUSTODY_DAYS_CACHE_KEY),
+          AsyncStorage.getItem(getLogsCacheKey(selectedDate)),
+        ]);
+        if (!isMounted) return;
+        if (cachedDaysStr) {
+          const parsed = JSON.parse(cachedDaysStr);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDays(parsed);
+            setLoading(false);
+          }
+        }
+        if (cachedLogsStr) {
+          const parsedLogs = JSON.parse(cachedLogsStr);
+          if (Array.isArray(parsedLogs)) {
+            setDayLogs(parsedLogs);
+          }
+        }
+      } catch (_) {}
+    };
+    restoreFromCache();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDate]);
+
+  // 2. Fetch all days and logs for current date (Stale-While-Revalidate)
+  const loadCustodyData = useCallback(async (silent = false) => {
+    if (!silent && days.length === 0) {
+      setLoading(true);
+    }
     try {
       const [daysData, logsData] = await Promise.all([
         custodyService.getDays(),
         custodyService.getLogs(selectedDate),
       ]);
-      setDays(daysData || []);
-      setDayLogs(logsData?.data || []);
+      if (Array.isArray(daysData)) {
+        setDays(daysData);
+        AsyncStorage.setItem(CUSTODY_DAYS_CACHE_KEY, JSON.stringify(daysData)).catch(() => {});
+      }
+      const freshLogs = logsData?.data || [];
+      setDayLogs(freshLogs);
+      AsyncStorage.setItem(getLogsCacheKey(selectedDate), JSON.stringify(freshLogs)).catch(() => {});
     } catch (err: any) {
       console.error('Error fetching custody data:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, days.length]);
 
   useEffect(() => {
-    loadCustodyData();
-  }, [loadCustodyData]);
+    loadCustodyData(days.length > 0);
+  }, [selectedDate]);
 
   // Handle hardware Back button: return to previous view/modal instead of closing the entire app
   useEffect(() => {
@@ -355,7 +403,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       setAlertConfig({
         type: 'success',
         title: 'تمت إضافة العهدة بنجاح',
-        message: `تمت إضافة مبلغ ${formatArabicNumber(val, 0)} ريال إلى عهدة يوم ${toArabicDigits(selectedDate)} بنجاح.`,
+        message: `تمت إضافة مبلغ ${formatArabicNumber(val, 2)} ريال إلى عهدة يوم ${toArabicDigits(selectedDate)} بنجاح.`,
       });
     } catch (err: any) {
       setAlertConfig({
@@ -373,7 +421,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     setAlertConfig({
       type: 'confirm',
       title: 'تأكيد حذف مبلغ العهدة',
-      message: `هل أنت متأكد من حذف وإلغاء مبلغ العهدة (${formatArabicNumber(log.amount, 0)} ريال) المضاف لهذا اليوم؟ سيتم إنقاص الرصيد فوراً.`,
+      message: `هل أنت متأكد من حذف وإلغاء مبلغ العهدة (${formatArabicNumber(log.amount, 2)} ريال) المضاف لهذا اليوم؟ سيتم إنقاص الرصيد فوراً.`,
       primaryButtonText: 'نعم، حذف المبلغ',
       secondaryButtonText: 'إلغاء',
       onPrimaryPress: async () => {
@@ -503,6 +551,41 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     setEditCategory(item.category);
     setEditAmount(String(item.amount));
     setEditRecipient(item.recipient_name || '');
+    setEditImageUri(item.image_url ? formatImageUrl(item.image_url) : null);
+  };
+
+  // 4b-2. Pick or Capture Image for Edit Expense
+  const handlePickEditImage = async (useCamera: boolean = false) => {
+    try {
+      let result;
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('إذن مطلوب', 'يرجى السماح للتطبيق باستخدام الكاميرا لتصوير الفاتورة');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.8,
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('إذن مطلوب', 'يرجى السماح للتطبيق بالوصول للصور');
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.8,
+        });
+      }
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        setEditImageUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.warn('Error picking edit image:', err);
+    }
   };
 
   // 4c. Save Edit Expense
@@ -520,13 +603,36 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
     try {
       setEditLoading(true);
+
+      let finalImageUrl = editingExpense.image_url || '';
+      if (editImageUri) {
+        if (editImageUri.startsWith('file://') || editImageUri.startsWith('content://')) {
+          try {
+            finalImageUrl = await custodyService.uploadInvoiceImage(editImageUri);
+          } catch (uploadErr: any) {
+            console.error('Edit invoice image upload error:', uploadErr);
+            setAlertConfig({
+              type: 'error',
+              title: 'فشل رفع صورة الفاتورة',
+              message: `تعذر رفع الصورة: ${uploadErr?.message || 'خطأ في الاتصال'}.`,
+            });
+            return;
+          }
+        }
+      } else {
+        // User removed the image
+        finalImageUrl = '';
+      }
+
       await custodyService.updateExpense(editingExpense.id, {
         category: editCategory,
         amount: amt,
         recipient_name: editRecipient.trim() || '—',
+        image_url: finalImageUrl,
       });
 
       setEditingExpense(null);
+      setEditImageUri(null);
       await loadCustodyData();
       setAlertConfig({
         type: 'success',
@@ -549,7 +655,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     setAlertConfig({
       type: 'confirm',
       title: 'هل تريد الحذف نهائياً؟',
-      message: `هل أنت متأكد من رغبتك في حذف فاتورة "${item.recipient_name || item.category}" بمبلغ ${formatArabicNumber(item.amount, 0)} ريال نهائياً؟ سيتم استرجاع المبلغ لحساب العهدة فوراً ولا يمكن التراجع.`,
+      message: `هل أنت متأكد من رغبتك في حذف فاتورة "${item.recipient_name || item.category}" بمبلغ ${formatArabicNumber(item.amount, 2)} ريال نهائياً؟ سيتم استرجاع المبلغ لحساب العهدة فوراً ولا يمكن التراجع.`,
       primaryButtonText: 'نعم، حذف نهائياً',
       secondaryButtonText: 'إلغاء',
       onPrimaryPress: async () => {
@@ -572,8 +678,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     });
   };
 
-  // 6. Excel Export
-  const handleExportExcel = async () => {
+  // 6. PDF Export with Full Receipts and Embedded Images
+  const handleExportPdf = async () => {
     if (!currentDay) {
       Alert.alert('تنبيه', 'لا توجد بيانات عهدة مسجلة لتصديرها لهذا اليوم');
       return;
@@ -581,9 +687,12 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
     try {
       setExportingExcel(true);
-      await exportCustodyDayToExcel(currentDay);
+      await exportCustodyDayToPdf(currentDay, {
+        user: currentUser,
+        dayLogs,
+      });
     } catch (err: any) {
-      Alert.alert('خطأ في التصدير', err?.message || 'فشل تصدير ملف الإكسل');
+      Alert.alert('خطأ في تصدير الـ PDF', err?.message || 'فشل إنشاء ومشاركة تقرير الـ PDF');
     } finally {
       setExportingExcel(false);
     }
@@ -609,6 +718,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           currentDay={currentDay}
           selectedDate={selectedDate}
           categoryFilter={selectedCategoryFilter}
+          loading={loading}
           colors={colors}
           isDarkMode={isDarkMode}
           categories={CATEGORIES}
@@ -661,8 +771,18 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             setEditAmount={setEditAmount}
             editRecipient={editRecipient}
             setEditRecipient={setEditRecipient}
+            editImageUri={editImageUri}
+            setEditImageUri={setEditImageUri}
+            onPickImage={handlePickEditImage}
             loading={editLoading}
             onSave={handleSaveEditExpense}
+            onDelete={() => {
+              const item = editingExpense;
+              if (item) {
+                setEditingExpense(null);
+                handleDeleteExpense(item);
+              }
+            }}
             onClose={() => setEditingExpense(null)}
           />
         </ModuleErrorBoundary>
@@ -752,10 +872,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />}
       >
         {loading ? (
-          <View style={styles.centerLoading}>
-            <ActivityIndicator size="large" color="#ea580c" />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>جاري تحميل حسابات العهدة...</Text>
-          </View>
+          <>
+            <AhdaNetCustodyCardSkeleton colors={colors} isDarkMode={isDarkMode} />
+            <AhdaCategoryGridSkeleton colors={colors} isDarkMode={isDarkMode} />
+            <AhdaDayExpensesSummaryCardSkeleton colors={colors} isDarkMode={isDarkMode} />
+          </>
         ) : (
           <>
             {/* ── 2. Primary Custody Target Card (Delegate App Style - Isolated) ── */}
@@ -834,8 +955,18 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           setEditAmount={setEditAmount}
           editRecipient={editRecipient}
           setEditRecipient={setEditRecipient}
+          editImageUri={editImageUri}
+          setEditImageUri={setEditImageUri}
+          onPickImage={handlePickEditImage}
           loading={editLoading}
           onSave={handleSaveEditExpense}
+          onDelete={() => {
+            const item = editingExpense;
+            if (item) {
+              setEditingExpense(null);
+              handleDeleteExpense(item);
+            }
+          }}
           onClose={() => setEditingExpense(null)}
         />
       </ModuleErrorBoundary>
@@ -904,7 +1035,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           isDarkMode={isDarkMode}
           loading={exportingExcel}
           onExportAndShare={async () => {
-            await handleExportExcel();
+            await handleExportPdf();
             setShowShakeExcelModal(false);
           }}
           onClose={() => setShowShakeExcelModal(false)}
