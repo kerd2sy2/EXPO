@@ -48,6 +48,7 @@ import { AhdaCustodyLogsModal } from '../components/modals/AhdaCustodyLogsModal'
 import { AhdaDatePickerModal } from '../components/modals/AhdaDatePickerModal';
 import { AhdaImageViewerModal } from '../components/modals/AhdaImageViewerModal';
 import { AhdaShakeExcelModal } from '../components/modals/AhdaShakeExcelModal';
+import { AhdaReportPreviewModal } from '../components/modals/AhdaReportPreviewModal';
 import { AhdaSharedImageCategoryModal } from '../components/modals/AhdaSharedImageCategoryModal';
 import { useShareIntent } from 'expo-share-intent';
 import { useDeviceShake } from '../hooks/useDeviceShake';
@@ -184,10 +185,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [editImageUri, setEditImageUri] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState<boolean>(false);
 
-  // Preview Image Modal
+  // Preview Image & Report Modal
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [exportingExcel, setExportingExcel] = useState<boolean>(false);
   const [showShakeExcelModal, setShowShakeExcelModal] = useState<boolean>(false);
+  const [showReportPreviewModal, setShowReportPreviewModal] = useState<boolean>(false);
 
   // Incoming Shared Image from Android Share Sheet
   const [sharedImagePending, setSharedImagePending] = useState<string | null>(null);
@@ -1035,14 +1037,35 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           colors={colors}
           isDarkMode={isDarkMode}
           loading={exportingExcel}
-          onPreview={async () => {
-            await handleExportPdf('preview');
+          onPreview={() => {
+            setShowShakeExcelModal(false);
+            setShowReportPreviewModal(true);
           }}
           onExportAndShare={async () => {
             await handleExportPdf('share');
             setShowShakeExcelModal(false);
           }}
           onClose={() => setShowShakeExcelModal(false)}
+        />
+      </ModuleErrorBoundary>
+
+      {/* ── 12b. Fullscreen In-App Report Preview Modal (Exact Visual Replica Before Export) ── */}
+      <ModuleErrorBoundary moduleName="AhdaReportPreviewModal">
+        <AhdaReportPreviewModal
+          visible={showReportPreviewModal}
+          currentDay={currentDay}
+          selectedDate={selectedDate}
+          currentUser={currentUser}
+          dayLogs={dayLogs}
+          effectiveOpeningBalance={effectiveOpeningBalance}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          loading={exportingExcel}
+          onClose={() => setShowReportPreviewModal(false)}
+          onExportAndShare={async () => {
+            await handleExportPdf('share');
+          }}
+          onPreviewImage={(url) => setPreviewImage(url)}
         />
       </ModuleErrorBoundary>
 
