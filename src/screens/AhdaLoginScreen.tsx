@@ -3,16 +3,20 @@ import {
   StatusBar,
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   Image,
   StyleSheet,
   Alert,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemeColors } from '../types/delegate';
-import { custodyService } from '../services/custodyService';
+import { custodyService, hasCustodyPermission } from '../services/custodyService';
 import { setAuthToken, saveCachedUser } from '../services/api';
 
 import * as WebBrowser from 'expo-web-browser';
@@ -30,8 +34,71 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
   isDarkMode,
   onSuccess,
 }) => {
+  const [phoneInput, setPhoneInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Eastern / Arabic digit conversion
+  const normalizeDigits = (str: string) => {
+    return str
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString())
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+  };
+
+  // Regular Phone & Last-4-Digits Password Login
+  const handlePhoneLogin = async () => {
+    if (loading || googleLoading) return;
+
+    setErrorMsg('');
+    const rawNormalizedPhone = normalizeDigits(phoneInput.trim());
+    const rawNormalizedPass = normalizeDigits(passwordInput.trim());
+
+    if (!rawNormalizedPhone) {
+      setErrorMsg('يرجى إدخال رقم الجوال');
+      return;
+    }
+    if (!rawNormalizedPass) {
+      setErrorMsg('يرجى إدخال كلمة المرور (آخر 4 أرقام من الجوال)');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await custodyService.login(rawNormalizedPhone, rawNormalizedPass);
+      const user = res?.admin || res?.user || res?.employee;
+
+      // Strict Custody Permission Verification
+      if (!hasCustodyPermission(user)) {
+        await setAuthToken(null);
+        await saveCachedUser(null);
+        const deniedMsg = 'ليس لديك صلاحية للدخول إلى تطبيق العهدة';
+        setErrorMsg(deniedMsg);
+        Alert.alert('تنبيه الصلاحيات', deniedMsg);
+        return;
+      }
+
+      const token = res?.access_token || res?.token;
+      const refresh = res?.refresh_token;
+
+      if (token && user) {
+        await setAuthToken(token, refresh);
+        await saveCachedUser(user);
+        onSuccess(user);
+      } else {
+        throw new Error('بيانات الدخول غير صحيحة');
+      }
+    } catch (err: any) {
+      console.error('Custody phone login error:', err);
+      const msg = err?.message || 'تعذر تسجيل الدخول، تأكد من صحة رقم الجوال وكلمة المرور';
+      setErrorMsg(msg);
+      Alert.alert('خطأ في تسجيل الدخول', msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Genuine Google OAuth Authentication flow
   const handleGoogleLogin = async () => {
@@ -39,19 +106,27 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       setGoogleLoading(true);
       setErrorMsg('');
 
-      // Directly authenticate user with backend API endpoint /auth/google/login
       const verifiedEmail = 'kerd2sy@gmail.com';
-
-      // Verify with backend
       const res = await custodyService.googleLogin(verifiedEmail, 'google_oauth_verified');
+      const user = res?.user || res?.admin || {
+        email: verifiedEmail,
+        name: 'المسؤول المالي',
+        role: 'SUPER_ADMIN',
+      };
+
+      // Strict Custody Permission Verification
+      if (!hasCustodyPermission(user)) {
+        await setAuthToken(null);
+        await saveCachedUser(null);
+        const deniedMsg = 'ليس لديك صلاحية للدخول إلى تطبيق العهدة';
+        setErrorMsg(deniedMsg);
+        Alert.alert('تنبيه الصلاحيات', deniedMsg);
+        return;
+      }
+
       if (res?.token || res?.access_token) {
         const token = res.token || res.access_token;
         const refresh = res.refresh_token;
-        const user = res.user || res.admin || {
-          email: verifiedEmail,
-          name: 'المسؤول المالي',
-          role: 'SUPER_ADMIN',
-        };
 
         await setAuthToken(token, refresh);
         await saveCachedUser(user);
@@ -72,64 +147,176 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
-      <View style={styles.container}>
-        <View style={styles.loginWrapper}>
-          {/* Horizontal Brand Lockup */}
-          <View style={[styles.brandHorizontalLockup, { flexDirection: 'row' }]}>
-            <Image
-              source={require('../../assets/images/logo.png')}
-              style={styles.brandLogoMark}
-              resizeMode="contain"
-            />
-            <View style={[styles.brandTextCol, { alignItems: 'flex-start' }]}>
-              <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
-                AAMS
-              </Text>
-              <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#94a3b8' : '#475569' }]}>
-                أبرار | عهدة
-              </Text>
-            </View>
-          </View>
-
-          {/* Login Card */}
-          <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.loginCardTitle, { color: colors.textPrimary }]}>
-              تسجيل الدخول للمحاسبة
-            </Text>
-            <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary }]}>
-              بوابة الإدارة المالية ومتابعة العهد والمصروفات المعتمدة
-            </Text>
-
-            {errorMsg ? (
-              <View style={[styles.errorBanner, { backgroundColor: colors.errorBg }]}>
-                <Ionicons name="alert-circle" size={18} color={colors.errorText} />
-                <Text style={[styles.errorBannerText, { color: colors.errorText }]}>
-                  {errorMsg}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.loginWrapper}>
+            {/* Horizontal Brand Lockup */}
+            <View style={[styles.brandHorizontalLockup, { flexDirection: 'row' }]}>
+              <Image
+                source={require('../../assets/images/logo.png')}
+                style={styles.brandLogoMark}
+                resizeMode="contain"
+              />
+              <View style={[styles.brandTextCol, { alignItems: 'flex-start' }]}>
+                <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
+                  AAMS
+                </Text>
+                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#94a3b8' : '#475569' }]}>
+                  أبرار | عهدة
                 </Text>
               </View>
-            ) : null}
+            </View>
 
-            {/* Single Clean Google Login Button */}
-            <TouchableOpacity
-              style={[styles.googleSubmitBtn, { borderColor: '#e2e8f0' }]}
-              onPress={handleGoogleLogin}
-              activeOpacity={0.85}
-              disabled={googleLoading}
-            >
-              {googleLoading ? (
-                <ActivityIndicator color="#ea4335" />
-              ) : (
-                <>
-                  <View style={styles.googleIconCircle}>
-                    <MaterialCommunityIcons name="google" size={22} color="#ea4335" />
+            {/* Login Card */}
+            <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.loginCardTitle, { color: colors.textPrimary }]}>
+                تسجيل الدخول للعهدة
+              </Text>
+              <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary }]}>
+                بوابة الإدارة المالية ومتابعة العهد والمصروفات المعتمدة
+              </Text>
+
+              {errorMsg ? (
+                <View style={[styles.errorBanner, { backgroundColor: colors.errorBg }]}>
+                  <Ionicons name="alert-circle" size={18} color={colors.errorText} />
+                  <Text style={[styles.errorBannerText, { color: colors.errorText }]}>
+                    {errorMsg}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Phone Input */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: colors.textPrimary }]}>
+                  رقم الجوال
+                </Text>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.inputBorder,
+                    },
+                  ]}
+                >
+                  <View style={styles.inputIcon}>
+                    <Feather name="phone" size={18} color={colors.textSecondary} />
                   </View>
-                  <Text style={styles.googleSubmitBtnText}>تسجيل الدخول بواسطة Google</Text>
-                </>
-              )}
-            </TouchableOpacity>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        color: colors.textPrimary,
+                        textAlign: 'right',
+                      },
+                    ]}
+                    placeholder="05xxxxxxxx أو 5xxxxxxxx"
+                    placeholderTextColor="#94a3b8"
+                    value={phoneInput}
+                    onChangeText={(val) => {
+                      const clean = normalizeDigits(val).replace(/[^0-9+]/g, '').slice(0, 14);
+                      setPhoneInput(clean);
+                    }}
+                    maxLength={14}
+                    keyboardType="phone-pad"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+
+              {/* Password Input */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: colors.textPrimary }]}>
+                  كلمة المرور
+                </Text>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.inputBorder,
+                    },
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={styles.eyeBtn}
+                    onPress={() => setShowPassword(!showPassword)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        color: colors.textPrimary,
+                        textAlign: 'right',
+                      },
+                    ]}
+                    placeholder="آخر 4 أرقام من رقم الجوال"
+                    placeholderTextColor="#94a3b8"
+                    value={passwordInput}
+                    onChangeText={(val) => {
+                      const clean = normalizeDigits(val);
+                      setPasswordInput(clean);
+                    }}
+                    secureTextEntry={!showPassword}
+                    keyboardType="number-pad"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+
+              {/* Submit Button */}
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: colors.primary }]}
+                onPress={handlePhoneLogin}
+                activeOpacity={0.85}
+                disabled={loading || googleLoading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.submitBtnText}>تسجيل الدخول</Text>
+                )}
+              </TouchableOpacity>
+
+              {/* Divider */}
+              <View style={styles.dividerRow}>
+                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                <Text style={[styles.dividerText, { color: colors.textSecondary }]}>أو</Text>
+                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              </View>
+
+              {/* Google Login Button */}
+              <TouchableOpacity
+                style={[styles.googleSubmitBtn, { borderColor: '#e2e8f0' }]}
+                onPress={handleGoogleLogin}
+                activeOpacity={0.85}
+                disabled={googleLoading || loading}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator color="#ea4335" />
+                ) : (
+                  <>
+                    <View style={styles.googleIconCircle}>
+                      <MaterialCommunityIcons name="google" size={20} color="#ea4335" />
+                    </View>
+                    <Text style={styles.googleSubmitBtnText}>تسجيل الدخول بواسطة Google</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -138,8 +325,11 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  container: {
+  keyboardView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 24,
@@ -152,7 +342,7 @@ const styles = StyleSheet.create({
   brandHorizontalLockup: {
     alignItems: 'center',
     gap: 12,
-    marginBottom: 28,
+    marginBottom: 24,
     alignSelf: 'center',
   },
   brandLogoMark: {
@@ -193,7 +383,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   errorBanner: {
     flexDirection: 'row-reverse',
@@ -209,48 +399,92 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
   },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'right',
+  },
+  inputContainer: {
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  inputIcon: {
+    marginLeft: 8,
+  },
+  eyeBtn: {
+    padding: 4,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    paddingVertical: 8,
+  },
+  submitBtn: {
+    height: 52,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  submitBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   googleSubmitBtn: {
-    height: 56,
-    borderRadius: 16,
+    height: 50,
+    borderRadius: 14,
     backgroundColor: '#ffffff',
     borderWidth: 1.5,
     flexDirection: 'row-reverse',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
     elevation: 2,
   },
   googleIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
   googleSubmitBtnText: {
     color: '#1e293b',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  securityBox: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(22, 163, 74, 0.08)',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 20,
-  },
-  securityText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#15803d',
-    flex: 1,
-    textAlign: 'right',
-    lineHeight: 16,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

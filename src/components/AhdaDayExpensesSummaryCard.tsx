@@ -29,7 +29,7 @@ export const AhdaDayExpensesSummaryCard: React.FC<AhdaDayExpensesSummaryCardProp
           </Text>
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4, marginTop: 2 }}>
             <Text style={styles.simpleInvoicesOrangeSub}>
-              {toArabicDigits(currentDay?.expenses?.length || 0)} فواتير مسجلة • إجمالي: {formatArabicNumber(currentDay?.total_expenses ?? 0, 0)}
+              {toArabicDigits(currentDay?.expenses?.length || 0)} فواتير مسجلة • إجمالي: {formatArabicNumber(currentDay?.total_expenses ?? 0, 2)}
             </Text>
             <Image
               source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}

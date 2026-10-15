@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "AAMS | Custody",
+    "CFBundleName": "AAMS | Custody"
+  },
+  "android": {
+    "app_name": "AAMS | Custody"
+  }
+}

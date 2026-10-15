@@ -8,9 +8,18 @@
     "icon": "./assets/images/icon.png",
     "scheme": "aams-ahda",
     "userInterfaceStyle": "automatic",
+    "locales": {
+      "ar": "./locales/ar.json",
+      "en": "./locales/en.json",
+      "ur": "./locales/ur.json",
+      "bn": "./locales/bn.json"
+    },
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.aams.ahda"
+      "bundleIdentifier": "com.aams.ahda",
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true
+      }
     },
     "android": {
       "package": "com.aams.ahda",
@@ -28,7 +37,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 10,
+      "versionCode": 12,
       "intentFilters": [
         {
           "action": "SEND",
@@ -106,6 +115,12 @@
       "router": {},
       "eas": {
         "projectId": "cdadebab-754b-453e-9937-68839d0b9982"
+      },
+      "appNames": {
+        "ar": "أبرار | عهدة",
+        "en": "AAMS | Custody",
+        "ur": "ابرار | تحویل",
+        "bn": "আবরার | হেফাজত"
       }
     }
   }

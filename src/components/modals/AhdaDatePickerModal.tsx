@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../../types/delegate';
 import { CustodyDayData } from '../../services/custodyService';
+import { toArabicDigits } from '../../utils/formatters';
 
 interface AhdaDatePickerModalProps {
   visible: boolean;
@@ -48,10 +49,32 @@ export const AhdaDatePickerModal: React.FC<AhdaDatePickerModalProps> = ({
 
   const todayStr = getTodayStr();
 
+  // Calendar math
+  const firstDayIndex = new Date(pickerYear, pickerMonth - 1, 1).getDay();
+  const totalDaysInMonth = new Date(pickerYear, pickerMonth, 0).getDate();
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDayIndex; i++) {
+    cells.push(null);
+  }
+  for (let d = 1; d <= totalDaysInMonth; d++) {
+    cells.push(d);
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push(null);
+  }
+
+  const weeks: (number | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) {
+    weeks.push(cells.slice(i, i + 7));
+  }
+
+  const weekDayNames = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.bottomSheetBackdrop}>
-        <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border, maxHeight: '85%' }]}>
+        <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border, maxHeight: '88%' }]}>
           <View style={styles.sheetIndicator} />
 
           {/* Header: Title + Close */}
@@ -76,15 +99,15 @@ export const AhdaDatePickerModal: React.FC<AhdaDatePickerModalProps> = ({
               }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
+              <Ionicons name="chevron-forward" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
 
             <View style={{ alignItems: 'center' }}>
               <Text style={[styles.calendarMonthTitle, { color: colors.textPrimary }]}>
                 {new Date(pickerYear, pickerMonth - 1, 1).toLocaleDateString('ar-SA', { month: 'long', year: 'numeric' })}
               </Text>
-              <Text style={{ fontSize: 11, color: colors.textSecondary, fontWeight: '600' }}>
-                {pickerYear} / {String(pickerMonth).padStart(2, '0')}
+              <Text style={{ fontSize: 11, color: colors.textSecondary, fontWeight: '700', marginTop: 2 }}>
+                {toArabicDigits(pickerYear)} / {toArabicDigits(String(pickerMonth).padStart(2, '0'))}
               </Text>
             </View>
 
@@ -100,48 +123,47 @@ export const AhdaDatePickerModal: React.FC<AhdaDatePickerModalProps> = ({
               }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+              <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
-          {/* Days of Week Header */}
-          <View style={styles.calendarWeekRow}>
-            {['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'].map((w, idx) => (
-              <Text key={idx} style={[styles.calendarWeekDay, { color: colors.textSecondary }]}>
+          {/* Days of Week Header (Exact 7-column flex alignment) */}
+          <View style={[styles.calendarHeaderWeekRow, { borderBottomColor: colors.border }]}>
+            {weekDayNames.map((w, idx) => (
+              <Text key={idx} style={[styles.calendarHeaderWeekDay, { color: colors.textSecondary }]}>
                 {w}
               </Text>
             ))}
           </View>
 
-          {/* 30 / 31 Days Grid */}
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
-            <View style={styles.calendarDaysGrid}>
-              {(() => {
-                const firstDayIndex = new Date(pickerYear, pickerMonth - 1, 1).getDay();
-                const totalDaysInMonth = new Date(pickerYear, pickerMonth, 0).getDate();
-                const blanks = Array.from({ length: firstDayIndex });
-                const dayNumbers = Array.from({ length: totalDaysInMonth }, (_, i) => i + 1);
+          {/* Grid of Weeks & Days (Each row has 7 items, perfectly aligned) */}
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4 }}>
+            <View style={styles.calendarWeeksContainer}>
+              {weeks.map((week, wIdx) => (
+                <View key={`week-${wIdx}`} style={styles.calendarWeekRow}>
+                  {week.map((d, dIdx) => {
+                    if (d === null) {
+                      return <View key={`blank-${dIdx}`} style={styles.calendarDayCellWrapper} />;
+                    }
 
-                return (
-                  <>
-                    {blanks.map((_, i) => (
-                      <View key={`b-${i}`} style={styles.calendarDayCellEmpty} />
-                    ))}
-                    {dayNumbers.map((d) => {
-                      const dateFormatted = `${pickerYear}-${String(pickerMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                      const isSelected = dateFormatted === selectedDate;
-                      const isToday = dateFormatted === todayStr;
-                      const hasCustodyData = days.some((dayItem) => dayItem.date === dateFormatted);
+                    const dateFormatted = `${pickerYear}-${String(pickerMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const isSelected = dateFormatted === selectedDate;
+                    const isToday = dateFormatted === todayStr;
+                    const hasCustodyData = days.some((dayItem) => dayItem.date === dateFormatted);
 
-                      return (
+                    return (
+                      <View key={`day-${d}`} style={styles.calendarDayCellWrapper}>
                         <TouchableOpacity
-                          key={`d-${d}`}
                           style={[
-                            styles.calendarDayCell,
+                            styles.calendarDayBtn,
                             { borderColor: colors.border },
                             isSelected && { backgroundColor: '#ea580c', borderColor: '#ea580c' },
-                            !isSelected && isToday && { borderColor: '#ea580c', borderWidth: 1.5 },
-                            !isSelected && { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' },
+                            !isSelected && isToday && {
+                              borderColor: '#ea580c',
+                              borderWidth: 1.5,
+                              backgroundColor: isDarkMode ? '#2d1f18' : '#fff7ed',
+                            },
+                            !isSelected && !isToday && { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc' },
                           ]}
                           onPress={() => onSelectDate(dateFormatted)}
                           activeOpacity={0.7}
@@ -153,7 +175,7 @@ export const AhdaDatePickerModal: React.FC<AhdaDatePickerModalProps> = ({
                               isToday && !isSelected && { color: '#ea580c', fontWeight: '800' },
                             ]}
                           >
-                            {d}
+                            {toArabicDigits(d)}
                           </Text>
                           {hasCustodyData && (
                             <View
@@ -164,11 +186,11 @@ export const AhdaDatePickerModal: React.FC<AhdaDatePickerModalProps> = ({
                             />
                           )}
                         </TouchableOpacity>
-                      );
-                    })}
-                  </>
-                );
-              })()}
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
             </View>
           </ScrollView>
 
@@ -182,8 +204,11 @@ export const AhdaDatePickerModal: React.FC<AhdaDatePickerModalProps> = ({
                 setPickerMonth(parseInt(parts[1], 10));
                 onSelectDate(todayStr);
               }}
+              activeOpacity={0.8}
             >
-              <Text style={styles.todayQuickBtnText}>الانتقال إلى اليوم الحالي ({todayStr})</Text>
+              <Text style={styles.todayQuickBtnText}>
+                الانتقال إلى اليوم الحالي ({toArabicDigits(todayStr)})
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -202,7 +227,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 28,
   },
@@ -229,47 +254,52 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   monthNavBtn: {
     padding: 6,
   },
   calendarMonthTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
+  },
+  calendarHeaderWeekRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 4,
+    borderBottomWidth: 1,
+  },
+  calendarHeaderWeekDay: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  calendarWeeksContainer: {
+    paddingVertical: 4,
   },
   calendarWeekRow: {
     flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    marginBottom: 8,
-  },
-  calendarWeekDay: {
-    width: '13%',
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  calendarDaysGrid: {
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingVertical: 4,
-  },
-  calendarDayCellEmpty: {
-    width: '13%',
-    aspectRatio: 1,
-  },
-  calendarDayCell: {
-    width: '13%',
-    aspectRatio: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    marginVertical: 4,
+  },
+  calendarDayCellWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 42,
+  },
+  calendarDayBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
   },
   calendarDayNum: {
@@ -278,7 +308,7 @@ const styles = StyleSheet.create({
   },
   calendarDayDot: {
     position: 'absolute',
-    bottom: 3,
+    bottom: 2,
     width: 4,
     height: 4,
     borderRadius: 2,

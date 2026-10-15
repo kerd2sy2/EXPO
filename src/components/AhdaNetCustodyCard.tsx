@@ -41,11 +41,10 @@ export const AhdaNetCustodyCard: React.FC<AhdaNetCustodyCardProps> = ({
           <View style={styles.walletIconCircle}>
             <Ionicons name="wallet-outline" size={18} color="#ea580c" />
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
+          <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
             <Text style={[styles.targetCardTitle, { color: colors.textPrimary }]}>
               صافي العهدة المتبقي
             </Text>
-            <Text style={styles.targetCardHint}>اضغط هنا لإضافة عهدة جديدة +</Text>
           </View>
         </View>
 
@@ -91,7 +90,7 @@ export const AhdaNetCustodyCard: React.FC<AhdaNetCustodyCardProps> = ({
           <Text style={[styles.detailColLabel, { color: colors.textSecondary }]}>باقي أمس</Text>
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
             <Text style={[styles.detailColValue, { color: colors.textPrimary }]}>
-              {formatArabicNumber(effectiveOpeningBalance, 0)}
+              {formatArabicNumber(effectiveOpeningBalance, 2)}
             </Text>
             <Image
               source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
@@ -107,11 +106,10 @@ export const AhdaNetCustodyCard: React.FC<AhdaNetCustodyCardProps> = ({
         <View style={styles.detailCol}>
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
             <Text style={[styles.detailColLabel, { color: '#ea580c' }]}>العهدة المضافة</Text>
-            <Ionicons name="add-circle" size={12} color="#ea580c" />
           </View>
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
             <Text style={[styles.detailColValue, { color: '#ea580c' }]}>
-              +{formatArabicNumber(currentDay?.added_amount ?? 0, 0)}
+              {formatArabicNumber(currentDay?.added_amount ?? 0, 2)}
             </Text>
             <Image
               source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
@@ -139,7 +137,7 @@ export const AhdaNetCustodyCard: React.FC<AhdaNetCustodyCardProps> = ({
           <Text style={[styles.detailColLabel, { color: '#ef4444' }]}>إجمالي المصاريف</Text>
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
             <Text style={[styles.detailColValue, { color: '#ef4444' }]}>
-              {formatArabicNumber(currentDay?.total_expenses ?? 0, 0)}
+              {formatArabicNumber(currentDay?.total_expenses ?? 0, 2)}
             </Text>
             <Image
               source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}

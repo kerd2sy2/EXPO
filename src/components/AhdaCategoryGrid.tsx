@@ -70,7 +70,8 @@ export const AhdaCategoryGrid: React.FC<AhdaCategoryGridProps> = ({
                 <Text
                   style={[styles.categoryCardName, { color: colors.textPrimary }]}
                   numberOfLines={1}
-                  ellipsizeMode="clip"
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                 >
                   {cat.label}
                 </Text>
@@ -78,7 +79,7 @@ export const AhdaCategoryGrid: React.FC<AhdaCategoryGridProps> = ({
               <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
                   <Text style={[styles.categoryCardValue, { color: cat.color }]}>
-                    {formatArabicNumber(val, 0)}
+                    {formatArabicNumber(val, 2)}
                   </Text>
                   <Image
                     source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
@@ -141,16 +142,16 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   categoryIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
   },
   categoryCardName: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
-    flexShrink: 1,
+    flex: 1,
     textAlign: 'right',
   },
   categoryCardValue: {

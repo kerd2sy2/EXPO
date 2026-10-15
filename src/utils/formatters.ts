@@ -24,18 +24,25 @@ export function toArabicDigits(value: string | number | null | undefined): strin
 
 /**
  * Formats a number with comma separators / decimals and converts to Eastern Arabic numerals.
+ * Ensures fractions (هللات) are NEVER omitted if they exist (decimals >= 2).
  */
 export function formatArabicNumber(
   value: number | string | null | undefined,
   decimals: number = 2
 ): string {
-  if (value === null || value === undefined) return toArabicDigits(0);
+  if (value === null || value === undefined) return toArabicDigits('٠');
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  if (isNaN(num)) return toArabicDigits(0);
+  if (isNaN(num)) return toArabicDigits('٠');
+
+  // Check if number has fractional halalas (e.g., 150.5, 0.25)
+  const hasFractions = Math.abs(num % 1) > 0.0001;
+
+  // If there are fractions, force at least 2 decimal places so halalas are always clearly shown
+  const effectiveDecimals = hasFractions ? Math.max(decimals, 2) : decimals;
 
   const formatted = num.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: effectiveDecimals,
+    maximumFractionDigits: effectiveDecimals,
   });
 
   return toArabicDigits(formatted);

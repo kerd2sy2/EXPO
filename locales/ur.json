@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "ابرار | تحویل",
+    "CFBundleName": "ابرار | تحویل"
+  },
+  "android": {
+    "app_name": "ابرار | تحویل"
+  }
+}

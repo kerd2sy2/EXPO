@@ -21,11 +21,14 @@ export const formatImageUrl = (url?: string | null): string | null => {
     return trimmed;
   }
   const cleanUrl = trimmed.replace(/^\/+/, '');
-  const baseDomain = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
-  if (cleanUrl.startsWith('uploads/')) {
+  if (cleanUrl.startsWith('api/v1/uploads/')) {
+    const baseDomain = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
     return `${baseDomain}/${cleanUrl}`;
   }
-  return `${baseDomain}/uploads/${cleanUrl}`;
+  if (cleanUrl.startsWith('uploads/')) {
+    return `${API_BASE_URL}/${cleanUrl}`;
+  }
+  return `${API_BASE_URL}/uploads/${cleanUrl}`;
 };
 
 const TOKEN_KEY = 'aams_delegate_token';
