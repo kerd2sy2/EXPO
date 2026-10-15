@@ -819,13 +819,7 @@ export const exportCustodyDayToPdf = async (
     } catch (_) {}
 
     if (ledgerImgData) {
-      // Large Ledger Card to fit Page 1 with summary
-      const LEDGER_CARD_H = 330;
-      const LEDGER_HEADER_H = 34;
-      const CARD_IMG_W = 503;
-      const CARD_IMG_H = 282;
-
-      // Title
+      // Title: "صورة الدفتر" only
       currentPage.drawRectangle({
         x: PAGE_WIDTH - MARGIN - 4,
         y: curY - 12,
@@ -836,7 +830,7 @@ export const exportCustodyDayToPdf = async (
 
       drawRtlText(
         currentPage,
-        'صورة الدفتر اليومي المعتمد',
+        'صورة الدفتر',
         PAGE_WIDTH - MARGIN - 12,
         curY - 10,
         11.5,
@@ -847,6 +841,10 @@ export const exportCustodyDayToPdf = async (
       curY -= 18;
 
       // Outer White Card
+      const CARD_IMG_W = 507;
+      const CARD_IMG_H = 300;
+      const LEDGER_CARD_H = CARD_IMG_H + 12;
+
       currentPage.drawRectangle({
         x: MARGIN,
         y: curY - LEDGER_CARD_H,
@@ -857,49 +855,9 @@ export const exportCustodyDayToPdf = async (
         borderWidth: 1.1,
       });
 
-      // Card Header Area Background
-      currentPage.drawRectangle({
-        x: MARGIN,
-        y: curY - LEDGER_HEADER_H,
-        width: CONTENT_WIDTH,
-        height: LEDGER_HEADER_H,
-        color: rgb(0.97, 0.98, 1),
-      });
-
-      // Right: Accent Orange Stripe
-      currentPage.drawRectangle({
-        x: PAGE_WIDTH - MARGIN - 4,
-        y: curY - 28,
-        width: 4,
-        height: 22,
-        color: rgb(0.92, 0.35, 0.05),
-      });
-
-      // Header Text Right: Title
-      drawRtlText(
-        currentPage,
-        'صورة الدفتر اليومي للعهدة',
-        PAGE_WIDTH - MARGIN - 14,
-        curY - 22,
-        11,
-        fontBold,
-        rgb(0.06, 0.09, 0.16)
-      );
-
-      // Header Text Left: Badge
-      drawRtlText(
-        currentPage,
-        'دفتر اليومية المرفق',
-        MARGIN + 120,
-        curY - 22,
-        9.5,
-        fontBold,
-        rgb(0.92, 0.35, 0.05)
-      );
-
       // Inner Image Box
       const imgBoxX = MARGIN + (CONTENT_WIDTH - CARD_IMG_W) / 2;
-      const imgBoxY = curY - LEDGER_HEADER_H - CARD_IMG_H - 6;
+      const imgBoxY = curY - LEDGER_CARD_H + 6;
 
       currentPage.drawRectangle({
         x: imgBoxX,

@@ -355,13 +355,13 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
               })}
             </View>
 
-            {/* ── Daily Ledger Section (صورة الدفتر اليومي تحت تفاصيل المصاريف) ── */}
+            {/* ── Daily Ledger Section ── */}
             {currentDay.ledger_image_url ? (
               <View style={{ marginTop: 22, paddingHorizontal: 12 }}>
                 <View style={styles.sectionHeaderRow}>
                   <View style={styles.sectionIndicator} />
                   <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                    صورة الدفتر اليومي المعتمد
+                    صورة الدفتر
                   </Text>
                 </View>
 
@@ -376,22 +376,11 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                           backgroundColor: colors.card,
                           borderColor: colors.border,
                           marginTop: 6,
+                          padding: 6,
                         },
                       ]}
                     >
-                      {/* Ledger Header (Matches Invoice Card Header) */}
-                      <View style={styles.invoiceCardHeader}>
-                        <View style={styles.invoiceTitleWrap}>
-                          <Text style={[styles.invoiceNumber, { color: colors.textPrimary }]}>
-                            صورة الدفتر اليومي للعهدة
-                          </Text>
-                        </View>
-                        <View style={[styles.amountBadge, { backgroundColor: '#fff7ed', borderColor: '#fed7aa' }]}>
-                          <Text style={styles.amountBadgeText}>دفتر اليومية المرفق</Text>
-                        </View>
-                      </View>
-
-                      {/* Image Box (Matches invoice image background) */}
+                      {/* Image Box */}
                       <TouchableOpacity
                         style={[
                           styles.imagePreviewWrap,

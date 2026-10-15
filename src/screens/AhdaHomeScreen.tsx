@@ -62,6 +62,7 @@ import {
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HOME_HEADER_HEIGHT = 64;
 const CUSTODY_DAYS_CACHE_KEY = 'aams_custody_days_cache';
+const SELECTED_DATE_CACHE_KEY = 'aams_custody_selected_date';
 const getLogsCacheKey = (date: string) => `aams_custody_logs_cache_${date}`;
 
 interface AhdaHomeScreenProps {
@@ -103,6 +104,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   };
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
+  const [dateInitialized, setDateInitialized] = useState<boolean>(false);
   const [days, setDays] = useState<CustodyDayData[]>([]);
   const [dayLogs, setDayLogs] = useState<CustodyLogItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -219,8 +221,45 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     }
   }, { threshold: 1.78, timeoutMs: 1200 });
 
+  // 0. Restore persisted selected date on initial mount (keeps selected day fixed across app restarts)
+  useEffect(() => {
+    let isMounted = true;
+    const restoreSavedDate = async () => {
+      try {
+        const savedDate = await AsyncStorage.getItem(SELECTED_DATE_CACHE_KEY);
+        if (savedDate && /^\d{4}-\d{2}-\d{2}$/.test(savedDate) && isMounted) {
+          setSelectedDate(savedDate);
+          const parts = savedDate.split('-');
+          if (parts.length === 3) {
+            setPickerYear(parseInt(parts[0], 10));
+            setPickerMonth(parseInt(parts[1], 10));
+          }
+        }
+      } catch (_) {
+      } finally {
+        if (isMounted) setDateInitialized(true);
+      }
+    };
+    restoreSavedDate();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Handler to update and persist selected date across app restarts
+  const updateSelectedDate = useCallback((newDate: string) => {
+    setSelectedDate(newDate);
+    const parts = newDate.split('-');
+    if (parts.length === 3) {
+      setPickerYear(parseInt(parts[0], 10));
+      setPickerMonth(parseInt(parts[1], 10));
+    }
+    AsyncStorage.setItem(SELECTED_DATE_CACHE_KEY, newDate).catch(() => {});
+  }, []);
+
   // 1. Instant cache restoration on mount / date change (0ms screen load)
   useEffect(() => {
+    if (!dateInitialized) return;
     let isMounted = true;
     const restoreFromCache = async () => {
       try {
@@ -254,7 +293,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [selectedDate]);
+  }, [selectedDate, dateInitialized]);
 
   // 2. Fetch all days and logs for current date (Stale-While-Revalidate)
   const loadCustodyData = useCallback(async (silent = false) => {
@@ -282,8 +321,9 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   }, [selectedDate, days.length]);
 
   useEffect(() => {
+    if (!dateInitialized) return;
     loadCustodyData(days.length > 0);
-  }, [selectedDate]);
+  }, [selectedDate, dateInitialized]);
 
   // Handle hardware Back button: return to previous view/modal instead of closing the entire app
   useEffect(() => {
@@ -377,7 +417,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     const year = current.getFullYear();
     const month = String(current.getMonth() + 1).padStart(2, '0');
     const day = String(current.getDate()).padStart(2, '0');
-    setSelectedDate(`${year}-${month}-${day}`);
+    updateSelectedDate(`${year}-${month}-${day}`);
   };
 
   // 1. Add Custody Amount
@@ -1040,7 +1080,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           setPickerMonth={setPickerMonth}
           days={days}
           onSelectDate={(newDate) => {
-            setSelectedDate(newDate);
+            updateSelectedDate(newDate);
             setShowDatePickerModal(false);
           }}
           onClose={() => setShowDatePickerModal(false)}
