@@ -109,7 +109,11 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
 
           <View style={styles.navTitleGroup}>
             <View style={styles.navTitleRow}>
-              <Ionicons name="document-text" size={17} color="#ea580c" />
+              <Image
+                source={require('../../assets/images/logo.png')}
+                style={{ width: 22, height: 22, borderRadius: 6, marginLeft: 4 }}
+                resizeMode="contain"
+              />
               <Text style={styles.navTitleText}>معاينة تقرير العهدة اليومية</Text>
             </View>
             <View style={styles.navDateBadge}>
@@ -149,6 +153,29 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
           >
             {/* Top Sheet Accent Stripe */}
             <View style={styles.docTopStripe} />
+
+            {/* Document Header with Logo */}
+            <View style={styles.docHeaderBanner}>
+              <View style={styles.docHeaderLogoBox}>
+                <Image
+                  source={require('../../assets/images/logo.png')}
+                  style={styles.docHeaderLogo}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={[styles.docHeaderTitle, { color: colors.textPrimary }]}>
+                تقرير العهدة اليومية
+              </Text>
+            </View>
+
+            {/* Background Watermark Logo (علامة مائية خفيفة) */}
+            <View style={styles.watermarkContainer} pointerEvents="none">
+              <Image
+                source={require('../../assets/images/logo.png')}
+                style={[styles.documentWatermark, { opacity: isDarkMode ? 0.035 : 0.045 }]}
+                resizeMode="contain"
+              />
+            </View>
 
             {/* Supervisor & Date Info Card */}
             <View
@@ -322,7 +349,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
 
             {/* ── Daily Ledger Section (صورة الدفتر اليومي تحت تفاصيل المصاريف) ── */}
             {currentDay.ledger_image_url ? (
-              <View style={{ marginTop: 22 }}>
+              <View style={{ marginTop: 22, paddingHorizontal: 12 }}>
                 <View style={styles.sectionHeaderRow}>
                   <View style={styles.sectionIndicator} />
                   <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
@@ -334,28 +361,53 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                   const fullLedger = formatImageUrl(currentDay.ledger_image_url);
                   if (!fullLedger) return null;
                   return (
-                    <TouchableOpacity
+                    <View
                       style={[
-                        styles.imagePreviewWrap,
+                        styles.invoiceCard,
                         {
-                          marginHorizontal: 12,
-                          height: 220,
-                          backgroundColor: isDarkMode ? '#020617' : '#0f172a',
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                          marginTop: 6,
                         },
                       ]}
-                      activeOpacity={0.88}
-                      onPress={() => onPreviewImage(fullLedger)}
                     >
-                      <Image
-                        source={{ uri: fullLedger }}
-                        style={styles.invoiceImg}
-                        resizeMode="contain"
-                      />
-                      <View style={styles.imageOverlayBtn}>
-                        <Ionicons name="scan-outline" size={14} color="#ffffff" />
-                        <Text style={styles.imageOverlayText}>انقر لتكبير صورة الدفتر</Text>
+                      {/* Ledger Header (Matches Invoice Card Header) */}
+                      <View style={styles.invoiceCardHeader}>
+                        <View style={styles.invoiceTitleWrap}>
+                          <Text style={[styles.invoiceNumber, { color: colors.textPrimary }]}>
+                            صورة الدفتر اليومي للعهدة
+                          </Text>
+                        </View>
+                        <View style={[styles.amountBadge, { backgroundColor: '#fff7ed', borderColor: '#fed7aa' }]}>
+                          <Text style={styles.amountBadgeText}>دفتر اليومية المرفق</Text>
+                        </View>
                       </View>
-                    </TouchableOpacity>
+
+                      {/* Image Box (Matches invoice image background) */}
+                      <TouchableOpacity
+                        style={[
+                          styles.imagePreviewWrap,
+                          {
+                            height: 220,
+                            backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                            borderWidth: 1,
+                            borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                          },
+                        ]}
+                        activeOpacity={0.88}
+                        onPress={() => onPreviewImage(fullLedger)}
+                      >
+                        <Image
+                          source={{ uri: fullLedger }}
+                          style={styles.invoiceImg}
+                          resizeMode="contain"
+                        />
+                        <View style={styles.imageOverlayBtn}>
+                          <Ionicons name="scan-outline" size={14} color="#ffffff" />
+                          <Text style={styles.imageOverlayText}>انقر لتكبير صورة الدفتر</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
                   );
                 })()}
               </View>
@@ -635,6 +687,49 @@ const styles = StyleSheet.create({
   docTopStripe: {
     height: 4,
     backgroundColor: '#ea580c',
+  },
+  docHeaderBanner: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  docHeaderLogoBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  docHeaderLogo: {
+    width: 32,
+    height: 32,
+  },
+  docHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  watermarkContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 0,
+  },
+  documentWatermark: {
+    width: 260,
+    height: 260,
   },
   infoCard: {
     flexDirection: 'row-reverse',

@@ -170,6 +170,20 @@ export const exportCustodyDayToPdf = async (
     }
   }
 
+  // 4. Load Company Logo (PNG asset)
+  let logoImg: PDFImage | null = null;
+  try {
+    const logoAsset = Asset.fromModule(require('../../assets/images/logo.png'));
+    if (!logoAsset.localUri) await logoAsset.downloadAsync();
+    const logoUri = logoAsset.localUri || logoAsset.uri;
+    const logoB64 = await FileSystem.readAsStringAsync(logoUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    logoImg = await pdfDoc.embedPng(base64ToUint8Array(logoB64));
+  } catch (logoErr) {
+    console.warn('[PDF] Failed to load logo:', logoErr);
+  }
+
   const PAGE_WIDTH = 595.28; // A4 standard width
   const PAGE_HEIGHT = 841.89; // A4 standard height
   const MARGIN = 36;
@@ -354,6 +368,18 @@ export const exportCustodyDayToPdf = async (
     height: 3,
     color: rgb(0.92, 0.35, 0.05),
   });
+
+  // Header Logo (Far Left)
+  if (logoImg) {
+    const logoH = 38;
+    const logoW = (logoImg.width / logoImg.height) * logoH;
+    page1.drawImage(logoImg, {
+      x: MARGIN,
+      y: PAGE_HEIGHT - BANNER_HEIGHT + (BANNER_HEIGHT - logoH) / 2,
+      width: logoW,
+      height: logoH,
+    });
+  }
 
   // Header Title (Clean, NO date on the left as requested)
   drawRtlText(
@@ -672,6 +698,18 @@ export const exportCustodyDayToPdf = async (
       color: rgb(0.92, 0.35, 0.05),
     });
 
+    // Logo in subsequent pages mini-header (Far Left)
+    if (logoImg) {
+      const logoH = 26;
+      const logoW = (logoImg.width / logoImg.height) * logoH;
+      newPage.drawImage(logoImg, {
+        x: MARGIN,
+        y: PAGE_HEIGHT - MINI_BANNER_H + (MINI_BANNER_H - logoH) / 2,
+        width: logoW,
+        height: logoH,
+      });
+    }
+
     // Right: Section title (Clean header, NO date on the left)
     drawRtlText(
       newPage,
@@ -724,15 +762,74 @@ export const exportCustodyDayToPdf = async (
 
       curY -= 22;
 
-      // Card Box
-      const LEDGER_CARD_H = 220;
+      // Card Box (Styled exactly like invoice cards with clean white & light gray background)
+      const LEDGER_CARD_H = 250;
+      const LEDGER_HEADER_H = 38;
+      const CARD_IMG_W = 440;
+      const CARD_IMG_H = 196;
+
+      // Outer White Card
       currentPage.drawRectangle({
         x: MARGIN,
         y: curY - LEDGER_CARD_H,
         width: CONTENT_WIDTH,
         height: LEDGER_CARD_H,
-        color: rgb(0.06, 0.09, 0.16),
+        color: rgb(1, 1, 1),
         borderColor: rgb(0.85, 0.88, 0.92),
+        borderWidth: 1.1,
+      });
+
+      // Card Header Area Background
+      currentPage.drawRectangle({
+        x: MARGIN,
+        y: curY - LEDGER_HEADER_H,
+        width: CONTENT_WIDTH,
+        height: LEDGER_HEADER_H,
+        color: rgb(0.97, 0.98, 1),
+      });
+
+      // Right: Accent Orange Stripe
+      currentPage.drawRectangle({
+        x: PAGE_WIDTH - MARGIN - 4,
+        y: curY - 32,
+        width: 4,
+        height: 26,
+        color: rgb(0.92, 0.35, 0.05),
+      });
+
+      // Header Text Right: Title
+      drawRtlText(
+        currentPage,
+        'صورة الدفتر اليومي للعهدة',
+        PAGE_WIDTH - MARGIN - 14,
+        curY - 18,
+        11.5,
+        fontBold,
+        rgb(0.06, 0.09, 0.16)
+      );
+
+      // Header Text Left: Badge
+      drawRtlText(
+        currentPage,
+        'دفتر اليومية المرفق',
+        MARGIN + 120,
+        curY - 18,
+        10,
+        fontBold,
+        rgb(0.92, 0.35, 0.05)
+      );
+
+      // Inner Image Box (Matches invoice image container background)
+      const imgBoxX = MARGIN + (CONTENT_WIDTH - CARD_IMG_W) / 2;
+      const imgBoxY = curY - LEDGER_HEADER_H - CARD_IMG_H - 8;
+
+      currentPage.drawRectangle({
+        x: imgBoxX,
+        y: imgBoxY,
+        width: CARD_IMG_W,
+        height: CARD_IMG_H,
+        color: rgb(0.95, 0.96, 0.98),
+        borderColor: rgb(0.86, 0.89, 0.93),
         borderWidth: 1,
       });
 
@@ -741,10 +838,10 @@ export const exportCustodyDayToPdf = async (
           ? await pdfDoc.embedJpg(ledgerImgData.bytes)
           : await pdfDoc.embedPng(ledgerImgData.bytes);
 
-        const imgDim = embeddedImg.scaleToFit(CONTENT_WIDTH - 12, LEDGER_CARD_H - 12);
+        const imgDim = embeddedImg.scaleToFit(CARD_IMG_W - 8, CARD_IMG_H - 8);
         currentPage.drawImage(embeddedImg, {
-          x: MARGIN + 6 + (CONTENT_WIDTH - 12 - imgDim.width) / 2,
-          y: curY - LEDGER_CARD_H + 6 + (LEDGER_CARD_H - 12 - imgDim.height) / 2,
+          x: imgBoxX + (CARD_IMG_W - imgDim.width) / 2,
+          y: imgBoxY + (CARD_IMG_H - imgDim.height) / 2,
           width: imgDim.width,
           height: imgDim.height,
         });
@@ -752,7 +849,7 @@ export const exportCustodyDayToPdf = async (
         console.warn('[PDF] Failed to embed ledger image:', embedErr);
       }
 
-      curY -= LEDGER_CARD_H + 20;
+      curY -= LEDGER_CARD_H + 16;
     }
   }
 
@@ -1172,6 +1269,24 @@ export const exportCustodyDayToPdf = async (
 
       curY -= 6;
     }
+  }
+
+  // ── Draw Company Logo Watermark Across All Pages (علامة مائية خفيفة للمؤسسة) ──
+  if (logoImg) {
+    const WM_SIZE = 280;
+    const wmH = (logoImg.height / logoImg.width) * WM_SIZE;
+    const wmX = (PAGE_WIDTH - WM_SIZE) / 2;
+    const wmY = (PAGE_HEIGHT - wmH) / 2;
+
+    allPages.forEach((p) => {
+      p.drawImage(logoImg!, {
+        x: wmX,
+        y: wmY,
+        width: WM_SIZE,
+        height: wmH,
+        opacity: 0.05,
+      });
+    });
   }
 
   // Draw Page Number Footers Across All Pages in Eastern Arabic Numerals
