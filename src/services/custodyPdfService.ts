@@ -350,8 +350,8 @@ export const exportCustodyDayToPdf = async (
   allPages.push(page1);
   let currentPage: PDFPage = page1;
 
-  // Page 1 Top Dark Banner
-  const BANNER_HEIGHT = 55;
+  // Page 1 Top Executive Banner
+  const BANNER_HEIGHT = 62;
   page1.drawRectangle({
     x: 0,
     y: PAGE_HEIGHT - BANNER_HEIGHT,
@@ -360,36 +360,96 @@ export const exportCustodyDayToPdf = async (
     color: rgb(0.06, 0.09, 0.16),
   });
 
-  // Orange Accent Line below banner
+  // Top Accent Orange Line
   page1.drawRectangle({
     x: 0,
-    y: PAGE_HEIGHT - BANNER_HEIGHT,
+    y: PAGE_HEIGHT - 3,
     width: PAGE_WIDTH,
     height: 3,
     color: rgb(0.92, 0.35, 0.05),
   });
 
-  // Header Logo (Far Left)
+  // Bottom Accent Line below banner
+  page1.drawRectangle({
+    x: 0,
+    y: PAGE_HEIGHT - BANNER_HEIGHT,
+    width: PAGE_WIDTH,
+    height: 2,
+    color: rgb(0.18, 0.24, 0.36),
+  });
+
+  // Right Side: Logo Box & Title
+  const logoBoxSize = 44;
+  const logoBoxX = PAGE_WIDTH - MARGIN - logoBoxSize;
+  const logoBoxY = PAGE_HEIGHT - BANNER_HEIGHT + (BANNER_HEIGHT - logoBoxSize) / 2;
+
+  // Crisp White Backdrop for Logo on the Far Right
+  page1.drawRectangle({
+    x: logoBoxX,
+    y: logoBoxY,
+    width: logoBoxSize,
+    height: logoBoxSize,
+    color: rgb(1, 1, 1),
+    borderColor: rgb(0.92, 0.35, 0.05),
+    borderWidth: 1.5,
+  });
+
   if (logoImg) {
-    const logoH = 38;
-    const logoW = (logoImg.width / logoImg.height) * logoH;
+    const logoPadding = 4;
     page1.drawImage(logoImg, {
-      x: MARGIN,
-      y: PAGE_HEIGHT - BANNER_HEIGHT + (BANNER_HEIGHT - logoH) / 2,
-      width: logoW,
-      height: logoH,
+      x: logoBoxX + logoPadding,
+      y: logoBoxY + logoPadding,
+      width: logoBoxSize - logoPadding * 2,
+      height: logoBoxSize - logoPadding * 2,
     });
   }
 
-  // Header Title (Clean, NO date on the left as requested)
+  // Header Title & Subtitle to the Left of the Right-Aligned Logo
+  const textRightX = logoBoxX - 12;
   drawRtlText(
     page1,
     'تقرير العهدة اليومية',
-    PAGE_WIDTH - MARGIN,
-    PAGE_HEIGHT - 35,
-    18,
+    textRightX,
+    PAGE_HEIGHT - 31,
+    16.5,
     fontBold,
     rgb(1, 1, 1)
+  );
+
+  drawRtlText(
+    page1,
+    'نظام إدارة ومتابعة العهد والمصاريف • شركة أبرار',
+    textRightX,
+    PAGE_HEIGHT - 48,
+    8.5,
+    fontRegular,
+    rgb(0.72, 0.78, 0.88)
+  );
+
+  // Left Side: Sleek Official Badge
+  const badgeW = 125;
+  const badgeH = 24;
+  const badgeX = MARGIN;
+  const badgeY = PAGE_HEIGHT - BANNER_HEIGHT + (BANNER_HEIGHT - badgeH) / 2;
+
+  page1.drawRectangle({
+    x: badgeX,
+    y: badgeY,
+    width: badgeW,
+    height: badgeH,
+    color: rgb(0.1, 0.15, 0.25),
+    borderColor: rgb(0.22, 0.3, 0.45),
+    borderWidth: 1,
+  });
+
+  drawCenteredRtlText(
+    page1,
+    'كشف حساب رسمي معتمد',
+    badgeX + badgeW / 2,
+    badgeY + 7,
+    8.5,
+    fontBold,
+    rgb(0.92, 0.62, 0.35)
   );
 
   // ── Info Card (Supervisor on the far right, Date on the far left) ──
@@ -681,7 +741,7 @@ export const exportCustodyDayToPdf = async (
     currentPage = newPage;
 
     // Mini Top Header Banner
-    const MINI_BANNER_H = 42;
+    const MINI_BANNER_H = 46;
     newPage.drawRectangle({
       x: 0,
       y: PAGE_HEIGHT - MINI_BANNER_H,
@@ -690,35 +750,70 @@ export const exportCustodyDayToPdf = async (
       color: rgb(0.06, 0.09, 0.16),
     });
 
+    // Top Orange Accent Line
+    newPage.drawRectangle({
+      x: 0,
+      y: PAGE_HEIGHT - 2.5,
+      width: PAGE_WIDTH,
+      height: 2.5,
+      color: rgb(0.92, 0.35, 0.05),
+    });
+
+    // Bottom Subtle Line
     newPage.drawRectangle({
       x: 0,
       y: PAGE_HEIGHT - MINI_BANNER_H,
       width: PAGE_WIDTH,
-      height: 3,
-      color: rgb(0.92, 0.35, 0.05),
+      height: 1.5,
+      color: rgb(0.18, 0.24, 0.36),
     });
 
-    // Logo in subsequent pages mini-header (Far Left)
+    // Logo on the Far Right in subsequent pages
+    const miniLogoBoxSize = 32;
+    const miniLogoBoxX = PAGE_WIDTH - MARGIN - miniLogoBoxSize;
+    const miniLogoBoxY = PAGE_HEIGHT - MINI_BANNER_H + (MINI_BANNER_H - miniLogoBoxSize) / 2;
+
+    newPage.drawRectangle({
+      x: miniLogoBoxX,
+      y: miniLogoBoxY,
+      width: miniLogoBoxSize,
+      height: miniLogoBoxSize,
+      color: rgb(1, 1, 1),
+      borderColor: rgb(0.92, 0.35, 0.05),
+      borderWidth: 1.2,
+    });
+
     if (logoImg) {
-      const logoH = 26;
-      const logoW = (logoImg.width / logoImg.height) * logoH;
+      const p = 3;
       newPage.drawImage(logoImg, {
-        x: MARGIN,
-        y: PAGE_HEIGHT - MINI_BANNER_H + (MINI_BANNER_H - logoH) / 2,
-        width: logoW,
-        height: logoH,
+        x: miniLogoBoxX + p,
+        y: miniLogoBoxY + p,
+        width: miniLogoBoxSize - p * 2,
+        height: miniLogoBoxSize - p * 2,
       });
     }
 
-    // Right: Section title (Clean header, NO date on the left)
+    // Section title next to Logo on the Right
+    const miniTextRightX = miniLogoBoxX - 10;
     drawRtlText(
       newPage,
       'بيان وتوثيق فواتير المصاريف المرفقة',
-      PAGE_WIDTH - MARGIN,
-      PAGE_HEIGHT - 26,
+      miniTextRightX,
+      PAGE_HEIGHT - 28,
       12.5,
       fontBold,
       rgb(1, 1, 1)
+    );
+
+    // Left side: Subtitle reference
+    drawRtlText(
+      newPage,
+      'تقرير العهدة اليومية',
+      MARGIN + 100,
+      PAGE_HEIGHT - 28,
+      9.5,
+      fontRegular,
+      rgb(0.72, 0.78, 0.88)
     );
 
     curY = PAGE_HEIGHT - MINI_BANNER_H - 18;
@@ -1269,24 +1364,6 @@ export const exportCustodyDayToPdf = async (
 
       curY -= 6;
     }
-  }
-
-  // ── Draw Company Logo Watermark Across All Pages (علامة مائية خفيفة للمؤسسة) ──
-  if (logoImg) {
-    const WM_SIZE = 280;
-    const wmH = (logoImg.height / logoImg.width) * WM_SIZE;
-    const wmX = (PAGE_WIDTH - WM_SIZE) / 2;
-    const wmY = (PAGE_HEIGHT - wmH) / 2;
-
-    allPages.forEach((p) => {
-      p.drawImage(logoImg!, {
-        x: wmX,
-        y: wmY,
-        width: WM_SIZE,
-        height: wmH,
-        opacity: 0.05,
-      });
-    });
   }
 
   // Draw Page Number Footers Across All Pages in Eastern Arabic Numerals

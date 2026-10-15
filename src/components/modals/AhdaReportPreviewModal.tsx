@@ -154,27 +154,34 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
             {/* Top Sheet Accent Stripe */}
             <View style={styles.docTopStripe} />
 
-            {/* Document Header with Logo */}
-            <View style={styles.docHeaderBanner}>
-              <View style={styles.docHeaderLogoBox}>
-                <Image
-                  source={require('../../../assets/images/logo.png')}
-                  style={styles.docHeaderLogo}
-                  resizeMode="contain"
-                />
+            {/* Document Executive Header Banner */}
+            <View
+              style={[
+                styles.docHeaderBanner,
+                { backgroundColor: isDarkMode ? '#0f172a' : '#0b1120' },
+              ]}
+            >
+              {/* Right Side: Logo & Main Titles */}
+              <View style={styles.docHeaderRightSide}>
+                <View style={styles.docHeaderLogoBox}>
+                  <Image
+                    source={require('../../../assets/images/logo.png')}
+                    style={styles.docHeaderLogo}
+                    resizeMode="contain"
+                  />
+                </View>
+                <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                  <Text style={styles.docHeaderTitle}>تقرير العهدة اليومية</Text>
+                  <Text style={styles.docHeaderSubtitle}>
+                    نظام إدارة العهد والمصاريف • شركة أبرار
+                  </Text>
+                </View>
               </View>
-              <Text style={[styles.docHeaderTitle, { color: colors.textPrimary }]}>
-                تقرير العهدة اليومية
-              </Text>
-            </View>
 
-            {/* Background Watermark Logo (علامة مائية خفيفة) */}
-            <View style={styles.watermarkContainer} pointerEvents="none">
-              <Image
-                source={require('../../../assets/images/logo.png')}
-                style={[styles.documentWatermark, { opacity: isDarkMode ? 0.035 : 0.045 }]}
-                resizeMode="contain"
-              />
+              {/* Left Side: Badge */}
+              <View style={styles.docHeaderBadge}>
+                <Text style={styles.docHeaderBadgeText}>كشف رسمي معتمد</Text>
+              </View>
             </View>
 
             {/* Supervisor & Date Info Card */}
@@ -693,43 +700,59 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  docHeaderRightSide: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
   },
   docHeaderLogoBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#ea580c',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
   docHeaderLogo: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
   },
   docHeaderTitle: {
     fontSize: 16,
     fontWeight: '900',
+    color: '#ffffff',
+    textAlign: 'right',
   },
-  watermarkContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 0,
+  docHeaderSubtitle: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94a3b8',
+    textAlign: 'right',
+    marginTop: 2,
   },
-  documentWatermark: {
-    width: 260,
-    height: 260,
+  docHeaderBadge: {
+    backgroundColor: 'rgba(234, 88, 12, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(234, 88, 12, 0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  docHeaderBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fb923c',
   },
   infoCard: {
     flexDirection: 'row-reverse',
