@@ -11,7 +11,10 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustodyDayData, CustodyLogItem } from '../../services/custodyService';
+import { formatImageUrl } from '../../services/api';
 import { formatArabicNumber, toArabicDigits } from '../../utils/formatters';
 
 interface AhdaReportPreviewModalProps {
@@ -52,7 +55,11 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
   onExportAndShare,
   onPreviewImage,
 }) => {
+  const insets = useSafeAreaInsets();
   if (!visible || !currentDay) return null;
+
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? 38 : 20);
+  const bottomInset = Math.max(insets.bottom, 12);
 
   const supervisorName = currentUser?.name || currentUser?.username || 'ابراهيم محمود';
   const cleanDateStr = toArabicDigits(selectedDate);
@@ -84,46 +91,42 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { backgroundColor: isDarkMode ? '#0b0f19' : '#f8fafc' }]}>
-        {/* ── Top Header Navigation Bar ── */}
-        <View
-          style={[
-            styles.navHeader,
-            {
-              backgroundColor: isDarkMode ? '#111827' : '#ffffff',
-              borderBottomColor: isDarkMode ? '#1f2937' : '#e2e8f0',
-            },
-          ]}
-        >
+      <StatusBar style="light" />
+      <View style={[styles.container, { backgroundColor: isDarkMode ? '#0b0f19' : '#f1f5f9' }]}>
+        {/* ── Executive Top Header Bar (Safe from Notch and Status Bar) ── */}
+        <View style={[styles.navHeader, { paddingTop: topInset + 6 }]}>
           <TouchableOpacity
-            style={[styles.closeIconBtn, { backgroundColor: isDarkMode ? '#1f2937' : '#f1f5f9' }]}
+            style={styles.closeIconBtn}
             onPress={onClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.8}
           >
-            <Ionicons name="close" size={22} color={colors.textPrimary} />
+            <Ionicons name="close" size={22} color="#ffffff" />
           </TouchableOpacity>
 
           <View style={styles.navTitleGroup}>
-            <Text style={[styles.navTitle, { color: colors.textPrimary }]}>
-              معاينة تقرير العهدة اليومية
-            </Text>
-            <Text style={[styles.navSubtitle, { color: colors.textSecondary }]}>
-              نسخة مطابقة لملف الـ PDF النهائي
-            </Text>
+            <View style={styles.navTitleRow}>
+              <Ionicons name="document-text" size={17} color="#ea580c" />
+              <Text style={styles.navTitleText}>معاينة تقرير العهدة اليومية</Text>
+            </View>
+            <View style={styles.navDateBadge}>
+              <Text style={styles.navDateText}>تاريخ: {cleanDateStr}</Text>
+            </View>
           </View>
 
           <TouchableOpacity
-            style={[styles.quickShareBtn, { backgroundColor: '#ea580c' }]}
+            style={[styles.quickShareBtn, { opacity: loading ? 0.7 : 1 }]}
             onPress={onExportAndShare}
             disabled={loading}
+            activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Ionicons name="share-social-outline" size={18} color="#ffffff" />
+              <Ionicons name="share-social" size={18} color="#ffffff" />
             )}
           </TouchableOpacity>
         </View>
@@ -134,7 +137,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Document Sheet Simulation */}
+          {/* Document Sheet Container */}
           <View
             style={[
               styles.documentSheet,
@@ -144,14 +147,8 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
               },
             ]}
           >
-            {/* Header Document Banner */}
-            <View style={styles.docHeaderBanner}>
-              <View style={styles.docHeaderAccent} />
-              <View style={styles.docHeaderContent}>
-                <Ionicons name="document-text" size={22} color="#ffffff" />
-                <Text style={styles.docHeaderTitle}>تقرير العهدة والمصاريف اليومية</Text>
-              </View>
-            </View>
+            {/* Top Sheet Accent Stripe */}
+            <View style={styles.docTopStripe} />
 
             {/* Supervisor & Date Info Card */}
             <View
@@ -253,7 +250,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
             </View>
 
             {/* Section 2: Categories Breakdown Table */}
-            <View style={[styles.sectionHeaderRow, { marginTop: 20 }]}>
+            <View style={[styles.sectionHeaderRow, { marginTop: 22 }]}>
               <View style={styles.sectionIndicator} />
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
                 ثانياً: تفاصيل المصاريف حسب الأقسام
@@ -360,7 +357,8 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                     <View style={styles.invoicesList}>
                       {group.expenses.map((exp) => {
                         invoiceCounter += 1;
-                        const hasImg = !!exp.image_url;
+                        const fullImgUrl = formatImageUrl(exp.image_url);
+                        const hasImg = !!fullImgUrl;
 
                         return (
                           <View
@@ -396,15 +394,15 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                               </Text>
                             </View>
 
-                            {/* Invoice Image Preview */}
+                            {/* Invoice Image Preview or Dedicated No-Attachment Box */}
                             {hasImg ? (
                               <TouchableOpacity
                                 style={styles.imagePreviewWrap}
-                                activeOpacity={0.9}
-                                onPress={() => onPreviewImage(exp.image_url!)}
+                                activeOpacity={0.88}
+                                onPress={() => onPreviewImage(fullImgUrl)}
                               >
                                 <Image
-                                  source={{ uri: exp.image_url }}
+                                  source={{ uri: fullImgUrl }}
                                   style={styles.invoiceImg}
                                   resizeMode="contain"
                                 />
@@ -418,7 +416,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                                 style={[
                                   styles.noImageBox,
                                   {
-                                    backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                                    backgroundColor: isDarkMode ? '#182234' : '#f1f5f9',
                                     borderColor: isDarkMode ? '#334155' : '#cbd5e1',
                                   },
                                 ]}
@@ -451,13 +449,14 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
           </View>
         </ScrollView>
 
-        {/* ── Fixed Bottom Action Bar ── */}
+        {/* ── Fixed Bottom Action Bar (Safe from Home Indicator) ── */}
         <View
           style={[
             styles.bottomBar,
             {
               backgroundColor: isDarkMode ? '#111827' : '#ffffff',
               borderTopColor: isDarkMode ? '#1f2937' : '#e2e8f0',
+              paddingBottom: bottomInset + 4,
             },
           ]}
         >
@@ -515,18 +514,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   navHeader: {
+    backgroundColor: '#0f172a',
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 14 : 12,
     paddingBottom: 14,
     borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   closeIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -534,21 +540,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  navTitle: {
+  navTitleRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+  },
+  navTitleText: {
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '800',
     textAlign: 'center',
   },
-  navSubtitle: {
+  navDateBadge: {
+    marginTop: 4,
+    backgroundColor: 'rgba(234, 88, 12, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(234, 88, 12, 0.4)',
+  },
+  navDateText: {
+    color: '#fb923c',
     fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-    textAlign: 'center',
+    fontWeight: '700',
   },
   quickShareBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#ea580c',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -556,7 +577,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 14,
+    padding: 12,
     paddingBottom: 30,
   },
   documentSheet: {
@@ -570,29 +591,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 6,
   },
-  docHeaderBanner: {
-    backgroundColor: '#0f172a',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    position: 'relative',
-  },
-  docHeaderAccent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
+  docTopStripe: {
+    height: 4,
     backgroundColor: '#ea580c',
-  },
-  docHeaderContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 10,
-  },
-  docHeaderTitle: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '800',
   },
   infoCard: {
     flexDirection: 'row-reverse',
@@ -600,7 +601,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     margin: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -802,13 +803,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   imagePreviewWrap: {
-    height: 180,
-    backgroundColor: '#0f172a',
-    borderRadius: 8,
+    height: 200,
+    backgroundColor: '#020617',
+    borderRadius: 10,
     overflow: 'hidden',
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   invoiceImg: {
     width: '100%',
@@ -818,7 +821,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 8,
     left: 8,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
@@ -855,7 +858,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bottomBar: {
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 12,
     borderTopWidth: 1,
     gap: 8,
   },

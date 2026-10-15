@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { formatImageUrl } from '../../services/api';
+
 interface AhdaImageViewerModalProps {
   visible: boolean;
   imageUrl: string | null;
@@ -20,6 +22,7 @@ export const AhdaImageViewerModal: React.FC<AhdaImageViewerModalProps> = ({
   onClose,
 }) => {
   if (!imageUrl) return null;
+  const fullUri = formatImageUrl(imageUrl) || imageUrl;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -27,7 +30,7 @@ export const AhdaImageViewerModal: React.FC<AhdaImageViewerModalProps> = ({
         <TouchableOpacity style={styles.closeViewerBtn} onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="close-circle" size={34} color="#ffffff" />
         </TouchableOpacity>
-        <Image source={{ uri: imageUrl }} style={styles.fullscreenImage} resizeMode="contain" />
+        <Image source={{ uri: fullUri }} style={styles.fullscreenImage} resizeMode="contain" />
       </View>
     </Modal>
   );
