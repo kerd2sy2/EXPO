@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { apiRequest, API_BASE_URL, getStoredToken, loadStoredToken } from './api';
 
@@ -31,6 +32,7 @@ export interface CustodyDayData {
   custody_value: number;
   total_expenses: number;
   closing_balance: number;
+  ledger_image_url?: string;
   totals: CustodyTotals;
   expenses: CustodyExpenseItem[];
   created_at: string;
@@ -212,6 +214,42 @@ export const custodyService = {
       body: JSON.stringify({ email, google_id: googleId }),
     });
     return res;
+  },
+
+  // 9. Save Daily Ledger (Notebook) Photo
+  setLedgerImage: async (date: string, imageUri: string): Promise<string> => {
+    let uploadedUrl = imageUri;
+    try {
+      uploadedUrl = await custodyService.uploadInvoiceImage(imageUri);
+    } catch (err) {
+      console.warn('Failed to upload ledger image, fallback to URI:', err);
+    }
+
+    try {
+      await AsyncStorage.setItem(`aams_custody_ledger_image_${date}`, uploadedUrl);
+    } catch (_) {}
+
+    try {
+      await apiRequest('/custody/ledger-image', {
+        method: 'POST',
+        body: JSON.stringify({
+          date,
+          image_url: uploadedUrl,
+        }),
+      });
+    } catch (err) {
+      console.warn('Failed to sync ledger image with backend:', err);
+    }
+
+    return uploadedUrl;
+  },
+
+  getLedgerImage: async (date: string): Promise<string | null> => {
+    try {
+      return await AsyncStorage.getItem(`aams_custody_ledger_image_${date}`);
+    } catch (_) {
+      return null;
+    }
   },
 };
 

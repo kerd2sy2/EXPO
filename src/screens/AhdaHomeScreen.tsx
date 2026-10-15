@@ -242,6 +242,12 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             setDayLogs(parsedLogs);
           }
         }
+        const cachedLedger = await custodyService.getLedgerImage(selectedDate);
+        if (cachedLedger && isMounted) {
+          setDays((prev) =>
+            prev.map((d) => (d.date === selectedDate ? { ...d, ledger_image_url: cachedLedger } : d))
+          );
+        }
       } catch (_) {}
     };
     restoreFromCache();
@@ -701,6 +707,27 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     }
   };
 
+  // 7. Save Daily Ledger (Notebook) Photo (بدون مبلغ أو بيانات)
+  const handleSaveLedgerImage = async (imageUri: string) => {
+    try {
+      const targetDate = selectedDate;
+      const uploadedUrl = await custodyService.setLedgerImage(targetDate, imageUri);
+
+      // Update state for current day
+      setDays((prevDays) =>
+        prevDays.map((d) => (d.date === targetDate ? { ...d, ledger_image_url: uploadedUrl } : d))
+      );
+
+      setAlertConfig({
+        type: 'success',
+        title: 'تم بنجاح',
+        message: 'تم حفظ وإرفاق صورة الدفتر اليومي للعهدة بنجاح',
+      });
+    } catch (err: any) {
+      Alert.alert('خطأ', err?.message || 'فشل حفظ صورة الدفتر اليومي');
+    }
+  };
+
   if (showProfile) {
     return (
       <AhdaProfileScreen
@@ -1077,6 +1104,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           categories={CATEGORIES}
           colors={colors}
           isDarkMode={isDarkMode}
+          onSelectLedger={() => {
+            const uri = sharedImagePending;
+            setSharedImagePending(null);
+            if (uri) {
+              handleSaveLedgerImage(uri);
+            }
+          }}
           onSelectCategory={(catKey) => {
             setSelectedCategory(catKey);
             setInvoiceImageUri(sharedImagePending);

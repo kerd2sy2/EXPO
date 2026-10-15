@@ -320,6 +320,47 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
               })}
             </View>
 
+            {/* ── Daily Ledger Section (صورة الدفتر اليومي تحت تفاصيل المصاريف) ── */}
+            {currentDay.ledger_image_url ? (
+              <View style={{ marginTop: 22 }}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.sectionIndicator} />
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                    صورة الدفتر اليومي المعتمد
+                  </Text>
+                </View>
+
+                {(() => {
+                  const fullLedger = formatImageUrl(currentDay.ledger_image_url);
+                  if (!fullLedger) return null;
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.imagePreviewWrap,
+                        {
+                          marginHorizontal: 12,
+                          height: 220,
+                          backgroundColor: isDarkMode ? '#020617' : '#0f172a',
+                        },
+                      ]}
+                      activeOpacity={0.88}
+                      onPress={() => onPreviewImage(fullLedger)}
+                    >
+                      <Image
+                        source={{ uri: fullLedger }}
+                        style={styles.invoiceImg}
+                        resizeMode="contain"
+                      />
+                      <View style={styles.imageOverlayBtn}>
+                        <Ionicons name="scan-outline" size={14} color="#ffffff" />
+                        <Text style={styles.imageOverlayText}>انقر لتكبير صورة الدفتر</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })()}
+              </View>
+            ) : null}
+
             {/* Section 3: Invoices Grouped By Category */}
             <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
               <View style={styles.sectionIndicator} />

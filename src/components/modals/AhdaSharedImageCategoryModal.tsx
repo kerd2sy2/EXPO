@@ -26,6 +26,7 @@ interface AhdaSharedImageCategoryModalProps {
   colors: ThemeColors;
   isDarkMode: boolean;
   onSelectCategory: (categoryKey: string) => void;
+  onSelectLedger?: () => void;
   onClose: () => void;
 }
 
@@ -38,6 +39,7 @@ export const AhdaSharedImageCategoryModal: React.FC<AhdaSharedImageCategoryModal
   colors,
   isDarkMode,
   onSelectCategory,
+  onSelectLedger,
   onClose,
 }) => {
   if (!visible || !imageUri) return null;
@@ -74,12 +76,41 @@ export const AhdaSharedImageCategoryModal: React.FC<AhdaSharedImageCategoryModal
                 <Text style={styles.sharedBadgeText}>صورة مشاركة من الهاتف</Text>
               </View>
               <Text style={[styles.title, { color: colors.textPrimary }]}>
-                اختر قسم الفاتورة
+                تحديد نوع الصورة المرفقة
               </Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                حدد القسم المناسب لإكمال تسجيل المبلغ والمستلم
+                اختر حفظها كدفتر اليومية أو حدد قسماً لتسجيل فاتورة
               </Text>
             </View>
+          </View>
+
+          {/* ── Daily Ledger Full-Width Button (صورة الدفتر اليومي بدون مبلغ أو بيانات) ── */}
+          {onSelectLedger ? (
+            <TouchableOpacity
+              style={styles.ledgerCardBtn}
+              onPress={onSelectLedger}
+              activeOpacity={0.88}
+            >
+              <View style={styles.ledgerRightInfo}>
+                <View style={styles.ledgerIconCircle}>
+                  <Ionicons name="book" size={20} color="#ffffff" />
+                </View>
+                <View style={{ alignItems: 'flex-end', justifyContent: 'center', flex: 1 }}>
+                  <Text style={styles.ledgerBtnTitle}>صورة الدفتر اليومي للعهدة</Text>
+                  <Text style={styles.ledgerBtnSub}>
+                    حفظ وإرفاق هذه الصورة كدفتر اليومية (بدون مبلغ أو بيانات)
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-back" size={18} color="rgba(255, 255, 255, 0.85)" />
+            </TouchableOpacity>
+          ) : null}
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={[styles.dividerLine, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
+            <Text style={[styles.dividerText, { color: colors.textSecondary }]}>أو اختر قسم لتسجيل فاتورة</Text>
+            <View style={[styles.dividerLine, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
           </View>
 
           {/* Categories Grid */}
@@ -204,6 +235,62 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'right',
+  },
+  ledgerCardBtn: {
+    backgroundColor: '#ea580c',
+    borderRadius: 16,
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
+    shadowColor: '#ea580c',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  ledgerRightInfo: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  ledgerIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ledgerBtnTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#ffffff',
+    textAlign: 'right',
+    marginBottom: 2,
+  },
+  ledgerBtnSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.88)',
+    textAlign: 'right',
+  },
+  dividerRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   categoriesGrid: {
     flexDirection: 'row-reverse',

@@ -124,6 +124,7 @@ export interface ExportPdfOptions {
   user?: any;
   dayLogs?: CustodyLogItem[];
   mode?: 'preview' | 'share';
+  ledgerImageUrl?: string;
 }
 
 export const exportCustodyDayToPdf = async (
@@ -685,6 +686,75 @@ export const exportCustodyDayToPdf = async (
     curY = PAGE_HEIGHT - MINI_BANNER_H - 18;
     return newPage;
   };
+
+  // ════════════════════════════════════════════════════════════
+  // ── DAILY LEDGER PHOTO (صورة الدفتر اليومي تحت تفاصيل المصاريف) ──
+  // ════════════════════════════════════════════════════════════
+  const ledgerUrl = day.ledger_image_url || options?.ledgerImageUrl;
+  if (ledgerUrl) {
+    let ledgerImgData: { bytes: Uint8Array; isJpg: boolean } | null = null;
+    try {
+      ledgerImgData = await fetchImageBytes(ledgerUrl);
+    } catch (_) {}
+
+    if (ledgerImgData) {
+      const LEDGER_SECTION_H = 260;
+      if (curY - LEDGER_SECTION_H < MARGIN + 20) {
+        startNewPage();
+      }
+
+      // Title
+      currentPage.drawRectangle({
+        x: PAGE_WIDTH - MARGIN - 4,
+        y: curY - 13,
+        width: 4,
+        height: 15,
+        color: rgb(0.92, 0.35, 0.05),
+      });
+
+      drawRtlText(
+        currentPage,
+        'صورة الدفتر اليومي المعتمد',
+        PAGE_WIDTH - MARGIN - 12,
+        curY - 11,
+        12,
+        fontBold,
+        rgb(0.06, 0.09, 0.16)
+      );
+
+      curY -= 22;
+
+      // Card Box
+      const LEDGER_CARD_H = 220;
+      currentPage.drawRectangle({
+        x: MARGIN,
+        y: curY - LEDGER_CARD_H,
+        width: CONTENT_WIDTH,
+        height: LEDGER_CARD_H,
+        color: rgb(0.06, 0.09, 0.16),
+        borderColor: rgb(0.85, 0.88, 0.92),
+        borderWidth: 1,
+      });
+
+      try {
+        const embeddedImg = ledgerImgData.isJpg
+          ? await pdfDoc.embedJpg(ledgerImgData.bytes)
+          : await pdfDoc.embedPng(ledgerImgData.bytes);
+
+        const imgDim = embeddedImg.scaleToFit(CONTENT_WIDTH - 12, LEDGER_CARD_H - 12);
+        currentPage.drawImage(embeddedImg, {
+          x: MARGIN + 6 + (CONTENT_WIDTH - 12 - imgDim.width) / 2,
+          y: curY - LEDGER_CARD_H + 6 + (LEDGER_CARD_H - 12 - imgDim.height) / 2,
+          width: imgDim.width,
+          height: imgDim.height,
+        });
+      } catch (embedErr) {
+        console.warn('[PDF] Failed to embed ledger image:', embedErr);
+      }
+
+      curY -= LEDGER_CARD_H + 20;
+    }
+  }
 
   // ════════════════════════════════════════════════════════════
   // ── SECTION 3: INVOICES GROUPED BY CATEGORY (COMPACT & FLOWING) ──
