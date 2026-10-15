@@ -151,57 +151,78 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
               },
             ]}
           >
-            {/* Top Sheet Accent Stripe */}
-            <View style={styles.docTopStripe} />
-
-            {/* Document Executive Header Banner */}
-            <View
-              style={[
-                styles.docHeaderBanner,
-                { backgroundColor: isDarkMode ? '#0f172a' : '#0b1120' },
-              ]}
-            >
-              {/* Right Side: Logo & Main Titles */}
-              <View style={styles.docHeaderRightSide}>
-                <View style={styles.docHeaderLogoBox}>
-                  <Image
-                    source={require('../../../assets/images/logo.png')}
-                    style={styles.docHeaderLogo}
-                    resizeMode="contain"
-                  />
-                </View>
-                <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-                  <Text style={styles.docHeaderTitle}>تقرير العهدة اليومية</Text>
-                  <Text style={styles.docHeaderSubtitle}>
-                    نظام إدارة العهد والمصاريف • شركة أبرار
-                  </Text>
-                </View>
-              </View>
-
-              {/* Left Side: Badge */}
-              <View style={styles.docHeaderBadge}>
-                <Text style={styles.docHeaderBadgeText}>كشف رسمي معتمد</Text>
-              </View>
+            {/* Top Two-tone Accent Stripe (Orange on Left, Dark on Right) */}
+            <View style={{ flexDirection: 'row', height: 4, width: '100%' }}>
+              <View style={{ width: 110, backgroundColor: '#ea580c' }} />
+              <View style={{ flex: 1, backgroundColor: isDarkMode ? '#334155' : '#1e293b' }} />
             </View>
 
-            {/* Supervisor & Date Info Card */}
-            <View
-              style={[
-                styles.infoCard,
-                {
-                  backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                  borderColor: isDarkMode ? '#334155' : '#e2e8f0',
-                },
-              ]}
-            >
-              <View style={styles.infoColRight}>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>المشرف:</Text>
-                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{supervisorName}</Text>
+            {/* Document Executive Header (Pure White Background matching PDF) */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, backgroundColor: isDarkMode ? '#131b2e' : '#ffffff' }}>
+              {/* Top Row: QR Code on Left, Brand on Right (Logo with NO background box) */}
+              <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
+                {/* Brand Lockup: Logo + AAMS LOGISTICS */}
+                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+                  <Image
+                    source={require('../../../assets/images/logo.png')}
+                    style={{ width: 34, height: 34 }}
+                    resizeMode="contain"
+                  />
+                  <View style={{ alignItems: 'flex-start' }}>
+                    <Text style={{ fontSize: 16, fontWeight: '900', color: colors.textPrimary, letterSpacing: 0.5 }}>AAMS</Text>
+                    <Text style={{ fontSize: 7, fontWeight: '800', color: colors.textSecondary, letterSpacing: 1 }}>LOGISTICS</Text>
+                  </View>
+                </View>
+
+                {/* QR Code Icon Box on Left */}
+                <View style={{ padding: 4, borderRadius: 6, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0', backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc' }}>
+                  <Ionicons name="qr-code-outline" size={30} color={colors.textPrimary} />
+                </View>
               </View>
 
-              <View style={styles.infoColLeft}>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>تاريخ العهدة:</Text>
-                <Text style={[styles.infoValueDate, { color: '#ea580c' }]}>{cleanDateStr}</Text>
+              {/* Single Centered Title with Orange Underline */}
+              <View style={{ alignItems: 'center', marginVertical: 12 }}>
+                <Text style={{ fontSize: 18, fontWeight: '900', color: colors.textPrimary, textAlign: 'center' }}>
+                  تقرير مشرف
+                </Text>
+                <View style={{ width: 75, height: 2.2, backgroundColor: '#ea580c', marginTop: 4, borderRadius: 1 }} />
+              </View>
+
+              {/* Bottom Info Bar: 3 Columns with Circular Orange Icons (Supervisor | ID | Date) */}
+              <View
+                style={{
+                  flexDirection: 'row-reverse',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 10,
+                  borderTopWidth: 1,
+                  borderBottomWidth: 1,
+                  borderColor: isDarkMode ? '#1e293b' : '#f1f5f9',
+                }}
+              >
+                {/* 1. Supervisor */}
+                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="person-outline" size={12} color="#ea580c" />
+                  </View>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary }}>{supervisorName}</Text>
+                </View>
+
+                {/* 2. Ref / Custody ID */}
+                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="card-outline" size={12} color="#ea580c" />
+                  </View>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary }}>{currentDay.id || '2632878423'}</Text>
+                </View>
+
+                {/* 3. Date */}
+                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="calendar-outline" size={12} color="#ea580c" />
+                  </View>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary }}>{cleanDateStr.replace(/-/g, '/')}</Text>
+                </View>
               </View>
             </View>
 
@@ -395,7 +416,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                         style={[
                           styles.imagePreviewWrap,
                           {
-                            height: 220,
+                            height: 280,
                             backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
                             borderWidth: 1,
                             borderColor: isDarkMode ? '#334155' : '#e2e8f0',
@@ -424,7 +445,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
             <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
               <View style={styles.sectionIndicator} />
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                ثالثاً: بيان وتوثيق الفواتير المرفقة ({toArabicDigits(expenses.length)} فاتورة)
+                ثالثاً: بيان وتوثيق فواتير المصاريف المرفقة
               </Text>
             </View>
 
@@ -440,17 +461,14 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                 let invoiceCounter = 0;
                 return (
                   <View key={group.key} style={styles.groupContainer}>
-                    {/* Category Group Header Banner */}
+                    {/* Category Group Header Banner (Clean - No verbose totals/counts) */}
                     <View style={[styles.groupBanner, { backgroundColor: group.color }]}>
                       <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
                         <Ionicons name={group.icon as any} size={18} color="#ffffff" />
                         <Text style={styles.groupBannerTitle}>
-                          {group.label} ({toArabicDigits(group.expenses.length)} فواتير)
+                          {group.label}
                         </Text>
                       </View>
-                      <Text style={styles.groupBannerTotal}>
-                        {formatArabicNumber(group.total)} ر.س
-                      </Text>
                     </View>
 
                     {/* Invoices List under this Category */}
@@ -478,11 +496,6 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                                   فاتورة رقم {toArabicDigits(invoiceCounter)} • {group.label}
                                 </Text>
                               </View>
-                              <View style={[styles.amountBadge, { backgroundColor: '#fff7ed', borderColor: '#fed7aa' }]}>
-                                <Text style={styles.amountBadgeText}>
-                                  {formatArabicNumber(exp.amount)} ر.س
-                                </Text>
-                              </View>
                             </View>
 
                             {/* Recipient & Description */}
@@ -491,6 +504,15 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                               <Text style={[styles.recipientLabel, { color: colors.textSecondary }]}>البيان:</Text>
                               <Text style={[styles.recipientVal, { color: colors.textPrimary }]}>
                                 {exp.recipient_name || '—'}
+                              </Text>
+                            </View>
+
+                            {/* Amount Directly Under Description */}
+                            <View style={[styles.invoiceRecipientRow, { marginBottom: 10 }]}>
+                              <Ionicons name="cash-outline" size={14} color="#ea580c" />
+                              <Text style={[styles.recipientLabel, { color: colors.textSecondary }]}>المبلغ:</Text>
+                              <Text style={[styles.recipientVal, { color: '#ea580c', fontWeight: '900' }]}>
+                                {formatArabicNumber(exp.amount)} ر.س
                               </Text>
                             </View>
 

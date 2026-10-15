@@ -1,11 +1,36 @@
 import { PDFDocument, rgb, PDFPage, PDFFont, PDFImage } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { toQR } from 'toqr';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Asset } from 'expo-asset';
 import { CustodyDayData, CustodyExpenseItem, CustodyLogItem } from './custodyService';
 import { formatImageUrl } from './api';
 import { SAUDI_RIYAL_SYMBOL_PNG_BASE64 } from './saudiRiyalSymbolBase64';
+
+// Helper to draw vector QR Code on PDF page
+const drawQrCode = (page: PDFPage, text: string, x: number, y: number, size: number) => {
+  try {
+    const qr = toQR(text);
+    const n = Math.round(Math.sqrt(qr.length));
+    const cellSize = size / n;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        if (qr[r * n + c] === 1) {
+          page.drawRectangle({
+            x: x + c * cellSize,
+            y: y + (n - 1 - r) * cellSize,
+            width: cellSize,
+            height: cellSize,
+            color: rgb(0.1, 0.1, 0.1),
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[PDF] Failed to draw QR code:', err);
+  }
+};
 
 // Base64 to Uint8Array helper
 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
@@ -350,136 +375,144 @@ export const exportCustodyDayToPdf = async (
   allPages.push(page1);
   let currentPage: PDFPage = page1;
 
-  // Page 1 Top Executive Banner
-  const BANNER_HEIGHT = 62;
+  // ── Executive Header on Pure White Background (Matching Supervisor Report Screenshot) ──
+  // Top Thin Stripe: Orange on Left (110pt), Dark Slate on Right (Rest)
   page1.drawRectangle({
-    x: 0,
-    y: PAGE_HEIGHT - BANNER_HEIGHT,
-    width: PAGE_WIDTH,
-    height: BANNER_HEIGHT,
+    x: MARGIN,
+    y: PAGE_HEIGHT - 16,
+    width: 110,
+    height: 3.5,
+    color: rgb(0.92, 0.35, 0.05), // Orange #ea580c
+  });
+
+  page1.drawRectangle({
+    x: MARGIN + 110,
+    y: PAGE_HEIGHT - 16,
+    width: CONTENT_WIDTH - 110,
+    height: 3.5,
+    color: rgb(0.12, 0.16, 0.24), // Dark #1e293b
+  });
+
+  // Top Left: QR Code
+  const qrSize = 40;
+  const qrX = MARGIN;
+  const qrY = PAGE_HEIGHT - 24 - qrSize;
+  drawQrCode(page1, `AAMS-REPORT-${cleanDateStr}-${day.id || 'CUSTODY'}`, qrX, qrY, qrSize);
+
+  // Top Right: Brand Lockup (Logo + AAMS LOGISTICS) directly on white (No background box!)
+  const logoSize = 30;
+  const brandRightX = PAGE_WIDTH - MARGIN;
+  const brandY = PAGE_HEIGHT - 24 - logoSize;
+
+  const aamsTextW = fontBold.widthOfTextAtSize('AAMS', 15);
+  page1.drawText('AAMS', {
+    x: brandRightX - aamsTextW,
+    y: brandY + 13,
+    size: 15,
+    font: fontBold,
     color: rgb(0.06, 0.09, 0.16),
   });
 
-  // Top Accent Orange Line
-  page1.drawRectangle({
-    x: 0,
-    y: PAGE_HEIGHT - 3,
-    width: PAGE_WIDTH,
-    height: 3,
-    color: rgb(0.92, 0.35, 0.05),
-  });
-
-  // Bottom Accent Line below banner
-  page1.drawRectangle({
-    x: 0,
-    y: PAGE_HEIGHT - BANNER_HEIGHT,
-    width: PAGE_WIDTH,
-    height: 2,
-    color: rgb(0.18, 0.24, 0.36),
-  });
-
-  // Right Side: Logo Box & Title
-  const logoBoxSize = 44;
-  const logoBoxX = PAGE_WIDTH - MARGIN - logoBoxSize;
-  const logoBoxY = PAGE_HEIGHT - BANNER_HEIGHT + (BANNER_HEIGHT - logoBoxSize) / 2;
-
-  // Crisp White Backdrop for Logo on the Far Right
-  page1.drawRectangle({
-    x: logoBoxX,
-    y: logoBoxY,
-    width: logoBoxSize,
-    height: logoBoxSize,
-    color: rgb(1, 1, 1),
-    borderColor: rgb(0.92, 0.35, 0.05),
-    borderWidth: 1.5,
+  const logTextW = fontBold.widthOfTextAtSize('LOGISTICS', 6.5);
+  page1.drawText('LOGISTICS', {
+    x: brandRightX - logTextW,
+    y: brandY + 3,
+    size: 6.5,
+    font: fontBold,
+    color: rgb(0.2, 0.25, 0.35),
   });
 
   if (logoImg) {
-    const logoPadding = 4;
+    const logoX = brandRightX - aamsTextW - 10 - logoSize;
     page1.drawImage(logoImg, {
-      x: logoBoxX + logoPadding,
-      y: logoBoxY + logoPadding,
-      width: logoBoxSize - logoPadding * 2,
-      height: logoBoxSize - logoPadding * 2,
+      x: logoX,
+      y: brandY,
+      width: logoSize,
+      height: logoSize,
     });
   }
 
-  // Header Title & Subtitle to the Left of the Right-Aligned Logo
-  const textRightX = logoBoxX - 12;
-  drawRtlText(
-    page1,
-    'تقرير العهدة اليومية',
-    textRightX,
-    PAGE_HEIGHT - 31,
-    16.5,
-    fontBold,
-    rgb(1, 1, 1)
-  );
-
-  drawRtlText(
-    page1,
-    'نظام إدارة ومتابعة العهد والمصاريف • شركة أبرار',
-    textRightX,
-    PAGE_HEIGHT - 48,
-    8.5,
-    fontRegular,
-    rgb(0.72, 0.78, 0.88)
-  );
-
-  // Left Side: Sleek Official Badge
-  const badgeW = 125;
-  const badgeH = 24;
-  const badgeX = MARGIN;
-  const badgeY = PAGE_HEIGHT - BANNER_HEIGHT + (BANNER_HEIGHT - badgeH) / 2;
-
-  page1.drawRectangle({
-    x: badgeX,
-    y: badgeY,
-    width: badgeW,
-    height: badgeH,
-    color: rgb(0.1, 0.15, 0.25),
-    borderColor: rgb(0.22, 0.3, 0.45),
-    borderWidth: 1,
-  });
-
+  // Center: "تقرير مشرف" with Orange Underline
+  const centerTitleY = PAGE_HEIGHT - 66;
   drawCenteredRtlText(
     page1,
-    'كشف حساب رسمي معتمد',
-    badgeX + badgeW / 2,
-    badgeY + 7,
-    8.5,
+    'تقرير مشرف',
+    PAGE_WIDTH / 2,
+    centerTitleY,
+    16,
     fontBold,
-    rgb(0.92, 0.62, 0.35)
+    rgb(0.06, 0.09, 0.16)
   );
 
-  // ── Info Card (Supervisor on the far right, Date on the far left) ──
-  let curY = PAGE_HEIGHT - BANNER_HEIGHT - 16;
-  const INFO_BOX_H = 34;
+  const underlineW = 85;
+  page1.drawRectangle({
+    x: (PAGE_WIDTH - underlineW) / 2,
+    y: centerTitleY - 6,
+    width: underlineW,
+    height: 1.8,
+    color: rgb(0.92, 0.35, 0.05),
+  });
+
+  // ── Bottom Info Bar of the Header (Supervisor | ID | Date) ──
+  const infoBarTopY = centerTitleY - 20;
+  // Top divider line
   page1.drawRectangle({
     x: MARGIN,
-    y: curY - INFO_BOX_H,
+    y: infoBarTopY,
     width: CONTENT_WIDTH,
-    height: INFO_BOX_H,
-    color: rgb(0.97, 0.98, 0.99),
-    borderColor: rgb(0.89, 0.92, 0.95),
+    height: 0.8,
+    color: rgb(0.9, 0.92, 0.95),
+  });
+
+  const infoRowY = infoBarTopY - 18;
+
+  // 1. Right: Supervisor Name (هايير شاكبه / اسم المشرف) with Person Circle Icon
+  const supRight = PAGE_WIDTH - MARGIN - 4;
+  drawRtlText(page1, supervisorName, supRight - 22, infoRowY, 11, fontBold, rgb(0.06, 0.09, 0.16));
+  page1.drawCircle({
+    x: supRight - 8,
+    y: infoRowY + 4,
+    size: 8,
+    color: rgb(1, 0.94, 0.9),
+    borderColor: rgb(0.99, 0.84, 0.67),
     borderWidth: 1,
   });
 
-  // Far Right: المشرف واسم المشرف
-  const supRightX = MARGIN + CONTENT_WIDTH - 14;
-  const supLabelW = drawRtlText(page1, 'المشرف:', supRightX, curY - 21, 10, fontBold, rgb(0.4, 0.45, 0.55));
-  drawRtlText(page1, supervisorName, supRightX - supLabelW - 6, curY - 21, 11, fontBold, rgb(0.06, 0.09, 0.16));
+  // 2. Center: Custody Ref / ID with Card Circle Icon
+  const centerRefStr = formatArabicTextForFontkit(String(day.id || '2632878423'));
+  drawCenteredRtlText(page1, centerRefStr, PAGE_WIDTH / 2 + 10, infoRowY, 11, fontBold, rgb(0.06, 0.09, 0.16));
+  page1.drawCircle({
+    x: PAGE_WIDTH / 2 - 25,
+    y: infoRowY + 4,
+    size: 8,
+    color: rgb(1, 0.94, 0.9),
+    borderColor: rgb(0.99, 0.84, 0.67),
+    borderWidth: 1,
+  });
 
-  // Far Left (في الآخر): تاريخ العهدة والتاريخ
-  const dateLabelW = fontBold.widthOfTextAtSize('تاريخ العهدة:', 10);
-  const dateValW = fontBold.widthOfTextAtSize(arabicDateVisual, 11);
-  const totalDateW = dateLabelW + 6 + dateValW;
-  const dateBlockRightX = MARGIN + 14 + totalDateW;
+  // 3. Left: Date (YYYY/MM/DD) with Calendar Circle Icon
+  const dateSlashStr = cleanDateStr.replace(/-/g, '/');
+  const dateVisual = formatArabicDateForFontkit(dateSlashStr);
+  drawRtlText(page1, dateVisual, MARGIN + 85, infoRowY, 11, fontBold, rgb(0.06, 0.09, 0.16));
+  page1.drawCircle({
+    x: MARGIN + 98,
+    y: infoRowY + 4,
+    size: 8,
+    color: rgb(1, 0.94, 0.9),
+    borderColor: rgb(0.99, 0.84, 0.67),
+    borderWidth: 1,
+  });
 
-  drawRtlText(page1, 'تاريخ العهدة:', dateBlockRightX, curY - 21, 10, fontBold, rgb(0.4, 0.45, 0.55));
-  drawRtlText(page1, arabicDateVisual, dateBlockRightX - dateLabelW - 6, curY - 21, 11, fontBold, rgb(0.92, 0.35, 0.05));
+  // Bottom divider line
+  page1.drawRectangle({
+    x: MARGIN,
+    y: infoBarTopY - 26,
+    width: CONTENT_WIDTH,
+    height: 0.8,
+    color: rgb(0.9, 0.92, 0.95),
+  });
 
-  curY -= INFO_BOX_H + 18;
+  let curY = infoBarTopY - 38;
 
   // ── Section 1: Financial Summary ──
   page1.drawRectangle({
@@ -565,20 +598,20 @@ export const exportCustodyDayToPdf = async (
       item.amount,
       cardX + STAT_CARD_W / 2,
       curY - 42,
-      12.5,
+      12,
       fontBold,
       item.valColor
     );
   });
 
-  curY -= STAT_CARD_H + 20;
+  curY -= STAT_CARD_H + 16;
 
   // ── Section 2: Category Breakdown Table ──
   page1.drawRectangle({
     x: PAGE_WIDTH - MARGIN - 4,
-    y: curY - 13,
+    y: curY - 12,
     width: 4,
-    height: 15,
+    height: 14,
     color: rgb(0.92, 0.35, 0.05),
   });
 
@@ -586,16 +619,16 @@ export const exportCustodyDayToPdf = async (
     page1,
     'ثانياً: تفصيل المصروفات حسب الأقسام والتصنيفات',
     PAGE_WIDTH - MARGIN - 12,
-    curY - 11,
-    12,
+    curY - 10,
+    11.5,
     fontBold,
     rgb(0.06, 0.09, 0.16)
   );
 
-  curY -= 20;
+  curY -= 18;
 
   // Category Table Header
-  const TABLE_ROW_H = 22;
+  const TABLE_ROW_H = 19;
   page1.drawRectangle({
     x: MARGIN,
     y: curY - TABLE_ROW_H,
@@ -616,8 +649,8 @@ export const exportCustodyDayToPdf = async (
       page1,
       col.title,
       colAccX - col.width / 2,
-      curY - 15,
-      9.5,
+      curY - 13.5,
+      9,
       fontBold,
       rgb(1, 1, 1)
     );
@@ -656,8 +689,8 @@ export const exportCustodyDayToPdf = async (
       page1,
       cat.label,
       colAccX - 20,
-      curY - 15,
-      10,
+      curY - 13.5,
+      9.5,
       fontBold,
       rgb(0.1, 0.15, 0.25)
     );
@@ -668,8 +701,8 @@ export const exportCustodyDayToPdf = async (
       page1,
       count > 0 ? `${count} فواتير` : '—',
       colAccX - catCols[1].width / 2,
-      curY - 15,
-      9.5,
+      curY - 13.5,
+      9,
       fontRegular,
       count > 0 ? rgb(0.92, 0.35, 0.05) : rgb(0.6, 0.65, 0.7)
     );
@@ -680,8 +713,8 @@ export const exportCustodyDayToPdf = async (
       page1,
       cat.val,
       colAccX - catCols[2].width / 2,
-      curY - 15,
-      10,
+      curY - 13.5,
+      9.5,
       fontBold,
       cat.val > 0 ? rgb(0.06, 0.09, 0.16) : rgb(0.6, 0.65, 0.7)
     );
@@ -690,7 +723,7 @@ export const exportCustodyDayToPdf = async (
   });
 
   // Category Total Row
-  const TOTAL_ROW_H = 24;
+  const TOTAL_ROW_H = 22;
   page1.drawRectangle({
     x: MARGIN,
     y: curY - TOTAL_ROW_H,
@@ -705,19 +738,19 @@ export const exportCustodyDayToPdf = async (
     page1,
     'إجمالي المصروفات الكلي:',
     PAGE_WIDTH - MARGIN - 20,
-    curY - 16,
-    10.5,
+    curY - 15,
+    10,
     fontBold,
     rgb(0.06, 0.09, 0.16)
   );
 
-  // Total invoice count formatted accurately (Fixes reversed 71 -> ١٧ فواتير مسجلة)
+  // Total invoice count formatted accurately
   drawCenteredRtlText(
     page1,
     `${expenses.length} فواتير مسجلة`,
     PAGE_WIDTH - MARGIN - catCols[0].width - catCols[1].width / 2,
-    curY - 16,
-    10,
+    curY - 15,
+    9.5,
     fontBold,
     rgb(0.92, 0.35, 0.05)
   );
@@ -726,13 +759,13 @@ export const exportCustodyDayToPdf = async (
     page1,
     totalExpenses,
     MARGIN + catCols[2].width / 2,
-    curY - 16,
-    11,
+    curY - 15,
+    10.5,
     fontBold,
     rgb(0.86, 0.15, 0.15)
   );
 
-  curY -= TOTAL_ROW_H + 20;
+  curY -= TOTAL_ROW_H + 16;
 
   // ── Helper to Start a New Page ──
   const startNewPage = () => {
@@ -740,88 +773,82 @@ export const exportCustodyDayToPdf = async (
     allPages.push(newPage);
     currentPage = newPage;
 
-    // Mini Top Header Banner
-    const MINI_BANNER_H = 46;
+    // Top Thin Stripe: Orange on Left, Dark Slate on Right (Consistent with Page 1)
     newPage.drawRectangle({
-      x: 0,
-      y: PAGE_HEIGHT - MINI_BANNER_H,
-      width: PAGE_WIDTH,
-      height: MINI_BANNER_H,
-      color: rgb(0.06, 0.09, 0.16),
-    });
-
-    // Top Orange Accent Line
-    newPage.drawRectangle({
-      x: 0,
-      y: PAGE_HEIGHT - 2.5,
-      width: PAGE_WIDTH,
-      height: 2.5,
+      x: MARGIN,
+      y: PAGE_HEIGHT - 16,
+      width: 110,
+      height: 3,
       color: rgb(0.92, 0.35, 0.05),
     });
 
-    // Bottom Subtle Line
     newPage.drawRectangle({
-      x: 0,
-      y: PAGE_HEIGHT - MINI_BANNER_H,
-      width: PAGE_WIDTH,
-      height: 1.5,
-      color: rgb(0.18, 0.24, 0.36),
+      x: MARGIN + 110,
+      y: PAGE_HEIGHT - 16,
+      width: CONTENT_WIDTH - 110,
+      height: 3,
+      color: rgb(0.12, 0.16, 0.24),
     });
 
-    // Logo on the Far Right in subsequent pages
-    const miniLogoBoxSize = 32;
-    const miniLogoBoxX = PAGE_WIDTH - MARGIN - miniLogoBoxSize;
-    const miniLogoBoxY = PAGE_HEIGHT - MINI_BANNER_H + (MINI_BANNER_H - miniLogoBoxSize) / 2;
+    // Top Right: Brand Lockup (Logo + AAMS LOGISTICS) directly on white (No background box!)
+    const miniLogoSize = 24;
+    const brandRightX = PAGE_WIDTH - MARGIN;
+    const brandY = PAGE_HEIGHT - 22 - miniLogoSize;
 
-    newPage.drawRectangle({
-      x: miniLogoBoxX,
-      y: miniLogoBoxY,
-      width: miniLogoBoxSize,
-      height: miniLogoBoxSize,
-      color: rgb(1, 1, 1),
-      borderColor: rgb(0.92, 0.35, 0.05),
-      borderWidth: 1.2,
+    const aamsW = fontBold.widthOfTextAtSize('AAMS', 12);
+    newPage.drawText('AAMS', {
+      x: brandRightX - aamsW,
+      y: brandY + 10,
+      size: 12,
+      font: fontBold,
+      color: rgb(0.06, 0.09, 0.16),
+    });
+
+    const logW = fontBold.widthOfTextAtSize('LOGISTICS', 5.5);
+    newPage.drawText('LOGISTICS', {
+      x: brandRightX - logW,
+      y: brandY + 2,
+      size: 5.5,
+      font: fontBold,
+      color: rgb(0.3, 0.35, 0.45),
     });
 
     if (logoImg) {
-      const p = 3;
+      const logoX = brandRightX - aamsW - 8 - miniLogoSize;
       newPage.drawImage(logoImg, {
-        x: miniLogoBoxX + p,
-        y: miniLogoBoxY + p,
-        width: miniLogoBoxSize - p * 2,
-        height: miniLogoBoxSize - p * 2,
+        x: logoX,
+        y: brandY,
+        width: miniLogoSize,
+        height: miniLogoSize,
       });
     }
 
-    // Section title next to Logo on the Right
-    const miniTextRightX = miniLogoBoxX - 10;
+    // Top Left: Clean Section Subtitle
     drawRtlText(
       newPage,
       'بيان وتوثيق فواتير المصاريف المرفقة',
-      miniTextRightX,
-      PAGE_HEIGHT - 28,
-      12.5,
+      MARGIN + 210,
+      PAGE_HEIGHT - 38,
+      11.5,
       fontBold,
-      rgb(1, 1, 1)
+      rgb(0.06, 0.09, 0.16)
     );
 
-    // Left side: Subtitle reference
-    drawRtlText(
-      newPage,
-      'تقرير العهدة اليومية',
-      MARGIN + 100,
-      PAGE_HEIGHT - 28,
-      9.5,
-      fontRegular,
-      rgb(0.72, 0.78, 0.88)
-    );
+    // Subtle divider line
+    newPage.drawRectangle({
+      x: MARGIN,
+      y: PAGE_HEIGHT - 48,
+      width: CONTENT_WIDTH,
+      height: 0.8,
+      color: rgb(0.9, 0.92, 0.95),
+    });
 
-    curY = PAGE_HEIGHT - MINI_BANNER_H - 18;
+    curY = PAGE_HEIGHT - 64;
     return newPage;
   };
 
   // ════════════════════════════════════════════════════════════
-  // ── DAILY LEDGER PHOTO (صورة الدفتر اليومي تحت تفاصيل المصاريف) ──
+  // ── DAILY LEDGER PHOTO (صورة الدفتر اليومي - كبيرة وتأخذ الصفحة الأولى) ──
   // ════════════════════════════════════════════════════════════
   const ledgerUrl = day.ledger_image_url || options?.ledgerImageUrl;
   if (ledgerUrl) {
@@ -831,17 +858,18 @@ export const exportCustodyDayToPdf = async (
     } catch (_) {}
 
     if (ledgerImgData) {
-      const LEDGER_SECTION_H = 260;
-      if (curY - LEDGER_SECTION_H < MARGIN + 20) {
-        startNewPage();
-      }
+      // Large Ledger Card to fit Page 1 with summary
+      const LEDGER_CARD_H = 330;
+      const LEDGER_HEADER_H = 34;
+      const CARD_IMG_W = 503;
+      const CARD_IMG_H = 282;
 
       // Title
       currentPage.drawRectangle({
         x: PAGE_WIDTH - MARGIN - 4,
-        y: curY - 13,
+        y: curY - 12,
         width: 4,
-        height: 15,
+        height: 14,
         color: rgb(0.92, 0.35, 0.05),
       });
 
@@ -849,19 +877,13 @@ export const exportCustodyDayToPdf = async (
         currentPage,
         'صورة الدفتر اليومي المعتمد',
         PAGE_WIDTH - MARGIN - 12,
-        curY - 11,
-        12,
+        curY - 10,
+        11.5,
         fontBold,
         rgb(0.06, 0.09, 0.16)
       );
 
-      curY -= 22;
-
-      // Card Box (Styled exactly like invoice cards with clean white & light gray background)
-      const LEDGER_CARD_H = 250;
-      const LEDGER_HEADER_H = 38;
-      const CARD_IMG_W = 440;
-      const CARD_IMG_H = 196;
+      curY -= 18;
 
       // Outer White Card
       currentPage.drawRectangle({
@@ -886,9 +908,9 @@ export const exportCustodyDayToPdf = async (
       // Right: Accent Orange Stripe
       currentPage.drawRectangle({
         x: PAGE_WIDTH - MARGIN - 4,
-        y: curY - 32,
+        y: curY - 28,
         width: 4,
-        height: 26,
+        height: 22,
         color: rgb(0.92, 0.35, 0.05),
       });
 
@@ -897,8 +919,8 @@ export const exportCustodyDayToPdf = async (
         currentPage,
         'صورة الدفتر اليومي للعهدة',
         PAGE_WIDTH - MARGIN - 14,
-        curY - 18,
-        11.5,
+        curY - 22,
+        11,
         fontBold,
         rgb(0.06, 0.09, 0.16)
       );
@@ -908,15 +930,15 @@ export const exportCustodyDayToPdf = async (
         currentPage,
         'دفتر اليومية المرفق',
         MARGIN + 120,
-        curY - 18,
-        10,
+        curY - 22,
+        9.5,
         fontBold,
         rgb(0.92, 0.35, 0.05)
       );
 
-      // Inner Image Box (Matches invoice image container background)
+      // Inner Image Box
       const imgBoxX = MARGIN + (CONTENT_WIDTH - CARD_IMG_W) / 2;
-      const imgBoxY = curY - LEDGER_HEADER_H - CARD_IMG_H - 8;
+      const imgBoxY = curY - LEDGER_HEADER_H - CARD_IMG_H - 6;
 
       currentPage.drawRectangle({
         x: imgBoxX,
@@ -949,8 +971,12 @@ export const exportCustodyDayToPdf = async (
   }
 
   // ════════════════════════════════════════════════════════════
-  // ── SECTION 3: INVOICES GROUPED BY CATEGORY (COMPACT & FLOWING) ──
+  // ── SECTION 3: INVOICES (Always start on Page 2 for clean layout) ──
   // ════════════════════════════════════════════════════════════
+  if (expenses.length > 0) {
+    startNewPage();
+  }
+
   if (expenses.length === 0) {
     drawCenteredRtlText(
       currentPage,
@@ -962,11 +988,6 @@ export const exportCustodyDayToPdf = async (
       rgb(0.5, 0.55, 0.65)
     );
   } else {
-    // Check if Section 3 title fits on current page (minimum 90pt needed)
-    if (curY - 90 < MARGIN + 20) {
-      startNewPage();
-    }
-
     // Draw Section 3 Title
     currentPage.drawRectangle({
       x: PAGE_WIDTH - MARGIN - 4,
@@ -988,8 +1009,7 @@ export const exportCustodyDayToPdf = async (
 
     curY -= 24;
 
-    // 1. Group expenses by category according to user priority:
-    // بنزين -> سلفة نت -> سلفة شخصية -> رخصة قيادة -> قطع غيار -> مصاريف أخرى
+    // 1. Group expenses by category
     const groupedCategories: Array<{
       key: string;
       label: string;
@@ -1016,7 +1036,6 @@ export const exportCustodyDayToPdf = async (
       }
     });
 
-    // Capture any expenses with uncategorized/custom keys under "مصاريف أخرى"
     const remainingExps = expenses.filter((e) => !knownKeys.has(e.category));
     if (remainingExps.length > 0) {
       const otherGroup = groupedCategories.find((g) => g.key === 'other');
@@ -1040,8 +1059,8 @@ export const exportCustodyDayToPdf = async (
 
     // Process each category section
     for (const group of groupedCategories) {
-      // ── Category Section Header Banner ──
-      const CAT_BANNER_H = 26;
+      // ── Clean Category Section Header Banner (No verbose counts or totals) ──
+      const CAT_BANNER_H = 22;
       if (curY - (CAT_BANNER_H + 50) < MARGIN + 20) {
         startNewPage();
       }
@@ -1068,37 +1087,15 @@ export const exportCustodyDayToPdf = async (
         color: rgb(group.color[0], group.color[1], group.color[2]),
       });
 
-      // Right: Category Name & Count (e.g. بنزين (٨ فواتير))
-      const catCountLabel = `${group.label} (${group.expenses.length} فواتير)`;
+      // Right: Category Name Only
       drawRtlText(
         activePageForBanner,
-        catCountLabel,
+        group.label,
         PAGE_WIDTH - MARGIN - 12,
-        curY - 17,
-        11,
-        fontBold,
-        rgb(group.color[0] * 0.7, group.color[1] * 0.7, group.color[2] * 0.7)
-      );
-
-      // Left: Category Subtotal
-      const subtotalLabelW = drawRtlText(
-        activePageForBanner,
-        'الإجمالي:',
-        MARGIN + 120,
-        curY - 17,
-        9.5,
-        fontBold,
-        rgb(0.4, 0.45, 0.55)
-      );
-
-      drawAmountWithSymbolRtl(
-        activePageForBanner,
-        group.totalAmount,
-        MARGIN + 120 - subtotalLabelW - 6,
-        curY - 17,
+        curY - 15,
         10.5,
         fontBold,
-        rgb(group.color[0], group.color[1], group.color[2])
+        rgb(group.color[0] * 0.7, group.color[1] * 0.7, group.color[2] * 0.7)
       );
 
       curY -= CAT_BANNER_H + 8;
@@ -1107,25 +1104,21 @@ export const exportCustodyDayToPdf = async (
       for (const exp of group.expenses) {
         const invoiceIdx = globalInvoiceCounter++;
 
-        // Attempt to load invoice image if present
         let imgData: { bytes: Uint8Array; isJpg: boolean } | null = null;
         if (exp.image_url) {
           imgData = await fetchImageBytes(exp.image_url);
         }
         const hasImage = !!imgData;
 
-        // CARD SIZING:
-        // When NO image: Card with explicit placeholder box (height 78pt) stating "لا يوجد مرفق لهذا الإيصال"
-        // When WITH image: Height 252pt (header 44pt + image box 196pt + padding 12pt).
-        const COMPACT_CARD_H = 78;
-        const IMG_CARD_H = 252;
-        const CARD_IMG_W = 440;
+        // Card Sizing (Header height = 58pt to place Amount directly under Description)
+        const COMPACT_CARD_H = 92;
+        const IMG_CARD_H = 266;
+        const CARD_IMG_W = 490;
         const CARD_IMG_H = 196;
-        const CARD_HEADER_H = 44;
+        const CARD_HEADER_H = 58;
 
         const TOTAL_CARD_H = hasImage ? IMG_CARD_H : COMPACT_CARD_H;
 
-        // Check if card fits on currentPage; if not, break to new page
         if (curY - TOTAL_CARD_H < MARGIN + 20) {
           startNewPage();
         }
@@ -1134,7 +1127,7 @@ export const exportCustodyDayToPdf = async (
 
         if (!hasImage) {
           // ════════════════════════════════════════════════════════════
-          // ── INVOICE CARD WITHOUT ATTACHMENT (78pt with explicit Box) ──
+          // ── INVOICE CARD WITHOUT ATTACHMENT ──
           // ════════════════════════════════════════════════════════════
           activePage.drawRectangle({
             x: MARGIN,
@@ -1155,37 +1148,15 @@ export const exportCustodyDayToPdf = async (
             color: rgb(group.color[0], group.color[1], group.color[2]),
           });
 
-          // Line 1 (Top Header):
-          // Right: Invoice # & Category (Clean: فاتورة رقم ١ • بنزين)
+          // Line 1: Invoice # & Category
           drawRtlText(
             activePage,
             `فاتورة رقم ${invoiceIdx}  •  ${group.label}`,
             PAGE_WIDTH - MARGIN - 14,
-            curY - 17,
+            curY - 16,
             11,
             fontBold,
             rgb(0.06, 0.09, 0.16)
-          );
-
-          // Left: المبلغ
-          const amtLabelW = drawRtlText(
-            activePage,
-            'المبلغ:',
-            MARGIN + 120,
-            curY - 17,
-            10,
-            fontBold,
-            rgb(0.4, 0.45, 0.55)
-          );
-
-          drawAmountWithSymbolRtl(
-            activePage,
-            exp.amount,
-            MARGIN + 120 - amtLabelW - 6,
-            curY - 17,
-            11,
-            fontBold,
-            rgb(0.92, 0.35, 0.05)
           );
 
           // Line 2: Recipient / Description
@@ -1194,22 +1165,43 @@ export const exportCustodyDayToPdf = async (
             activePage,
             recipientTxt,
             PAGE_WIDTH - MARGIN - 14,
-            curY - 33,
+            curY - 32,
             9.5,
             fontRegular,
             rgb(0.3, 0.35, 0.45)
           );
 
-          // Line 3: Dedicated Box with "لا يوجد مرفق لهذا الإيصال"
-          const NO_ATTACH_BOX_H = 26;
-          const noAttachBoxY = curY - COMPACT_CARD_H + 10;
+          // Line 3: Amount directly under Description
+          const amtLabelW = drawRtlText(
+            activePage,
+            'المبلغ:',
+            PAGE_WIDTH - MARGIN - 14,
+            curY - 48,
+            9.5,
+            fontBold,
+            rgb(0.4, 0.45, 0.55)
+          );
+
+          drawAmountWithSymbolRtl(
+            activePage,
+            exp.amount,
+            PAGE_WIDTH - MARGIN - 14 - amtLabelW - 6,
+            curY - 48,
+            11,
+            fontBold,
+            rgb(0.92, 0.35, 0.05)
+          );
+
+          // Line 4: Dedicated Box with "لا يوجد مرفق لهذا الإيصال"
+          const NO_ATTACH_BOX_H = 22;
+          const noAttachBoxY = curY - COMPACT_CARD_H + 8;
           activePage.drawRectangle({
             x: MARGIN + 12,
             y: noAttachBoxY,
             width: CONTENT_WIDTH - 24,
             height: NO_ATTACH_BOX_H,
             color: rgb(0.96, 0.97, 0.99),
-            borderColor: rgb(0.82, 0.86, 0.92),
+            borderColor: rgb(0.85, 0.88, 0.93),
             borderWidth: 1,
           });
 
@@ -1217,7 +1209,7 @@ export const exportCustodyDayToPdf = async (
             activePage,
             'لا يوجد مرفق لهذا الإيصال',
             PAGE_WIDTH / 2,
-            noAttachBoxY + 8,
+            noAttachBoxY + 6.5,
             9,
             fontBold,
             rgb(0.48, 0.53, 0.62)
@@ -1250,42 +1242,42 @@ export const exportCustodyDayToPdf = async (
           // Right: Colored Accent Stripe
           activePage.drawRectangle({
             x: PAGE_WIDTH - MARGIN - 4,
-            y: curY - 38,
+            y: curY - 50,
             width: 4,
-            height: 30,
+            height: 42,
             color: rgb(group.color[0], group.color[1], group.color[2]),
           });
 
-          // Header Line 1:
+          // Line 1: Invoice # & Category
           drawRtlText(
             activePage,
             `فاتورة رقم ${invoiceIdx}  •  ${group.label}`,
             PAGE_WIDTH - MARGIN - 14,
-            curY - 17,
-            11.5,
+            curY - 16,
+            11,
             fontBold,
             rgb(0.06, 0.09, 0.16)
           );
 
-          // Header Line 2:
+          // Line 2: Recipient / Description
           const recipientTxt = `البيان: ${exp.recipient_name || '—'}`;
           drawRtlText(
             activePage,
             recipientTxt,
             PAGE_WIDTH - MARGIN - 14,
-            curY - 34,
+            curY - 32,
             9.5,
             fontRegular,
             rgb(0.3, 0.35, 0.45)
           );
 
-          // Header Left: المبلغ
+          // Line 3: Amount directly under Description
           const amtLabelW = drawRtlText(
             activePage,
             'المبلغ:',
-            MARGIN + 120,
-            curY - 34,
-            10,
+            PAGE_WIDTH - MARGIN - 14,
+            curY - 48,
+            9.5,
             fontBold,
             rgb(0.4, 0.45, 0.55)
           );
@@ -1293,8 +1285,8 @@ export const exportCustodyDayToPdf = async (
           drawAmountWithSymbolRtl(
             activePage,
             exp.amount,
-            MARGIN + 120 - amtLabelW - 6,
-            curY - 34,
+            PAGE_WIDTH - MARGIN - 14 - amtLabelW - 6,
+            curY - 48,
             11,
             fontBold,
             rgb(0.92, 0.35, 0.05)
