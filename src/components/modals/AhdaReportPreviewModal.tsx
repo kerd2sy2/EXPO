@@ -110,7 +110,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
           <View style={styles.navTitleGroup}>
             <View style={styles.navTitleRow}>
               <Image
-                source={require('../../assets/images/logo.png')}
+                source={require('../../../assets/images/logo.png')}
                 style={{ width: 22, height: 22, borderRadius: 6, marginLeft: 4 }}
                 resizeMode="contain"
               />
@@ -158,7 +158,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
             <View style={styles.docHeaderBanner}>
               <View style={styles.docHeaderLogoBox}>
                 <Image
-                  source={require('../../assets/images/logo.png')}
+                  source={require('../../../assets/images/logo.png')}
                   style={styles.docHeaderLogo}
                   resizeMode="contain"
                 />
@@ -171,7 +171,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
             {/* Background Watermark Logo (علامة مائية خفيفة) */}
             <View style={styles.watermarkContainer} pointerEvents="none">
               <Image
-                source={require('../../assets/images/logo.png')}
+                source={require('../../../assets/images/logo.png')}
                 style={[styles.documentWatermark, { opacity: isDarkMode ? 0.035 : 0.045 }]}
                 resizeMode="contain"
               />
