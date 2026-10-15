@@ -159,8 +159,8 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
 
             {/* Document Executive Header (Pure White Background matching PDF) */}
             <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, backgroundColor: isDarkMode ? '#131b2e' : '#ffffff' }}>
-              {/* Top Row: QR Code on Left, Brand on Right (Logo with NO background box) */}
-              <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
+              {/* Top Row: Brand on Right (Logo with NO background box) */}
+              <View style={{ flexDirection: 'row-reverse', justifyContent: 'flex-start', alignItems: 'center' }}>
                 {/* Brand Lockup: Logo + AAMS LOGISTICS */}
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
                   <Image
@@ -173,28 +173,16 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                     <Text style={{ fontSize: 7, fontWeight: '800', color: colors.textSecondary, letterSpacing: 1 }}>LOGISTICS</Text>
                   </View>
                 </View>
-
-                {/* QR Code Icon Box on Left */}
-                <View style={{ padding: 4, borderRadius: 6, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0', backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc' }}>
-                  <Ionicons name="qr-code-outline" size={30} color={colors.textPrimary} />
-                </View>
               </View>
 
-              {/* Single Centered Title with Orange Underline */}
-              <View style={{ alignItems: 'center', marginVertical: 12 }}>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: colors.textPrimary, textAlign: 'center' }}>
-                  تقرير مشرف
-                </Text>
-                <View style={{ width: 75, height: 2.2, backgroundColor: '#ea580c', marginTop: 4, borderRadius: 1 }} />
-              </View>
-
-              {/* Bottom Info Bar: 3 Columns with Circular Orange Icons (Supervisor | ID | Date) */}
+              {/* Bottom Info Bar: 2 Columns with Circular Orange Icons (Supervisor Name & Date Only) */}
               <View
                 style={{
                   flexDirection: 'row-reverse',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   paddingVertical: 10,
+                  marginTop: 10,
                   borderTopWidth: 1,
                   borderBottomWidth: 1,
                   borderColor: isDarkMode ? '#1e293b' : '#f1f5f9',
@@ -208,15 +196,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                   <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary }}>{supervisorName}</Text>
                 </View>
 
-                {/* 2. Ref / Custody ID */}
-                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
-                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="card-outline" size={12} color="#ea580c" />
-                  </View>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary }}>{currentDay.id || '2632878423'}</Text>
-                </View>
-
-                {/* 3. Date */}
+                {/* 2. Date */}
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
                   <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', alignItems: 'center', justifyContent: 'center' }}>
                     <Ionicons name="calendar-outline" size={12} color="#ea580c" />
@@ -442,13 +422,6 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
             ) : null}
 
             {/* Section 3: Invoices Grouped By Category */}
-            <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
-              <View style={styles.sectionIndicator} />
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                ثالثاً: بيان وتوثيق فواتير المصاريف المرفقة
-              </Text>
-            </View>
-
             {expenses.length === 0 ? (
               <View style={styles.emptyExpensesBox}>
                 <Ionicons name="receipt-outline" size={38} color={colors.textSecondary} />

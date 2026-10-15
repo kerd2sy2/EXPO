@@ -393,12 +393,6 @@ export const exportCustodyDayToPdf = async (
     color: rgb(0.12, 0.16, 0.24), // Dark #1e293b
   });
 
-  // Top Left: QR Code
-  const qrSize = 40;
-  const qrX = MARGIN;
-  const qrY = PAGE_HEIGHT - 24 - qrSize;
-  drawQrCode(page1, `AAMS-REPORT-${cleanDateStr}-${day.id || 'CUSTODY'}`, qrX, qrY, qrSize);
-
   // Top Right: Brand Lockup (Logo + AAMS LOGISTICS) directly on white (No background box!)
   const logoSize = 30;
   const brandRightX = PAGE_WIDTH - MARGIN;
@@ -432,29 +426,8 @@ export const exportCustodyDayToPdf = async (
     });
   }
 
-  // Center: "تقرير مشرف" with Orange Underline
-  const centerTitleY = PAGE_HEIGHT - 66;
-  drawCenteredRtlText(
-    page1,
-    'تقرير مشرف',
-    PAGE_WIDTH / 2,
-    centerTitleY,
-    16,
-    fontBold,
-    rgb(0.06, 0.09, 0.16)
-  );
-
-  const underlineW = 85;
-  page1.drawRectangle({
-    x: (PAGE_WIDTH - underlineW) / 2,
-    y: centerTitleY - 6,
-    width: underlineW,
-    height: 1.8,
-    color: rgb(0.92, 0.35, 0.05),
-  });
-
-  // ── Bottom Info Bar of the Header (Supervisor | ID | Date) ──
-  const infoBarTopY = centerTitleY - 20;
+  // ── Bottom Info Bar of the Header (Supervisor Name & Date Only) ──
+  const infoBarTopY = brandY - 12;
   // Top divider line
   page1.drawRectangle({
     x: MARGIN,
@@ -466,7 +439,7 @@ export const exportCustodyDayToPdf = async (
 
   const infoRowY = infoBarTopY - 18;
 
-  // 1. Right: Supervisor Name (هايير شاكبه / اسم المشرف) with Person Circle Icon
+  // 1. Right: Supervisor Name with Person Circle Icon
   const supRight = PAGE_WIDTH - MARGIN - 4;
   drawRtlText(page1, supervisorName, supRight - 22, infoRowY, 11, fontBold, rgb(0.06, 0.09, 0.16));
   page1.drawCircle({
@@ -478,19 +451,7 @@ export const exportCustodyDayToPdf = async (
     borderWidth: 1,
   });
 
-  // 2. Center: Custody Ref / ID with Card Circle Icon
-  const centerRefStr = formatArabicTextForFontkit(String(day.id || '2632878423'));
-  drawCenteredRtlText(page1, centerRefStr, PAGE_WIDTH / 2 + 10, infoRowY, 11, fontBold, rgb(0.06, 0.09, 0.16));
-  page1.drawCircle({
-    x: PAGE_WIDTH / 2 - 25,
-    y: infoRowY + 4,
-    size: 8,
-    color: rgb(1, 0.94, 0.9),
-    borderColor: rgb(0.99, 0.84, 0.67),
-    borderWidth: 1,
-  });
-
-  // 3. Left: Date (YYYY/MM/DD) with Calendar Circle Icon
+  // 2. Left: Date (YYYY/MM/DD) with Calendar Circle Icon
   const dateSlashStr = cleanDateStr.replace(/-/g, '/');
   const dateVisual = formatArabicDateForFontkit(dateSlashStr);
   drawRtlText(page1, dateVisual, MARGIN + 85, infoRowY, 11, fontBold, rgb(0.06, 0.09, 0.16));
@@ -988,27 +949,6 @@ export const exportCustodyDayToPdf = async (
       rgb(0.5, 0.55, 0.65)
     );
   } else {
-    // Draw Section 3 Title
-    currentPage.drawRectangle({
-      x: PAGE_WIDTH - MARGIN - 4,
-      y: curY - 13,
-      width: 4,
-      height: 15,
-      color: rgb(0.92, 0.35, 0.05),
-    });
-
-    drawRtlText(
-      currentPage,
-      'ثالثاً: بيان وتوثيق فواتير المصاريف المرفقة',
-      PAGE_WIDTH - MARGIN - 12,
-      curY - 11,
-      12,
-      fontBold,
-      rgb(0.06, 0.09, 0.16)
-    );
-
-    curY -= 24;
-
     // 1. Group expenses by category
     const groupedCategories: Array<{
       key: string;
