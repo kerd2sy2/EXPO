@@ -678,8 +678,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     });
   };
 
-  // 6. PDF Export with Full Receipts and Embedded Images
-  const handleExportPdf = async () => {
+  // 6. PDF Export with Full Receipts and Embedded Images (Preview or Share)
+  const handleExportPdf = async (mode: 'preview' | 'share' = 'share') => {
     if (!currentDay) {
       Alert.alert('تنبيه', 'لا توجد بيانات عهدة مسجلة لتصديرها لهذا اليوم');
       return;
@@ -690,9 +690,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       await exportCustodyDayToPdf(currentDay, {
         user: currentUser,
         dayLogs,
+        mode,
       });
     } catch (err: any) {
-      Alert.alert('خطأ في تصدير الـ PDF', err?.message || 'فشل إنشاء ومشاركة تقرير الـ PDF');
+      Alert.alert('خطأ في تصدير الـ PDF', err?.message || 'فشل إنشاء ومعاينة تقرير الـ PDF');
     } finally {
       setExportingExcel(false);
     }
@@ -1034,8 +1035,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           colors={colors}
           isDarkMode={isDarkMode}
           loading={exportingExcel}
+          onPreview={async () => {
+            await handleExportPdf('preview');
+          }}
           onExportAndShare={async () => {
-            await handleExportPdf();
+            await handleExportPdf('share');
             setShowShakeExcelModal(false);
           }}
           onClose={() => setShowShakeExcelModal(false)}

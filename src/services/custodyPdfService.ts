@@ -83,26 +83,27 @@ export function formatArabicAmountForFontkit(amount: number, decimals = 2): stri
 }
 
 /**
- * Formats text containing numbers (e.g. counts, invoice numbers, labels)
- * so that fontkit's BiDi engine displays Eastern Arabic digits in correct visual order.
+ * Formats text containing numbers and parentheses so that fontkit's BiDi engine
+ * displays Eastern Arabic digits and brackets in natural, correct visual order.
  */
 export function formatArabicTextForFontkit(text: string | number | null | undefined): string {
   if (text === null || text === undefined) return '';
-  return String(text).replace(/[0-9]+/g, (match) => {
+  // Invert parentheses so fontkit's BiDi engine renders them in the natural Arabic direction
+  let str = String(text).replace(/[()]/g, (char) => (char === '(' ? ')' : '('));
+
+  // Format numbers so fontkit lays them out in Eastern Arabic numerals
+  return str.replace(/[0-9]+/g, (match) => {
     return toArabicDigits(match.split('').reverse().join(''));
   });
 }
 
 /**
- * Formats YYYY-MM-DD into Eastern Arabic format for visual rendering (YYYY/MM/DD).
+ * Formats YYYY-MM-DD into Eastern Arabic format for visual rendering (e.g. ٢٠٢٦-١٠-١٥).
  */
 export function formatArabicDateForFontkit(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
-  const parts = String(dateStr).split('-');
-  if (parts.length === 3) {
-    return `${toArabicDigits(parts[2])}/${toArabicDigits(parts[1])}/${toArabicDigits(parts[0])}`;
-  }
-  return formatArabicTextForFontkit(dateStr);
+  const clean = String(dateStr).trim();
+  return toArabicDigits(clean).split('').reverse().join('');
 }
 
 const CATEGORY_ORDER: Array<{
@@ -119,18 +120,10 @@ const CATEGORY_ORDER: Array<{
   { key: 'other', label: 'مصاريف أخرى', color: [0.02, 0.59, 0.41], bg: [0.94, 0.99, 0.96] },
 ];
 
-const CATEGORY_MAP: Record<string, { label: string; color: [number, number, number] }> = {
-  fuel: { label: 'بنزين', color: [0.92, 0.35, 0.05] },
-  internet_advance: { label: 'سلفة نت', color: [0.01, 0.52, 0.78] },
-  advance: { label: 'سلفة شخصية', color: [0.49, 0.23, 0.93] },
-  license: { label: 'رخصة القيادة', color: [0.15, 0.39, 0.92] },
-  spare_parts: { label: 'قطع غيار', color: [0.85, 0.47, 0.02] },
-  other: { label: 'مصاريف أخرى', color: [0.02, 0.59, 0.41] },
-};
-
 export interface ExportPdfOptions {
   user?: any;
   dayLogs?: CustodyLogItem[];
+  mode?: 'preview' | 'share';
 }
 
 export const exportCustodyDayToPdf = async (
@@ -181,7 +174,7 @@ export const exportCustodyDayToPdf = async (
   const MARGIN = 36;
   const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2; // 523.28
 
-  // Helper to draw right-aligned text (with Arabic digit normalization)
+  // Helper to draw right-aligned text (with Arabic digit and bracket normalization)
   const drawRtlText = (
     page: PDFPage,
     rawText: string | number | null | undefined,
@@ -204,7 +197,7 @@ export const exportCustodyDayToPdf = async (
     return width;
   };
 
-  // Helper to draw centered text (with Arabic digit normalization)
+  // Helper to draw centered text (with Arabic digit and bracket normalization)
   const drawCenteredRtlText = (
     page: PDFPage,
     rawText: string | number | null | undefined,
@@ -330,7 +323,7 @@ export const exportCustodyDayToPdf = async (
   const expenses = day.expenses || [];
   const supervisorName = options?.user?.name || options?.user?.username || 'ابراهيم محمود';
   const cleanDateStr = String(day.date || '').trim();
-  const arabicDateHeader = formatArabicDateForFontkit(cleanDateStr);
+  const arabicDateVisual = formatArabicDateForFontkit(cleanDateStr);
 
   // ════════════════════════════════════════════════════════════
   // ── PAGE MANAGEMENT & FLOW ──
@@ -361,7 +354,7 @@ export const exportCustodyDayToPdf = async (
     color: rgb(0.92, 0.35, 0.05),
   });
 
-  // Header Title
+  // Header Title (Clean, NO date on the left as requested)
   drawRtlText(
     page1,
     'تقرير العهدة اليومية',
@@ -372,18 +365,7 @@ export const exportCustodyDayToPdf = async (
     rgb(1, 1, 1)
   );
 
-  // Left side of Header: Date in Eastern Arabic numerals
-  drawRtlText(
-    page1,
-    arabicDateHeader,
-    MARGIN + fontBold.widthOfTextAtSize(arabicDateHeader, 12),
-    PAGE_HEIGHT - 35,
-    12,
-    fontBold,
-    rgb(0.92, 0.35, 0.05)
-  );
-
-  // ── Info Card (Supervisor & Date on a single line each) ──
+  // ── Info Card (Supervisor on the far right, Date on the far left) ──
   let curY = PAGE_HEIGHT - BANNER_HEIGHT - 16;
   const INFO_BOX_H = 34;
   page1.drawRectangle({
@@ -396,17 +378,19 @@ export const exportCustodyDayToPdf = async (
     borderWidth: 1,
   });
 
-  const halfWidth = CONTENT_WIDTH / 2;
-
-  // Right Column: المشرف واسم المشرف على نفس السطر
+  // Far Right: المشرف واسم المشرف
   const supRightX = MARGIN + CONTENT_WIDTH - 14;
   const supLabelW = drawRtlText(page1, 'المشرف:', supRightX, curY - 21, 10, fontBold, rgb(0.4, 0.45, 0.55));
   drawRtlText(page1, supervisorName, supRightX - supLabelW - 6, curY - 21, 11, fontBold, rgb(0.06, 0.09, 0.16));
 
-  // Left Column: تاريخ العهدة والتاريخ على نفس السطر في أرقام عربية شرقية
-  const dateRightX = MARGIN + halfWidth - 14;
-  const dateLabelW = drawRtlText(page1, 'تاريخ العهدة:', dateRightX, curY - 21, 10, fontBold, rgb(0.4, 0.45, 0.55));
-  drawRtlText(page1, arabicDateHeader, dateRightX - dateLabelW - 6, curY - 21, 11, fontBold, rgb(0.92, 0.35, 0.05));
+  // Far Left (في الآخر): تاريخ العهدة والتاريخ
+  const dateLabelW = fontBold.widthOfTextAtSize('تاريخ العهدة:', 10);
+  const dateValW = fontBold.widthOfTextAtSize(arabicDateVisual, 11);
+  const totalDateW = dateLabelW + 6 + dateValW;
+  const dateBlockRightX = MARGIN + 14 + totalDateW;
+
+  drawRtlText(page1, 'تاريخ العهدة:', dateBlockRightX, curY - 21, 10, fontBold, rgb(0.4, 0.45, 0.55));
+  drawRtlText(page1, arabicDateVisual, dateBlockRightX - dateLabelW - 6, curY - 21, 11, fontBold, rgb(0.92, 0.35, 0.05));
 
   curY -= INFO_BOX_H + 18;
 
@@ -687,7 +671,7 @@ export const exportCustodyDayToPdf = async (
       color: rgb(0.92, 0.35, 0.05),
     });
 
-    // Right: Section title (Clean)
+    // Right: Section title (Clean header, NO date on the left)
     drawRtlText(
       newPage,
       'بيان وتوثيق فواتير المصاريف المرفقة',
@@ -696,17 +680,6 @@ export const exportCustodyDayToPdf = async (
       12.5,
       fontBold,
       rgb(1, 1, 1)
-    );
-
-    // Left: Date in Eastern Arabic numerals
-    drawRtlText(
-      newPage,
-      arabicDateHeader,
-      MARGIN + fontBold.widthOfTextAtSize(arabicDateHeader, 11),
-      PAGE_HEIGHT - 26,
-      11,
-      fontBold,
-      rgb(0.92, 0.35, 0.05)
     );
 
     curY = PAGE_HEIGHT - MINI_BANNER_H - 18;
@@ -833,7 +806,7 @@ export const exportCustodyDayToPdf = async (
         color: rgb(group.color[0], group.color[1], group.color[2]),
       });
 
-      // Right: Category Name & Count
+      // Right: Category Name & Count (e.g. بنزين (٨ فواتير))
       const catCountLabel = `${group.label} (${group.expenses.length} فواتير)`;
       drawRtlText(
         activePageForBanner,
@@ -880,7 +853,7 @@ export const exportCustodyDayToPdf = async (
         const hasImage = !!imgData;
 
         // CARD SIZING:
-        // When NO image: Make it just a compact card (height 52pt) with zero wasted blank space!
+        // When NO image: Compact card (height 52pt) with zero wasted blank space.
         // When WITH image: Height 252pt (header 44pt + image box 196pt + padding 12pt).
         const COMPACT_CARD_H = 52;
         const IMG_CARD_H = 252;
@@ -921,10 +894,10 @@ export const exportCustodyDayToPdf = async (
           });
 
           // Line 1 (Top):
-          // Right: Invoice # & Category
+          // Right: Invoice # & Category (Clean: فاتورة رقم ١ • بنزين)
           drawRtlText(
             activePage,
-            `فاتورة #${invoiceIdx}  •  ${group.label}`,
+            `فاتورة رقم ${invoiceIdx}  •  ${group.label}`,
             PAGE_WIDTH - MARGIN - 14,
             curY - 18,
             11,
@@ -944,7 +917,7 @@ export const exportCustodyDayToPdf = async (
           );
 
           // Line 2 (Bottom):
-          // Right: البيان
+          // Right: البيان (with proper bracket handling)
           const recipientTxt = `البيان: ${exp.recipient_name || '—'}`;
           drawRtlText(
             activePage,
@@ -1013,7 +986,7 @@ export const exportCustodyDayToPdf = async (
           // Header Line 1:
           drawRtlText(
             activePage,
-            `فاتورة #${invoiceIdx}  •  ${group.label}`,
+            `فاتورة رقم ${invoiceIdx}  •  ${group.label}`,
             PAGE_WIDTH - MARGIN - 14,
             curY - 17,
             11.5,
@@ -1153,12 +1126,15 @@ export const exportCustodyDayToPdf = async (
     encoding: FileSystem.EncodingType.Base64,
   });
 
-  // 4. Share file via native share dialog
+  // 4. Share or Preview file via native share dialog
   const isAvailable = await Sharing.isAvailableAsync();
   if (isAvailable) {
+    const isPreview = options?.mode === 'preview';
     await Sharing.shareAsync(pdfUri, {
       mimeType: 'application/pdf',
-      dialogTitle: `مشاركة تقرير العهدة (${cleanDateStr})`,
+      dialogTitle: isPreview
+        ? `معاينة تقرير العهدة (${cleanDateStr})`
+        : `مشاركة تقرير العهدة (${cleanDateStr})`,
       UTI: 'com.adobe.pdf',
     });
   }
