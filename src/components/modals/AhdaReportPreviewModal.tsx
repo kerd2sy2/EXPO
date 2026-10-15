@@ -414,10 +414,22 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                                 </View>
                               </TouchableOpacity>
                             ) : (
-                              <View style={styles.noImageCard}>
-                                <Ionicons name="image-outline" size={16} color={colors.textSecondary} />
-                                <Text style={[styles.noImageText, { color: colors.textSecondary }]}>
-                                  بدون مرفق صورة
+                              <View
+                                style={[
+                                  styles.noImageBox,
+                                  {
+                                    backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                                    borderColor: isDarkMode ? '#334155' : '#cbd5e1',
+                                  },
+                                ]}
+                              >
+                                <Ionicons
+                                  name="document-text-outline"
+                                  size={18}
+                                  color={isDarkMode ? '#64748b' : '#94a3b8'}
+                                />
+                                <Text style={[styles.noImageBoxText, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+                                  لا يوجد مرفق لهذا الإيصال
                                 </Text>
                               </View>
                             )}
@@ -819,15 +831,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  noImageCard: {
+  noImageBox: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 8,
+    borderWidth: 1.2,
+    borderStyle: 'dashed',
+    marginTop: 4,
   },
-  noImageText: {
-    fontSize: 11,
-    fontWeight: '600',
+  noImageBoxText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   docFooter: {
     marginTop: 20,

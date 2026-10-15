@@ -15,6 +15,8 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { ThemeColors } from '../types/delegate';
 import { CustodyDayData, CustodyExpenseItem } from '../services/custodyService';
 import { formatImageUrl } from '../services/api';
+import { toArabicDigits, formatArabicNumber } from '../utils/formatters';
+import { AhdaInvoicesSkeleton } from '../components/skeleton/AhdaInvoicesSkeleton';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -22,6 +24,7 @@ interface AhdaDayExpensesScreenProps {
   currentDay: CustodyDayData | null;
   selectedDate: string;
   categoryFilter?: string | null;
+  loading?: boolean;
   colors: ThemeColors;
   isDarkMode: boolean;
   categories: Array<{ key: string; label: string; icon: string; color: string; bg: string }>;
@@ -36,6 +39,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
   currentDay,
   selectedDate,
   categoryFilter = null,
+  loading = false,
   colors,
   isDarkMode,
   categories,
@@ -47,6 +51,8 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
 }) => {
   // Long press options modal state
   const [selectedExpenseForAction, setSelectedExpenseForAction] = useState<CustodyExpenseItem | null>(null);
+  // Single press invoice details and picture modal state
+  const [selectedExpenseForDetails, setSelectedExpenseForDetails] = useState<CustodyExpenseItem | null>(null);
 
   const matchedCategory = categories.find((c) => c.key === categoryFilter);
   const pageTitle = matchedCategory ? matchedCategory.label : 'فواتير ومصاريف اليوم';
@@ -74,9 +80,11 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, filteredExpenses.length === 0 && { flex: 1, justifyContent: 'center' }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, filteredExpenses.length === 0 && !loading && { flex: 1, justifyContent: 'center' }]} showsVerticalScrollIndicator={false}>
         {/* ── Invoices List ── */}
-        {filteredExpenses.length === 0 ? (
+        {loading ? (
+          <AhdaInvoicesSkeleton colors={colors} isDarkMode={isDarkMode} count={4} />
+        ) : filteredExpenses.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="receipt-outline" size={56} color={colors.textSecondary} style={{ opacity: 0.25 }} />
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -108,13 +116,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                     },
                   ]}
                   activeOpacity={0.88}
-                  onPress={() => {
-                    if (fullImg) {
-                      onPreviewImage(fullImg);
-                    } else {
-                      setSelectedExpenseForAction(item);
-                    }
-                  }}
+                  onPress={() => setSelectedExpenseForDetails(item)}
                   onLongPress={() => setSelectedExpenseForAction(item)}
                 >
                   {/* Top: Icon + Category + Date & Time Stamp (Clean header without direct delete/edit icons) */}
@@ -131,17 +133,25 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                         <View style={styles.timestampRow}>
                           <Ionicons name="time-outline" size={11} color={colors.textSecondary} />
                           <Text style={[styles.invoiceTime, { color: colors.textSecondary }]}>
-                            {timeStr} • {dateStr}
+                            {timeStr} • {toArabicDigits(dateStr)}
                           </Text>
                         </View>
                       </View>
                     </View>
 
-                    {/* Hint indicator for long press options */}
-                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-                      <Text style={{ fontSize: 10, color: colors.textSecondary, opacity: 0.7 }}>خيارات</Text>
-                      <Ionicons name="ellipsis-vertical" size={15} color={colors.textSecondary} style={{ opacity: 0.6 }} />
-                    </View>
+                    {/* Thumbnail in corner if attached (replacing 3 dots and options text) */}
+                    {fullImg ? (
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          onPreviewImage(fullImg);
+                        }}
+                        style={styles.cardHeaderThumbBtn}
+                        activeOpacity={0.8}
+                      >
+                        <Image source={{ uri: fullImg }} style={styles.cardHeaderThumbImg} />
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
 
                   {/* Middle: Recipient & Note */}
@@ -154,30 +164,11 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                     </View>
                   </View>
 
-                  {/* Bottom: Invoice Image (if exists) + Amount Badge */}
+                  {/* Bottom: Amount Badge (with halalas) + Attachment indicator */}
                   <View style={styles.invoiceCardBottom}>
-                    {fullImg ? (
-                      <TouchableOpacity
-                        onPress={() => onPreviewImage(fullImg)}
-                        style={styles.imagePreviewBtn}
-                        activeOpacity={0.8}
-                      >
-                        <Image source={{ uri: fullImg }} style={styles.invoiceImgThumb} />
-                        <View style={styles.imageBadge}>
-                          <Ionicons name="image" size={11} color="#ffffff" />
-                          <Text style={styles.imageBadgeText}>عرض الفاتورة</Text>
-                        </View>
-                      </TouchableOpacity>
-                    ) : (
-                      <View style={styles.noImgBadge}>
-                        <Ionicons name="receipt-outline" size={12} color={colors.textSecondary} />
-                        <Text style={[styles.noImgText, { color: colors.textSecondary }]}>بدون مرفق</Text>
-                      </View>
-                    )}
-
                     <View style={styles.amountPill}>
                       <Text style={styles.amountPillVal}>
-                        {item.amount.toLocaleString()}
+                        {formatArabicNumber(item.amount, 2)}
                       </Text>
                       <Image
                         source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
@@ -185,6 +176,18 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                         resizeMode="contain"
                       />
                     </View>
+
+                    {fullImg ? (
+                      <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
+                        <Ionicons name="image" size={13} color="#ea580c" />
+                        <Text style={{ fontSize: 11, color: '#ea580c', fontWeight: '700' }}>مرفق فاتورة</Text>
+                      </View>
+                    ) : (
+                      <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
+                        <Ionicons name="receipt-outline" size={12} color={colors.textSecondary} />
+                        <Text style={{ fontSize: 11, color: colors.textSecondary }}>لا يوجد مرفق لهذا الإيصال</Text>
+                      </View>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -193,7 +196,138 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
         )}
       </ScrollView>
 
-      {/* ── Long Press Options Bottom Sheet Modal (Edit or Delete) ── */}
+      {/* ── 1. Single Tap Invoice Details & Picture Modal (View Only) ── */}
+      <Modal
+        visible={!!selectedExpenseForDetails}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedExpenseForDetails(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setSelectedExpenseForDetails(null)}
+          />
+          <View style={[styles.detailsSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.sheetHandle} />
+
+            {/* Header: Category Badge + Close button */}
+            {(() => {
+              const detailsItem = selectedExpenseForDetails;
+              if (!detailsItem) return null;
+              const catObj = categories.find((c) => c.key === detailsItem.category) || categories[5];
+              const detailsImg = formatImageUrl(detailsItem.image_url);
+              const dateObj = detailsItem.created_at ? new Date(detailsItem.created_at) : null;
+              const timeStr = dateObj
+                ? dateObj.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
+                : '—';
+              const dateStr = dateObj
+                ? dateObj.toLocaleDateString('ar-SA', { year: 'numeric', month: 'numeric', day: 'numeric' })
+                : selectedDate;
+
+              return (
+                <>
+                  <View style={styles.detailsHeaderRow}>
+                    <TouchableOpacity
+                      onPress={() => setSelectedExpenseForDetails(null)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="close-circle-outline" size={26} color={colors.textSecondary} />
+                    </TouchableOpacity>
+
+                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+                      <View style={[styles.catBadge, { backgroundColor: catObj.bg }]}>
+                        <Ionicons name={catObj.icon as any} size={20} color={catObj.color} />
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[styles.detailsCatTitle, { color: colors.textPrimary }]}>
+                          فاتورة {catObj.label}
+                        </Text>
+                        <Text style={[styles.detailsTimeSub, { color: colors.textSecondary }]}>
+                          {timeStr} • {toArabicDigits(dateStr)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Main Amount Card */}
+                  <View style={[styles.detailsAmountCard, { backgroundColor: isDarkMode ? '#1e293b' : '#fff7ed', borderColor: '#fed7aa' }]}>
+                    <Text style={styles.detailsAmountLabel}>المبلغ المسجل للفاتورة</Text>
+                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      <Text style={styles.detailsAmountValue}>
+                        {formatArabicNumber(detailsItem.amount, 2)}
+                      </Text>
+                      <Image
+                        source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
+                        style={{ width: 20, height: 20, tintColor: '#ea580c' }}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Recipient / Description Row */}
+                  <View style={[styles.detailsInfoRow, { borderColor: colors.border, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }]}>
+                    <Text style={[styles.detailsInfoLabel, { color: colors.textSecondary }]}>المستلم / البيان:</Text>
+                    <Text style={[styles.detailsInfoValue, { color: colors.textPrimary }]} numberOfLines={3}>
+                      {detailsItem.recipient_name || '—'}
+                    </Text>
+                  </View>
+
+                  {/* Attached Picture Section */}
+                  <View style={{ width: '100%', marginVertical: 14 }}>
+                    <Text style={[styles.detailsSectionTitle, { color: colors.textPrimary }]}>
+                      صورة الفاتورة المرفقة:
+                    </Text>
+
+                    {detailsImg ? (
+                      <TouchableOpacity
+                        style={styles.detailsImageContainer}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setSelectedExpenseForDetails(null);
+                          onPreviewImage(detailsImg);
+                        }}
+                      >
+                        <Image source={{ uri: detailsImg }} style={styles.detailsFullImage} resizeMode="cover" />
+                        <View style={styles.detailsImageZoomBadge}>
+                          <Ionicons name="expand" size={14} color="#ffffff" />
+                          <Text style={styles.detailsImageZoomText}>اضغط للتكبير الكامل</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={[styles.detailsNoImageBox, { borderColor: colors.border }]}>
+                        <Ionicons name="image-outline" size={32} color={colors.textSecondary} style={{ opacity: 0.4 }} />
+                        <Text style={[styles.detailsNoImageText, { color: colors.textSecondary }]}>
+                          لا توجد صورة مرفقة مع هذه الفاتورة
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Long press Hint */}
+                  <View style={styles.detailsHintBox}>
+                    <Ionicons name="information-circle-outline" size={15} color="#ea580c" />
+                    <Text style={styles.detailsHintText}>
+                      للتعديل أو الحذف، اضغط مطولاً على كرت الفاتورة من القائمة
+                    </Text>
+                  </View>
+
+                  {/* Close button */}
+                  <TouchableOpacity
+                    style={[styles.sheetCancelBtn, { borderColor: colors.border, marginTop: 10 }]}
+                    onPress={() => setSelectedExpenseForDetails(null)}
+                  >
+                    <Text style={[styles.sheetCancelBtnText, { color: colors.textSecondary }]}>إغلاق</Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── 2. Long Press Options Bottom Sheet Modal (Edit or Delete) ── */}
       <Modal
         visible={!!selectedExpenseForAction}
         transparent
@@ -209,19 +343,8 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
           <View style={[styles.actionSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.sheetHandle} />
 
-            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <Text style={[styles.actionSheetTitle, { color: colors.textPrimary }]}>
-                إدارة الفاتورة ({selectedExpenseForAction?.amount}
-              </Text>
-              <Image
-                source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-                style={{ width: 14, height: 14, tintColor: '#ea580c' }}
-                resizeMode="contain"
-              />
-              <Text style={[styles.actionSheetTitle, { color: colors.textPrimary }]}>)</Text>
-            </View>
-            <Text style={[styles.actionSheetSub, { color: colors.textSecondary }]}>
-              المستلم: {selectedExpenseForAction?.recipient_name || '—'}
+            <Text style={[styles.actionSheetTitle, { color: colors.textPrimary, marginBottom: 16 }]}>
+              إدارة الفاتورة
             </Text>
 
             <View style={styles.actionSheetBtnsCol}>
@@ -385,6 +508,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  cardHeaderThumbBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#ea580c',
+    backgroundColor: '#f1f5f9',
+  },
+  cardHeaderThumbImg: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   invoiceLeftInfo: {
     flexDirection: 'row-reverse',
@@ -584,5 +721,137 @@ const styles = StyleSheet.create({
   sheetCancelBtnText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  // Details Sheet Modal Styles
+  detailsSheetBox: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    alignItems: 'center',
+    maxHeight: '90%',
+  },
+  detailsHeaderRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#cbd5e1',
+  },
+  detailsCatTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  detailsTimeSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  detailsAmountCard: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailsAmountLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ea580c',
+  },
+  detailsAmountValue: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#ea580c',
+  },
+  detailsInfoRow: {
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  detailsInfoLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  detailsInfoValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    flexShrink: 1,
+    textAlign: 'left',
+  },
+  detailsSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'right',
+  },
+  detailsImageContainer: {
+    width: '100%',
+    height: 190,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    position: 'relative',
+  },
+  detailsFullImage: {
+    width: '100%',
+    height: '100%',
+  },
+  detailsImageZoomBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+  },
+  detailsImageZoomText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  detailsNoImageBox: {
+    width: '100%',
+    height: 90,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailsNoImageText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  detailsHintBox: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    marginTop: 2,
+  },
+  detailsHintText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#ea580c',
   },
 });

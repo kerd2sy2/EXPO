@@ -853,9 +853,9 @@ export const exportCustodyDayToPdf = async (
         const hasImage = !!imgData;
 
         // CARD SIZING:
-        // When NO image: Compact card (height 52pt) with zero wasted blank space.
+        // When NO image: Card with explicit placeholder box (height 78pt) stating "لا يوجد مرفق لهذا الإيصال"
         // When WITH image: Height 252pt (header 44pt + image box 196pt + padding 12pt).
-        const COMPACT_CARD_H = 52;
+        const COMPACT_CARD_H = 78;
         const IMG_CARD_H = 252;
         const CARD_IMG_W = 440;
         const CARD_IMG_H = 196;
@@ -872,7 +872,7 @@ export const exportCustodyDayToPdf = async (
 
         if (!hasImage) {
           // ════════════════════════════════════════════════════════════
-          // ── COMPACT CARD FOR INVOICE WITHOUT ATTACHMENT (52pt) ──
+          // ── INVOICE CARD WITHOUT ATTACHMENT (78pt with explicit Box) ──
           // ════════════════════════════════════════════════════════════
           activePage.drawRectangle({
             x: MARGIN,
@@ -893,40 +893,16 @@ export const exportCustodyDayToPdf = async (
             color: rgb(group.color[0], group.color[1], group.color[2]),
           });
 
-          // Line 1 (Top):
+          // Line 1 (Top Header):
           // Right: Invoice # & Category (Clean: فاتورة رقم ١ • بنزين)
           drawRtlText(
             activePage,
             `فاتورة رقم ${invoiceIdx}  •  ${group.label}`,
             PAGE_WIDTH - MARGIN - 14,
-            curY - 18,
+            curY - 17,
             11,
             fontBold,
             rgb(0.06, 0.09, 0.16)
-          );
-
-          // Left: Soft Badge: [بدون صورة مرفقة]
-          drawRtlText(
-            activePage,
-            'بدون صورة مرفقة',
-            MARGIN + 90,
-            curY - 18,
-            8.5,
-            fontRegular,
-            rgb(0.58, 0.62, 0.70)
-          );
-
-          // Line 2 (Bottom):
-          // Right: البيان (with proper bracket handling)
-          const recipientTxt = `البيان: ${exp.recipient_name || '—'}`;
-          drawRtlText(
-            activePage,
-            recipientTxt,
-            PAGE_WIDTH - MARGIN - 14,
-            curY - 37,
-            9.5,
-            fontRegular,
-            rgb(0.3, 0.35, 0.45)
           );
 
           // Left: المبلغ
@@ -934,7 +910,7 @@ export const exportCustodyDayToPdf = async (
             activePage,
             'المبلغ:',
             MARGIN + 120,
-            curY - 37,
+            curY - 17,
             10,
             fontBold,
             rgb(0.4, 0.45, 0.55)
@@ -944,13 +920,48 @@ export const exportCustodyDayToPdf = async (
             activePage,
             exp.amount,
             MARGIN + 120 - amtLabelW - 6,
-            curY - 37,
+            curY - 17,
             11,
             fontBold,
             rgb(0.92, 0.35, 0.05)
           );
 
-          curY -= COMPACT_CARD_H + 7;
+          // Line 2: Recipient / Description
+          const recipientTxt = `البيان: ${exp.recipient_name || '—'}`;
+          drawRtlText(
+            activePage,
+            recipientTxt,
+            PAGE_WIDTH - MARGIN - 14,
+            curY - 33,
+            9.5,
+            fontRegular,
+            rgb(0.3, 0.35, 0.45)
+          );
+
+          // Line 3: Dedicated Box with "لا يوجد مرفق لهذا الإيصال"
+          const NO_ATTACH_BOX_H = 26;
+          const noAttachBoxY = curY - COMPACT_CARD_H + 10;
+          activePage.drawRectangle({
+            x: MARGIN + 12,
+            y: noAttachBoxY,
+            width: CONTENT_WIDTH - 24,
+            height: NO_ATTACH_BOX_H,
+            color: rgb(0.96, 0.97, 0.99),
+            borderColor: rgb(0.82, 0.86, 0.92),
+            borderWidth: 1,
+          });
+
+          drawCenteredRtlText(
+            activePage,
+            'لا يوجد مرفق لهذا الإيصال',
+            PAGE_WIDTH / 2,
+            noAttachBoxY + 8,
+            9,
+            fontBold,
+            rgb(0.48, 0.53, 0.62)
+          );
+
+          curY -= COMPACT_CARD_H + 8;
         } else {
           // ════════════════════════════════════════════════════════════
           // ── HIGH-RES IMAGE CARD FOR INVOICE WITH ATTACHMENT ──
