@@ -195,13 +195,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
             {/* Login Card */}
             <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {/* App Identification Badge */}
-              <View style={[styles.appTypeBadge, { backgroundColor: isDarkMode ? '#082f49' : '#e0f2fe' }]}>
-                <Ionicons name="shield-checkmark" size={16} color="#0284c7" />
-                <Text style={[styles.appTypeBadgeText, { color: '#0284c7' }]}>
-                  تطبيق أبرار الإشراف
-                </Text>
-              </View>
 
               <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                 {isRTL ? 'تسجيل الدخول - أبرار الإشراف' : (t.loginTitle || 'Log In') + ' - AAMS Supervision'}
