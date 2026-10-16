@@ -62,7 +62,7 @@ export const SuccessShiftModal: React.FC<SuccessShiftModalProps> = ({
   const iconColor = isStart ? '#10b981' : colors.primary;
   const iconBg = isStart
     ? (isDarkMode ? 'rgba(16, 185, 129, 0.22)' : '#ecfdf5')
-    : (isDarkMode ? 'rgba(234, 88, 12, 0.22)' : '#fff7ed');
+    : (isDarkMode ? 'rgba(109, 40, 217, 0.22)' : '#f5f3ff');
 
   const buttonText = isStart
     ? (t.goToHomeBtn || 'الرئيسية')

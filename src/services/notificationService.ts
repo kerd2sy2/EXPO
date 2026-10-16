@@ -138,7 +138,7 @@ export const notificationService = {
           name: 'إشعارات وتعاميم الإدارة',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 500, 250, 500],
-          lightColor: '#f97316',
+          lightColor: '#7c3aed',
           sound: 'default',
           enableVibrate: true,
           showBadge: true,

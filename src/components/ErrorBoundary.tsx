@@ -73,7 +73,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             <View style={styles.content}>
               <View style={styles.iconCircle}>
-                <Ionicons name="shield-checkmark" size={44} color="#f97316" />
+                <Ionicons name="shield-checkmark" size={44} color="#7c3aed" />
               </View>
 
               <Text style={styles.title}>تم حماية التطبيق من الإغلاق</Text>
@@ -123,7 +123,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   onPress={() => this.setState({ showDiagnostics: true })}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="bug-outline" size={16} color="#f97316" style={{ marginHorizontal: 4 }} />
+                  <Ionicons name="bug-outline" size={16} color="#7c3aed" style={{ marginHorizontal: 4 }} />
                   <Text style={styles.secondaryButtonText}>سجل الأخطاء الكامل</Text>
                 </TouchableOpacity>
 
@@ -148,9 +148,9 @@ export class ErrorBoundary extends Component<Props, State> {
               textPrimary: '#ffffff',
               textSecondary: '#94a3b8',
               border: '#334155',
-              primary: '#f97316',
-              primaryLight: 'rgba(249, 115, 22, 0.16)',
-              primaryText: '#fb923c',
+              primary: '#7c3aed',
+              primaryLight: 'rgba(124, 58, 237, 0.16)',
+              primaryText: '#a855f7',
               accent: '#38bdf8',
               accentLight: 'rgba(56, 189, 248, 0.16)',
               inputBg: '#0f172a',
@@ -198,12 +198,12 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.3)',
+    borderColor: 'rgba(124, 58, 237, 0.3)',
   },
   title: {
     fontSize: 20,
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f97316',
+    backgroundColor: '#7c3aed',
     paddingVertical: 14,
     borderRadius: 14,
     width: '100%',
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   secondaryButtonText: {
-    color: '#f97316',
+    color: '#7c3aed',
     fontSize: 12,
     fontWeight: '700',
   },

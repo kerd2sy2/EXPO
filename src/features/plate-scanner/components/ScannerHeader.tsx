@@ -43,7 +43,7 @@ export const ScannerHeader: React.FC<ScannerHeaderProps> = ({
           <Ionicons
             name={torchOn ? 'flashlight' : 'flashlight-outline'}
             size={24}
-            color={torchOn ? '#f97316' : '#ffffff'}
+            color={torchOn ? '#7c3aed' : '#ffffff'}
           />
         </TouchableOpacity>
       ) : (
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerBtnActive: {
-    backgroundColor: 'rgba(249, 115, 22, 0.45)',
+    backgroundColor: 'rgba(124, 58, 237, 0.45)',
   },
   headerBadge: {
     flexDirection: 'row-reverse',

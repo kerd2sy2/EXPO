@@ -295,12 +295,12 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                   style={[
                     styles.iconBadge,
                     {
-                      backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.15)' : '#fff7ed',
-                      borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.3)' : '#fed7aa',
+                      backgroundColor: isDarkMode ? 'rgba(124, 58, 237, 0.15)' : '#f5f3ff',
+                      borderColor: isDarkMode ? 'rgba(124, 58, 237, 0.3)' : '#fed7aa',
                     },
                   ]}
                 >
-                  <MaterialCommunityIcons name="shield-key-outline" size={32} color="#f97316" />
+                  <MaterialCommunityIcons name="shield-key-outline" size={32} color="#7c3aed" />
                 </View>
               </View>
             )}
@@ -380,7 +380,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: '#f97316' }]}
+                  style={[styles.actionBtn, { backgroundColor: '#7c3aed' }]}
                   onPress={() => handleRequestOtp()}
                   disabled={loading}
                 >
@@ -408,13 +408,13 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                           {
                             backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
                             borderColor: isFocused
-                              ? '#f97316'
+                              ? '#7c3aed'
                               : digit
                               ? '#10b981'
                               : (isDarkMode ? '#334155' : '#cbd5e1'),
                             borderWidth: isFocused ? 2.5 : 2,
                             color: isDarkMode ? '#ffffff' : '#0f172a',
-                            shadowColor: isFocused ? '#f97316' : '#000',
+                            shadowColor: isFocused ? '#7c3aed' : '#000',
                             shadowOpacity: isFocused ? 0.3 : 0.05,
                             shadowRadius: 6,
                             elevation: isFocused ? 5 : 1,
@@ -427,7 +427,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                         keyboardType="number-pad"
                         maxLength={1}
                         selectTextOnFocus
-                        selectionColor="#f97316"
+                        selectionColor="#7c3aed"
                         autoFocus={idx === 0}
                       />
                     );
@@ -464,7 +464,7 @@ export const OtpVerificationModal: React.FC<OtpVerificationModalProps> = ({
                     </Text>
                   ) : (
                     <TouchableOpacity onPress={() => handleRequestOtp()} disabled={loading}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#f97316' }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#7c3aed' }}>
                         {isRTL ? 'إعادة إرسال رمز جديد للمشرف' : 'Resend new code to supervisor'}
                       </Text>
                     </TouchableOpacity>
