@@ -15,7 +15,7 @@
       "bn": "./locales/bn.json"
     },
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.aams.manadeeb",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true
@@ -46,7 +46,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 10
+      "versionCode": 11
     },
     "web": {
       "output": "static",
