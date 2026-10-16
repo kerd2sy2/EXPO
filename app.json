@@ -90,7 +90,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#f97316",
+          "color": "#0284c7",
           "defaultChannel": "aams_broadcasts",
           "sounds": []
         }
