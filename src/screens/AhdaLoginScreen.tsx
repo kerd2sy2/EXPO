@@ -127,13 +127,6 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
 
             {/* Login Card */}
             <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {/* App Identification Badge */}
-              <View style={[styles.appTypeBadge, { backgroundColor: isDarkMode ? '#064e3b' : '#d1fae5' }]}>
-                <Ionicons name="wallet" size={16} color="#059669" />
-                <Text style={[styles.appTypeBadgeText, { color: '#059669' }]}>
-                  تطبيق أبرار العهدة
-                </Text>
-              </View>
 
               <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: 'right' }]}>
                 تسجيل الدخول - أبرار العهدة
@@ -283,21 +276,21 @@ const styles = StyleSheet.create({
     marginBottom: 26,
   },
   brandLogoMark: {
-    width: 56,
-    height: 56,
+    width: 62,
+    height: 62,
   },
   brandTextCol: {
     justifyContent: 'center',
   },
   brandMainTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '900',
-    letterSpacing: 1.5,
+    letterSpacing: 2,
   },
   brandSubTitle: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 2,
+    letterSpacing: 3,
     marginTop: -2,
   },
   loginCard: {
