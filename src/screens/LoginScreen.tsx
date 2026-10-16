@@ -189,7 +189,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
                   أبرار المناديب
                 </Text>
-                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#4ade80' : '#16a34a' }]}>
+                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#fb923c' : '#ea580c' }]}>
                   AAMS | DELEGATES
                 </Text>
               </View>
@@ -197,13 +197,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
             {/* Login Card */}
             <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {/* App Identification Badge */}
-              <View style={[styles.appTypeBadge, { backgroundColor: isDarkMode ? '#052e16' : '#dcfce7' }]}>
-                <Ionicons name="bicycle" size={16} color="#16a34a" />
-                <Text style={[styles.appTypeBadgeText, { color: '#16a34a' }]}>
-                  تطبيق أبرار المناديب
-                </Text>
-              </View>
 
               <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                 {isRTL ? 'تسجيل الدخول - أبرار المناديب' : (t.loginTitle || 'Log In') + ' - AAMS Delegates'}
