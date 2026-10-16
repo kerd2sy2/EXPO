@@ -9,21 +9,21 @@
     },
     "preview": {
       "distribution": "internal",
-      "channel": "production",
+      "channel": "edara",
       "android": {
         "buildType": "apk"
       }
     },
     "production-apk": {
       "distribution": "internal",
-      "channel": "production",
+      "channel": "edara",
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production",
+      "channel": "edara",
       "uploadSourceMaps": true,
       "android": {
         "buildType": "app-bundle"
