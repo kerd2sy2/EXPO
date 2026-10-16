@@ -129,7 +129,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
             <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
 
               <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: 'right' }]}>
-                تسجيل الدخول - أبرار العهدة
+                تسجيل الدخول
               </Text>
               <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary, textAlign: 'right' }]}>
                 بوابة الإدارة المالية ومتابعة العهد والمصروفات
