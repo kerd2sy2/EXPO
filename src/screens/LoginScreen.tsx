@@ -224,7 +224,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               {/* Phone Number Input */}
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {isRTL ? 'رقم الجوال' : (t.phoneLabel || 'Phone Number')}
+                  {isRTL ? 'رقم الهاتف' : (t.phoneLabel || 'Phone Number')}
                 </Text>
                 <View
                   style={[
@@ -247,7 +247,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         textAlign: isRTL ? 'right' : 'left',
                       },
                     ]}
-                    placeholder={isRTL ? '05xxxxxxxx أو 5xxxxxxxx' : '05xxxxxxxx or 5xxxxxxxx'}
+                    placeholder={isRTL ? 'رقم الهاتف' : 'Phone Number'}
                     placeholderTextColor="#94a3b8"
                     value={loginInput}
                     onChangeText={(val) => {
@@ -265,7 +265,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               {/* Password Input */}
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.passwordLabel}
+                  {isRTL ? 'كلمة السر' : t.passwordLabel}
                 </Text>
                 <View
                   style={[
@@ -288,7 +288,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         textAlign: isRTL ? 'right' : 'left',
                       },
                     ]}
-                    placeholder={isRTL ? 'كلمة المرور (آخر 4 أرقام من الجوال)' : (t.passwordPlaceholder || 'Password (last 4 digits of phone)')}
+                    placeholder={isRTL ? 'كلمة السر' : (t.passwordPlaceholder || 'Password')}
                     placeholderTextColor="#94a3b8"
                     value={passwordInput}
                     onChangeText={setPasswordInput}
@@ -309,7 +309,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 ) : (
                   <View style={[styles.buttonContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <Ionicons name="log-in-outline" size={20} color="#ffffff" />
-                    <Text style={styles.primaryButtonText}>{t.loginBtn}</Text>
+                    <Text style={styles.primaryButtonText}>{isRTL ? 'سجل الدخول' : t.loginBtn}</Text>
                   </View>
                 )}
               </TouchableOpacity>
