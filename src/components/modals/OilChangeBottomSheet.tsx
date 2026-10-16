@@ -112,7 +112,7 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
           styles.sheetCard,
           {
             backgroundColor: isDarkMode ? '#121826' : '#ffffff',
-            borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.3)' : 'rgba(249, 115, 22, 0.2)',
+            borderColor: isDarkMode ? 'rgba(2, 132, 199, 0.3)' : 'rgba(2, 132, 199, 0.2)',
             transform: [{ translateY: sheetTranslateY }],
           },
         ]}
@@ -139,7 +139,7 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
           <View
             style={[
               styles.lottieGlowCircle,
-              { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.15)' : 'rgba(249, 115, 22, 0.1)' },
+              { backgroundColor: isDarkMode ? 'rgba(2, 132, 199, 0.15)' : 'rgba(2, 132, 199, 0.1)' },
             ]}
           >
             <LottieView
@@ -155,9 +155,9 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
 
         {/* Badge for Motorcycle Plate */}
         {motorcycleNumber ? (
-          <View style={[styles.bikeBadge, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed', borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.4)' : '#fdba74' }]}>
-            <Ionicons name="bicycle" size={16} color="#f97316" />
-            <Text style={[styles.bikeBadgeText, { color: isDarkMode ? '#fb923c' : '#c2410c' }]}>
+          <View style={[styles.bikeBadge, { backgroundColor: isDarkMode ? 'rgba(2, 132, 199, 0.18)' : '#f0f9ff', borderColor: isDarkMode ? 'rgba(2, 132, 199, 0.4)' : '#fdba74' }]}>
+            <Ionicons name="bicycle" size={16} color="#0284c7" />
+            <Text style={[styles.bikeBadgeText, { color: isDarkMode ? '#38bdf8' : '#c2410c' }]}>
               {isRTL ? `دباب رقم: ${motorcycleNumber}` : `Bike: ${motorcycleNumber}`}
             </Text>
           </View>
@@ -185,7 +185,7 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
 
         {/* Primary Action Button */}
         <TouchableOpacity
-          style={[styles.primaryBtn, { backgroundColor: '#f97316' }]}
+          style={[styles.primaryBtn, { backgroundColor: '#0284c7' }]}
           onPress={handleDismiss}
           activeOpacity={0.85}
         >
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#f97316',
+    shadowColor: '#0284c7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,

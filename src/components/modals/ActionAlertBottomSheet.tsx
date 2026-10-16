@@ -136,9 +136,9 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
 
   switch (config.type) {
     case 'camera_permission':
-      iconComponent = <Ionicons name="camera" size={32} color="#f97316" />;
-      iconBg = isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed';
-      primaryBtnColor = '#f97316';
+      iconComponent = <Ionicons name="camera" size={32} color="#0284c7" />;
+      iconBg = isDarkMode ? 'rgba(2, 132, 199, 0.18)' : '#f0f9ff';
+      primaryBtnColor = '#0284c7';
       defaultPrimaryText = isRTL ? 'فتح إعدادات الهاتف' : 'Open Settings';
       break;
     case 'location_permission':
@@ -170,16 +170,16 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
       break;
     case 'confirm':
       lottieSource = require('../../../assets/Lottie/json/Alerts/Attention.json');
-      iconComponent = <Ionicons name="help-circle" size={32} color="#f97316" />;
-      iconBg = isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed';
+      iconComponent = <Ionicons name="help-circle" size={32} color="#0284c7" />;
+      iconBg = isDarkMode ? 'rgba(2, 132, 199, 0.18)' : '#f0f9ff';
       primaryBtnColor = '#ef4444';
       defaultPrimaryText = isRTL ? 'تأكيد' : 'Confirm';
       break;
     case 'oil_change':
       lottieSource = require('../../../assets/Lottie/LCKboLMu6C.lottie');
-      iconComponent = <Ionicons name="construct" size={32} color="#f97316" />;
-      iconBg = isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed';
-      primaryBtnColor = '#f97316';
+      iconComponent = <Ionicons name="construct" size={32} color="#0284c7" />;
+      iconBg = isDarkMode ? 'rgba(2, 132, 199, 0.18)' : '#f0f9ff';
+      primaryBtnColor = '#0284c7';
       defaultPrimaryText = isRTL ? 'فهمت، سأراجع المشرف' : 'OK, Contact Supervisor';
       break;
   }

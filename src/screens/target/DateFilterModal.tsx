@@ -330,7 +330,7 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <View style={styles.headerIconCircle}>
-                <Ionicons name="calendar" size={20} color="#f97316" />
+                <Ionicons name="calendar" size={20} color="#0284c7" />
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={[styles.title, isDarkMode && styles.darkText]}>تحديد الفترة والتاريخ</Text>
@@ -401,7 +401,7 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
             {/* Quick Monday-to-Monday Weeks Section */}
             <View style={[styles.presetsBlock, isDarkMode && styles.darkSubCard]}>
               <View style={styles.presetsBlockHeader}>
-                <Ionicons name="repeat" size={14} color="#f97316" />
+                <Ionicons name="repeat" size={14} color="#0284c7" />
                 <Text style={[styles.presetsBlockTitle, isDarkMode && styles.darkText]}>
                   تحديد سريع بالأسابيع (من الاثنين إلى الاثنين):
                 </Text>
@@ -424,7 +424,7 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
                       <Ionicons
                         name="flash-outline"
                         size={12}
-                        color={isActive ? '#ffffff' : '#f97316'}
+                        color={isActive ? '#ffffff' : '#0284c7'}
                       />
                       <Text
                         style={[
@@ -556,16 +556,16 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
                   onPress={() => setActiveRangeField('start')}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.rangeFieldLabel, { color: activeRangeField === 'start' ? '#f97316' : '#64748b' }]}>
+                  <Text style={[styles.rangeFieldLabel, { color: activeRangeField === 'start' ? '#0284c7' : '#64748b' }]}>
                     من يوم ({ARABIC_WEEKDAYS_SHORT[new Date(selectedYear, selectedMonthIdx, effectiveStart).getDay()]})
                   </Text>
-                  <Text style={[styles.rangeFieldNum, isDarkMode && styles.darkText, activeRangeField === 'start' && { color: '#f97316' }]}>
+                  <Text style={[styles.rangeFieldNum, isDarkMode && styles.darkText, activeRangeField === 'start' && { color: '#0284c7' }]}>
                     {effectiveStart}
                   </Text>
                 </TouchableOpacity>
 
                 <View style={styles.rangeArrowIconWrap}>
-                  <Ionicons name="arrow-back" size={18} color="#f97316" />
+                  <Ionicons name="arrow-back" size={18} color="#0284c7" />
                 </View>
 
                 <TouchableOpacity
@@ -577,10 +577,10 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
                   onPress={() => setActiveRangeField('end')}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.rangeFieldLabel, { color: activeRangeField === 'end' ? '#f97316' : '#64748b' }]}>
+                  <Text style={[styles.rangeFieldLabel, { color: activeRangeField === 'end' ? '#0284c7' : '#64748b' }]}>
                     إلى يوم ({ARABIC_WEEKDAYS_SHORT[new Date(selectedYear, selectedMonthIdx, effectiveEnd).getDay()]})
                   </Text>
-                  <Text style={[styles.rangeFieldNum, isDarkMode && styles.darkText, activeRangeField === 'end' && { color: '#f97316' }]}>
+                  <Text style={[styles.rangeFieldNum, isDarkMode && styles.darkText, activeRangeField === 'end' && { color: '#0284c7' }]}>
                     {effectiveEnd}
                   </Text>
                 </TouchableOpacity>
@@ -590,7 +590,7 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
             {/* Single Day Card Selector */}
             {mode === 'day' && (
               <View style={[styles.singleDayBanner, isDarkMode && styles.darkSubCard]}>
-                <Ionicons name="today" size={20} color="#f97316" />
+                <Ionicons name="today" size={20} color="#0284c7" />
                 <View style={{ alignItems: 'flex-end', flex: 1 }}>
                   <Text style={[styles.singleDayBannerTitle, isDarkMode && styles.darkText]}>
                     اليوم المحدد: {ARABIC_WEEKDAYS_FULL[new Date(selectedYear, selectedMonthIdx, singleDay).getDay()]} {singleDay} {ARABIC_MONTHS[selectedMonthIdx]}
@@ -671,7 +671,7 @@ export const DateFilterModal: React.FC<DateFilterModalProps> = ({
                 onPress={handleResetToDefault}
                 activeOpacity={0.7}
               >
-                <Ionicons name="refresh-outline" size={15} color="#f97316" />
+                <Ionicons name="refresh-outline" size={15} color="#0284c7" />
                 <Text style={styles.resetBtnText}>إعادة للشهر كاملاً</Text>
               </TouchableOpacity>
             )}
@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0f9ff',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -772,7 +772,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   activeTabBtn: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#0284c7',
     elevation: 2,
   },
   tabBtnText: {
@@ -813,22 +813,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0f9ff',
     borderWidth: 1,
     borderColor: '#fed7aa',
   },
   darkMonWeekChip: {
-    backgroundColor: 'rgba(249, 115, 22, 0.12)',
-    borderColor: 'rgba(249, 115, 22, 0.3)',
+    backgroundColor: 'rgba(2, 132, 199, 0.12)',
+    borderColor: 'rgba(2, 132, 199, 0.3)',
   },
   activeMonWeekChip: {
-    backgroundColor: '#f97316',
-    borderColor: '#f97316',
+    backgroundColor: '#0284c7',
+    borderColor: '#0284c7',
   },
   monWeekChipText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#ea580c',
+    color: '#0369a1',
   },
   activeMonWeekChipText: {
     color: '#ffffff',
@@ -853,8 +853,8 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   activeQuickChip: {
-    backgroundColor: '#fff7ed',
-    borderColor: '#f97316',
+    backgroundColor: '#f0f9ff',
+    borderColor: '#0284c7',
   },
   quickChipText: {
     fontSize: 11,
@@ -862,7 +862,7 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   activeQuickChipText: {
-    color: '#f97316',
+    color: '#0284c7',
   },
   monthNavigatorCard: {
     flexDirection: 'row-reverse',
@@ -916,8 +916,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeRangeFieldBox: {
-    borderColor: '#f97316',
-    backgroundColor: '#fff7ed',
+    borderColor: '#0284c7',
+    backgroundColor: '#f0f9ff',
   },
   rangeFieldLabel: {
     fontSize: 11,
@@ -936,7 +936,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0f9ff',
     borderWidth: 1,
     borderColor: '#fed7aa',
     borderRadius: 14,
@@ -945,7 +945,7 @@ const styles = StyleSheet.create({
   singleDayBannerTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#ea580c',
+    color: '#0369a1',
   },
   singleDayBannerSub: {
     fontSize: 11,
@@ -983,30 +983,30 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   mondayDayBox: {
-    borderColor: '#f97316',
+    borderColor: '#0284c7',
     borderWidth: 1.5,
   },
   mondayDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#f97316',
+    backgroundColor: '#0284c7',
     marginTop: 2,
   },
   mondayHintText: {
     fontSize: 10,
-    color: '#f97316',
+    color: '#0284c7',
     textAlign: 'center',
     marginTop: 8,
     fontWeight: '600',
   },
   inRangeDayBox: {
-    backgroundColor: 'rgba(249, 115, 22, 0.15)',
-    borderColor: 'rgba(249, 115, 22, 0.3)',
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    borderColor: 'rgba(2, 132, 199, 0.3)',
   },
   selectedDayBox: {
-    backgroundColor: '#f97316',
-    borderColor: '#f97316',
+    backgroundColor: '#0284c7',
+    borderColor: '#0284c7',
   },
   dayNumText: {
     fontSize: 12,
@@ -1014,11 +1014,11 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   mondayDayNumText: {
-    color: '#ea580c',
+    color: '#0369a1',
     fontWeight: '800',
   },
   inRangeDayNumText: {
-    color: '#ea580c',
+    color: '#0369a1',
     fontWeight: '800',
   },
   selectedDayNumText: {
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
   applyBtn: {
     flex: 1,
     flexDirection: 'row-reverse',
-    backgroundColor: '#f97316',
+    backgroundColor: '#0284c7',
     borderRadius: 12,
     height: 46,
     alignItems: 'center',
@@ -1052,19 +1052,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#fed7aa',
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0f9ff',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
   },
   darkResetBtn: {
-    backgroundColor: 'rgba(249, 115, 22, 0.12)',
-    borderColor: '#f97316',
+    backgroundColor: 'rgba(2, 132, 199, 0.12)',
+    borderColor: '#0284c7',
   },
   resetBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#f97316',
+    color: '#0284c7',
   },
   darkText: {
     color: '#ffffff',

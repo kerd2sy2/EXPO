@@ -136,7 +136,7 @@ export const TargetSettingsModal: React.FC<TargetSettingsModalProps> = ({
 
           {loading ? (
             <View style={styles.centerBox}>
-              <ActivityIndicator size="small" color="#f97316" />
+              <ActivityIndicator size="small" color="#0284c7" />
               <Text style={styles.loadingText}>جارٍ تحميل الإعدادات...</Text>
             </View>
           ) : (
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   saveBtn: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#0284c7',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',

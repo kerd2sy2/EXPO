@@ -71,7 +71,7 @@ export const StartShiftSection: React.FC<StartShiftSectionProps> = ({
       {/* Header Banner */}
       <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <View style={styles.headerIconCircle}>
-          <Ionicons name="flash" size={22} color="#f97316" />
+          <Ionicons name="flash" size={22} color="#0284c7" />
         </View>
         <View style={styles.headerTextWrap}>
           <Text style={[styles.cardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.4)',
+    borderColor: 'rgba(2, 132, 199, 0.4)',
     gap: 4,
   },
   photoRetakeText: {

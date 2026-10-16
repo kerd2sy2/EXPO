@@ -283,7 +283,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             {/* File Picker Section */}
             <View style={[styles.pickerCard, isDarkMode && styles.darkCard]}>
-              <Ionicons name="document-text-outline" size={36} color="#f97316" />
+              <Ionicons name="document-text-outline" size={36} color="#0284c7" />
               {selectedFile ? (
                 <View style={styles.fileSelectedBox}>
                   <Text style={[styles.fileNameText, isDarkMode && styles.darkText]} numberOfLines={1}>
@@ -324,7 +324,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
                 >
                   <View style={styles.datePickerLeft}>
                     <View style={styles.editDateBadge}>
-                      <Feather name="calendar" size={14} color="#f97316" />
+                      <Feather name="calendar" size={14} color="#0284c7" />
                       <Text style={styles.editDateBadgeText}>تغيير التاريخ</Text>
                     </View>
                   </View>
@@ -345,7 +345,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
             {/* Analyzing Indicator */}
             {analyzing && (
               <View style={styles.centerBox}>
-                <ActivityIndicator size="large" color="#f97316" />
+                <ActivityIndicator size="large" color="#0284c7" />
                 <Text style={styles.loadingText}>جارٍ قراءة وفحص ملف الإكسل واكتشاف التكرار...</Text>
               </View>
             )}
@@ -360,7 +360,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
                     <Text style={styles.statBadgeLabel}>عدد الصفوف</Text>
                   </View>
                   <View style={[styles.statBadge, isDarkMode && styles.darkCard]}>
-                    <Text style={[styles.statBadgeNum, { color: '#f97316' }]}>{preview.total_orders}</Text>
+                    <Text style={[styles.statBadgeNum, { color: '#0284c7' }]}>{preview.total_orders}</Text>
                     <Text style={styles.statBadgeLabel}>إجمالي الطلبات</Text>
                   </View>
                   <View style={[styles.statBadge, isDarkMode && styles.darkCard]}>
@@ -490,7 +490,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
                         <Ionicons
                           name={showRowsPreview ? 'chevron-up' : 'chevron-down'}
                           size={18}
-                          color={showRowsPreview ? '#f97316' : (isDarkMode ? '#94a3b8' : '#64748b')}
+                          color={showRowsPreview ? '#0284c7' : (isDarkMode ? '#94a3b8' : '#64748b')}
                         />
                         <Text style={[styles.previewDropdownHint, isDarkMode && styles.darkTextSecondary]}>
                           {showRowsPreview ? 'إغلاق المعاينة' : 'اضغط للعرض'}
@@ -501,9 +501,9 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
                         <Ionicons
                           name={showRowsPreview ? 'eye-off-outline' : 'eye-outline'}
                           size={20}
-                          color={showRowsPreview ? '#f97316' : (isDarkMode ? '#f8fafc' : '#1e293b')}
+                          color={showRowsPreview ? '#0284c7' : (isDarkMode ? '#f8fafc' : '#1e293b')}
                         />
-                        <Text style={[styles.previewDropdownTitle, isDarkMode && styles.darkText, showRowsPreview && { color: '#f97316' }]}>
+                        <Text style={[styles.previewDropdownTitle, isDarkMode && styles.darkText, showRowsPreview && { color: '#0284c7' }]}>
                           معاينة تفاصيل البيانات ({preview.rows.length} صف)
                         </Text>
                       </View>
@@ -757,10 +757,10 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
 
               {/* Selected Day Preview */}
               <View style={[styles.pickedPreviewBox, isDarkMode && styles.darkSubCard]}>
-                <Ionicons name="checkmark-circle" size={18} color="#f97316" />
+                <Ionicons name="checkmark-circle" size={18} color="#0284c7" />
                 <Text style={[styles.pickedPreviewText, isDarkMode && styles.darkText]}>
                   التاريخ المختار:{' '}
-                  <Text style={{ fontWeight: '800', color: '#f97316' }}>
+                  <Text style={{ fontWeight: '800', color: '#0284c7' }}>
                     {pickerDay} {ARABIC_MONTHS[pickerMonthIdx]} {pickerYear} (
                     {pickerYear}-{String(pickerMonthIdx + 1).padStart(2, '0')}-{String(pickerDay).padStart(2, '0')})
                   </Text>
@@ -869,7 +869,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#f97316',
+    backgroundColor: '#0284c7',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0f9ff',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -977,7 +977,7 @@ const styles = StyleSheet.create({
   editDateBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#ea580c',
+    color: '#0369a1',
   },
   dateHint: {
     fontSize: 11,
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   emptyIdentWarningCard: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0f9ff',
     borderRadius: 14,
     padding: 12,
     marginBottom: 14,
@@ -1112,7 +1112,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fffaf5',
   },
   emptyIdentText: {
-    color: '#ea580c',
+    color: '#0369a1',
     fontWeight: '800',
   },
   tableSectionTitle: {
@@ -1179,7 +1179,7 @@ const styles = StyleSheet.create({
   dupTag: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#ea580c',
+    color: '#0369a1',
   },
   appBadge: {
     paddingHorizontal: 8,
@@ -1242,8 +1242,8 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   previewDropdownBtnActive: {
-    borderColor: '#f97316',
-    backgroundColor: '#fff7ed',
+    borderColor: '#0284c7',
+    backgroundColor: '#f0f9ff',
   },
   previewDropdownContent: {
     flexDirection: 'row',
@@ -1364,8 +1364,8 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   activeQuickDateBtn: {
-    backgroundColor: '#fff7ed',
-    borderColor: '#f97316',
+    backgroundColor: '#f0f9ff',
+    borderColor: '#0284c7',
     borderWidth: 1.5,
   },
   quickDateBtnTitle: {
@@ -1374,7 +1374,7 @@ const styles = StyleSheet.create({
     color: '#1e293b',
   },
   activeQuickDateText: {
-    color: '#ea580c',
+    color: '#0369a1',
     fontWeight: '800',
   },
   quickDateBtnSub: {
@@ -1428,11 +1428,11 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   pickerSelectedDayBox: {
-    backgroundColor: '#f97316',
-    borderColor: '#ea580c',
+    backgroundColor: '#0284c7',
+    borderColor: '#0369a1',
   },
   pickerYesterdayDayBox: {
-    borderColor: '#f97316',
+    borderColor: '#0284c7',
     borderWidth: 1.5,
   },
   pickerDayText: {
@@ -1445,14 +1445,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   pickerYesterdayDayText: {
-    color: '#ea580c',
+    color: '#0369a1',
     fontWeight: '800',
   },
   pickedPreviewBox: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0f9ff',
     padding: 10,
     borderRadius: 12,
     borderWidth: 1,
@@ -1468,7 +1468,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f97316',
+    backgroundColor: '#0284c7',
     paddingVertical: 13,
     borderRadius: 14,
     gap: 6,

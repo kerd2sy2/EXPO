@@ -254,7 +254,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
 
           {loading ? (
             <View style={styles.centerBox}>
-              <ActivityIndicator size="large" color="#f97316" />
+              <ActivityIndicator size="large" color="#0284c7" />
               <Text style={styles.loadingText}>جارٍ تحميل تفاصيل المعرف...</Text>
             </View>
           ) : error ? (
@@ -401,7 +401,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
 
                 <View style={[styles.statBox, isDarkMode && styles.darkCard]}>
                   <Text style={styles.statLabel}>المطلوب يومياً</Text>
-                  <Text style={[styles.statValue, { color: '#f97316' }]}>{Math.round(p.daily_required || 0)}</Text>
+                  <Text style={[styles.statValue, { color: '#0284c7' }]}>{Math.round(p.daily_required || 0)}</Text>
                   <Text style={styles.statHint}>طلب / يوم</Text>
                 </View>
 
@@ -447,7 +447,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
 
               {/* Drivers Breakdown */}
               <View style={styles.sectionHeader}>
-                <Ionicons name="people-outline" size={20} color="#f97316" />
+                <Ionicons name="people-outline" size={20} color="#0284c7" />
                 <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
                   تحليل المندوبين المشتركين ({driversBreakdown.length})
                 </Text>
@@ -501,7 +501,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                       style={[
                         styles.driverCard,
                         isDarkMode && styles.darkCard,
-                        isExpanded && { borderColor: '#f97316', borderWidth: 1.5 },
+                        isExpanded && { borderColor: '#0284c7', borderWidth: 1.5 },
                       ]}
                       onPress={() => setExpandedDriverId(isExpanded ? null : drv.driver_id)}
                       activeOpacity={0.7}
@@ -514,7 +514,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                           <Ionicons
                             name={isExpanded ? 'chevron-up-circle' : 'chevron-down-circle-outline'}
                             size={18}
-                            color={isExpanded ? '#f97316' : '#94a3b8'}
+                            color={isExpanded ? '#0284c7' : '#94a3b8'}
                           />
                         </View>
                         <View style={{ alignItems: 'flex-start' }}>
@@ -539,7 +539,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
                       {/* Click hint / indicator */}
                       {!isExpanded && (
                         <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: isDarkMode ? '#334155' : '#f1f5f9' }}>
-                          <Text style={{ fontSize: 11, color: '#f97316', fontWeight: '600' }}>
+                          <Text style={{ fontSize: 11, color: '#0284c7', fontWeight: '600' }}>
                             اضغط لعرض تفاصيل الأيام المنقضية وحالات الغياب ({daysList.length} يوم) 👈
                           </Text>
                         </View>
@@ -608,7 +608,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
 
               {/* Apps Breakdown */}
               <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="apps" size={20} color="#f97316" />
+                <MaterialCommunityIcons name="apps" size={20} color="#0284c7" />
                 <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>
                   توزيع الطلبات حسب التطبيقات
                 </Text>
@@ -747,7 +747,7 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
 
             {statusUpdating && (
               <View style={styles.updatingLoader}>
-                <ActivityIndicator size="small" color="#f97316" />
+                <ActivityIndicator size="small" color="#0284c7" />
                 <Text style={styles.updatingText}>جارٍ حفظ التغييرات...</Text>
               </View>
             )}
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
   },
   retryBtn: {
     marginTop: 14,
-    backgroundColor: '#f97316',
+    backgroundColor: '#0284c7',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -904,7 +904,7 @@ const styles = StyleSheet.create({
   progressPercent: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#f97316',
+    color: '#0284c7',
   },
   progressBarBg: {
     height: 10,
@@ -914,7 +914,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#f97316',
+    backgroundColor: '#0284c7',
     borderRadius: 5,
   },
   progressSubRow: {
@@ -1020,7 +1020,7 @@ const styles = StyleSheet.create({
   driverOrders: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#f97316',
+    color: '#0284c7',
   },
   driverBarWrapper: {
     flexDirection: 'row-reverse',
@@ -1069,7 +1069,7 @@ const styles = StyleSheet.create({
   appChipCount: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#f97316',
+    color: '#0284c7',
     marginTop: 2,
   },
   dailyBreakdownContainer: {
@@ -1309,7 +1309,7 @@ const styles = StyleSheet.create({
   },
   updatingText: {
     fontSize: 12,
-    color: '#f97316',
+    color: '#0284c7',
     fontWeight: '700',
   },
 });

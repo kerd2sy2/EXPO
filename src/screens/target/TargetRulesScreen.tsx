@@ -95,7 +95,7 @@ export const TargetRulesScreen: React.FC<TargetRulesScreenProps> = ({
         {/* 2. Section: المستهدفات والمعايير التشغيلية */}
         <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.sectionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={[styles.sectionIconCircle, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5' }]}>
+            <View style={[styles.sectionIconCircle, { backgroundColor: isDarkMode ? 'rgba(2, 132, 199, 0.16)' : '#ffedd5' }]}>
               <Ionicons name="flag" size={18} color={colors.primary} />
             </View>
             <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>

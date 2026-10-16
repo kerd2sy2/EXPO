@@ -144,22 +144,22 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
             </View>
 
             <View style={styles.driverAvatar}>
-              <Ionicons name="person" size={22} color="#f97316" />
+              <Ionicons name="person" size={22} color="#0284c7" />
             </View>
           </View>
 
           {/* Quick Summary Cards */}
           <View style={styles.summaryRow}>
             {isFilteredPeriod && periodOrders !== null ? (
-              <View style={[styles.summaryCard, isDarkMode && styles.darkCard, { borderColor: '#f97316', borderWidth: 2, backgroundColor: '#fff7ed' }]}>
-                <Text style={[styles.summaryCardNum, { color: '#ea580c', fontSize: 20 }]}>{periodOrders}</Text>
+              <View style={[styles.summaryCard, isDarkMode && styles.darkCard, { borderColor: '#0284c7', borderWidth: 2, backgroundColor: '#f0f9ff' }]}>
+                <Text style={[styles.summaryCardNum, { color: '#0369a1', fontSize: 20 }]}>{periodOrders}</Text>
                 <Text style={[styles.summaryCardLabel, { color: '#c2410c', fontWeight: '800' }]}>
                   {dateFilter?.type === 'day' ? 'طلبات اليوم المختار' : 'طلبات الفترة المحددة'}
                 </Text>
               </View>
             ) : null}
 
-            <View style={[styles.summaryCard, isDarkMode && styles.darkCard, { borderColor: '#f97316', borderWidth: isFilteredPeriod ? 1 : 1.5 }]}>
+            <View style={[styles.summaryCard, isDarkMode && styles.darkCard, { borderColor: '#0284c7', borderWidth: isFilteredPeriod ? 1 : 1.5 }]}>
               <Text style={styles.summaryCardNum}>{totalOrders}</Text>
               <Text style={styles.summaryCardLabel}>إجمالي الشهر</Text>
             </View>
@@ -310,7 +310,7 @@ export const DriverDetailsModal: React.FC<DriverDetailsModalProps> = ({
             {Array.isArray(driver.apps) && driver.apps.length > 0 && (
               <View style={[styles.metaRow, { marginBottom: 20 }]}>
                 <Text style={styles.metaLabel}>التطبيقات:</Text>
-                <Text style={[styles.metaValue, { color: '#f97316' }]}>
+                <Text style={[styles.metaValue, { color: '#0284c7' }]}>
                   {driver.apps.join('، ')}
                 </Text>
               </View>
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0f9ff',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   summaryCardNum: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#f97316',
+    color: '#0284c7',
   },
   summaryCardLabel: {
     fontSize: 10,
@@ -466,8 +466,8 @@ const styles = StyleSheet.create({
   targetBadge: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#f97316',
-    backgroundColor: '#fff7ed',
+    color: '#0284c7',
+    backgroundColor: '#f0f9ff',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -493,9 +493,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   dayCardInPeriodHighlight: {
-    borderColor: '#f97316',
+    borderColor: '#0284c7',
     borderWidth: 2,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0f9ff',
   },
   dayHeaderRow: {
     flexDirection: 'row-reverse',
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   periodBadgeDot: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#0284c7',
     borderRadius: 4,
     paddingHorizontal: 3,
     paddingVertical: 1,

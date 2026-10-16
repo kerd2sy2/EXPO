@@ -95,7 +95,7 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
           styles.lottieCard,
           {
             backgroundColor: isDarkMode ? '#171f30' : '#ffffff',
-            borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.25)' : '#fed7aa',
+            borderColor: isDarkMode ? 'rgba(2, 132, 199, 0.25)' : '#fed7aa',
           },
         ]}
       >
@@ -114,13 +114,13 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
             style={[
               styles.bikeTag,
               {
-                backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed',
-                borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.4)' : '#fdba74',
+                backgroundColor: isDarkMode ? 'rgba(2, 132, 199, 0.18)' : '#f0f9ff',
+                borderColor: isDarkMode ? 'rgba(2, 132, 199, 0.4)' : '#fdba74',
               },
             ]}
           >
-            <Ionicons name="bicycle" size={16} color="#f97316" />
-            <Text style={[styles.bikeTagText, { color: isDarkMode ? '#fb923c' : '#c2410c' }]}>
+            <Ionicons name="bicycle" size={16} color="#0284c7" />
+            <Text style={[styles.bikeTagText, { color: isDarkMode ? '#38bdf8' : '#c2410c' }]}>
               {lang === 'ar'
                 ? `دباب رقم: ${motorcycleNumber}`
                 : `Bike: ${motorcycleNumber}`}
@@ -178,7 +178,7 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
       >
         <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={styles.metricIconWrap}>
-            <Ionicons name="speedometer-outline" size={20} color="#f97316" />
+            <Ionicons name="speedometer-outline" size={20} color="#0284c7" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.metricLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: isRTL ? 'right' : 'left' }]}>
@@ -242,7 +242,7 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
       <View style={styles.actionsContainer}>
         {/* Re-check Oil Button */}
         <TouchableOpacity
-          style={[styles.actionBtn, styles.primaryBtn, { backgroundColor: '#f97316' }]}
+          style={[styles.actionBtn, styles.primaryBtn, { backgroundColor: '#0284c7' }]}
           onPress={handleRecheckPress}
           disabled={isRechecking}
           activeOpacity={0.85}
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignItems: 'center',
     marginBottom: 14,
-    shadowColor: '#f97316',
+    shadowColor: '#0284c7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    backgroundColor: 'rgba(2, 132, 199, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   primaryBtn: {
-    shadowColor: '#f97316',
+    shadowColor: '#0284c7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,

@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.4)',
+    borderColor: 'rgba(2, 132, 199, 0.4)',
     gap: 4,
   },
   photoRetakeText: {

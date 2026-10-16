@@ -26,7 +26,7 @@ const BRANCH_OPTIONS: { id: 'all' | '1' | '2'; title: string; subtitle: string; 
     title: 'الكل (جميع الفروع)',
     subtitle: 'عرض إجمالي البيانات والطلبات لجميع الفروع',
     icon: 'business-outline',
-    badgeColor: '#f97316',
+    badgeColor: '#0284c7',
   },
   {
     id: '1',
@@ -124,8 +124,8 @@ export const BranchFilterModal: React.FC<BranchFilterModalProps> = ({
                     {
                       backgroundColor: isSelected
                         ? isDarkMode
-                          ? 'rgba(249, 115, 22, 0.12)'
-                          : '#fff7ed'
+                          ? 'rgba(2, 132, 199, 0.12)'
+                          : '#f0f9ff'
                         : colors.inputBg,
                       borderColor: isSelected ? colors.primary : colors.border,
                       flexDirection: isRTL ? 'row-reverse' : 'row',

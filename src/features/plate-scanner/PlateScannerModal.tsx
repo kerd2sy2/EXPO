@@ -90,7 +90,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
           <CameraErrorBoundary
             fallback={
               <View style={[StyleSheet.absoluteFill, styles.fallbackContainer, { backgroundColor: isDark ? '#090d16' : '#f8fafc' }]}>
-                <Ionicons name="scan-circle" size={72} color="#f97316" />
+                <Ionicons name="scan-circle" size={72} color="#0284c7" />
                 <Text style={[styles.fallbackText, { color: isDark ? '#94a3b8' : '#64748b' }]}>{activeT.cameraScannerFallback || 'كاميرا مسح اللوحات الذكية'}</Text>
               </View>
             }

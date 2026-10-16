@@ -81,11 +81,11 @@ export const ScannerErrorSheet: React.FC<ScannerErrorSheetProps> = ({
 
         <View style={[styles.errorTipsCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc', borderColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#e2e8f0' }]}>
           <View style={[styles.errorTipRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="flash-outline" size={16} color="#f97316" />
+            <Ionicons name="flash-outline" size={16} color="#0284c7" />
             <Text style={[styles.errorTipText, { color: isDark ? '#cbd5e1' : '#334155', marginHorizontal: 8 }]}>{t?.scannerErrorTipFlash || 'شغّل إضاءة الفلاش إذا كان المكان مظلماً'}</Text>
           </View>
           <View style={[styles.errorTipRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="scan-outline" size={16} color="#f97316" />
+            <Ionicons name="scan-outline" size={16} color="#0284c7" />
             <Text style={[styles.errorTipText, { color: isDark ? '#cbd5e1' : '#334155', marginHorizontal: 8 }]}>{t?.scannerErrorTipFrame || 'اجعل اللوحة داخل إطار المسح البرتقالي'}</Text>
           </View>
         </View>
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#f97316',
+    backgroundColor: '#0284c7',
     flexDirection: 'row-reverse',
     justifyContent: 'center',
     alignItems: 'center',

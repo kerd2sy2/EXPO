@@ -398,8 +398,8 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
               ]}
             >
               <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.settingIconBox, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5' }]}>
-                  <Ionicons name="finger-print" size={20} color="#f97316" />
+                <View style={[styles.settingIconBox, { backgroundColor: isDarkMode ? 'rgba(2, 132, 199, 0.16)' : '#ffedd5' }]}>
+                  <Ionicons name="finger-print" size={20} color="#0284c7" />
                 </View>
                 <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
                   <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>

@@ -841,7 +841,7 @@ const styles = StyleSheet.create({
   },
   stackTitle: {
     fontSize: 11,
-    color: '#f97316',
+    color: '#0284c7',
     fontWeight: '700',
     marginBottom: 4,
   },

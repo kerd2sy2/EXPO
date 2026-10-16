@@ -95,8 +95,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         textPrimary: '#ffffff',
         textSecondary: '#9ca3af',
         border: '#27272e',
-        primary: '#f97316',
-        primaryLight: 'rgba(249, 115, 22, 0.16)',
+        primary: '#0284c7',
+        primaryLight: 'rgba(2, 132, 199, 0.16)',
         primaryText: '#ffffff',
         accent: '#3b82f6',
         accentLight: 'rgba(59, 130, 246, 0.16)',
@@ -115,8 +115,8 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
         textPrimary: '#0f172a',
         textSecondary: '#64748b',
         border: '#e2e8f0',
-        primary: '#f97316',
-        primaryLight: 'rgba(249, 115, 22, 0.12)',
+        primary: '#0284c7',
+        primaryLight: 'rgba(2, 132, 199, 0.12)',
         primaryText: '#ffffff',
         accent: '#2563eb',
         accentLight: 'rgba(37, 99, 235, 0.12)',
@@ -1277,7 +1277,7 @@ export const AdminTargetDashboard: React.FC<AdminTargetDashboardProps> = ({
                 }}
                 activeOpacity={0.75}
               >
-                <View style={[styles.quickCardIconCircle, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5' }]}>
+                <View style={[styles.quickCardIconCircle, { backgroundColor: isDarkMode ? 'rgba(2, 132, 199, 0.16)' : '#ffedd5' }]}>
                   <Ionicons name="grid-outline" size={22} color={colors.primary} />
                 </View>
                 <View style={[styles.quickCardTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
@@ -1958,7 +1958,7 @@ const styles = StyleSheet.create({
   headerDateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0f9ff',
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 10,
@@ -1974,7 +1974,7 @@ const styles = StyleSheet.create({
   headerDateBadgeText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#ea580c',
+    color: '#0369a1',
     maxWidth: 130,
   },
   headerLogoImage: {
