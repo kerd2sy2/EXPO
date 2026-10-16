@@ -9,21 +9,21 @@
     },
     "preview": {
       "distribution": "internal",
-      "channel": "production",
+      "channel": "eshraf",
       "android": {
         "buildType": "apk"
       }
     },
     "production-apk": {
       "distribution": "internal",
-      "channel": "production",
+      "channel": "eshraf",
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production",
+      "channel": "eshraf",
       "uploadSourceMaps": true,
       "android": {
         "buildType": "app-bundle"

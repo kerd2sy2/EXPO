@@ -197,7 +197,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
 
               <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {isRTL ? 'تسجيل الدخول - أبرار الإشراف' : (t.loginTitle || 'Log In') + ' - AAMS Supervision'}
+                {isRTL ? 'تسجيل الدخول' : (t.loginTitle || 'Log In')}
               </Text>
               <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                 {isRTL ? 'بوابة إدارة ومتابعة شفتات وعمليات المناديب الميدانية' : (t.loginSubtitle || 'Supervisor Operations Portal')}
