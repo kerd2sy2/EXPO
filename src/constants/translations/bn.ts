@@ -1,7 +1,7 @@
 import { TranslationKeys } from './ar';
 
 export const bn: Record<TranslationKeys, string> = {
-  appName: 'AAMS লজিস্টিকস',
+  appName: 'আবরার | প্রতিনিধি',
   appSubtitle: 'ফিল্ড ডেলিভারি পোর্টাল',
   loginTitle: 'লগইন করুন',
   loginSubtitle: 'আপনার শিফট শুরু করতে জাতীয় পরিচয়পত্র নম্বর দিন',

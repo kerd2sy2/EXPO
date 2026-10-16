@@ -1,7 +1,7 @@
 import { TranslationKeys } from './ar';
 
 export const en: Record<TranslationKeys, string> = {
-  appName: 'AAMS Logistics',
+  appName: 'AAMS | Delegates',
   appSubtitle: 'Field Delegate Portal',
   loginTitle: 'Sign In',
   loginSubtitle: 'Enter your National ID to sign in and start your shift',

@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "AAMS | Delegates",
+    "CFBundleName": "AAMS | Delegates"
+  },
+  "android": {
+    "app_name": "AAMS | Delegates"
+  }
+}

@@ -1,19 +1,28 @@
 {
   "expo": {
-    "name": "AAMS",
-    "slug": "aams",
-    "owner": "aams2",
+    "name": "أبرار | مناديب",
+    "slug": "aams-manadeeb",
+    "owner": "1eff2027ef",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "aams",
+    "scheme": "aams-manadeeb",
     "userInterfaceStyle": "automatic",
+    "locales": {
+      "ar": "./locales/ar.json",
+      "en": "./locales/en.json",
+      "ur": "./locales/ur.json",
+      "bn": "./locales/bn.json"
+    },
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.aams.app"
+      "bundleIdentifier": "com.aams.manadeeb",
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true
+      }
     },
     "android": {
-      "package": "com.aams.app",
+      "package": "com.aams.manadeeb",
       "googleServicesFile": "./google-services.json",
       "allowBackup": false,
       "permissions": [
@@ -37,7 +46,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 8
+      "versionCode": 10
     },
     "web": {
       "output": "static",
@@ -74,7 +83,7 @@
       [
         "expo-updates",
         {
-          "username": "aams2"
+          "username": "1eff2027ef"
         }
       ],
       [
@@ -103,7 +112,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/1ec8ea7a-75d2-43be-b7cf-5505a283c042",
+      "url": "https://u.expo.dev/4b61e94d-669f-46ce-abe1-0520271c0272",
       "enabled": true,
       "fallbackToCacheTimeout": 2000,
       "checkAutomatically": "ON_LOAD"
@@ -113,8 +122,14 @@
     },
     "extra": {
       "router": {},
+      "appNames": {
+        "ar": "أبرار | مناديب",
+        "en": "AAMS | Delegates",
+        "ur": "ابرار | مندوبین",
+        "bn": "আবরার | প্রতিনিধি"
+      },
       "eas": {
-        "projectId": "1ec8ea7a-75d2-43be-b7cf-5505a283c042"
+        "projectId": "4b61e94d-669f-46ce-abe1-0520271c0272"
       }
     }
   }

@@ -1,5 +1,5 @@
 export const ar = {
-  appName: 'AAMS Logistics',
+  appName: 'أبرار | مناديب',
   appSubtitle: 'بوابة المناديب الميدانية',
   loginTitle: 'تسجيل الدخول',
   loginSubtitle: 'أدخل رقم الهوية الوطنية لتسجيل الدخول ومباشرة دوامك',

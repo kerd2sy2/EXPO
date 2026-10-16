@@ -83,6 +83,7 @@ export const workApi = {
       body: JSON.stringify({
         login: login.trim(),
         password: cleanPass,
+        app: 'manadeeb',
       }),
     });
 

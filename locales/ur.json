@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "ابرار | مندوبین",
+    "CFBundleName": "ابرار | مندوبین"
+  },
+  "android": {
+    "app_name": "ابرار | مندوبین"
+  }
+}
