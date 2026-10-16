@@ -93,9 +93,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
       if (result.success) {
         const saved = await getSavedCredentialsForBiometrics();
-        const isAdmin = saved?.user?.role === 'ADMIN' || saved?.user?.role === 'SUPER_ADMIN' || saved?.user?.role === 'SUPERVISOR' || saved?.user?.is_admin;
-
-        if (saved && saved.user && !isAdmin) {
+        if (saved && saved.user) {
           let tokenToUse = saved.token;
           if (saved.refreshToken) {
             await setAuthToken(saved.token, saved.refreshToken);
@@ -116,6 +114,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             access_token: tokenToUse,
             refresh_token: saved.refreshToken,
             employee: saved.user,
+            admin: saved.user,
           });
         } else {
           setAlertConfig({
@@ -156,7 +155,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       return;
     }
 
-    const numericId = rawNormalizedId.replace(/[^0-9]/g, '');
     const cleanId = rawNormalizedId.replace(/[^0-9+]/g, '') || rawNormalizedId;
     const cleanPass = rawNormalizedPass;
 
@@ -187,21 +185,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               />
               <View style={[styles.brandTextCol, { alignItems: 'flex-start' }]}>
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
-                  AAMS
+                  أبرار الإشراف
                 </Text>
-                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#94a3b8' : '#475569' }]}>
-                  LOGISTICS
+                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#38bdf8' : '#0284c7' }]}>
+                  AAMS | SUPERVISION
                 </Text>
               </View>
             </TouchableOpacity>
 
             {/* Login Card */}
             <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {/* App Identification Badge */}
+              <View style={[styles.appTypeBadge, { backgroundColor: isDarkMode ? '#082f49' : '#e0f2fe' }]}>
+                <Ionicons name="shield-checkmark" size={16} color="#0284c7" />
+                <Text style={[styles.appTypeBadgeText, { color: '#0284c7' }]}>
+                  تطبيق أبرار الإشراف
+                </Text>
+              </View>
+
               <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.loginTitle}
+                {isRTL ? 'تسجيل الدخول - أبرار الإشراف' : (t.loginTitle || 'Log In') + ' - AAMS Supervision'}
               </Text>
               <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.loginSubtitle}
+                {isRTL ? 'بوابة إدارة ومتابعة شفتات وعمليات المناديب الميدانية' : (t.loginSubtitle || 'Supervisor Operations Portal')}
               </Text>
 
               {loginError ? (
@@ -411,6 +417,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 8,
+  },
+  appTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 6,
+  },
+  appTypeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   loginCardTitle: {
     fontSize: 20,

@@ -183,6 +183,7 @@ export const refreshAuthToken = async (): Promise<string | null> => {
         // Only trigger session expired if definitively rejected by server (401/403) and not a transient issue
         if (response.status === 401 || response.status === 403) {
           console.log('[Auth] Refresh token expired or rejected by server.');
+          triggerSessionExpired();
         }
         return null;
       }
@@ -367,9 +368,6 @@ export async function apiRequest<T = any>(
             headers,
             signal: fetchOptions.signal || controller.signal,
           });
-        } else {
-          // Refresh failed
-          triggerSessionExpired();
         }
       }
 

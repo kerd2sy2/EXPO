@@ -641,14 +641,6 @@ export default function DelegateApp() {
       ]);
 
       if (cached) {
-        if (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN') {
-          // Reject admin/supervisor in delegate app
-          await setAuthToken(null);
-          await saveCachedUser(null);
-          setEmployee(null);
-          setLoading(false);
-          return;
-        }
         if (cached.id) {
           setEmployee(cached);
 
