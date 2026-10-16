@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "আবরার | প্রশাসন",
+    "CFBundleName": "আবরার | প্রশাসন"
+  },
+  "android": {
+    "app_name": "আবরার | প্রশাসন"
+  }
+}

@@ -616,13 +616,6 @@ export default function DelegateApp() {
           return;
         }
 
-        if ((user as any).is_admin || (user as any).role === 'ADMIN' || (user as any).role === 'SUPERVISOR' || (user as any).role === 'SUPER_ADMIN') {
-          await setAuthToken(null);
-          await saveCachedUser(null);
-          setEmployee(null);
-          return;
-        }
-
         if (user.id) {
           const merged: EmployeeProfile = {
             ...(cached || {}),
@@ -819,56 +812,74 @@ export default function DelegateApp() {
     try {
       const res = await workApi.login(inputVal, password);
 
-      const isActualAdmin =
-        Boolean(res && res.admin && (res.admin.role === 'ADMIN' || res.admin.role === 'SUPER_ADMIN' || res.admin.role === 'SUPERVISOR'));
+      const userRole = res?.admin?.role || (res?.employee as any)?.job_role || (res?.employee as any)?.role || '';
+      const hasEdaraAccess =
+        res?.app_permissions?.edara === true ||
+        res?.admin?.app_permissions?.edara === true ||
+        userRole === 'SUPER_ADMIN' ||
+        userRole === 'ADMIN' ||
+        userRole === 'SUPERVISOR' ||
+        (res?.admin?.permissions && (res.admin.permissions.includes('*') || res.admin.permissions.includes('apps.edara')));
 
-      if (isActualAdmin) {
-        setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للمناديب فقط. يرجى استخدام تطبيق الإدارة والمشرفين.' : 'This app is for delegates only. Please use the Admin & Supervisor app.');
+      if (!hasEdaraAccess) {
+        setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للإدارة والمشرفين فقط.' : 'This app is for administration and supervisors only.');
         await setAuthToken(null);
         await saveCachedUser(null);
         setEmployee(null);
         return;
-      } else if (res && (res.employee || res.is_employee || (res as any).id)) {
-        const emp = (res.employee || res) as EmployeeProfile;
-        setEmployee(emp);
-        await saveCachedUser(emp);
-        if (res.access_token) {
-          await setAuthToken(res.access_token, res.refresh_token);
-          const bioOn = await isBiometricEnabled();
-          if (bioOn && emp.national_id) {
-            await saveLastCredentialsForBiometrics(emp.national_id, res.access_token, emp, res.refresh_token);
-          }
-        }
-        setCurrentTab('home');
-
-        // Non-blocking background sync of profile, session, and history
-        workApi
-          .getMe()
-          .then(async (fresh) => {
-            if (fresh && fresh.id) {
-              setEmployee((prev) => ({
-                ...(prev || {}),
-                ...fresh,
-                personal_image: fresh.personal_image || prev?.personal_image || '',
-                motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
-                key_number: fresh.key_number || prev?.key_number || '',
-                national_id: fresh.national_id || prev?.national_id || '',
-                phone: fresh.phone || prev?.phone || '',
-                branch_name: fresh.branch_name || prev?.branch_name || '',
-              } as EmployeeProfile));
-              const bioOn = await isBiometricEnabled();
-              if (bioOn && res.access_token && fresh.national_id) {
-                saveLastCredentialsForBiometrics(fresh.national_id, res.access_token, fresh, res.refresh_token);
-              }
-            }
-          })
-          .catch((e) => console.log('Notice refreshing profile on Login:', e));
-
-        fetchActiveSession(emp.id).catch(() => {});
-        fetchHistory(emp.id).catch(() => {});
-      } else {
-        setLoginError(t.passwordHint || 'بيانات الدخول غير صحيحة');
       }
+
+      const emp = (res.admin
+        ? {
+            id: res.admin.id,
+            name: res.admin.name,
+            role: res.admin.role,
+            job_role: res.admin.role,
+            phone: res.admin.phone,
+            branch_id: res.admin.branch_id,
+            branch_name: res.admin.branch_name,
+            permissions: res.admin.permissions || [],
+            app_permissions: res.admin.app_permissions,
+            is_admin: true,
+          }
+        : (res.employee || res)) as EmployeeProfile;
+
+      setEmployee(emp);
+      await saveCachedUser(emp);
+      if (res.access_token) {
+        await setAuthToken(res.access_token, res.refresh_token);
+        const bioOn = await isBiometricEnabled();
+        if (bioOn) {
+          await saveLastCredentialsForBiometrics(emp.national_id || emp.phone || inputVal, res.access_token, emp, res.refresh_token);
+        }
+      }
+      setCurrentTab('home');
+
+      // Non-blocking background sync of profile, session, and history
+      workApi
+        .getMe()
+        .then(async (fresh) => {
+          if (fresh && fresh.id) {
+            setEmployee((prev) => ({
+              ...(prev || {}),
+              ...fresh,
+              personal_image: fresh.personal_image || prev?.personal_image || '',
+              motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
+              key_number: fresh.key_number || prev?.key_number || '',
+              national_id: fresh.national_id || prev?.national_id || '',
+              phone: fresh.phone || prev?.phone || '',
+              branch_name: fresh.branch_name || prev?.branch_name || '',
+            } as EmployeeProfile));
+            const bioOn = await isBiometricEnabled();
+            if (bioOn && res.access_token && (fresh.national_id || fresh.phone)) {
+              saveLastCredentialsForBiometrics(fresh.national_id || fresh.phone || inputVal, res.access_token, fresh, res.refresh_token);
+            }
+          }
+        })
+        .catch((e) => console.log('Notice refreshing profile on Login:', e));
+
+      fetchActiveSession(emp.id).catch(() => {});
+      fetchHistory(emp.id).catch(() => {});
     } catch (err: any) {
       console.error('Login error:', err);
       setLoginError(err?.message || 'تعذر تسجيل الدخول، تأكد من صحة البيانات');
@@ -884,18 +895,38 @@ export default function DelegateApp() {
       await setAuthToken(token, loginResp?.refresh_token || token);
     }
 
-    const isActualAdmin =
-      Boolean(loginResp && loginResp.admin && (loginResp.admin.role === 'ADMIN' || loginResp.admin.role === 'SUPER_ADMIN' || loginResp.admin.role === 'SUPERVISOR'));
+    const userRole = loginResp?.admin?.role || (loginResp?.employee as any)?.job_role || (loginResp?.employee as any)?.role || '';
+    const hasEdaraAccess =
+      loginResp?.app_permissions?.edara === true ||
+      loginResp?.admin?.app_permissions?.edara === true ||
+      userRole === 'SUPER_ADMIN' ||
+      userRole === 'ADMIN' ||
+      userRole === 'SUPERVISOR' ||
+      (loginResp?.admin?.permissions && (loginResp.admin.permissions.includes('*') || loginResp.admin.permissions.includes('apps.edara')));
 
-    if (isActualAdmin) {
-      setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للمناديب فقط. يرجى استخدام تطبيق الإدارة والمشرفين.' : 'This app is for delegates only. Please use the Admin & Supervisor app.');
+    if (!hasEdaraAccess) {
+      setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للإدارة والمشرفين فقط.' : 'This app is for administration and supervisors only.');
       await setAuthToken(null);
       await saveCachedUser(null);
       setEmployee(null);
       return;
     }
 
-    let emp = loginResp?.employee || (loginResp?.id ? loginResp : null);
+    let emp = loginResp?.admin
+      ? ({
+          id: loginResp.admin.id,
+          name: loginResp.admin.name,
+          role: loginResp.admin.role,
+          job_role: loginResp.admin.role,
+          phone: loginResp.admin.phone,
+          branch_id: loginResp.admin.branch_id,
+          branch_name: loginResp.admin.branch_name,
+          permissions: loginResp.admin.permissions || [],
+          app_permissions: loginResp.admin.app_permissions,
+          is_admin: true,
+        } as EmployeeProfile)
+      : (loginResp?.employee || (loginResp?.id ? loginResp : null));
+
     if (!emp) {
       try {
         const fresh = await workApi.getMe();
@@ -929,8 +960,8 @@ export default function DelegateApp() {
             } as EmployeeProfile));
             const bioOn = await isBiometricEnabled();
             const curTok = loginResp?.access_token || getStoredToken();
-            if (bioOn && curTok && fresh.national_id) {
-              saveLastCredentialsForBiometrics(fresh.national_id, curTok, fresh, loginResp?.refresh_token);
+            if (bioOn && curTok && (fresh.national_id || fresh.phone)) {
+              saveLastCredentialsForBiometrics(fresh.national_id || fresh.phone || '', curTok, fresh, loginResp?.refresh_token);
             }
           }
         })

@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "AAMS | Management",
+    "CFBundleName": "AAMS | Management"
+  },
+  "android": {
+    "app_name": "AAMS | Management"
+  }
+}

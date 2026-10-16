@@ -1,16 +1,25 @@
 {
   "expo": {
-    "name": "AAMS",
-    "slug": "aams",
-    "owner": "aams2",
+    "name": "أبرار | إدارة",
+    "slug": "aams-edara",
+    "owner": "1eff2027ef",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "aams",
+    "scheme": "aams-edara",
     "userInterfaceStyle": "automatic",
+    "locales": {
+      "ar": "./locales/ar.json",
+      "en": "./locales/en.json",
+      "ur": "./locales/ur.json",
+      "bn": "./locales/bn.json"
+    },
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.aams.app"
+      "bundleIdentifier": "com.aams.app",
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true
+      }
     },
     "android": {
       "package": "com.aams.app",
@@ -37,7 +46,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 8
+      "versionCode": 10
     },
     "web": {
       "output": "static",
@@ -74,7 +83,7 @@
       [
         "expo-updates",
         {
-          "username": "aams2"
+          "username": "1eff2027ef"
         }
       ],
       [
@@ -103,7 +112,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/1ec8ea7a-75d2-43be-b7cf-5505a283c042",
+      "url": "https://u.expo.dev/e6363956-a1da-4063-84ab-85e0aca9e70b",
       "enabled": true,
       "fallbackToCacheTimeout": 2000,
       "checkAutomatically": "ON_LOAD"
@@ -113,8 +122,14 @@
     },
     "extra": {
       "router": {},
+      "appNames": {
+        "ar": "أبرار | إدارة",
+        "en": "AAMS | Management",
+        "ur": "ابرار | انتظامیہ",
+        "bn": "আবরার | প্রশাসন"
+      },
       "eas": {
-        "projectId": "1ec8ea7a-75d2-43be-b7cf-5505a283c042"
+        "projectId": "e6363956-a1da-4063-84ab-85e0aca9e70b"
       }
     }
   }

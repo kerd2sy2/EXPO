@@ -1,11 +1,12 @@
 export interface EmployeeProfile {
   id: string;
   name: string;
-  national_id: string;
+  national_id?: string;
   motorcycle_number?: string;
   key_number?: string;
   employee_number?: string;
   job_role?: string;
+  role?: string;
   branch_id?: string;
   branch_name?: string;
   personal_image?: string;
@@ -14,6 +15,9 @@ export interface EmployeeProfile {
   passport_image?: string;
   vehicle_registration_image?: string;
   phone?: string;
+  permissions?: string[];
+  app_permissions?: Record<string, boolean>;
+  is_admin?: boolean;
 }
 
 export interface WorkSession {

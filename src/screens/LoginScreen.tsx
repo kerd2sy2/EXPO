@@ -157,7 +157,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
 
     const numericId = rawNormalizedId.replace(/[^0-9]/g, '');
-    const cleanId = numericId || rawNormalizedId;
+    const cleanId = rawNormalizedId.replace(/[^0-9+]/g, '') || rawNormalizedId;
     const cleanPass = rawNormalizedPass;
 
     // Proceed directly with password login without OTP
@@ -213,10 +213,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </View>
               ) : null}
 
-              {/* National ID Input */}
+              {/* Phone Number Input */}
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  {t.nationalIdLabel}
+                  {isRTL ? 'رقم الجوال' : (t.phoneLabel || 'Phone Number')}
                 </Text>
                 <View
                   style={[
@@ -229,7 +229,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   ]}
                 >
                   <View style={styles.inputIcon}>
-                    <Feather name="user" size={18} color={colors.textSecondary} />
+                    <Feather name="phone" size={18} color={colors.textSecondary} />
                   </View>
                   <TextInput
                     style={[
@@ -239,15 +239,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         textAlign: isRTL ? 'right' : 'left',
                       },
                     ]}
-                    placeholder={t.nationalIdPlaceholder}
+                    placeholder={isRTL ? '05xxxxxxxx أو 5xxxxxxxx' : '05xxxxxxxx or 5xxxxxxxx'}
                     placeholderTextColor="#94a3b8"
                     value={loginInput}
                     onChangeText={(val) => {
-                      const clean = val.replace(/[^0-9]/g, '').slice(0, 10);
+                      const normalized = normalizeDigits(val);
+                      const clean = normalized.replace(/[^0-9+]/g, '').slice(0, 14);
                       setLoginInput(clean);
                     }}
-                    maxLength={10}
-                    keyboardType="number-pad"
+                    maxLength={14}
+                    keyboardType="phone-pad"
                     autoCapitalize="none"
                   />
                 </View>
@@ -279,7 +280,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         textAlign: isRTL ? 'right' : 'left',
                       },
                     ]}
-                    placeholder={isRTL ? 'كلمة المرور (آخر 4 أرقام من الإقامة)' : (t.passwordPlaceholder || 'Password')}
+                    placeholder={isRTL ? 'كلمة المرور (آخر 4 أرقام من الجوال)' : (t.passwordPlaceholder || 'Password (last 4 digits of phone)')}
                     placeholderTextColor="#94a3b8"
                     value={passwordInput}
                     onChangeText={setPasswordInput}
