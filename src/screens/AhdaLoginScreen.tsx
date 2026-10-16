@@ -14,7 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { ThemeColors } from '../types/delegate';
 import { custodyService, hasCustodyPermission } from '../services/custodyService';
 import { setAuthToken, saveCachedUser } from '../services/api';
@@ -47,7 +47,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
   };
 
-  // Regular Phone & Last-4-Digits Password Login (Default)
+  // Regular Phone & Password Login
   const handlePhoneLogin = async () => {
     if (loading) return;
 
@@ -56,11 +56,11 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
     const rawNormalizedPass = normalizeDigits(passwordInput.trim());
 
     if (!rawNormalizedPhone) {
-      setErrorMsg('يرجى إدخال رقم الجوال');
+      setErrorMsg('يرجى إدخال رقم الهاتف');
       return;
     }
     if (!rawNormalizedPass) {
-      setErrorMsg('يرجى إدخال كلمة المرور (الافتراضي آخر 4 أرقام من الجوال)');
+      setErrorMsg('يرجى إدخال كلمة السر');
       return;
     }
 
@@ -91,7 +91,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       }
     } catch (err: any) {
       console.error('Custody phone login error:', err);
-      const msg = err?.message || 'تعذر تسجيل الدخول، تأكد من صحة رقم الجوال وكلمة المرور';
+      const msg = err?.message || 'تعذر تسجيل الدخول، تأكد من صحة رقم الهاتف وكلمة السر';
       setErrorMsg(msg);
       Alert.alert('خطأ في تسجيل الدخول', msg);
     } finally {
@@ -106,7 +106,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.loginScrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.loginWrapper}>
             {/* Horizontal Brand Lockup */}
             <View style={[styles.brandHorizontalLockup, { flexDirection: 'row' }]}>
@@ -119,7 +119,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
                   أبرار العهدة
                 </Text>
-                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#fbbf24' : '#d97706' }]}>
+                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#34d399' : '#059669' }]}>
                   AAMS | CUSTODY
                 </Text>
               </View>
@@ -128,24 +128,24 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
             {/* Login Card */}
             <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {/* App Identification Badge */}
-              <View style={[styles.appTypeBadge, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}>
-                <Ionicons name="wallet" size={16} color="#d97706" />
-                <Text style={[styles.appTypeBadgeText, { color: '#d97706' }]}>
+              <View style={[styles.appTypeBadge, { backgroundColor: isDarkMode ? '#064e3b' : '#d1fae5' }]}>
+                <Ionicons name="wallet" size={16} color="#059669" />
+                <Text style={[styles.appTypeBadgeText, { color: '#059669' }]}>
                   تطبيق أبرار العهدة
                 </Text>
               </View>
 
-              <Text style={[styles.loginCardTitle, { color: colors.textPrimary }]}>
+              <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: 'right' }]}>
                 تسجيل الدخول - أبرار العهدة
               </Text>
-              <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary }]}>
-                بوابة الإدارة المالية ومتابعة العهد والمصروفات المعتمدة
+              <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary, textAlign: 'right' }]}>
+                بوابة الإدارة المالية ومتابعة العهد والمصروفات
               </Text>
 
               {errorMsg ? (
                 <View style={[styles.errorBanner, { backgroundColor: colors.errorBg }]}>
                   <Ionicons name="alert-circle" size={18} color={colors.errorText} />
-                  <Text style={[styles.errorBannerText, { color: colors.errorText }]}>
+                  <Text style={[styles.errorBannerText, { color: colors.errorText, textAlign: 'right' }]}>
                     {errorMsg}
                   </Text>
                 </View>
@@ -153,8 +153,8 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
 
               {/* Phone Input */}
               <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.textPrimary }]}>
-                  رقم الجوال
+                <Text style={[styles.label, { color: colors.textPrimary, textAlign: 'right' }]}>
+                  رقم الهاتف
                 </Text>
                 <View
                   style={[
@@ -162,6 +162,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
                     {
                       backgroundColor: colors.inputBg,
                       borderColor: colors.inputBorder,
+                      flexDirection: 'row-reverse',
                     },
                   ]}
                 >
@@ -176,7 +177,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
                         textAlign: 'right',
                       },
                     ]}
-                    placeholder="05xxxxxxxx أو 5xxxxxxxx"
+                    placeholder="رقم الهاتف"
                     placeholderTextColor="#94a3b8"
                     value={phoneInput}
                     onChangeText={(val) => {
@@ -192,8 +193,8 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
 
               {/* Password Input */}
               <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.textPrimary }]}>
-                  كلمة المرور
+                <Text style={[styles.label, { color: colors.textPrimary, textAlign: 'right' }]}>
+                  كلمة السر
                 </Text>
                 <View
                   style={[
@@ -201,19 +202,16 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
                     {
                       backgroundColor: colors.inputBg,
                       borderColor: colors.inputBorder,
+                      flexDirection: 'row-reverse',
                     },
                   ]}
                 >
                   <TouchableOpacity
-                    style={styles.eyeBtn}
                     onPress={() => setShowPassword(!showPassword)}
+                    style={styles.inputIcon}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color={colors.textSecondary}
-                    />
+                    <Feather name={showPassword ? 'eye' : 'eye-off'} size={18} color={colors.textSecondary} />
                   </TouchableOpacity>
                   <TextInput
                     style={[
@@ -223,7 +221,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
                         textAlign: 'right',
                       },
                     ]}
-                    placeholder="آخر 4 أرقام من رقم الجوال"
+                    placeholder="كلمة السر"
                     placeholderTextColor="#94a3b8"
                     value={passwordInput}
                     onChangeText={(val) => {
@@ -231,23 +229,25 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
                       setPasswordInput(clean);
                     }}
                     secureTextEntry={!showPassword}
-                    keyboardType="number-pad"
                     autoCapitalize="none"
                   />
                 </View>
               </View>
 
-              {/* Submit Button */}
+              {/* Login Button */}
               <TouchableOpacity
-                style={[styles.submitBtn, { backgroundColor: colors.primary }]}
+                style={[styles.primaryButton, { backgroundColor: colors.primary, marginTop: 12 }]}
                 onPress={handlePhoneLogin}
-                activeOpacity={0.85}
                 disabled={loading}
+                activeOpacity={0.85}
               >
                 {loading ? (
-                  <ActivityIndicator color="#ffffff" />
+                  <ActivityIndicator color="#ffffff" size="small" />
                 ) : (
-                  <Text style={styles.submitBtnText}>تسجيل الدخول</Text>
+                  <View style={[styles.buttonContentRow, { flexDirection: 'row-reverse' }]}>
+                    <Ionicons name="log-in-outline" size={20} color="#ffffff" />
+                    <Text style={styles.primaryButtonText}>سجل الدخول</Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
@@ -265,37 +265,37 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
-  scrollContent: {
+  loginScrollContent: {
     flexGrow: 1,
+    padding: 24,
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 24,
+    alignItems: 'center',
+    paddingBottom: 30,
   },
   loginWrapper: {
     width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
+    maxWidth: 420,
   },
   brandHorizontalLockup: {
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 24,
-    alignSelf: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    marginBottom: 26,
   },
   brandLogoMark: {
-    width: 48,
-    height: 48,
+    width: 56,
+    height: 56,
   },
   brandTextCol: {
     justifyContent: 'center',
   },
   brandMainTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
     letterSpacing: 1.5,
   },
   brandSubTitle: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     letterSpacing: 2,
     marginTop: -2,
@@ -305,19 +305,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
     shadowRadius: 16,
-    elevation: 3,
+    elevation: 8,
   },
   appTypeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
-    paddingHorizontal: 12,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    marginBottom: 14,
+    marginBottom: 12,
     gap: 6,
   },
   appTypeBadgeText: {
@@ -327,115 +327,69 @@ const styles = StyleSheet.create({
   loginCardTitle: {
     fontSize: 20,
     fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   loginCardSubtitle: {
     fontSize: 13,
-    lineHeight: 20,
-    textAlign: 'center',
     marginBottom: 20,
+    lineHeight: 18,
   },
   errorBanner: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 8,
     padding: 12,
     borderRadius: 12,
     marginBottom: 16,
+    gap: 8,
   },
   errorBannerText: {
-    fontSize: 12,
-    fontWeight: '600',
     flex: 1,
-    textAlign: 'right',
+    fontSize: 13,
+    fontWeight: '500',
   },
   formGroup: {
     marginBottom: 16,
   },
   label: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: 8,
-    textAlign: 'right',
   },
   inputContainer: {
-    height: 52,
-    borderRadius: 14,
+    height: 50,
+    borderRadius: 12,
     borderWidth: 1,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
     paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 10,
   },
   inputIcon: {
-    marginLeft: 8,
-  },
-  eyeBtn: {
-    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    paddingVertical: 8,
+    height: '100%',
+    fontSize: 14,
   },
-  submitBtn: {
-    height: 52,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 6,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  submitBtnText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  googleSubmitBtn: {
+  primaryButton: {
     height: 50,
     borderRadius: 14,
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    flexDirection: 'row-reverse',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: '#047857',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  googleIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
+  buttonContentRow: {
     alignItems: 'center',
+    gap: 8,
   },
-  googleSubmitBtnText: {
-    color: '#1e293b',
-    fontSize: 14,
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
     fontWeight: '700',
   },
 });
