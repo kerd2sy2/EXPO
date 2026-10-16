@@ -38,7 +38,6 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   // Eastern / Arabic digit conversion
@@ -48,9 +47,9 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
   };
 
-  // Regular Phone & Last-4-Digits Password Login
+  // Regular Phone & Last-4-Digits Password Login (Default)
   const handlePhoneLogin = async () => {
-    if (loading || googleLoading) return;
+    if (loading) return;
 
     setErrorMsg('');
     const rawNormalizedPhone = normalizeDigits(phoneInput.trim());
@@ -61,7 +60,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       return;
     }
     if (!rawNormalizedPass) {
-      setErrorMsg('يرجى إدخال كلمة المرور (آخر 4 أرقام من الجوال)');
+      setErrorMsg('يرجى إدخال كلمة المرور (الافتراضي آخر 4 أرقام من الجوال)');
       return;
     }
 
@@ -97,50 +96,6 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       Alert.alert('خطأ في تسجيل الدخول', msg);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Genuine Google OAuth Authentication flow
-  const handleGoogleLogin = async () => {
-    try {
-      setGoogleLoading(true);
-      setErrorMsg('');
-
-      const verifiedEmail = 'kerd2sy@gmail.com';
-      const res = await custodyService.googleLogin(verifiedEmail, 'google_oauth_verified');
-      const user = res?.user || res?.admin || {
-        email: verifiedEmail,
-        name: 'المسؤول المالي',
-        role: 'SUPER_ADMIN',
-      };
-
-      // Strict Custody Permission Verification
-      if (!hasCustodyPermission(user)) {
-        await setAuthToken(null);
-        await saveCachedUser(null);
-        const deniedMsg = 'ليس لديك صلاحية للدخول إلى تطبيق العهدة';
-        setErrorMsg(deniedMsg);
-        Alert.alert('تنبيه الصلاحيات', deniedMsg);
-        return;
-      }
-
-      if (res?.token || res?.access_token) {
-        const token = res.token || res.access_token;
-        const refresh = res.refresh_token;
-
-        await setAuthToken(token, refresh);
-        await saveCachedUser(user);
-        onSuccess(user);
-      } else {
-        throw new Error(res?.error || 'حساب Google هذا غير مصرح له بالدخول لنظام العهدة');
-      }
-    } catch (err: any) {
-      console.error('Google login error:', err);
-      const msg = err?.message || 'فشل التحقق من هوية حساب Google، يرجى التأكد من اختيار الحساب المصرح له';
-      setErrorMsg(msg);
-      Alert.alert('تنبيه تسجيل الدخول', msg);
-    } finally {
-      setGoogleLoading(false);
     }
   };
 
@@ -279,38 +234,12 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
                 style={[styles.submitBtn, { backgroundColor: colors.primary }]}
                 onPress={handlePhoneLogin}
                 activeOpacity={0.85}
-                disabled={loading || googleLoading}
+                disabled={loading}
               >
                 {loading ? (
                   <ActivityIndicator color="#ffffff" />
                 ) : (
                   <Text style={styles.submitBtnText}>تسجيل الدخول</Text>
-                )}
-              </TouchableOpacity>
-
-              {/* Divider */}
-              <View style={styles.dividerRow}>
-                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-                <Text style={[styles.dividerText, { color: colors.textSecondary }]}>أو</Text>
-                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-              </View>
-
-              {/* Google Login Button */}
-              <TouchableOpacity
-                style={[styles.googleSubmitBtn, { borderColor: '#e2e8f0' }]}
-                onPress={handleGoogleLogin}
-                activeOpacity={0.85}
-                disabled={googleLoading || loading}
-              >
-                {googleLoading ? (
-                  <ActivityIndicator color="#ea4335" />
-                ) : (
-                  <>
-                    <View style={styles.googleIconCircle}>
-                      <MaterialCommunityIcons name="google" size={20} color="#ea4335" />
-                    </View>
-                    <Text style={styles.googleSubmitBtnText}>تسجيل الدخول بواسطة Google</Text>
-                  </>
                 )}
               </TouchableOpacity>
             </View>

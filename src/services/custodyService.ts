@@ -202,7 +202,7 @@ export const custodyService = {
   login: async (loginKey: string, password: string): Promise<any> => {
     const res = await apiRequest('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username: loginKey, password }),
+      body: JSON.stringify({ username: loginKey, phone: loginKey, password, app: 'ohda' }),
     });
     return res;
   },
@@ -297,6 +297,8 @@ export const hasCustodyPermission = (user: any): boolean => {
 
   const allowedPermissions = [
     '*',
+    'apps.ohda',
+    'app.ohda',
     'custody',
     'custody.access',
     'custody.view',
