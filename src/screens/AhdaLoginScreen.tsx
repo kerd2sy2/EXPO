@@ -117,18 +117,26 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
               />
               <View style={[styles.brandTextCol, { alignItems: 'flex-start' }]}>
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
-                  AAMS
+                  أبرار العهدة
                 </Text>
-                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#94a3b8' : '#475569' }]}>
-                  أبرار | عهدة
+                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#fbbf24' : '#d97706' }]}>
+                  AAMS | CUSTODY
                 </Text>
               </View>
             </View>
 
             {/* Login Card */}
             <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {/* App Identification Badge */}
+              <View style={[styles.appTypeBadge, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}>
+                <Ionicons name="wallet" size={16} color="#d97706" />
+                <Text style={[styles.appTypeBadgeText, { color: '#d97706' }]}>
+                  تطبيق أبرار العهدة
+                </Text>
+              </View>
+
               <Text style={[styles.loginCardTitle, { color: colors.textPrimary }]}>
-                تسجيل الدخول للعهدة
+                تسجيل الدخول - أبرار العهدة
               </Text>
               <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary }]}>
                 بوابة الإدارة المالية ومتابعة العهد والمصروفات المعتمدة
@@ -301,6 +309,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 16,
     elevation: 3,
+  },
+  appTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 14,
+    gap: 6,
+  },
+  appTypeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   loginCardTitle: {
     fontSize: 20,
