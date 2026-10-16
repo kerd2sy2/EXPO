@@ -187,21 +187,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               />
               <View style={[styles.brandTextCol, { alignItems: 'flex-start' }]}>
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
-                  AAMS
+                  أبرار المناديب
                 </Text>
-                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#94a3b8' : '#475569' }]}>
-                  LOGISTICS
+                <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#4ade80' : '#16a34a' }]}>
+                  AAMS | DELEGATES
                 </Text>
               </View>
             </TouchableOpacity>
 
             {/* Login Card */}
             <View style={[styles.loginCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {/* App Identification Badge */}
+              <View style={[styles.appTypeBadge, { backgroundColor: isDarkMode ? '#052e16' : '#dcfce7' }]}>
+                <Ionicons name="bicycle" size={16} color="#16a34a" />
+                <Text style={[styles.appTypeBadgeText, { color: '#16a34a' }]}>
+                  تطبيق أبرار المناديب
+                </Text>
+              </View>
+
               <Text style={[styles.loginCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.loginTitle}
+                {isRTL ? 'تسجيل الدخول - أبرار المناديب' : (t.loginTitle || 'Log In') + ' - AAMS Delegates'}
               </Text>
               <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {t.loginSubtitle}
+                {isRTL ? 'بوابة شفتات المناديب والمتابعة الميدانية والطلبات' : (t.loginSubtitle || 'Delegate Shift Portal')}
               </Text>
 
               {loginError ? (
@@ -411,6 +419,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 8,
+  },
+  appTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 6,
+  },
+  appTypeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   loginCardTitle: {
     fontSize: 20,
