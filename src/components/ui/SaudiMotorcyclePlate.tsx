@@ -32,7 +32,7 @@ import {
   getPlateLetterSlots,
   convertLettersToBoth,
   getAlignedDigits,
-} from '../../utils/plateUtils';
+} from '@shared/utils/plateUtils';
 
 export {
   AR_TO_EN_LETTERS,

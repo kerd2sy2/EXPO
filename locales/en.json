@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "AAMS | Supervision",
+    "CFBundleName": "AAMS | Supervision"
+  },
+  "android": {
+    "app_name": "AAMS | Supervision"
+  }
+}

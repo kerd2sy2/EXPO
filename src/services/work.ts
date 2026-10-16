@@ -62,11 +62,18 @@ export interface LoginResult {
   refresh_token: string;
   is_employee: boolean;
   employee?: EmployeeProfile;
+  app_permissions?: Record<string, boolean>;
   admin?: {
     id: string;
     name: string;
     email: string;
     role: string;
+    phone?: string;
+    branch_id?: string;
+    branch_name?: string;
+    permissions?: string[];
+    app_permissions?: Record<string, boolean>;
+    is_admin?: boolean;
   };
 }
 
@@ -83,19 +90,32 @@ export const workApi = {
       body: JSON.stringify({
         login: login.trim(),
         password: cleanPass,
+        app: 'eshraf',
       }),
     });
 
     if (data.access_token) {
       await setAuthToken(data.access_token, data.refresh_token);
-      const isActualAdmin =
-        Boolean(data.admin?.role && (data.admin.role === 'ADMIN' || data.admin.role === 'SUPER_ADMIN' || data.admin.role === 'SUPERVISOR'));
+      const profile = (data.admin
+        ? {
+            id: data.admin.id,
+            name: data.admin.name,
+            role: data.admin.role,
+            job_role: data.admin.role,
+            phone: data.admin.phone,
+            branch_id: data.admin.branch_id,
+            branch_name: data.admin.branch_name,
+            permissions: data.admin.permissions,
+            app_permissions: data.admin.app_permissions,
+            is_admin: true,
+          }
+        : data.employee) as EmployeeProfile;
 
       const bioOn = await isBiometricEnabled();
-      if (!isActualAdmin && data.employee && data.employee.id) {
-        await saveCachedUser(data.employee);
+      if (profile && profile.id) {
+        await saveCachedUser(profile);
         if (bioOn) {
-          await saveLastCredentialsForBiometrics(login.trim(), data.access_token, data.employee, data.refresh_token);
+          await saveLastCredentialsForBiometrics(login.trim(), data.access_token, profile, data.refresh_token);
         }
       }
     }
@@ -106,15 +126,39 @@ export const workApi = {
   getMe: async (): Promise<EmployeeProfile | null> => {
     try {
       const cached = await getCachedUser();
-      if (cached && (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN')) {
-        return null;
-      }
       const token = getStoredToken() || (await loadStoredToken());
       if (!token) {
         return null;
       }
       const meResp = await apiRequest('/me', { timeoutMs: 8000 });
-      if (meResp && meResp.id) {
+      if (meResp && (meResp.id || (meResp as any).user?.id)) {
+        const u = ((meResp as any).user || meResp) as any;
+        const isAdm = Boolean(
+          u.role === 'ADMIN' ||
+          u.role === 'SUPERVISOR' ||
+          u.role === 'SUPER_ADMIN' ||
+          u.is_admin ||
+          cached?.is_admin
+        );
+
+        if (isAdm) {
+          const fullAdmin: EmployeeProfile = {
+            ...(cached || {}),
+            id: u.id,
+            name: u.name,
+            role: u.role,
+            job_role: u.role,
+            phone: u.phone || cached?.phone || '',
+            branch_id: u.branch_id || cached?.branch_id || '',
+            branch_name: u.branch_name || cached?.branch_name || '',
+            permissions: u.permissions || cached?.permissions || [],
+            app_permissions: u.app_permissions || cached?.app_permissions,
+            is_admin: true,
+          };
+          await saveCachedUser(fullAdmin);
+          return fullAdmin;
+        }
+
         let fullEmployee: EmployeeProfile;
         try {
           const empDetail = await apiRequest<EmployeeProfile>(`/employees/${meResp.id}`, { timeoutMs: 8000 });

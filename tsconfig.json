@@ -5,7 +5,8 @@
     "noImplicitAny": false,
     "paths": {
       "@/*": ["./src/*"],
-      "@/assets/*": ["./assets/*"]
+      "@/assets/*": ["./assets/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   },
   "include": [

@@ -1,6 +1,6 @@
 export const ar = {
-  appName: 'AAMS Logistics',
-  appSubtitle: 'بوابة المناديب الميدانية',
+  appName: 'أبرار | إشراف',
+  appSubtitle: 'بوابة المشرفين الميدانيين',
   loginTitle: 'تسجيل الدخول',
   loginSubtitle: 'أدخل رقم الهوية الوطنية لتسجيل الدخول ومباشرة دوامك',
   nationalIdLabel: 'رقم الهوية الوطنية / الإقامة',

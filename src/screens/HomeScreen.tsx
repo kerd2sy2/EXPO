@@ -1,34 +1,45 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
+  ActivityIndicator,
+  Modal,
+  Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { EmployeeProfile, WorkSession, TabType, ThemeColors, Language } from '../types/delegate';
 import { DelegateViolation } from '../services/api';
 import { formatBikePlateForDisplay } from '../utils/plateUtils';
 
-interface HomeScreenProps {
+export interface HomeScreenProps {
   employee: EmployeeProfile;
-  activeSession: WorkSession | null;
-  historySessions: WorkSession[];
-  totalApprovedOrdersCount: number;
-  pendingOrdersCount?: number;
-  monthlyTarget: number;
-  isTargetAchieved: boolean;
-  expectedSalary: number;
-  targetProgressPct: number;
-  remainingOrdersToTarget: number;
-  elapsedTime: string;
+  pendingSessions?: WorkSession[];
+  workingDelegatesCount?: number;
+  totalDelegatesCount?: number;
+  todayOrdersCount?: number;
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL: boolean;
   t: any;
   lang?: Language;
   onNavigateToTab: (tab: TabType) => void;
+  onConfirmOrders?: (session: WorkSession, ordersCount?: number, notes?: string) => Promise<void>;
+  onRefresh?: () => void;
+  // Backward compatibility props
+  activeSession?: WorkSession | null;
+  historySessions?: WorkSession[];
+  totalApprovedOrdersCount?: number;
+  pendingOrdersCount?: number;
+  monthlyTarget?: number;
+  isTargetAchieved?: boolean;
+  expectedSalary?: number;
+  targetProgressPct?: number;
+  remainingOrdersToTarget?: number;
+  elapsedTime?: string;
   onStartShiftClick?: () => void;
   violations?: DelegateViolation[];
   totalViolationsAmount?: number;
@@ -37,540 +48,824 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   employee,
-  activeSession,
-  historySessions,
-  totalApprovedOrdersCount,
-  pendingOrdersCount = 0,
-  monthlyTarget,
-  isTargetAchieved,
-  expectedSalary,
-  targetProgressPct,
-  remainingOrdersToTarget,
-  elapsedTime,
+  pendingSessions = [],
+  workingDelegatesCount = 0,
+  totalDelegatesCount = 0,
+  todayOrdersCount = 0,
   colors,
   isDarkMode,
-  isRTL,
+  isRTL = true,
   t,
   lang = 'ar',
   onNavigateToTab,
-  onStartShiftClick,
-  violations = [],
-  totalViolationsAmount = 0,
-  deductedViolationsAmount = 0,
+  onConfirmOrders,
 }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
-  const isDifferentBike = Boolean(
-    activeSession &&
-    activeSession.motorcycle_number &&
-    (!employee.motorcycle_number ||
-      activeSession.motorcycle_number.trim().toUpperCase() !== employee.motorcycle_number.trim().toUpperCase())
-  );
+  // Edit Orders Modal State
+  const [editingSession, setEditingSession] = useState<WorkSession | null>(null);
+  const [editOrdersCount, setEditOrdersCount] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
-  // Split calculations for traffic violations and administrative penalties
-  const isPenaltyRecord = (v: DelegateViolation) =>
-    v.reason?.includes('جزاء') ||
-    v.reason?.includes('خصم') ||
-    v.reason?.includes('تأخير') ||
-    v.reason?.includes('غياب') ||
-    v.reason?.includes('زي') ||
-    v.reason?.includes('عهدة') ||
-    v.reason?.includes('إهمال');
+  // Normalize digits (Arabic/Persian -> English)
+  const normalizeDigits = (str: string) => {
+    return str
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString())
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+  };
 
-  const trafficRecords = violations.filter((v) => !isPenaltyRecord(v));
-  const penaltyRecords = violations.filter((v) => isPenaltyRecord(v));
+  // Filter pending sessions by delegate name (min 2 characters) or show all if search is empty
+  const filteredPendingSessions = useMemo(() => {
+    const raw = searchQuery.trim();
+    if (!raw) return pendingSessions;
 
-  const totalTrafficAmt = trafficRecords.reduce((acc, v) => acc + (v.amount || 0), 0);
-  const totalPenaltiesAmt = penaltyRecords.reduce((acc, v) => acc + (v.amount || 0), 0);
-  const totalDuePending = Math.max(0, totalViolationsAmount - deductedViolationsAmount);
+    const normalized = normalizeDigits(raw).toLowerCase();
+    // Search when 2 or more characters are entered
+    if (normalized.length < 2) return pendingSessions;
 
-  // Calculate distinct working days for the current month
-  // Multiple shifts on the same day count as 1 working day
-  const currentMonthWorkingDays = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    const uniqueDays = new Set<string>();
-
-    historySessions.forEach((s) => {
-      if (s.status === 'CANCELLED' || !s.start_time) return;
-      try {
-        const d = new Date(s.start_time);
-        if (!isNaN(d.getTime()) && d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
-          const dayKey = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-          uniqueDays.add(dayKey);
-        }
-      } catch (err) {
-        // ignore invalid dates
-      }
+    return pendingSessions.filter((s) => {
+      const empName = (s.employee_name || s.employee?.name || '').toLowerCase();
+      const empNum = (s.employee?.employee_number || '').toLowerCase();
+      const natId = (s.employee?.national_id || '').toLowerCase();
+      const bikeNum = (s.motorcycle_number || '').toLowerCase();
+      return (
+        empName.includes(normalized) ||
+        empNum.includes(normalized) ||
+        natId.includes(normalized) ||
+        bikeNum.includes(normalized)
+      );
     });
+  }, [pendingSessions, searchQuery]);
 
-    if (activeSession?.start_time) {
-      try {
-        const d = new Date(activeSession.start_time);
-        if (!isNaN(d.getTime()) && d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
-          const dayKey = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-          uniqueDays.add(dayKey);
-        }
-      } catch (err) {
-        // ignore
-      }
+  // Handle instant one-tap order confirmation
+  const handleDirectConfirm = async (session: WorkSession) => {
+    if (confirmingId) return;
+    if (!onConfirmOrders) {
+      Alert.alert('تنبيه', 'خدمة الاعتماد غير متوفرة حالياً.');
+      return;
+    }
+    try {
+      setConfirmingId(session.id);
+      await onConfirmOrders(session, session.orders_count);
+    } catch (err: any) {
+      console.error('Error confirming orders:', err);
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
+  // Open edit modal for a session
+  const openEditModal = (session: WorkSession) => {
+    setEditingSession(session);
+    setEditOrdersCount(String(session.orders_count || 0));
+    setEditNotes(session.review_notes || '');
+  };
+
+  // Save edited orders and confirm
+  const handleSaveEditedOrders = async () => {
+    if (!editingSession || !onConfirmOrders) return;
+    const count = parseInt(normalizeDigits(editOrdersCount.trim()), 10);
+    if (isNaN(count) || count < 0) {
+      Alert.alert('خطأ', 'يرجى إدخال عدد طلبات صحيح.');
+      return;
     }
 
-    return uniqueDays.size;
-  }, [historySessions, activeSession]);
+    try {
+      setIsSubmittingEdit(true);
+      await onConfirmOrders(editingSession, count, editNotes.trim() || 'تم تعديل واعتماد الطلبات بواسطة المشرف');
+      setEditingSession(null);
+    } catch (err: any) {
+      Alert.alert('خطأ', err?.message || 'فشل حفظ وتأكيد الطلبات');
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  const isSearchActive = searchQuery.trim().length >= 2;
 
   return (
-    <View style={styles.tabContainer}>
-      {/* Clean Monthly Target & Earnings Card */}
-      <View style={[styles.targetCardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        {/* Header: Title + Orders Completed / Target Ratio */}
-        <View style={[styles.targetCardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.targetTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="flag-outline" size={17} color={colors.primary} />
-            <Text style={[styles.targetCardTitle, { color: colors.textPrimary }]}>
-              {t.monthlyTarget || 'الهدف الشهري'}
+    <View style={styles.container}>
+      {/* ── Supervisor Welcome & Branch Header Banner ── */}
+      <View style={[styles.welcomeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.welcomeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.welcomeIconCircle, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
+          </View>
+          <View style={[styles.welcomeTextGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.welcomeGreeting, { color: colors.textSecondary }]}>
+              بوابة المشرف الميداني
+            </Text>
+            <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>
+              {employee.name || 'المشرف'}
+            </Text>
+            <Text style={[styles.welcomeBranch, { color: colors.primary }]}>
+              {employee.branch_name ? `فرع: ${employee.branch_name}` : 'إشراف عام'}
             </Text>
           </View>
-          <Text style={[styles.targetRatioText, { color: colors.textSecondary }]}>
-            <Text style={[styles.targetRatioBold, { color: colors.primary }]}>{totalApprovedOrdersCount}</Text> {t.ofRatio || 'من'} {monthlyTarget} {t.ordersUnit || 'طلب'}
-          </Text>
-        </View>
-
-        {/* Smooth Progress Bar */}
-        <View style={styles.targetProgressContainer}>
-          <View style={[styles.progressBarTrack, { backgroundColor: isDarkMode ? '#1f2433' : '#f1f5f9' }]}>
-            <View
-              style={[
-                styles.progressBarFill,
-                {
-                  width: `${Math.max(2, targetProgressPct)}%`,
-                  backgroundColor: isTargetAchieved ? '#22c55e' : colors.primary,
-                },
-              ]}
-            />
-          </View>
-        </View>
-
-        {/* Footer: Target Notice & Percentage */}
-        <View style={[styles.targetFooterRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <Text
-            style={[
-              styles.targetFooterNotice,
-              { color: isTargetAchieved ? '#22c55e' : colors.textSecondary, textAlign: isRTL ? 'right' : 'left' },
-            ]}
-            numberOfLines={1}
-          >
-            {isTargetAchieved
-              ? (t.targetAchievedBadge || 'تم تحقيق الهدف الشهري بنجاح 🎉')
-              : (t.targetRemainingNotice
-                  ? t.targetRemainingNotice.replace('{n}', String(remainingOrdersToTarget))
-                  : `متبقي ${remainingOrdersToTarget} طلب للوصول للهدف`)}
-          </Text>
-          <Text style={[styles.targetFooterPct, { color: isTargetAchieved ? '#22c55e' : colors.primary }]}>
-            {targetProgressPct}%
-          </Text>
         </View>
       </View>
 
-      {/* Quick KPI Stats */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-          {t.myAchievements}
+      {/* ── Live Branch KPIs ── */}
+      <View style={[styles.kpiGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        {/* Active on Shift */}
+        <TouchableOpacity
+          style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => onNavigateToTab('field')}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.kpiIconBox, { backgroundColor: '#10b98115' }]}>
+            <Ionicons name="bicycle" size={20} color="#10b981" />
+          </View>
+          <Text style={[styles.kpiValue, { color: '#10b981' }]}>{workingDelegatesCount}</Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>على رأس العمل</Text>
+        </TouchableOpacity>
+
+        {/* Pending Orders to Confirm */}
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: pendingSessions.length > 0 ? '#f59e0b' : colors.border }]}>
+          <View style={[styles.kpiIconBox, { backgroundColor: '#f59e0b15' }]}>
+            <Ionicons name="time" size={20} color="#f59e0b" />
+          </View>
+          <Text style={[styles.kpiValue, { color: '#f59e0b' }]}>{pendingSessions.length}</Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>طلبات معلقة</Text>
+        </View>
+
+        {/* Total Branch Delegates */}
+        <TouchableOpacity
+          style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => onNavigateToTab('field')}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.kpiIconBox, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="people" size={20} color={colors.primary} />
+          </View>
+          <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{totalDelegatesCount}</Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>إجمالي المناديب</Text>
+        </TouchableOpacity>
+
+        {/* Today Orders */}
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.kpiIconBox, { backgroundColor: '#0284c715' }]}>
+            <Ionicons name="cube" size={20} color="#0284c7" />
+          </View>
+          <Text style={[styles.kpiValue, { color: '#0284c7' }]}>{todayOrdersCount}</Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>طلبات اليوم</Text>
+        </View>
+      </View>
+
+      {/* ── SEARCH & CONFIRM PENDING ORDERS SECTION ── */}
+      <View style={[styles.searchSectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.sectionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.sectionTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Ionicons name="checkmark-done-circle" size={20} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+              اعتماد وتأكيد طلبات المناديب
+            </Text>
+          </View>
+          {pendingSessions.length > 0 && (
+            <View style={[styles.pendingCountBadge, { backgroundColor: colors.primaryLight }]}>
+              <Text style={[styles.pendingCountBadgeText, { color: colors.primary }]}>
+                {pendingSessions.length} معلقة
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={[styles.searchHintText, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+          اكتب أول حرفين من اسم المندوب أو رقمه لعرض طلباته المعلقة وتأكيدها فوراً:
         </Text>
+
+        {/* Search Input Bar */}
+        <View style={[styles.searchInputContainer, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isSearchActive ? colors.primary : colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <Ionicons name="search" size={20} color={isSearchActive ? colors.primary : colors.textSecondary} style={{ marginHorizontal: 8 }} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+            placeholder="ابحث باسم المندوب أو رقم الدباب أو الهوية..."
+            placeholderTextColor={colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} style={{ marginHorizontal: 8 }} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Pending Sessions List */}
+        <View style={styles.sessionsListContainer}>
+          {filteredPendingSessions.length > 0 ? (
+            filteredPendingSessions.map((session) => {
+              const isConfirming = confirmingId === session.id;
+              const delegateName = session.employee_name || session.employee?.name || 'مندوب غير محدد';
+              const bikePlate = session.motorcycle_number || session.employee?.motorcycle_number || '—';
+
+              return (
+                <View
+                  key={session.id}
+                  style={[styles.sessionCard, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderColor: colors.border }]}
+                >
+                  {/* Card Header: Delegate Name & Bike */}
+                  <View style={[styles.sessionCardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={[styles.delegateMetaGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <View style={[styles.avatarMini, { backgroundColor: colors.primaryLight }]}>
+                        <Ionicons name="person" size={15} color={colors.primary} />
+                      </View>
+                      <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                        <Text style={[styles.delegateName, { color: colors.textPrimary }]}>
+                          {delegateName}
+                        </Text>
+                        <Text style={[styles.sessionSubMeta, { color: colors.textSecondary }]}>
+                          {session.employee?.employee_number ? `كود: ${session.employee.employee_number} • ` : ''}
+                          دباب: {formatBikePlateForDisplay(bikePlate, lang)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.statusPendingPill, { backgroundColor: '#fef3c7', borderColor: '#fde68a' }]}>
+                      <Text style={styles.statusPendingPillText}>بانتظار التأكيد</Text>
+                    </View>
+                  </View>
+
+                  {/* Orders, Fuel, Distance Metrics */}
+                  <View style={[styles.metricsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={[styles.metricBox, { backgroundColor: colors.primaryLight }]}>
+                      <Text style={[styles.metricLabel, { color: colors.primary }]}>عدد الطلبات</Text>
+                      <Text style={[styles.metricNumber, { color: colors.primary }]}>
+                        {session.orders_count || 0} طلب
+                      </Text>
+                    </View>
+
+                    <View style={[styles.metricBox, { backgroundColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
+                      <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>الوقود</Text>
+                      <Text style={[styles.metricNumber, { color: colors.textPrimary }]}>
+                        {session.fuel_cost || 0} ر.س
+                      </Text>
+                    </View>
+
+                    <View style={[styles.metricBox, { backgroundColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
+                      <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>المسافة</Text>
+                      <Text style={[styles.metricNumber, { color: colors.textPrimary }]}>
+                        {session.distance || 0} كم
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Actions Row: Confirm Orders + Edit Button */}
+                  <View style={[styles.actionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <TouchableOpacity
+                      style={[styles.confirmButton, { backgroundColor: '#10b981' }]}
+                      onPress={() => handleDirectConfirm(session)}
+                      disabled={isConfirming}
+                      activeOpacity={0.8}
+                    >
+                      {isConfirming ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <View style={[styles.btnInnerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                          <Ionicons name="checkmark-circle" size={18} color="#ffffff" />
+                          <Text style={styles.confirmButtonText}>تأكيد الطلبات ({session.orders_count || 0})</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.editButton, { borderColor: colors.border }]}
+                      onPress={() => openEditModal(session)}
+                      disabled={isConfirming}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="create-outline" size={17} color={colors.textPrimary} />
+                      <Text style={[styles.editButtonText, { color: colors.textPrimary }]}>تعديل</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <View style={styles.emptyStateBox}>
+              <Ionicons
+                name={isSearchActive ? 'search-outline' : 'checkmark-circle-outline'}
+                size={40}
+                color={isSearchActive ? colors.textSecondary : '#10b981'}
+              />
+              <Text style={[styles.emptyStateTitle, { color: colors.textPrimary }]}>
+                {isSearchActive
+                  ? `لا توجد ورديات معلقة مطابقة لـ "${searchQuery}"`
+                  : 'رائع! لا توجد طلبات معلقة بانتظار التأكيد 🎉'}
+              </Text>
+              <Text style={[styles.emptyStateSub, { color: colors.textSecondary }]}>
+                {isSearchActive
+                  ? 'تأكد من اسم المندوب أو رقم دبابته، أو امسح البحث لمشاهدة كافة السجلات.'
+                  : 'كافة شفتات وطلبات مناديب الفرع معتمدة ومحدثة بالكامل.'}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
-      <View style={[styles.statsGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        {/* Row 1: Bike & Key */}
-        <View
-          style={[
-            styles.statBox,
-            {
-              backgroundColor: colors.card,
-              borderColor: isDifferentBike ? '#f59e0b' : colors.border,
-              borderWidth: isDifferentBike ? 1.5 : 1,
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.statIconCircle,
-              {
-                backgroundColor: isDifferentBike
-                  ? (isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7')
-                  : colors.primaryLight,
-              },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name="bike"
-              size={20}
-              color={isDifferentBike ? '#d97706' : colors.primary}
-            />
-          </View>
-          <Text
-            style={[
-              styles.statNumber,
-              { color: isDifferentBike ? '#d97706' : colors.textPrimary },
-            ]}
-            numberOfLines={1}
-            adjustsFontSizeToFit={true}
-          >
-            {isDifferentBike
-              ? formatBikePlateForDisplay(activeSession?.motorcycle_number, lang)
-              : (formatBikePlateForDisplay(employee.motorcycle_number, lang) || '—')}
-          </Text>
-          <Text
-            style={[
-              styles.statLabel,
-              {
-                color: isDifferentBike ? '#d97706' : colors.textSecondary,
-                fontWeight: isDifferentBike ? '700' : '500',
-              },
-            ]}
-            numberOfLines={1}
-          >
-            {isDifferentBike ? (t.outOnDifferentBike || 'أنت طالع الآن بدباب') : t.assignedBike}
-          </Text>
-          {isDifferentBike && employee.motorcycle_number ? (
-            <Text
-              style={[
-                styles.originalBikeNotice,
-                { color: colors.textSecondary },
-              ]}
-              numberOfLines={1}
-            >
-              ({t.assignedBike}: {formatBikePlateForDisplay(employee.motorcycle_number, lang)})
-            </Text>
-          ) : null}
-        </View>
-
-        <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-            <MaterialCommunityIcons name="key-variant" size={20} color={colors.primary} />
-          </View>
-          <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-            {employee.key_number || '—'}
-          </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.keyNumber}</Text>
-        </View>
-
-
-        {/* Row 2: Working Days & Expected Salary */}
-        <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.statIconCircle, { backgroundColor: colors.primaryLight }]}>
-            <MaterialCommunityIcons name="calendar-check" size={20} color={colors.primary} />
-          </View>
-          <Text style={[styles.statNumber, { color: colors.textPrimary }]}>
-            {currentMonthWorkingDays}
-          </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            {t.workingDays || 'أيام العمل'}
-          </Text>
-        </View>
-
-        <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.statIconCircle, { backgroundColor: isTargetAchieved ? 'rgba(34,197,94,0.12)' : colors.primaryLight }]}>
-            <Ionicons name="wallet-outline" size={20} color={isTargetAchieved ? '#22c55e' : colors.primary} />
-          </View>
-          <View style={[styles.salaryAmountRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={[styles.statNumber, { color: isTargetAchieved ? '#22c55e' : colors.textPrimary, marginBottom: 0 }]}>
-              {expectedSalary > 0 ? expectedSalary.toLocaleString('en-US') : '0'}
-            </Text>
-            <Image
-              source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-              style={[
-                styles.riyalSymbolImg,
-                { tintColor: isTargetAchieved ? '#22c55e' : colors.textPrimary },
-              ]}
-              resizeMode="contain"
-            />
-          </View>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{t.expectedSalary || 'متوقع الراتب'}</Text>
-        </View>
-      </View>
-
-      {/* Quick Navigation Cards */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-          {t.quickAccess}
+      {/* ── SUPERVISOR QUICK NAVIGATION MODULES ── */}
+      <View style={styles.modulesSection}>
+        <Text style={[styles.modulesSectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+          بوابات الإشراف الميداني
         </Text>
-      </View>
 
-      {/* 1. Shift Quick Access */}
-      <TouchableOpacity
-        style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-        onPress={() => {
-          if (!activeSession && onStartShiftClick) {
-            onStartShiftClick();
-          } else {
-            onNavigateToTab('shift');
-          }
-        }}
-      >
-        <View
-          style={[
-            styles.quickCardIconCircle,
-            {
-              backgroundColor: activeSession
-                ? isDarkMode
-                  ? 'rgba(239, 68, 68, 0.18)'
-                  : '#fee2e2'
-                : colors.primaryLight,
-            },
-          ]}
+        {/* 1. Dashboard & KPIs */}
+        <TouchableOpacity
+          style={[styles.moduleCard, { backgroundColor: colors.card, borderColor: colors.primary, borderWidth: 1.5, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          onPress={() => onNavigateToTab('dashboard')}
+          activeOpacity={0.8}
         >
-          <Ionicons
-            name={activeSession ? 'stop-circle-outline' : 'play-circle-outline'}
-            size={24}
-            color={activeSession ? '#ef4444' : colors.primary}
-          />
-        </View>
-        <View style={styles.quickCardTextCol}>
-          <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {activeSession ? t.endShiftNow : t.quickShiftTitle}
-          </Text>
-          <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {activeSession ? `${t.durationLabel}: ${elapsedTime}` : t.quickShiftSub}
-          </Text>
-        </View>
-        <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
-
-      {/* 2. History Quick Access */}
-      <TouchableOpacity
-        style={[styles.quickCardRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-        onPress={() => onNavigateToTab('history')}
-      >
-        <View style={[styles.quickCardIconCircle, { backgroundColor: colors.accentLight }]}>
-          <Ionicons name="receipt-outline" size={24} color={colors.accent} />
-        </View>
-        <View style={styles.quickCardTextCol}>
-          <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {t.quickHistoryTitle}
-          </Text>
-          <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {t.quickHistorySub}
-          </Text>
-        </View>
-        <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
-
-      {/* 3. Violations & Penalties Quick Access (المخالفات والجزاءات) */}
-      <TouchableOpacity
-        style={[
-          styles.quickCardRow,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            borderWidth: 1,
-            flexDirection: isRTL ? 'row-reverse' : 'row',
-          },
-        ]}
-        onPress={() => onNavigateToTab('violations')}
-      >
-        <View
-          style={[
-            styles.quickCardIconCircle,
-            {
-              backgroundColor: violations.length > 0
-                ? (isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2')
-                : (isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5'),
-            },
-          ]}
-        >
-          <MaterialCommunityIcons
-            name={violations.length > 0 ? 'shield-alert-outline' : 'shield-check-outline'}
-            size={24}
-            color={violations.length > 0 ? (isDarkMode ? '#F87171' : '#DC2626') : (isDarkMode ? '#34D399' : '#059669')}
-          />
-        </View>
-        <View style={styles.quickCardTextCol}>
-          <View style={[styles.quickCardTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={[styles.quickCardTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.quickViolationsTitle || 'المخالفات والجزاءات'}
+          <View style={[styles.moduleIconBox, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="stats-chart" size={24} color={colors.primary} />
+          </View>
+          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.moduleTitle, { color: colors.primary }]}>لوحة مؤشرات الفرع</Text>
+            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
+              إحصائيات الفرع الحية ونسبة تغطية الميدان
             </Text>
           </View>
-          <Text style={[styles.quickCardSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 2 }]}>
-            {violations.length > 0
-              ? (totalDuePending > 0
-                  ? (t.pendingDuesNotice
-                      ? t.pendingDuesNotice.replace('{amount}', totalDuePending.toLocaleString('en-US'))
-                      : `المتبقي عليك: ${totalDuePending.toLocaleString('en-US')} ر.س`)
-                  : (t.allDuesPaid || 'تم سداد كامل المستحقات (لا يوجد متبقي)'))
-              : (t.noViolationsSub || 'سجلك نظيف! لا توجد مخالفات أو جزاءات مسجلة')}
-          </Text>
-        </View>
-        <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.primary} />
+        </TouchableOpacity>
+
+        {/* 2. Field Management & Overrides */}
+        <TouchableOpacity
+          style={[styles.moduleCard, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          onPress={() => onNavigateToTab('field')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.moduleIconBox, { backgroundColor: '#10b98115' }]}>
+            <Ionicons name="people" size={24} color="#10b981" />
+          </View>
+          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>متابعة الميدان والورديات</Text>
+            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
+              المناديب النشطين، بدء وإنهاء الورديات استثنائياً
+            </Text>
+          </View>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+
+        {/* 3. Approvals Center */}
+        <TouchableOpacity
+          style={[styles.moduleCard, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          onPress={() => onNavigateToTab('approvals')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.moduleIconBox, { backgroundColor: '#f59e0b15' }]}>
+            <Ionicons name="shield-checkmark-outline" size={24} color="#f59e0b" />
+          </View>
+          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>مركز الموافقات والاعتمادات</Text>
+            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
+              طلبات الصيانة، السلف، واعتماد تقارير الشفتات
+            </Text>
+          </View>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+
+        {/* 4. Operations & Fleet */}
+        <TouchableOpacity
+          style={[styles.moduleCard, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          onPress={() => onNavigateToTab('operations')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.moduleIconBox, { backgroundColor: '#0284c715' }]}>
+            <Ionicons name="construct-outline" size={24} color="#0284c7" />
+          </View>
+          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>إدارة العمليات والأسطول</Text>
+            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
+              المركبات والدبابات، العهد ومستودع قطع الغيار
+            </Text>
+          </View>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* ── MODAL: EDIT & CONFIRM ORDERS ── */}
+      {editingSession && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setEditingSession(null)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalContentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.modalHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.modalHeaderTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="create" size={20} color={colors.primary} />
+                  <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>تعديل واعتماد الطلبات</Text>
+                </View>
+                <TouchableOpacity onPress={() => setEditingSession(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.modalDelegateName, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                المندوب: {editingSession.employee_name || editingSession.employee?.name || '—'}
+              </Text>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  عدد الطلبات الفعلي:
+                </Text>
+                <TextInput
+                  style={[styles.modalTextInput, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                  keyboardType="numeric"
+                  value={editOrdersCount}
+                  onChangeText={setEditOrdersCount}
+                  placeholder="0"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  ملاحظات المشرف:
+                </Text>
+                <TextInput
+                  style={[styles.modalTextInput, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border, color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                  value={editNotes}
+                  onChangeText={setEditNotes}
+                  placeholder="ملاحظات الاعتماد (اختياري)..."
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+
+              <View style={[styles.modalActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <TouchableOpacity
+                  style={[styles.modalSaveButton, { backgroundColor: '#10b981' }]}
+                  onPress={handleSaveEditedOrders}
+                  disabled={isSubmittingEdit}
+                >
+                  {isSubmittingEdit ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.modalSaveButtonText}>حفظ وتأكيد الوردية</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalCancelButton, { borderColor: colors.border }]}
+                  onPress={() => setEditingSession(null)}
+                  disabled={isSubmittingEdit}
+                >
+                  <Text style={[styles.modalCancelButtonText, { color: colors.textSecondary }]}>إلغاء</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  tabContainer: {
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
+    gap: 16,
+  },
+  welcomeCard: {
+    borderRadius: 16,
     padding: 16,
-  },
-  targetCardContainer: {
-    borderRadius: 20,
     borderWidth: 1,
-    padding: 18,
-    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
-  targetCardHeader: {
-    justifyContent: 'space-between',
+  welcomeRow: {
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 14,
   },
-  targetTitleGroup: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  targetCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  targetRatioText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  targetRatioBold: {
-    fontWeight: '800',
-  },
-  targetProgressContainer: {
-    marginBottom: 10,
-  },
-  progressBarTrack: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  targetFooterRow: {
-    justifyContent: 'space-between',
+  welcomeIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  targetFooterNotice: {
+  welcomeTextGroup: {
     flex: 1,
+    gap: 2,
+  },
+  welcomeGreeting: {
     fontSize: 12,
     fontWeight: '600',
   },
-  targetFooterPct: {
-    fontSize: 13,
+  welcomeTitle: {
+    fontSize: 18,
     fontWeight: '800',
-    marginLeft: 8,
   },
-  sectionHeader: {
-    marginBottom: 12,
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontSize: 16,
+  welcomeBranch: {
+    fontSize: 13,
     fontWeight: '700',
   },
-  statsGrid: {
+  kpiGrid: {
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 14,
+    justifyContent: 'space-between',
   },
-  statBox: {
-    width: '48%',
+  kpiCard: {
+    flex: 1,
+    minWidth: '22%',
     borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 92,
+    gap: 6,
   },
-  statIconCircle: {
+  kpiIconBox: {
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 5,
   },
-  statNumber: {
-    fontSize: 17,
+  kpiValue: {
+    fontSize: 18,
     fontWeight: '800',
-    marginBottom: 1,
   },
-  salaryAmountRow: {
-    alignItems: 'center',
-    gap: 3,
-    marginBottom: 1,
-  },
-  riyalSymbolImg: {
-    width: 14,
-    height: 14,
-  },
-  statLabel: {
-    fontSize: 11.5,
-    fontWeight: '500',
+  kpiLabel: {
+    fontSize: 11,
+    fontWeight: '600',
     textAlign: 'center',
   },
-  originalBikeNotice: {
-    fontSize: 10,
-    marginTop: 3,
-    textAlign: 'center',
-  },
-  quickCardRow: {
+  searchSectionCard: {
     borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    padding: 14,
-    alignItems: 'center',
     gap: 12,
-    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
-  quickCardIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
+  sectionHeaderRow: {
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  quickCardTextCol: {
-    flex: 1,
-  },
-  quickCardTitleRow: {
+  sectionTitleGroup: {
     alignItems: 'center',
     gap: 8,
-    marginBottom: 2,
   },
-  quickCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  violationCountBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 1,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  violationCountText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+  sectionTitle: {
+    fontSize: 16,
     fontWeight: '800',
   },
-  quickCardSub: {
-    fontSize: 12,
-  },
-  pendingBadgeRow: {
-    marginTop: 10,
-    paddingVertical: 5,
+  pendingCountBadge: {
     paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  pendingCountBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  searchHintText: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  searchInputContainer: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    height: '100%',
+  },
+  sessionsListContainer: {
+    gap: 12,
+    marginTop: 4,
+  },
+  sessionCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  sessionCardHeader: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  delegateMetaGroup: {
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  avatarMini: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  delegateName: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  sessionSubMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  statusPendingPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 8,
     borderWidth: 1,
+  },
+  statusPendingPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#b45309',
+  },
+  metricsRow: {
+    gap: 8,
+  },
+  metricBox: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    gap: 2,
+  },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  metricNumber: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  actionsRow: {
+    gap: 8,
+    marginTop: 2,
+  },
+  confirmButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  btnInnerRow: {
     alignItems: 'center',
     gap: 6,
   },
-  pendingOrdersText: {
-    fontSize: 11.5,
+  confirmButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  editButton: {
+    width: 76,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  editButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  emptyStateBox: {
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyStateTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  emptyStateSub: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
+  },
+  modulesSection: {
+    gap: 10,
+  },
+  modulesSectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  moduleCard: {
+    borderRadius: 14,
+    padding: 14,
+    alignItems: 'center',
+    gap: 12,
+  },
+  moduleIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moduleTextBox: {
+    flex: 1,
+    gap: 2,
+  },
+  moduleTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  moduleSub: {
+    fontSize: 12,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContentCard: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 18,
+    gap: 14,
+  },
+  modalHeaderRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalHeaderTitleGroup: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  modalDelegateName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modalTextInput: {
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    fontSize: 15,
     fontWeight: '600',
+  },
+  modalActionsRow: {
+    gap: 10,
+    marginTop: 6,
+  },
+  modalSaveButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalSaveButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  modalCancelButton: {
+    paddingHorizontal: 16,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

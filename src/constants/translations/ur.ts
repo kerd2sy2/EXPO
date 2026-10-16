@@ -1,8 +1,8 @@
 import { TranslationKeys } from './ar';
 
 export const ur: Record<TranslationKeys, string> = {
-  appName: 'AAMS Logistics',
-  appSubtitle: 'فیلڈ ڈیلیوری پورٹل',
+  appName: 'ابرار | نگرانی',
+  appSubtitle: 'فیلڈ سپروائزر پورٹل',
   loginTitle: 'لاگ ان کریں',
   loginSubtitle: 'اپنی شفٹ شروع کرنے کے لیے قومی شناختی کارڈ نمبر درج کریں',
   nationalIdLabel: 'قومی شناختی کارڈ / اقامہ نمبر',

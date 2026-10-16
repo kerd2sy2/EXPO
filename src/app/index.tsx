@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   StatusBar,
   ScrollView,
@@ -63,6 +63,21 @@ import { HistoryScreen, getCurrentMonthInfo } from '../screens/HistoryScreen';
 import { ViolationsScreen } from '../screens/ViolationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { OilChangeScreen } from '../screens/OilChangeScreen';
+import { DashboardScreen } from '../screens/DashboardScreen';
+import { FieldScreen } from '../screens/FieldScreen';
+import { ApprovalsScreen } from '../screens/ApprovalsScreen';
+import { OperationsScreen } from '../screens/OperationsScreen';
+import {
+  supervisorApi,
+  BranchStats,
+  DelegateWithStatus,
+  PendingMaintenanceRequest,
+} from '../services/supervisor';
+import {
+  operationsApi,
+  InventoryItem,
+  VehicleItem,
+} from '../services/operations';
 import { getMyViolationsApi, DelegateViolation } from '../services/api';
 
 // Modals
@@ -138,6 +153,71 @@ export default function DelegateApp() {
   const [historySessions, setHistorySessions] = useState<WorkSession[]>([]);
   const [selectedHistorySession, setSelectedHistorySession] = useState<WorkSession | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
+
+  // Supervisor Branch States
+  const [branchDelegates, setBranchDelegates] = useState<DelegateWithStatus[]>([]);
+  const [workingDelegates, setWorkingDelegates] = useState<DelegateWithStatus[]>([]);
+  const [pendingMaintenance, setPendingMaintenance] = useState<PendingMaintenanceRequest[]>([]);
+  const [pendingSessions, setPendingSessions] = useState<WorkSession[]>([]);
+  const [loadingSupervisorData, setLoadingSupervisorData] = useState(false);
+
+  // Operations & Fleet States
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [vehicles, setVehicles] = useState<VehicleItem[]>([]);
+  const [loadingOperationsData, setLoadingOperationsData] = useState(false);
+
+  const fetchOperationsData = useCallback(async () => {
+    try {
+      setLoadingOperationsData(true);
+      const [items, vehs] = await Promise.all([
+        operationsApi.getInventoryItems(),
+        operationsApi.getVehicles(),
+      ]);
+      setInventoryItems(items);
+      setVehicles(vehs);
+    } catch (e) {
+      console.warn('[Eshraf] Error fetching operations data:', e);
+    } finally {
+      setLoadingOperationsData(false);
+    }
+  }, []);
+
+  const fetchSupervisorData = useCallback(async () => {
+    try {
+      setLoadingSupervisorData(true);
+      const [allDel, workDel, maint, pending] = await Promise.all([
+        supervisorApi.getAllBranchDelegates(),
+        supervisorApi.getWorkingDelegates(),
+        supervisorApi.getPendingMaintenance(),
+        supervisorApi.getPendingSessions(),
+      ]);
+      setBranchDelegates(allDel);
+      setWorkingDelegates(workDel);
+      setPendingMaintenance(maint);
+      setPendingSessions(pending);
+    } catch (e) {
+      console.warn('[Eshraf] Error fetching supervisor data:', e);
+    } finally {
+      setLoadingSupervisorData(false);
+    }
+  }, []);
+
+  const handleConfirmOrders = useCallback(async (session: WorkSession, ordersCount?: number, notes?: string) => {
+    try {
+      await supervisorApi.reviewSession({
+        sessionId: session.id,
+        isReviewed: true,
+        ordersCount: ordersCount !== undefined ? ordersCount : session.orders_count,
+        fuelCost: session.fuel_cost,
+        reviewNotes: notes || 'معتمد بواسطة المشرف',
+      });
+      setPendingSessions((prev) => prev.filter((s) => s.id !== session.id));
+      Alert.alert('تم بنجاح', `تم تأكيد وردية وطلبات (${session.employee_name || session.employee?.name || 'المندوب'}) بنجاح.`);
+      fetchSupervisorData();
+    } catch (err: any) {
+      Alert.alert('خطأ', err?.message || 'فشل تأكيد الوردية، يرجى المحاولة مجدداً.');
+    }
+  }, [fetchSupervisorData]);
 
   // Modular Hook: Shift Workflow & Inputs
   const {
@@ -616,13 +696,6 @@ export default function DelegateApp() {
           return;
         }
 
-        if ((user as any).is_admin || (user as any).role === 'ADMIN' || (user as any).role === 'SUPERVISOR' || (user as any).role === 'SUPER_ADMIN') {
-          await setAuthToken(null);
-          await saveCachedUser(null);
-          setEmployee(null);
-          return;
-        }
-
         if (user.id) {
           const merged: EmployeeProfile = {
             ...(cached || {}),
@@ -717,6 +790,8 @@ export default function DelegateApp() {
           fetchActiveSession(employee.id),
           fetchHistory(employee.id),
           fetchViolations(employee.id),
+          fetchSupervisorData(),
+          fetchOperationsData(),
         ]);
       } else {
         await checkSession();
@@ -727,6 +802,18 @@ export default function DelegateApp() {
       setRefreshing(false);
     }
   };
+
+  // Auto-fetch supervisor branch data when entering supervisor tabs
+  useEffect(() => {
+    if (employee?.id) {
+      if (currentTab === 'dashboard' || currentTab === 'field' || currentTab === 'approvals' || currentTab === 'home') {
+        fetchSupervisorData();
+      }
+      if (currentTab === 'operations') {
+        fetchOperationsData();
+      }
+    }
+  }, [currentTab, employee?.id, fetchSupervisorData, fetchOperationsData]);
 
   // Auto-fetch fresh profile data when user opens Profile tab without requiring manual pull-to-refresh
   useEffect(() => {
@@ -819,56 +906,75 @@ export default function DelegateApp() {
     try {
       const res = await workApi.login(inputVal, password);
 
-      const isActualAdmin =
-        Boolean(res && res.admin && (res.admin.role === 'ADMIN' || res.admin.role === 'SUPER_ADMIN' || res.admin.role === 'SUPERVISOR'));
+      const userRole = res?.admin?.role || (res?.employee as any)?.job_role || (res?.employee as any)?.role || '';
+      const hasEshrafAccess =
+        res?.app_permissions?.eshraf === true ||
+        res?.admin?.app_permissions?.eshraf === true ||
+        userRole === 'SUPERVISOR' ||
+        userRole === 'SUPER_ADMIN' ||
+        userRole === 'ADMIN' ||
+        (res?.admin?.permissions && (res.admin.permissions.includes('*') || res.admin.permissions.includes('apps.eshraf')));
 
-      if (isActualAdmin) {
-        setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للمناديب فقط. يرجى استخدام تطبيق الإدارة والمشرفين.' : 'This app is for delegates only. Please use the Admin & Supervisor app.');
+      if (!hasEshrafAccess) {
+        setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للمشرفين والإدارة فقط.' : 'This app is for supervisors and admins only.');
         await setAuthToken(null);
         await saveCachedUser(null);
         setEmployee(null);
         return;
-      } else if (res && (res.employee || res.is_employee || (res as any).id)) {
-        const emp = (res.employee || res) as EmployeeProfile;
-        setEmployee(emp);
-        await saveCachedUser(emp);
-        if (res.access_token) {
-          await setAuthToken(res.access_token, res.refresh_token);
-          const bioOn = await isBiometricEnabled();
-          if (bioOn && emp.national_id) {
-            await saveLastCredentialsForBiometrics(emp.national_id, res.access_token, emp, res.refresh_token);
-          }
-        }
-        setCurrentTab('home');
-
-        // Non-blocking background sync of profile, session, and history
-        workApi
-          .getMe()
-          .then(async (fresh) => {
-            if (fresh && fresh.id) {
-              setEmployee((prev) => ({
-                ...(prev || {}),
-                ...fresh,
-                personal_image: fresh.personal_image || prev?.personal_image || '',
-                motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
-                key_number: fresh.key_number || prev?.key_number || '',
-                national_id: fresh.national_id || prev?.national_id || '',
-                phone: fresh.phone || prev?.phone || '',
-                branch_name: fresh.branch_name || prev?.branch_name || '',
-              } as EmployeeProfile));
-              const bioOn = await isBiometricEnabled();
-              if (bioOn && res.access_token && fresh.national_id) {
-                saveLastCredentialsForBiometrics(fresh.national_id, res.access_token, fresh, res.refresh_token);
-              }
-            }
-          })
-          .catch((e) => console.log('Notice refreshing profile on Login:', e));
-
-        fetchActiveSession(emp.id).catch(() => {});
-        fetchHistory(emp.id).catch(() => {});
-      } else {
-        setLoginError(t.passwordHint || 'بيانات الدخول غير صحيحة');
       }
+
+      const emp = (res.admin
+        ? {
+            id: res.admin.id,
+            name: res.admin.name,
+            role: res.admin.role,
+            job_role: res.admin.role,
+            phone: res.admin.phone,
+            branch_id: res.admin.branch_id,
+            branch_name: res.admin.branch_name,
+            permissions: res.admin.permissions || [],
+            app_permissions: res.admin.app_permissions,
+            is_admin: true,
+          }
+        : (res.employee || res)) as EmployeeProfile;
+
+      setEmployee(emp);
+      await saveCachedUser(emp);
+      if (res.access_token) {
+        await setAuthToken(res.access_token, res.refresh_token);
+        const bioOn = await isBiometricEnabled();
+        if (bioOn) {
+          await saveLastCredentialsForBiometrics(emp.national_id || emp.phone || inputVal, res.access_token, emp, res.refresh_token);
+        }
+      }
+      setCurrentTab('home');
+
+      // Non-blocking background sync of profile, session, and history
+      workApi
+        .getMe()
+        .then(async (fresh) => {
+          if (fresh && fresh.id) {
+            setEmployee((prev) => ({
+              ...(prev || {}),
+              ...fresh,
+              personal_image: fresh.personal_image || prev?.personal_image || '',
+              motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
+              key_number: fresh.key_number || prev?.key_number || '',
+              national_id: fresh.national_id || prev?.national_id || '',
+              phone: fresh.phone || prev?.phone || '',
+              branch_name: fresh.branch_name || prev?.branch_name || '',
+            } as EmployeeProfile));
+            const bioOn = await isBiometricEnabled();
+            if (bioOn && res.access_token && (fresh.national_id || fresh.phone)) {
+              saveLastCredentialsForBiometrics(fresh.national_id || fresh.phone || inputVal, res.access_token, fresh, res.refresh_token);
+            }
+          }
+        })
+        .catch((e) => console.log('Notice refreshing profile on Login:', e));
+
+      fetchActiveSession(emp.id).catch(() => {});
+      fetchHistory(emp.id).catch(() => {});
+      fetchSupervisorData();
     } catch (err: any) {
       console.error('Login error:', err);
       setLoginError(err?.message || 'تعذر تسجيل الدخول، تأكد من صحة البيانات');
@@ -884,18 +990,38 @@ export default function DelegateApp() {
       await setAuthToken(token, loginResp?.refresh_token || token);
     }
 
-    const isActualAdmin =
-      Boolean(loginResp && loginResp.admin && (loginResp.admin.role === 'ADMIN' || loginResp.admin.role === 'SUPER_ADMIN' || loginResp.admin.role === 'SUPERVISOR'));
+    const userRole = loginResp?.admin?.role || (loginResp?.employee as any)?.job_role || (loginResp?.employee as any)?.role || '';
+    const hasEshrafAccess =
+      loginResp?.app_permissions?.eshraf === true ||
+      loginResp?.admin?.app_permissions?.eshraf === true ||
+      userRole === 'SUPERVISOR' ||
+      userRole === 'SUPER_ADMIN' ||
+      userRole === 'ADMIN' ||
+      (loginResp?.admin?.permissions && (loginResp.admin.permissions.includes('*') || loginResp.admin.permissions.includes('apps.eshraf')));
 
-    if (isActualAdmin) {
-      setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للمناديب فقط. يرجى استخدام تطبيق الإدارة والمشرفين.' : 'This app is for delegates only. Please use the Admin & Supervisor app.');
+    if (!hasEshrafAccess) {
+      setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للمشرفين والإدارة فقط.' : 'This app is for supervisors and admins only.');
       await setAuthToken(null);
       await saveCachedUser(null);
       setEmployee(null);
       return;
     }
 
-    let emp = loginResp?.employee || (loginResp?.id ? loginResp : null);
+    let emp = loginResp?.admin
+      ? ({
+          id: loginResp.admin.id,
+          name: loginResp.admin.name,
+          role: loginResp.admin.role,
+          job_role: loginResp.admin.role,
+          phone: loginResp.admin.phone,
+          branch_id: loginResp.admin.branch_id,
+          branch_name: loginResp.admin.branch_name,
+          permissions: loginResp.admin.permissions || [],
+          app_permissions: loginResp.admin.app_permissions,
+          is_admin: true,
+        } as EmployeeProfile)
+      : (loginResp?.employee || (loginResp?.id ? loginResp : null));
+
     if (!emp) {
       try {
         const fresh = await workApi.getMe();
@@ -929,8 +1055,8 @@ export default function DelegateApp() {
             } as EmployeeProfile));
             const bioOn = await isBiometricEnabled();
             const curTok = loginResp?.access_token || getStoredToken();
-            if (bioOn && curTok && fresh.national_id) {
-              saveLastCredentialsForBiometrics(fresh.national_id, curTok, fresh, loginResp?.refresh_token);
+            if (bioOn && curTok && (fresh.national_id || fresh.phone)) {
+              saveLastCredentialsForBiometrics(fresh.national_id || fresh.phone || '', curTok, fresh, loginResp?.refresh_token);
             }
           }
         })
@@ -938,6 +1064,7 @@ export default function DelegateApp() {
 
       fetchActiveSession(emp.id).catch(() => {});
       fetchHistory(emp.id).catch(() => {});
+      fetchSupervisorData();
     } else {
       await checkSession();
       setCurrentTab('home');
@@ -1514,6 +1641,23 @@ export default function DelegateApp() {
   const expectedSalary = totalApprovedOrdersCount * currentRatePerOrder;
   const targetProgressPct = Math.min(100, Math.round((totalApprovedOrdersCount / monthlyTarget) * 100));
   const remainingOrdersToTarget = Math.max(0, monthlyTarget - totalApprovedOrdersCount);
+
+  // Supervisor Live Branch Stats
+  const branchStats: BranchStats = useMemo(() => {
+    const total = branchDelegates.length;
+    const working = workingDelegates.length;
+    const notStarted = Math.max(0, total - working);
+    const pendingShifts = historySessions.filter(
+      (s) => s.status === 'COMPLETED' && !s.is_reviewed
+    ).length;
+    return {
+      workingCount: working,
+      totalCount: total,
+      notStartedCount: notStarted,
+      pendingApprovalsCount: pendingShifts,
+      todayOrdersCount: totalApprovedOrdersCount,
+    };
+  }, [branchDelegates, workingDelegates, historySessions, totalApprovedOrdersCount]);
   const calculatedDistance =
     endKm && activeSession?.start_km && Number(endKm) >= Number(activeSession.start_km)
       ? Number(endKm) - Number(activeSession.start_km)
@@ -1622,7 +1766,15 @@ export default function DelegateApp() {
 
             <View style={[styles.subPageTitleContainer, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
               <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {currentTab === 'shift'
+                {currentTab === 'dashboard'
+                  ? 'لوحة مؤشرات الفرع'
+                  : currentTab === 'field'
+                  ? 'متابعة الميدان والورديات'
+                  : currentTab === 'approvals'
+                  ? 'مركز الموافقات والاعتمادات'
+                  : currentTab === 'operations'
+                  ? 'إدارة العمليات والأسطول'
+                  : currentTab === 'shift'
                   ? (activeSession ? t.endShiftTitle : t.startShiftTitle)
                   : currentTab === 'history'
                   ? (selectedHistoryMonthLabel
@@ -1704,26 +1856,18 @@ export default function DelegateApp() {
               <ModuleErrorBoundary moduleName="الرئيسية" colors={colors} onReset={onRefresh}>
                 <HomeScreen
                   employee={employee}
-                  activeSession={activeSession}
-                  historySessions={historySessions}
-                  totalApprovedOrdersCount={totalApprovedOrdersCount}
-                  pendingOrdersCount={totalPendingOrdersCount}
-                  monthlyTarget={monthlyTarget}
-                  isTargetAchieved={isTargetAchieved}
-                  expectedSalary={expectedSalary}
-                  targetProgressPct={targetProgressPct}
-                  remainingOrdersToTarget={remainingOrdersToTarget}
-                  elapsedTime={elapsedTime}
+                  pendingSessions={pendingSessions}
+                  workingDelegatesCount={workingDelegates.length}
+                  totalDelegatesCount={branchDelegates.length}
+                  todayOrdersCount={totalApprovedOrdersCount}
                   colors={colors}
                   isDarkMode={isDarkMode}
                   isRTL={isRTL}
                   t={t}
                   lang={lang}
-                  violations={violations}
-                  totalViolationsAmount={totalViolationsAmount}
-                  deductedViolationsAmount={deductedViolationsAmount}
                   onNavigateToTab={handleNavigateToTab}
-                  onStartShiftClick={handleStartShiftClick}
+                  onConfirmOrders={handleConfirmOrders}
+                  onRefresh={fetchSupervisorData}
                 />
               </ModuleErrorBoundary>
             )}
@@ -1854,6 +1998,74 @@ export default function DelegateApp() {
                   onRecheck={handleRecheckOil}
                   onScanAnother={() => setShowPlateScannerModal(true)}
                   onBackToHome={() => setCurrentTab('home')}
+                />
+              </ModuleErrorBoundary>
+            )}
+
+            {currentTab === 'dashboard' && (
+              <ModuleErrorBoundary moduleName="لوحة التحكم" colors={colors} onReset={fetchSupervisorData}>
+                <DashboardScreen
+                  adminName={employee?.name || 'المشرف'}
+                  branchName={employee?.branch_name || 'فرع الإشراف'}
+                  stats={branchStats}
+                  workingDelegates={workingDelegates}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  isRTL={isRTL}
+                  onNavigateToTab={(tab) => setCurrentTab(tab)}
+                  onOpenOverrideModal={() => setCurrentTab('field')}
+                  onRefresh={fetchSupervisorData}
+                  refreshing={loadingSupervisorData}
+                />
+              </ModuleErrorBoundary>
+            )}
+
+            {currentTab === 'field' && (
+              <ModuleErrorBoundary moduleName="إدارة الميدان" colors={colors} onReset={fetchSupervisorData}>
+                <FieldScreen
+                  delegates={branchDelegates.map((d) => ({
+                    ...d,
+                    is_working: workingDelegates.some((w) => w.id === d.id),
+                  }))}
+                  loading={loadingSupervisorData}
+                  onRefresh={fetchSupervisorData}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  isRTL={isRTL}
+                  onOverrideSuccess={fetchSupervisorData}
+                />
+              </ModuleErrorBoundary>
+            )}
+
+            {currentTab === 'approvals' && (
+              <ModuleErrorBoundary moduleName="مركز الموافقات" colors={colors} onReset={fetchSupervisorData}>
+                <ApprovalsScreen
+                  pendingSessions={pendingSessions}
+                  pendingAdvances={[]}
+                  pendingMaintenance={pendingMaintenance}
+                  loading={loadingSupervisorData}
+                  onRefresh={() => {
+                    fetchSupervisorData();
+                    if (employee?.id) fetchHistory(employee.id);
+                  }}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  isRTL={isRTL}
+                  onPreviewPhoto={setPreviewPhoto}
+                />
+              </ModuleErrorBoundary>
+            )}
+
+            {currentTab === 'operations' && (
+              <ModuleErrorBoundary moduleName="العمليات والأسطول" colors={colors} onReset={fetchOperationsData}>
+                <OperationsScreen
+                  inventoryItems={inventoryItems}
+                  vehicles={vehicles}
+                  loading={loadingOperationsData}
+                  onRefresh={fetchOperationsData}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  isRTL={isRTL}
                 />
               </ModuleErrorBoundary>
             )}
