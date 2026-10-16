@@ -66,10 +66,10 @@ export const AhdaCustodyLogsModal: React.FC<AhdaCustodyLogsModalProps> = ({
                     </TouchableOpacity>
                     <View style={{ alignItems: 'flex-start' }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Text style={[styles.logAmount, { color: '#ea580c' }]}>+{log.amount.toLocaleString()}</Text>
+                        <Text style={[styles.logAmount, { color: '#047857' }]}>+{log.amount.toLocaleString()}</Text>
                         <Image
                           source={require('../../../assets/Saudi_Riyal_Symbol.svg.webp')}
-                          style={{ width: 12, height: 12, tintColor: '#ea580c' }}
+                          style={{ width: 12, height: 12, tintColor: '#047857' }}
                           resizeMode="contain"
                         />
                       </View>

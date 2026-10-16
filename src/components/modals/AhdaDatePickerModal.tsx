@@ -157,11 +157,11 @@ export const AhdaDatePickerModal: React.FC<AhdaDatePickerModalProps> = ({
                           style={[
                             styles.calendarDayBtn,
                             { borderColor: colors.border },
-                            isSelected && { backgroundColor: '#ea580c', borderColor: '#ea580c' },
+                            isSelected && { backgroundColor: '#047857', borderColor: '#047857' },
                             !isSelected && isToday && {
-                              borderColor: '#ea580c',
+                              borderColor: '#047857',
                               borderWidth: 1.5,
-                              backgroundColor: isDarkMode ? '#2d1f18' : '#fff7ed',
+                              backgroundColor: isDarkMode ? '#2d1f18' : '#ecfdf5',
                             },
                             !isSelected && !isToday && { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc' },
                           ]}
@@ -172,7 +172,7 @@ export const AhdaDatePickerModal: React.FC<AhdaDatePickerModalProps> = ({
                             style={[
                               styles.calendarDayNum,
                               { color: isSelected ? '#ffffff' : colors.textPrimary },
-                              isToday && !isSelected && { color: '#ea580c', fontWeight: '800' },
+                              isToday && !isSelected && { color: '#047857', fontWeight: '800' },
                             ]}
                           >
                             {toArabicDigits(d)}
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   todayQuickBtn: {
-    backgroundColor: '#ea580c',
+    backgroundColor: '#047857',
     paddingVertical: 12,
     borderRadius: 14,
     alignItems: 'center',

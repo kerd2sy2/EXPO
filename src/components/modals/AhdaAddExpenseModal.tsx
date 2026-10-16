@@ -127,11 +127,11 @@ export const AhdaAddExpenseModal: React.FC<AhdaAddExpenseModalProps> = ({
               ) : (
                 <View style={styles.imagePickRow}>
                   <TouchableOpacity
-                    style={[styles.pickBtn, { backgroundColor: isDarkMode ? '#334155' : '#fff7ed', borderColor: '#fed7aa' }]}
+                    style={[styles.pickBtn, { backgroundColor: isDarkMode ? '#334155' : '#ecfdf5', borderColor: '#fed7aa' }]}
                     onPress={() => onPickImage(true)}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="camera-outline" size={20} color="#ea580c" />
+                    <Ionicons name="camera-outline" size={20} color="#047857" />
                     <Text style={styles.pickBtnText}>تصوير بالكاميرا</Text>
                   </TouchableOpacity>
 
@@ -153,7 +153,7 @@ export const AhdaAddExpenseModal: React.FC<AhdaAddExpenseModalProps> = ({
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: '#ea580c' }]}
+                  style={[styles.saveBtn, { backgroundColor: '#047857' }]}
                   disabled={loading}
                   onPress={onSave}
                 >
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   pickBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#ea580c',
+    color: '#047857',
   },
   previewContainer: {
     position: 'relative',

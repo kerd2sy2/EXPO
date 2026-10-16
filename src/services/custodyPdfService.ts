@@ -382,7 +382,7 @@ export const exportCustodyDayToPdf = async (
     y: PAGE_HEIGHT - 16,
     width: 110,
     height: 3.5,
-    color: rgb(0.92, 0.35, 0.05), // Orange #ea580c
+    color: rgb(0.92, 0.35, 0.05), // Orange #047857
   });
 
   page1.drawRectangle({

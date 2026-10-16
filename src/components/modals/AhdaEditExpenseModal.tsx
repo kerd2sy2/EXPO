@@ -95,7 +95,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                     styles.dropdownBar,
                     {
                       backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderColor: dropdownOpen ? '#ea580c' : colors.border,
+                      borderColor: dropdownOpen ? '#047857' : colors.border,
                     },
                   ]}
                   onPress={() => setDropdownOpen(!dropdownOpen)}
@@ -135,7 +135,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                           style={[
                             styles.dropdownItem,
                             isSelected && {
-                              backgroundColor: isDarkMode ? '#334155' : '#fff7ed',
+                              backgroundColor: isDarkMode ? '#334155' : '#ecfdf5',
                             },
                           ]}
                           onPress={() => {
@@ -152,7 +152,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                               style={[
                                 styles.dropdownItemText,
                                 {
-                                  color: isSelected ? '#ea580c' : colors.textPrimary,
+                                  color: isSelected ? '#047857' : colors.textPrimary,
                                   fontWeight: isSelected ? '800' : '600',
                                 },
                               ]}
@@ -161,7 +161,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                             </Text>
                           </View>
                           {isSelected && (
-                            <Ionicons name="checkmark-circle" size={18} color="#ea580c" />
+                            <Ionicons name="checkmark-circle" size={18} color="#047857" />
                           )}
                         </TouchableOpacity>
                       );
@@ -213,11 +213,11 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                 ) : (
                   <View style={styles.imagePickRow}>
                     <TouchableOpacity
-                      style={[styles.pickBtn, { backgroundColor: isDarkMode ? '#334155' : '#fff7ed', borderColor: '#fed7aa' }]}
+                      style={[styles.pickBtn, { backgroundColor: isDarkMode ? '#334155' : '#ecfdf5', borderColor: '#fed7aa' }]}
                       onPress={() => onPickImage(true)}
                       activeOpacity={0.8}
                     >
-                      <Ionicons name="camera-outline" size={20} color="#ea580c" />
+                      <Ionicons name="camera-outline" size={20} color="#047857" />
                       <Text style={styles.pickBtnText}>تصوير بالكاميرا</Text>
                     </TouchableOpacity>
 
@@ -247,7 +247,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
 
                 {/* Edit / Save Button (Primary) */}
                 <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: '#ea580c' }]}
+                  style={[styles.saveBtn, { backgroundColor: '#047857' }]}
                   disabled={loading}
                   onPress={onSave}
                   activeOpacity={0.8}

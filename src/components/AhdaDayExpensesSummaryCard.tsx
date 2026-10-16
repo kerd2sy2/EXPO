@@ -46,7 +46,7 @@ export const AhdaDayExpensesSummaryCard: React.FC<AhdaDayExpensesSummaryCardProp
 
 const styles = StyleSheet.create({
   simpleInvoicesOrangeCard: {
-    backgroundColor: '#ea580c',
+    backgroundColor: '#047857',
     borderRadius: 16,
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 16,
-    shadowColor: '#ea580c',
+    shadowColor: '#047857',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

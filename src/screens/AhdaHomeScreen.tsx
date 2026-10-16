@@ -76,7 +76,7 @@ interface AhdaHomeScreenProps {
 // Categories ordered according to user priority:
 // بنزين -> سلفة نت -> سلفة شخصية -> رخصة قيادة -> قطع غيار -> مصاريف أخرى
 const CATEGORIES = [
-  { key: 'fuel', label: 'بنزين', icon: 'speedometer-outline', color: '#ea580c', bg: '#fff7ed' },
+  { key: 'fuel', label: 'بنزين', icon: 'speedometer-outline', color: '#047857', bg: '#ecfdf5' },
   { key: 'internet_advance', label: 'سلفة نت', icon: 'wifi-outline', color: '#0284c7', bg: '#f0f9ff' },
   { key: 'advance', label: 'سلفة شخصية', icon: 'person-add-outline', color: '#7c3aed', bg: '#f5f3ff' },
   { key: 'license', label: 'رخصة القيادة', icon: 'card-outline', color: '#2563eb', bg: '#eff6ff' },
@@ -939,7 +939,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ea580c']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#047857']} />}
       >
         {loading ? (
           <>
@@ -1214,7 +1214,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   todayTag: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#ecfdf5',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -1224,7 +1224,7 @@ const styles = StyleSheet.create({
   todayTagText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#ea580c',
+    color: '#047857',
   },
   centerLoading: {
     paddingVertical: 60,

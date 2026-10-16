@@ -75,7 +75,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
           <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary }]}>
             {pageTitle}
           </Text>
-          <View style={[styles.titleUnderlineBar, { backgroundColor: matchedCategory ? matchedCategory.color : '#ea580c' }]} />
+          <View style={[styles.titleUnderlineBar, { backgroundColor: matchedCategory ? matchedCategory.color : '#047857' }]} />
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -157,7 +157,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                   {/* Middle: Recipient & Note */}
                   <View style={styles.invoiceCardMiddle}>
                     <View style={styles.invoiceRecipientRow}>
-                      <Ionicons name="person-outline" size={13} color="#ea580c" />
+                      <Ionicons name="person-outline" size={13} color="#047857" />
                       <Text style={[styles.invoiceRecipientText, { color: colors.textPrimary }]} numberOfLines={2}>
                         المستلم / البيان: {item.recipient_name || '—'}
                       </Text>
@@ -172,15 +172,15 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                       </Text>
                       <Image
                         source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-                        style={{ width: 13, height: 13, tintColor: '#ea580c', marginLeft: 4 }}
+                        style={{ width: 13, height: 13, tintColor: '#047857', marginLeft: 4 }}
                         resizeMode="contain"
                       />
                     </View>
 
                     {fullImg ? (
                       <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-                        <Ionicons name="image" size={13} color="#ea580c" />
-                        <Text style={{ fontSize: 11, color: '#ea580c', fontWeight: '700' }}>مرفق فاتورة</Text>
+                        <Ionicons name="image" size={13} color="#047857" />
+                        <Text style={{ fontSize: 11, color: '#047857', fontWeight: '700' }}>مرفق فاتورة</Text>
                       </View>
                     ) : (
                       <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
@@ -252,7 +252,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                   </View>
 
                   {/* Main Amount Card */}
-                  <View style={[styles.detailsAmountCard, { backgroundColor: isDarkMode ? '#1e293b' : '#fff7ed', borderColor: '#fed7aa' }]}>
+                  <View style={[styles.detailsAmountCard, { backgroundColor: isDarkMode ? '#1e293b' : '#ecfdf5', borderColor: '#fed7aa' }]}>
                     <Text style={styles.detailsAmountLabel}>المبلغ المسجل للفاتورة</Text>
                     <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginTop: 4 }}>
                       <Text style={styles.detailsAmountValue}>
@@ -260,7 +260,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                       </Text>
                       <Image
                         source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-                        style={{ width: 20, height: 20, tintColor: '#ea580c' }}
+                        style={{ width: 20, height: 20, tintColor: '#047857' }}
                         resizeMode="contain"
                       />
                     </View>
@@ -307,7 +307,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
 
                   {/* Long press Hint */}
                   <View style={styles.detailsHintBox}>
-                    <Ionicons name="information-circle-outline" size={15} color="#ea580c" />
+                    <Ionicons name="information-circle-outline" size={15} color="#047857" />
                     <Text style={styles.detailsHintText}>
                       للتعديل أو الحذف، اضغط مطولاً على كرت الفاتورة من القائمة
                     </Text>
@@ -358,7 +358,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                 }}
               >
                 <View style={styles.sheetOptionIconBox}>
-                  <Feather name="edit-2" size={18} color="#ea580c" />
+                  <Feather name="edit-2" size={18} color="#047857" />
                 </View>
                 <Text style={[styles.sheetOptionText, { color: colors.textPrimary }]}>
                   تعديل بيانات ومبلغ الفاتورة
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1.5,
-    borderColor: '#ea580c',
+    borderColor: '#047857',
     backgroundColor: '#f1f5f9',
   },
   cardHeaderThumbImg: {
@@ -624,12 +624,12 @@ const styles = StyleSheet.create({
   amountPillVal: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#ea580c',
+    color: '#047857',
   },
   amountPillUnit: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#ea580c',
+    color: '#047857',
   },
   emptyContainer: {
     paddingVertical: 40,
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyAddBtn: {
-    backgroundColor: '#ea580c',
+    backgroundColor: '#047857',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#ecfdf5',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -764,12 +764,12 @@ const styles = StyleSheet.create({
   detailsAmountLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#ea580c',
+    color: '#047857',
   },
   detailsAmountValue: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#ea580c',
+    color: '#047857',
   },
   detailsInfoRow: {
     width: '100%',
@@ -852,6 +852,6 @@ const styles = StyleSheet.create({
   detailsHintText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#ea580c',
+    color: '#047857',
   },
 });

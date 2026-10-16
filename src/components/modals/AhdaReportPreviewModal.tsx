@@ -33,7 +33,7 @@ interface AhdaReportPreviewModalProps {
 }
 
 const CATEGORIES = [
-  { key: 'fuel', label: 'بنزين', icon: 'speedometer-outline', color: '#ea580c', bg: '#fff7ed' },
+  { key: 'fuel', label: 'بنزين', icon: 'speedometer-outline', color: '#047857', bg: '#ecfdf5' },
   { key: 'internet_advance', label: 'سلفة نت', icon: 'wifi-outline', color: '#0284c7', bg: '#f0f9ff' },
   { key: 'advance', label: 'سلفة شخصية', icon: 'person-add-outline', color: '#7c3aed', bg: '#f5f3ff' },
   { key: 'license', label: 'رخصة القيادة', icon: 'card-outline', color: '#2563eb', bg: '#eff6ff' },
@@ -153,7 +153,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
           >
             {/* Top Two-tone Accent Stripe (Orange on Left, Dark on Right) */}
             <View style={{ flexDirection: 'row', height: 4, width: '100%' }}>
-              <View style={{ width: 110, backgroundColor: '#ea580c' }} />
+              <View style={{ width: 110, backgroundColor: '#047857' }} />
               <View style={{ flex: 1, backgroundColor: isDarkMode ? '#334155' : '#1e293b' }} />
             </View>
 
@@ -190,16 +190,16 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
               >
                 {/* 1. Supervisor */}
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
-                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="person-outline" size={12} color="#ea580c" />
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#fed7aa', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="person-outline" size={12} color="#047857" />
                   </View>
                   <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary }}>{supervisorName}</Text>
                 </View>
 
                 {/* 2. Date */}
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
-                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="calendar-outline" size={12} color="#ea580c" />
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#fed7aa', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="calendar-outline" size={12} color="#047857" />
                   </View>
                   <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary }}>{cleanDateStr.replace(/-/g, '/')}</Text>
                 </View>
@@ -237,16 +237,16 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                 style={[
                   styles.statCard,
                   {
-                    backgroundColor: isDarkMode ? '#2c1e14' : '#fff7ed',
+                    backgroundColor: isDarkMode ? '#2c1e14' : '#ecfdf5',
                     borderColor: isDarkMode ? '#7c2d12' : '#fed7aa',
                   },
                 ]}
               >
-                <Text style={[styles.statTitle, { color: '#ea580c' }]}>العهدة المضافة اليوم</Text>
-                <Text style={[styles.statAmount, { color: '#ea580c' }]}>
+                <Text style={[styles.statTitle, { color: '#047857' }]}>العهدة المضافة اليوم</Text>
+                <Text style={[styles.statAmount, { color: '#047857' }]}>
                   {formatArabicNumber(addedAmount)}
                 </Text>
-                <Text style={[styles.statCurrency, { color: '#ea580c' }]}>ر.س</Text>
+                <Text style={[styles.statCurrency, { color: '#047857' }]}>ر.س</Text>
               </View>
 
               {/* Stat 3: إجمالي المصاريف */}
@@ -345,7 +345,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                     <Text
                       style={[
                         styles.catAmountText,
-                        { flex: 1.5, color: total > 0 ? '#ea580c' : colors.textSecondary },
+                        { flex: 1.5, color: total > 0 ? '#047857' : colors.textSecondary },
                       ]}
                     >
                       {formatArabicNumber(total)}
@@ -462,7 +462,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
 
                             {/* Recipient & Description */}
                             <View style={styles.invoiceRecipientRow}>
-                              <Ionicons name="person-outline" size={14} color="#ea580c" />
+                              <Ionicons name="person-outline" size={14} color="#047857" />
                               <Text style={[styles.recipientLabel, { color: colors.textSecondary }]}>البيان:</Text>
                               <Text style={[styles.recipientVal, { color: colors.textPrimary }]}>
                                 {exp.recipient_name || '—'}
@@ -471,9 +471,9 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
 
                             {/* Amount Directly Under Description */}
                             <View style={[styles.invoiceRecipientRow, { marginBottom: 10 }]}>
-                              <Ionicons name="cash-outline" size={14} color="#ea580c" />
+                              <Ionicons name="cash-outline" size={14} color="#047857" />
                               <Text style={[styles.recipientLabel, { color: colors.textSecondary }]}>المبلغ:</Text>
-                              <Text style={[styles.recipientVal, { color: '#ea580c', fontWeight: '900' }]}>
+                              <Text style={[styles.recipientVal, { color: '#047857', fontWeight: '900' }]}>
                                 {formatArabicNumber(exp.amount)} ر.س
                               </Text>
                             </View>
@@ -549,7 +549,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
             style={[
               styles.shareActionBtn,
               {
-                backgroundColor: '#ea580c',
+                backgroundColor: '#047857',
                 opacity: loading ? 0.7 : 1,
               },
             ]}
@@ -637,15 +637,15 @@ const styles = StyleSheet.create({
   },
   navDateBadge: {
     marginTop: 4,
-    backgroundColor: 'rgba(234, 88, 12, 0.2)',
+    backgroundColor: 'rgba(4, 120, 87, 0.2)',
     paddingHorizontal: 10,
     paddingVertical: 2,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(234, 88, 12, 0.4)',
+    borderColor: 'rgba(4, 120, 87, 0.4)',
   },
   navDateText: {
-    color: '#fb923c',
+    color: '#10b981',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#ea580c',
+    backgroundColor: '#047857',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
   },
   docTopStripe: {
     height: 4,
-    backgroundColor: '#ea580c',
+    backgroundColor: '#047857',
   },
   docHeaderBanner: {
     flexDirection: 'row-reverse',
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#ea580c',
+    borderColor: '#047857',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -726,9 +726,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   docHeaderBadge: {
-    backgroundColor: 'rgba(234, 88, 12, 0.18)',
+    backgroundColor: 'rgba(4, 120, 87, 0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(234, 88, 12, 0.35)',
+    borderColor: 'rgba(4, 120, 87, 0.35)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
   docHeaderBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#fb923c',
+    color: '#10b981',
   },
   infoCard: {
     flexDirection: 'row-reverse',
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
   sectionIndicator: {
     width: 4,
     height: 16,
-    backgroundColor: '#ea580c',
+    backgroundColor: '#047857',
     borderRadius: 2,
   },
   sectionTitle: {
@@ -929,7 +929,7 @@ const styles = StyleSheet.create({
   amountBadgeText: {
     fontSize: 12,
     fontWeight: '900',
-    color: '#ea580c',
+    color: '#047857',
   },
   invoiceRecipientRow: {
     flexDirection: 'row-reverse',
@@ -1011,7 +1011,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#ea580c',
+    shadowColor: '#047857',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

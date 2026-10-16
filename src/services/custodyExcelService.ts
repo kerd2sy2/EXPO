@@ -56,7 +56,7 @@ export const exportCustodyDayToExcel = async (day: CustodyDayData): Promise<void
     const primaryFill: ExcelJS.Fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFF97316' }, // #f97316 Orange
+      fgColor: { argb: 'FFF97316' }, // #059669 Orange
     };
     const darkHeaderFill: ExcelJS.Fill = {
       type: 'pattern',

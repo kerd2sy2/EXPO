@@ -79,7 +79,7 @@ export const AhdaShakeExcelModal: React.FC<AhdaShakeExcelModalProps> = ({
             ]}
           >
             <View style={styles.featureRow}>
-              <Ionicons name="images-outline" size={16} color="#ea580c" />
+              <Ionicons name="images-outline" size={16} color="#047857" />
               <Text style={[styles.featureText, { color: colors.textPrimary }]}>
                 عرض صور الفواتير واضحة بدقة عالية
               </Text>
@@ -127,7 +127,7 @@ export const AhdaShakeExcelModal: React.FC<AhdaShakeExcelModalProps> = ({
               style={[
                 styles.actionBtnPrimary,
                 {
-                  backgroundColor: '#ea580c',
+                  backgroundColor: '#047857',
                   opacity: loading ? 0.7 : 1,
                 },
               ]}
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#ecfdf5',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   shakeBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#ea580c',
+    color: '#047857',
   },
   headerGroup: {
     alignItems: 'center',
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#ea580c',
+    shadowColor: '#047857',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

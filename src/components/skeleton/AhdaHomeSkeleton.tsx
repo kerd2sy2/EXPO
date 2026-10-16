@@ -69,7 +69,7 @@ export const AhdaNetCustodyCardSkeleton: React.FC<SkeletonProps> = ({
             height={7}
             borderRadius={4}
             isDarkMode={isDarkMode}
-            color="#ea580c"
+            color="#047857"
           />
         </View>
       </View>
@@ -165,7 +165,7 @@ export const AhdaCategoryGridSkeleton: React.FC<SkeletonProps> = ({
             height={18}
             borderRadius={9}
             isDarkMode={isDarkMode}
-            color="#ea580c"
+            color="#047857"
           />
           <SkeletonItem
             width={145}
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   summaryBannerOrangeCard: {
-    backgroundColor: '#ea580c',
+    backgroundColor: '#047857',
     borderRadius: 16,
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 16,
-    shadowColor: '#ea580c',
+    shadowColor: '#047857',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

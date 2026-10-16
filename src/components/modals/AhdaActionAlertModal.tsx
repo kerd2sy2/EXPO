@@ -106,7 +106,7 @@ export const AhdaActionAlertModal: React.FC<AhdaActionAlertModalProps> = ({
   };
 
   let lottieSource: any = null;
-  let primaryBtnColor = '#ea580c';
+  let primaryBtnColor = '#047857';
   let defaultPrimaryText = 'حسناً';
   let defaultSecondaryText = 'إلغاء';
 

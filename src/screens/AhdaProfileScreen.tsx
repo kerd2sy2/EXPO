@@ -96,7 +96,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
         </TouchableOpacity>
         <View style={styles.subPageTitleContainer}>
           <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary }]}>الملف الشخصي</Text>
-          <View style={[styles.titleUnderlineBar, { backgroundColor: '#ea580c' }]} />
+          <View style={[styles.titleUnderlineBar, { backgroundColor: '#047857' }]} />
         </View>
         <View style={{ width: 44 }} />
       </View>
@@ -105,11 +105,11 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
         {/* ── 1. Profile Header Card (Delegate App Style) ── */}
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.profileAvatarSection}>
-            <View style={[styles.profileAvatar, { backgroundColor: '#fff7ed', borderColor: '#ea580c' }]}>
+            <View style={[styles.profileAvatar, { backgroundColor: '#ecfdf5', borderColor: '#047857' }]}>
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.profileAvatarImg} />
               ) : (
-                <Ionicons name="person" size={44} color="#ea580c" />
+                <Ionicons name="person" size={44} color="#047857" />
               )}
             </View>
             <Text style={[styles.profileName, { color: colors.textPrimary }]}>{userName}</Text>
@@ -124,7 +124,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
             {/* National ID / Username */}
             <View style={styles.infoRow}>
               <View style={styles.infoLabelGroup}>
-                <Ionicons name="card-outline" size={15} color="#ea580c" />
+                <Ionicons name="card-outline" size={15} color="#047857" />
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>كود المستخدم</Text>
               </View>
               <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{userCode}</Text>
@@ -133,7 +133,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
             {/* Email */}
             <View style={styles.infoRow}>
               <View style={styles.infoLabelGroup}>
-                <Ionicons name="mail-outline" size={15} color="#ea580c" />
+                <Ionicons name="mail-outline" size={15} color="#047857" />
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>البريد الإلكتروني</Text>
               </View>
               <Text style={[styles.infoValue, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -159,7 +159,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.titleGroup}>
-              <Ionicons name="settings-outline" size={18} color="#ea580c" />
+              <Ionicons name="settings-outline" size={18} color="#047857" />
               <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>إعدادات التطبيق والمظهر</Text>
             </View>
           </View>
@@ -170,7 +170,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
               <Ionicons
                 name={isDarkMode ? 'moon-outline' : 'sunny-outline'}
                 size={20}
-                color={isDarkMode ? '#fbbf24' : '#ea580c'}
+                color={isDarkMode ? '#fbbf24' : '#047857'}
               />
               <View style={{ alignItems: 'flex-start' }}>
                 <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>مظهر التطبيق</Text>
@@ -182,7 +182,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
             <Switch
               value={isDarkMode}
               onValueChange={onToggleTheme}
-              trackColor={{ false: '#cbd5e1', true: '#ea580c' }}
+              trackColor={{ false: '#cbd5e1', true: '#047857' }}
               thumbColor="#ffffff"
             />
           </View>
@@ -195,7 +195,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
             disabled={checkingUpdate}
           >
             <View style={styles.settingRowRight}>
-              <Ionicons name="cloud-download-outline" size={20} color="#ea580c" />
+              <Ionicons name="cloud-download-outline" size={20} color="#047857" />
               <View style={{ alignItems: 'flex-start' }}>
                 <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>تحديث التطبيق السحابي</Text>
                 <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
@@ -204,7 +204,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
               </View>
             </View>
             {checkingUpdate ? (
-              <ActivityIndicator size="small" color="#ea580c" />
+              <ActivityIndicator size="small" color="#047857" />
             ) : (
               <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
             )}
@@ -228,7 +228,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.titleGroup}>
-              <Ionicons name="information-circle-outline" size={18} color="#ea580c" />
+              <Ionicons name="information-circle-outline" size={18} color="#047857" />
               <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>حول المنظومة</Text>
             </View>
           </View>

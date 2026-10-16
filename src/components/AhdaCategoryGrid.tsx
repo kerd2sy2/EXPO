@@ -34,7 +34,7 @@ export const AhdaCategoryGrid: React.FC<AhdaCategoryGridProps> = ({
     <View style={styles.container}>
       <View style={styles.cardHeaderRow}>
         <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
-          <Ionicons name="pie-chart-outline" size={17} color="#ea580c" />
+          <Ionicons name="pie-chart-outline" size={17} color="#047857" />
           <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>تفصيل المصاريف حسب الأقسام</Text>
         </View>
       </View>

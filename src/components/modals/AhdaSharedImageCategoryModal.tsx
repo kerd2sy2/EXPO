@@ -72,7 +72,7 @@ export const AhdaSharedImageCategoryModal: React.FC<AhdaSharedImageCategoryModal
 
             <View style={{ flex: 1, alignItems: 'flex-end', paddingRight: 10 }}>
               <View style={styles.sharedBadge}>
-                <Ionicons name="share-social" size={12} color="#ea580c" />
+                <Ionicons name="share-social" size={12} color="#047857" />
                 <Text style={styles.sharedBadgeText}>صورة مشاركة من الهاتف</Text>
               </View>
               <Text style={[styles.title, { color: colors.textPrimary }]}>
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1.5,
-    borderColor: '#ea580c',
+    borderColor: '#047857',
   },
   imageThumb: {
     width: '100%',
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(234, 88, 12, 0.12)',
+    backgroundColor: 'rgba(4, 120, 87, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   sharedBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#ea580c',
+    color: '#047857',
   },
   title: {
     fontSize: 16,
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   ledgerCardBtn: {
-    backgroundColor: '#ea580c',
+    backgroundColor: '#047857',
     borderRadius: 16,
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 14,
-    shadowColor: '#ea580c',
+    shadowColor: '#047857',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

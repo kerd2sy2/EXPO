@@ -83,13 +83,13 @@ export class ModuleErrorBoundary extends Component<Props, State> {
       const textPrimary = this.props.colors?.textPrimary || '#ffffff';
       const textSecondary = this.props.colors?.textSecondary || '#9ca3af';
       const borderColor = this.props.colors?.border || '#27272e';
-      const primaryColor = this.props.colors?.primary || '#f97316';
+      const primaryColor = this.props.colors?.primary || '#059669';
 
       return (
         <View style={[styles.moduleCard, { backgroundColor: cardBg, borderColor }]}>
           <View style={styles.headerRow}>
             <View style={styles.iconWrap}>
-              <Ionicons name="shield-alert-outline" size={24} color="#f97316" />
+              <Ionicons name="shield-alert-outline" size={24} color="#059669" />
             </View>
             <View style={styles.headerTextWrap}>
               <Text style={[styles.title, { color: textPrimary }]}>
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    backgroundColor: 'rgba(5, 150, 105, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

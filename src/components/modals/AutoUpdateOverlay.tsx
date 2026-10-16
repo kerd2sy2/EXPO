@@ -100,7 +100,7 @@ export const AutoUpdateOverlay: React.FC = () => {
             resizeMode="contain"
           />
         ) : (
-          <ActivityIndicator size="large" color="#ea580c" />
+          <ActivityIndicator size="large" color="#047857" />
         )}
       </Animated.View>
     </View>

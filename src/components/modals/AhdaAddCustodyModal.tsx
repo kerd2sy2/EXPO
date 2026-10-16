@@ -85,7 +85,7 @@ export const AhdaAddCustodyModal: React.FC<AhdaAddCustodyModalProps> = ({
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: '#ea580c' }]}
+                style={[styles.saveBtn, { backgroundColor: '#047857' }]}
                 disabled={loading}
                 onPress={onSave}
               >

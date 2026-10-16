@@ -39,7 +39,7 @@ export const AhdaNetCustodyCard: React.FC<AhdaNetCustodyCardProps> = ({
       <View style={styles.targetCardHeader}>
         <View style={styles.targetTitleGroup}>
           <View style={styles.walletIconCircle}>
-            <Ionicons name="wallet-outline" size={18} color="#ea580c" />
+            <Ionicons name="wallet-outline" size={18} color="#047857" />
           </View>
           <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
             <Text style={[styles.targetCardTitle, { color: colors.textPrimary }]}>
@@ -52,10 +52,10 @@ export const AhdaNetCustodyCard: React.FC<AhdaNetCustodyCardProps> = ({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Image
               source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-              style={{ width: 22, height: 22, tintColor: '#ea580c' }}
+              style={{ width: 22, height: 22, tintColor: '#047857' }}
               resizeMode="contain"
             />
-            <Text style={[styles.targetNetValue, { color: '#ea580c' }]}>
+            <Text style={[styles.targetNetValue, { color: '#047857' }]}>
               {formatArabicNumber(
                 (currentDay?.closing_balance !== undefined && currentDay?.closing_balance !== null && currentDay.closing_balance !== 0)
                   ? currentDay.closing_balance
@@ -76,7 +76,7 @@ export const AhdaNetCustodyCard: React.FC<AhdaNetCustodyCardProps> = ({
               styles.progressBarFill,
               {
                 width: `${Math.max(3, spentPct)}%`,
-                backgroundColor: spentPct > 85 ? '#ef4444' : '#ea580c',
+                backgroundColor: spentPct > 85 ? '#ef4444' : '#047857',
               },
             ]}
           />
@@ -105,15 +105,15 @@ export const AhdaNetCustodyCard: React.FC<AhdaNetCustodyCardProps> = ({
         {/* 2. عهدة اليوم المضافة */}
         <View style={styles.detailCol}>
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-            <Text style={[styles.detailColLabel, { color: '#ea580c' }]}>العهدة المضافة</Text>
+            <Text style={[styles.detailColLabel, { color: '#047857' }]}>العهدة المضافة</Text>
           </View>
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-            <Text style={[styles.detailColValue, { color: '#ea580c' }]}>
+            <Text style={[styles.detailColValue, { color: '#047857' }]}>
               {formatArabicNumber(currentDay?.added_amount ?? 0, 2)}
             </Text>
             <Image
               source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-              style={{ width: 11, height: 11, tintColor: '#ea580c' }}
+              style={{ width: 11, height: 11, tintColor: '#047857' }}
               resizeMode="contain"
             />
           </View>
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#ecfdf5',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   targetCardHint: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#ea580c',
+    color: '#047857',
     marginTop: 1,
   },
   targetNetValue: {
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   miniLogLink: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#ea580c',
+    color: '#047857',
     textDecorationLine: 'underline',
     marginTop: 2,
   },

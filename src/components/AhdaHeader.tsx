@@ -34,11 +34,11 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
         onPress={onPressProfile}
         activeOpacity={0.8}
       >
-        <View style={[styles.headerAvatar, { backgroundColor: '#fff7ed', borderColor: '#ea580c' }]}>
+        <View style={[styles.headerAvatar, { backgroundColor: '#ecfdf5', borderColor: '#047857' }]}>
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.headerAvatarImg} />
           ) : (
-            <Ionicons name="person" size={20} color="#ea580c" />
+            <Ionicons name="person" size={20} color="#047857" />
           )}
         </View>
       </TouchableOpacity>
@@ -52,7 +52,7 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="calendar-outline" size={25} color="#ea580c" />
+            <Ionicons name="calendar-outline" size={25} color="#047857" />
           </TouchableOpacity>
         )}
       </View>

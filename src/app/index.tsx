@@ -44,8 +44,8 @@ const lightColors: ThemeColors = {
   textPrimary: '#0f172a',
   textSecondary: '#64748b',
   border: '#e2e8f0',
-  primary: '#f97316',
-  primaryLight: '#fff7ed',
+  primary: '#059669',
+  primaryLight: '#ecfdf5',
   primaryText: '#ffffff',
   accent: '#0284c7',
   accentLight: '#f0f9ff',
@@ -65,8 +65,8 @@ const darkColors: ThemeColors = {
   textPrimary: '#f8fafc',
   textSecondary: '#94a3b8',
   border: '#334155',
-  primary: '#fb923c',
-  primaryLight: '#431407',
+  primary: '#10b981',
+  primaryLight: '#064e3b',
   primaryText: '#ffffff',
   accent: '#38bdf8',
   accentLight: '#082f49',
@@ -124,9 +124,9 @@ const AuthLoadingShell: React.FC<{ colors: ThemeColors; isDarkMode: boolean }> =
             width: 38,
             height: 38,
             borderRadius: 19,
-            backgroundColor: '#fff7ed',
+            backgroundColor: '#ecfdf5',
             borderWidth: 1,
-            borderColor: '#ea580c',
+            borderColor: '#047857',
             justifyContent: 'center',
             alignItems: 'center',
             overflow: 'hidden',
@@ -145,7 +145,7 @@ const AuthLoadingShell: React.FC<{ colors: ThemeColors; isDarkMode: boolean }> =
             alignItems: 'center',
           }}
         >
-          <Ionicons name="calendar-outline" size={25} color="#ea580c" />
+          <Ionicons name="calendar-outline" size={25} color="#047857" />
         </View>
       </View>
 
