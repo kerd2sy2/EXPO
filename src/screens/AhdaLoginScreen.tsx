@@ -18,6 +18,7 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { ThemeColors } from '../types/delegate';
 import { custodyService, hasCustodyPermission } from '../services/custodyService';
 import { setAuthToken, saveCachedUser } from '../services/api';
+import { AhdaActionAlertModal, AhdaAlertConfig } from '../components/modals/AhdaActionAlertModal';
 
 import * as WebBrowser from 'expo-web-browser';
 
@@ -38,7 +39,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [alertConfig, setAlertConfig] = useState<AhdaAlertConfig | null>(null);
 
   // Eastern / Arabic digit conversion
   const normalizeDigits = (str: string) => {
@@ -51,16 +52,25 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
   const handlePhoneLogin = async () => {
     if (loading) return;
 
-    setErrorMsg('');
     const rawNormalizedPhone = normalizeDigits(phoneInput.trim());
     const rawNormalizedPass = normalizeDigits(passwordInput.trim());
 
     if (!rawNormalizedPhone) {
-      setErrorMsg('يرجى إدخال رقم الهاتف');
+      setAlertConfig({
+        type: 'error',
+        title: 'تنبيه تسجيل الدخول',
+        message: 'يرجى إدخال رقم الهاتف',
+        primaryButtonText: 'حسناً',
+      });
       return;
     }
     if (!rawNormalizedPass) {
-      setErrorMsg('يرجى إدخال كلمة السر');
+      setAlertConfig({
+        type: 'error',
+        title: 'تنبيه تسجيل الدخول',
+        message: 'يرجى إدخال كلمة السر',
+        primaryButtonText: 'حسناً',
+      });
       return;
     }
 
@@ -74,8 +84,12 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
         await setAuthToken(null);
         await saveCachedUser(null);
         const deniedMsg = 'ليس لديك صلاحية للدخول إلى تطبيق العهدة';
-        setErrorMsg(deniedMsg);
-        Alert.alert('تنبيه الصلاحيات', deniedMsg);
+        setAlertConfig({
+          type: 'error',
+          title: 'تنبيه الصلاحيات',
+          message: deniedMsg,
+          primaryButtonText: 'حسناً',
+        });
         return;
       }
 
@@ -92,8 +106,12 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
     } catch (err: any) {
       console.error('Custody phone login error:', err);
       const msg = err?.message || 'تعذر تسجيل الدخول، تأكد من صحة رقم الهاتف وكلمة السر';
-      setErrorMsg(msg);
-      Alert.alert('خطأ في تسجيل الدخول', msg);
+      setAlertConfig({
+        type: 'error',
+        title: 'خطأ في تسجيل الدخول',
+        message: msg,
+        primaryButtonText: 'حسناً',
+      });
     } finally {
       setLoading(false);
     }
@@ -134,15 +152,6 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
               <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary, textAlign: 'right' }]}>
                 بوابة الإدارة المالية ومتابعة العهد والمصروفات
               </Text>
-
-              {errorMsg ? (
-                <View style={[styles.errorBanner, { backgroundColor: colors.errorBg }]}>
-                  <Ionicons name="alert-circle" size={18} color={colors.errorText} />
-                  <Text style={[styles.errorBannerText, { color: colors.errorText, textAlign: 'right' }]}>
-                    {errorMsg}
-                  </Text>
-                </View>
-              ) : null}
 
               {/* Phone Input */}
               <View style={styles.formGroup}>
@@ -247,6 +256,13 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <AhdaActionAlertModal
+        config={alertConfig}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        onClose={() => setAlertConfig(null)}
+      />
     </SafeAreaView>
   );
 };
