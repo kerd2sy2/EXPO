@@ -165,7 +165,7 @@ export const AhdaActionAlertModal: React.FC<AhdaActionAlertModalProps> = ({
             source={lottieSource}
             autoPlay
             loop={false}
-            style={{ width: 84, height: 84 }}
+            style={{ width: 175, height: 95 }}
             resizeMode="contain"
           />
         </View>
@@ -241,11 +241,11 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   lottieContainer: {
-    width: 90,
-    height: 90,
+    width: '100%',
+    height: 95,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   title: {
     fontSize: 18,

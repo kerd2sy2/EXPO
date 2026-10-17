@@ -83,7 +83,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       if (!hasCustodyPermission(user)) {
         await setAuthToken(null);
         await saveCachedUser(null);
-        const deniedMsg = 'ليس لديك صلاحية للدخول إلى تطبيق العهدة';
+        const deniedMsg = 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة';
         setAlertConfig({
           type: 'error',
           title: 'تنبيه الصلاحيات',
@@ -105,10 +105,18 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       }
     } catch (err: any) {
       console.error('Custody phone login error:', err);
-      const msg = err?.message || 'تعذر تسجيل الدخول، تأكد من صحة رقم الهاتف وكلمة السر';
+      let msg = err?.message || 'تعذر تسجيل الدخول، تأكد من صحة رقم الهاتف وكلمة السر';
+      if (
+        msg.includes('صلاحية') ||
+        msg.includes('مخصص') ||
+        msg.toLowerCase().includes('permission') ||
+        msg.toLowerCase().includes('access')
+      ) {
+        msg = 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة';
+      }
       setAlertConfig({
         type: 'error',
-        title: 'خطأ في تسجيل الدخول',
+        title: 'تنبيه تسجيل الدخول',
         message: msg,
         primaryButtonText: 'حسناً',
       });
@@ -227,9 +235,10 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
                     placeholderTextColor="#94a3b8"
                     value={passwordInput}
                     onChangeText={(val) => {
-                      const clean = normalizeDigits(val);
+                      const clean = normalizeDigits(val).replace(/[^0-9]/g, '');
                       setPasswordInput(clean);
                     }}
+                    keyboardType="number-pad"
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                   />
