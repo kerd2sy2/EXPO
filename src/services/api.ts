@@ -34,10 +34,81 @@ export const formatImageUrl = (url?: string | null): string | null => {
 const TOKEN_KEY = 'aams_delegate_token';
 const REFRESH_TOKEN_KEY = 'aams_delegate_refresh_token';
 const USER_KEY = 'aams_delegate_user';
+const ACTIVE_BRANCH_ID_KEY = 'aams_active_branch_id';
+const ACTIVE_BRANCH_NAME_KEY = 'aams_active_branch_name';
 
 let storedToken: string | null = null;
 let storedRefreshToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
+let activeBranchId: string | null = null;
+let activeBranchName: string | null = null;
+
+export interface BranchItem {
+  id: string;
+  name: string;
+  code?: string;
+  is_active?: boolean;
+}
+
+export const getActiveBranchId = (): string | null => activeBranchId;
+export const getActiveBranchName = (): string | null => activeBranchName;
+
+export const loadActiveBranch = async (): Promise<{ id: string | null; name: string | null }> => {
+  try {
+    const [id, name] = await Promise.all([
+      AsyncStorage.getItem(ACTIVE_BRANCH_ID_KEY),
+      AsyncStorage.getItem(ACTIVE_BRANCH_NAME_KEY),
+    ]);
+    if (id) activeBranchId = id;
+    if (name) activeBranchName = name;
+    return { id: activeBranchId, name: activeBranchName };
+  } catch (e) {
+    console.log('Error reading active branch from storage:', e);
+  }
+  return { id: null, name: null };
+};
+
+export const setActiveBranch = async (
+  id: string | null,
+  name?: string | null
+): Promise<void> => {
+  activeBranchId = id;
+  if (name !== undefined) {
+    activeBranchName = name;
+  }
+  try {
+    if (id) {
+      const tasks = [AsyncStorage.setItem(ACTIVE_BRANCH_ID_KEY, id)];
+      if (name) {
+        tasks.push(AsyncStorage.setItem(ACTIVE_BRANCH_NAME_KEY, name));
+      }
+      await Promise.all(tasks);
+    } else {
+      activeBranchName = null;
+      await Promise.all([
+        AsyncStorage.removeItem(ACTIVE_BRANCH_ID_KEY),
+        AsyncStorage.removeItem(ACTIVE_BRANCH_NAME_KEY),
+      ]);
+    }
+  } catch (e) {
+    console.log('Error saving active branch to storage:', e);
+  }
+};
+
+export const fetchBranches = async (): Promise<BranchItem[]> => {
+  try {
+    const res = await apiRequest<{ data: BranchItem[] }>('/branches');
+    if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+      return res.data;
+    }
+  } catch (err) {
+    console.warn('Failed to fetch branches from API, using fallback branches', err);
+  }
+  return [
+    { id: '0b52c83c-4a37-4950-8040-fcb00fa718b3', name: 'الفرع الأول' },
+    { id: '33b1e65f-074c-4c51-af38-32e13c1fb9a6', name: 'الفرع الثاني' },
+  ];
+};
 
 // Initialize token & refresh token from secureStorage
 export const loadStoredToken = async (): Promise<string | null> => {
@@ -338,6 +409,11 @@ export async function apiRequest<T = any>(
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const branchId = getActiveBranchId();
+    if (branchId && !headers['X-Branch-ID']) {
+      headers['X-Branch-ID'] = branchId;
     }
 
     const controller = new AbortController();

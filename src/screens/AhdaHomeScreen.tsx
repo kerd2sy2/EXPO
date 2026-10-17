@@ -31,8 +31,19 @@ import {
   CustodyExpenseItem,
   CustodyLogItem,
 } from '../services/custodyService';
-import { exportCustodyDayToPdf } from '../services/custodyPdfService';
-import { formatImageUrl } from '../services/api';
+import { AhdaBranchSelectorModal } from '../components/modals/AhdaBranchSelectorModal';
+import {
+  exportCustodyDayToPdf,
+} from '../services/custodyPdfService';
+import {
+  formatImageUrl,
+  fetchBranches,
+  BranchItem,
+  loadActiveBranch,
+  setActiveBranch,
+  getActiveBranchId,
+  getActiveBranchName,
+} from '../services/api';
 import { toArabicDigits, formatArabicNumber } from '../utils/formatters';
 import { AhdaHeader } from '../components/AhdaHeader';
 import { AhdaProfileScreen } from './AhdaProfileScreen';
@@ -61,9 +72,10 @@ import {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HOME_HEADER_HEIGHT = 64;
-const CUSTODY_DAYS_CACHE_KEY = 'aams_custody_days_cache';
+const getDaysCacheKey = (branchId: string | null) => `aams_custody_days_cache_${branchId || 'default'}`;
 const SELECTED_DATE_CACHE_KEY = 'aams_custody_selected_date';
-const getLogsCacheKey = (date: string) => `aams_custody_logs_cache_${date}`;
+const getLogsCacheKey = (branchId: string | null, date: string) =>
+  `aams_custody_logs_cache_${branchId || 'default'}_${date}`;
 
 interface AhdaHomeScreenProps {
   colors: ThemeColors;
@@ -110,6 +122,26 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [showProfile, setShowProfile] = useState<boolean>(false);
+
+  // Multi-branch state & permissions
+  const [branches, setBranches] = useState<BranchItem[]>([]);
+  const [activeBranch, setActiveBranchState] = useState<{ id: string | null; name: string | null }>({
+    id: null,
+    name: null,
+  });
+  const [showBranchModal, setShowBranchModal] = useState<boolean>(false);
+  const [mustSelectBranch, setMustSelectBranch] = useState<boolean>(false);
+
+  const canSwitchBranch = useMemo(() => {
+    if (!currentUser) return false;
+    const role = (currentUser.role || '').toUpperCase();
+    return (
+      role === 'SUPER_ADMIN' ||
+      role === 'ADMIN' ||
+      role === 'SUPERADMIN' ||
+      !currentUser.branch_id
+    );
+  }, [currentUser]);
 
   // Scroll Header Animation (Hides on scroll down, shows on scroll up - exactly like delegate app)
   const headerTranslateY = useRef(new Animated.Value(0)).current;
@@ -266,15 +298,62 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     AsyncStorage.setItem(SELECTED_DATE_CACHE_KEY, newDate).catch(() => {});
   }, []);
 
-  // 1. Instant cache restoration on mount / date change (0ms screen load)
+  // 0b. Initialize Branches & Active Branch (Strict scoping for multi-branch vs single-branch)
+  useEffect(() => {
+    let isMounted = true;
+    const initBranches = async () => {
+      try {
+        const fetched = await fetchBranches();
+        if (isMounted) {
+          setBranches(fetched);
+        }
+
+        const stored = await loadActiveBranch();
+
+        // If user is locked to a single assigned branch:
+        if (currentUser?.branch_id && !canSwitchBranch) {
+          const matchingBranch = fetched.find((b) => b.id === currentUser.branch_id);
+          const bName = matchingBranch?.name || currentUser.branch_name || 'الفرع المحدد';
+          await setActiveBranch(currentUser.branch_id, bName);
+          if (isMounted) {
+            setActiveBranchState({ id: currentUser.branch_id, name: bName });
+          }
+          return;
+        }
+
+        // For multi-branch users (Super Admins / Admins / Unassigned):
+        if (stored.id) {
+          if (isMounted) {
+            setActiveBranchState(stored);
+          }
+        } else {
+          // No branch stored yet: show bottom sheet modal to choose branch!
+          if (isMounted) {
+            setMustSelectBranch(true);
+            setShowBranchModal(true);
+          }
+        }
+      } catch (err) {
+        console.error('Error initializing branches:', err);
+      }
+    };
+
+    initBranches();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser, canSwitchBranch]);
+
+  // 1. Instant cache restoration on mount / date change / branch change (0ms screen load)
   useEffect(() => {
     if (!dateInitialized) return;
     let isMounted = true;
     const restoreFromCache = async () => {
+      const bId = activeBranch.id || getActiveBranchId();
       try {
         const [cachedDaysStr, cachedLogsStr] = await Promise.all([
-          AsyncStorage.getItem(CUSTODY_DAYS_CACHE_KEY),
-          AsyncStorage.getItem(getLogsCacheKey(selectedDate)),
+          AsyncStorage.getItem(getDaysCacheKey(bId)),
+          AsyncStorage.getItem(getLogsCacheKey(bId, selectedDate)),
         ]);
         if (!isMounted) return;
         if (cachedDaysStr) {
@@ -302,37 +381,55 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [selectedDate, dateInitialized]);
+  }, [selectedDate, dateInitialized, activeBranch.id]);
 
   // 2. Fetch all days and logs for current date (Stale-While-Revalidate)
-  const loadCustodyData = useCallback(async (silent = false) => {
-    if (!silent && days.length === 0) {
-      setLoading(true);
-    }
-    try {
-      const [daysData, logsData] = await Promise.all([
-        custodyService.getDays(),
-        custodyService.getLogs(selectedDate),
-      ]);
-      if (Array.isArray(daysData)) {
-        setDays(daysData);
-        AsyncStorage.setItem(CUSTODY_DAYS_CACHE_KEY, JSON.stringify(daysData)).catch(() => {});
+  const loadCustodyData = useCallback(
+    async (silent = false, targetBranchId?: string) => {
+      if (!silent && days.length === 0) {
+        setLoading(true);
       }
-      const freshLogs = logsData?.data || [];
-      setDayLogs(freshLogs);
-      AsyncStorage.setItem(getLogsCacheKey(selectedDate), JSON.stringify(freshLogs)).catch(() => {});
-    } catch (err: any) {
-      console.error('Error fetching custody data:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [selectedDate, days.length]);
+      const bId = targetBranchId || activeBranch.id || getActiveBranchId() || undefined;
+      try {
+        const [daysData, logsData] = await Promise.all([
+          custodyService.getDays(bId),
+          custodyService.getLogs(selectedDate),
+        ]);
+        if (Array.isArray(daysData)) {
+          setDays(daysData);
+          AsyncStorage.setItem(getDaysCacheKey(bId || null), JSON.stringify(daysData)).catch(() => {});
+        }
+        const freshLogs = logsData?.data || [];
+        setDayLogs(freshLogs);
+        AsyncStorage.setItem(getLogsCacheKey(bId || null, selectedDate), JSON.stringify(freshLogs)).catch(() => {});
+      } catch (err: any) {
+        console.error('Error fetching custody data:', err);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [selectedDate, days.length, activeBranch.id]
+  );
+
+  // Handler for selecting branch from modal
+  const handleSelectBranch = useCallback(
+    async (branch: BranchItem) => {
+      setShowBranchModal(false);
+      setMustSelectBranch(false);
+      await setActiveBranch(branch.id, branch.name);
+      setActiveBranchState({ id: branch.id, name: branch.name });
+      setDays([]);
+      setDayLogs([]);
+      loadCustodyData(false, branch.id);
+    },
+    [loadCustodyData]
+  );
 
   useEffect(() => {
     if (!dateInitialized) return;
     loadCustodyData(days.length > 0);
-  }, [selectedDate, dateInitialized]);
+  }, [selectedDate, dateInitialized, activeBranch.id]);
 
   // Handle hardware Back button: return to previous view/modal instead of closing the entire app
   useEffect(() => {
@@ -378,6 +475,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         setShowProfile(false);
         return true;
       }
+      if (showBranchModal && !mustSelectBranch) {
+        setShowBranchModal(false);
+        return true;
+      }
       // If we are on the main Home screen with nothing open, allow default behavior (exit app)
       return false;
     };
@@ -395,11 +496,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     showAddCustodyModal,
     showDayExpensesPage,
     showProfile,
+    showBranchModal,
+    mustSelectBranch,
   ]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadCustodyData();
+    loadCustodyData(true);
   };
 
   // Find active day
@@ -447,11 +550,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         await custodyService.addAmount({
           custody_day_id: currentDay.id,
           added_amount: val,
+          branch_id: activeBranch?.id || undefined,
         });
       } else {
         await custodyService.createDay({
           date: selectedDate,
           added_amount: val,
+          branch_id: activeBranch?.id || undefined,
         });
       }
       setAddCustodyAmount('');
@@ -555,6 +660,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         const createdDay = await custodyService.createDay({
           date: selectedDate,
           added_amount: 0,
+          branch_id: activeBranch?.id || undefined,
         });
         targetDayId = createdDay.id;
       }
@@ -850,7 +956,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               user={currentUser}
               colors={colors}
               isDarkMode={isDarkMode}
+              activeBranchName={activeBranch.name}
+              canSwitchBranch={canSwitchBranch}
               onPressProfile={() => setShowProfile(true)}
+              onPressBranchSelector={() => {
+                setMustSelectBranch(false);
+                setShowBranchModal(true);
+              }}
               onPressDatePicker={() => {
                 const parts = selectedDate.split('-');
                 setPickerYear(parseInt(parts[0], 10) || new Date().getFullYear());
@@ -865,15 +977,29 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               styles.scrollContent,
               {
                 paddingTop: topInset + HOME_HEADER_HEIGHT + 14,
-                paddingBottom: 28,
+                paddingBottom: 40,
                 flexGrow: 1,
-                justifyContent: 'space-around',
+                justifyContent: 'flex-start',
+                gap: 16,
               },
             ]}
             showsVerticalScrollIndicator={false}
+            bounces={true}
+            alwaysBounceVertical={true}
+            overScrollMode="always"
+            nestedScrollEnabled={true}
             onScroll={handleScroll}
             scrollEventThrottle={16}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#047857']} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#047857']}
+                tintColor="#047857"
+                progressBackgroundColor={colors.card}
+                progressViewOffset={topInset + HOME_HEADER_HEIGHT + 10}
+              />
+            }
           >
             {loading ? (
               <>
@@ -1103,6 +1229,22 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         colors={colors}
         isDarkMode={isDarkMode}
         onClose={() => setAlertConfig(null)}
+      />
+
+      {/* ── 15. Multi-Branch Selector Modal (Bottom Sheet) ── */}
+      <AhdaBranchSelectorModal
+        visible={showBranchModal}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        branches={branches}
+        selectedBranchId={activeBranch?.id || null}
+        mustSelect={mustSelectBranch}
+        onSelectBranch={handleSelectBranch}
+        onClose={() => {
+          if (!mustSelectBranch) {
+            setShowBranchModal(false);
+          }
+        }}
       />
     </SafeAreaView>
   );

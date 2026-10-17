@@ -1,28 +1,34 @@
 import React from 'react';
 import {
   View,
+  Text,
   TouchableOpacity,
   Image,
   StyleSheet,
-  ActivityIndicator,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../types/delegate';
 
 export interface AhdaHeaderProps {
   user: any;
   colors: ThemeColors;
   isDarkMode: boolean;
+  activeBranchName?: string | null;
+  canSwitchBranch?: boolean;
   onPressProfile: () => void;
   onPressDatePicker?: () => void;
+  onPressBranchSelector?: () => void;
 }
 
 export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
   user,
   colors,
   isDarkMode,
+  activeBranchName,
+  canSwitchBranch = false,
   onPressProfile,
   onPressDatePicker,
+  onPressBranchSelector,
 }) => {
   const avatarUrl = user?.google_avatar || user?.avatar || null;
 
@@ -42,6 +48,32 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
           )}
         </View>
       </TouchableOpacity>
+
+      {/* Center: Branch Selector Pill */}
+      {activeBranchName ? (
+        <TouchableOpacity
+          style={[
+            styles.branchPill,
+            {
+              backgroundColor: isDarkMode ? '#1e293b' : '#f0fdf4',
+              borderColor: isDarkMode ? '#334155' : '#bbf7d0',
+            },
+          ]}
+          onPress={canSwitchBranch ? onPressBranchSelector : undefined}
+          activeOpacity={canSwitchBranch ? 0.75 : 1}
+          disabled={!canSwitchBranch}
+        >
+          <Ionicons name="business" size={15} color="#047857" />
+          <Text style={[styles.branchPillText, { color: colors.textPrimary }]} numberOfLines={1}>
+            {activeBranchName}
+          </Text>
+          {canSwitchBranch && (
+            <Ionicons name="chevron-down" size={14} color="#047857" style={{ marginRight: -2 }} />
+          )}
+        </TouchableOpacity>
+      ) : (
+        <View style={{ flex: 1 }} />
+      )}
 
       {/* Left Side: Header Actions (Date/Calendar Modal Icon) */}
       <View style={styles.headerActions}>
@@ -85,6 +117,25 @@ const styles = StyleSheet.create({
   headerAvatarImg: {
     width: '100%',
     height: '100%',
+  },
+  branchPill: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    maxWidth: '55%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  branchPillText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   headerActions: {
     flexDirection: 'row',
