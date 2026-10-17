@@ -84,10 +84,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   useEffect(() => {
     if (loginError) {
+      const isPermissionDenied =
+        loginError.includes('صلاحية') ||
+        loginError.includes('مخصص') ||
+        loginError.toLowerCase().includes('permission') ||
+        loginError.toLowerCase().includes('access');
+
+      const displayMessage = isPermissionDenied
+        ? (isRTL
+            ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة'
+            : 'You do not have permission to access the app. Please contact administration.')
+        : loginError;
+
       setAlertConfig({
         type: 'error',
         title: isRTL ? 'تنبيه تسجيل الدخول' : (t.loginAlertTitle || 'Login Notice'),
-        message: loginError,
+        message: displayMessage,
         primaryButtonText: isRTL ? 'حسناً' : 'OK',
       });
     }
@@ -295,7 +307,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     placeholder={isRTL ? 'كلمة السر' : (t.passwordPlaceholder || 'Password')}
                     placeholderTextColor="#94a3b8"
                     value={passwordInput}
-                    onChangeText={setPasswordInput}
+                    onChangeText={(val) => {
+                      const clean = normalizeDigits(val).replace(/[^0-9]/g, '');
+                      setPasswordInput(clean);
+                    }}
+                    keyboardType="number-pad"
                     autoCapitalize="none"
                     secureTextEntry={!showPassword}
                   />

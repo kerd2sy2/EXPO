@@ -823,7 +823,7 @@ export default function DelegateApp() {
         Boolean(res && res.admin && (res.admin.role === 'ADMIN' || res.admin.role === 'SUPER_ADMIN' || res.admin.role === 'SUPERVISOR'));
 
       if (isActualAdmin) {
-        setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للمناديب فقط. يرجى استخدام تطبيق الإدارة والمشرفين.' : 'This app is for delegates only. Please use the Admin & Supervisor app.');
+        setLoginError(lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.');
         await setAuthToken(null);
         await saveCachedUser(null);
         setEmployee(null);
@@ -888,7 +888,7 @@ export default function DelegateApp() {
       Boolean(loginResp && loginResp.admin && (loginResp.admin.role === 'ADMIN' || loginResp.admin.role === 'SUPER_ADMIN' || loginResp.admin.role === 'SUPERVISOR'));
 
     if (isActualAdmin) {
-      setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للمناديب فقط. يرجى استخدام تطبيق الإدارة والمشرفين.' : 'This app is for delegates only. Please use the Admin & Supervisor app.');
+      setLoginError(lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.');
       await setAuthToken(null);
       await saveCachedUser(null);
       setEmployee(null);
