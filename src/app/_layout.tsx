@@ -6,6 +6,8 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AutoUpdateOverlay } from '../components/modals/AutoUpdateOverlay';
 import { analytics } from '../services/analytics';
 
+import { ShareIntentProvider } from 'expo-share-intent';
+
 Observe.configure({
   integrations: {
     'expo-router': true,
@@ -25,10 +27,12 @@ function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-      </Stack>
-      <AutoUpdateOverlay />
+      <ShareIntentProvider options={{ resetOnBackground: false }}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+        </Stack>
+        <AutoUpdateOverlay />
+      </ShareIntentProvider>
     </ErrorBoundary>
   );
 }

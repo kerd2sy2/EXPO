@@ -50,7 +50,7 @@ import { AhdaImageViewerModal } from '../components/modals/AhdaImageViewerModal'
 import { AhdaShakeExcelModal } from '../components/modals/AhdaShakeExcelModal';
 import { AhdaReportPreviewModal } from '../components/modals/AhdaReportPreviewModal';
 import { AhdaSharedImageCategoryModal } from '../components/modals/AhdaSharedImageCategoryModal';
-import { useShareIntent } from 'expo-share-intent';
+import { useShareIntentContext } from 'expo-share-intent';
 import { useDeviceShake } from '../hooks/useDeviceShake';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 import {
@@ -195,13 +195,22 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   // Incoming Shared Image from Android Share Sheet
   const [sharedImagePending, setSharedImagePending] = useState<string | null>(null);
-  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntent();
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
 
   useEffect(() => {
     if (hasShareIntent && shareIntent?.files && shareIntent.files.length > 0) {
       const incomingFile = shareIntent.files[0];
-      const targetUri = incomingFile?.path;
+      const targetUri = incomingFile?.path || (shareIntent as any)?.value;
       if (targetUri) {
+        // Dismiss any secondary blocking modal so the category selection sheet is fully interactive
+        setShowDatePickerModal(false);
+        setShowLogsSheet(false);
+        setShowAddCustodyModal(false);
+        setShowShakeExcelModal(false);
+        setShowReportPreviewModal(false);
+        setEditingExpense(null);
+        setPreviewImage(null);
+
         setSharedImagePending(targetUri);
         resetShareIntent();
       }
@@ -768,22 +777,24 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     }
   };
 
-  if (showProfile) {
-    return (
-      <AhdaProfileScreen
-        currentUser={currentUser}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        onBack={() => setShowProfile(false)}
-        onLogout={onLogout}
-        onToggleTheme={onToggleTheme}
-      />
-    );
-  }
+  const custodyAddedLogs = dayLogs.filter((l) => l.action_type === 'ADD_CUSTODY');
+  const custodyTotalAvailable = effectiveOpeningBalance + (currentDay?.added_amount ?? 0);
+  const spentPct = custodyTotalAvailable > 0
+    ? Math.min(100, Math.round(((currentDay?.total_expenses ?? 0) / custodyTotalAvailable) * 100))
+    : 0;
 
-  if (showDayExpensesPage) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      {showProfile ? (
+        <AhdaProfileScreen
+          currentUser={currentUser}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          onBack={() => setShowProfile(false)}
+          onLogout={onLogout}
+          onToggleTheme={onToggleTheme}
+        />
+      ) : showDayExpensesPage ? (
         <AhdaDayExpensesScreen
           currentDay={currentDay}
           selectedDate={selectedDate}
@@ -806,190 +817,115 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           onDeleteExpense={handleDeleteExpense}
           onPreviewImage={(url) => setPreviewImage(url)}
         />
-
-        {/* ── Add Expense Modal inside Day Expenses View (Isolated & Protected) ── */}
-        <ModuleErrorBoundary moduleName="AhdaAddExpenseModal">
-          <AhdaAddExpenseModal
-            visible={showAddExpenseModal}
-            colors={colors}
-            isDarkMode={isDarkMode}
-            categories={CATEGORIES}
-            selectedCategory={selectedCategory}
-            expenseAmount={expenseAmount}
-            setExpenseAmount={setExpenseAmount}
-            expenseRecipient={expenseRecipient}
-            setExpenseRecipient={setExpenseRecipient}
-            invoiceImageUri={invoiceImageUri}
-            setInvoiceImageUri={setInvoiceImageUri}
-            loading={addExpenseLoading}
-            onPickImage={handlePickImage}
-            onSave={handleSaveExpense}
-            onClose={() => setShowAddExpenseModal(false)}
-          />
-        </ModuleErrorBoundary>
-
-        {/* ── Edit Expense Modal inside Day Expenses View (Isolated & Protected) ── */}
-        <ModuleErrorBoundary moduleName="AhdaEditExpenseModal">
-          <AhdaEditExpenseModal
-            visible={!!editingExpense}
-            colors={colors}
-            isDarkMode={isDarkMode}
-            categories={CATEGORIES}
-            editCategory={editCategory}
-            setEditCategory={setEditCategory}
-            editAmount={editAmount}
-            setEditAmount={setEditAmount}
-            editRecipient={editRecipient}
-            setEditRecipient={setEditRecipient}
-            editImageUri={editImageUri}
-            setEditImageUri={setEditImageUri}
-            onPickImage={handlePickEditImage}
-            loading={editLoading}
-            onSave={handleSaveEditExpense}
-            onDelete={() => {
-              const item = editingExpense;
-              if (item) {
-                setEditingExpense(null);
-                handleDeleteExpense(item);
-              }
+      ) : (
+        <>
+          {/* ── Status Bar Solid Cover (Hides header completely when it slides up under status bar) ── */}
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: topInset,
+              backgroundColor: colors.bg,
+              zIndex: 40,
             }}
-            onClose={() => setEditingExpense(null)}
+            pointerEvents="none"
           />
-        </ModuleErrorBoundary>
 
-        {/* ── Image Viewer Modal inside Day Expenses View (Isolated & Protected) ── */}
-        <ModuleErrorBoundary moduleName="AhdaImageViewerModal">
-          <AhdaImageViewerModal
-            visible={!!previewImage}
-            imageUrl={previewImage}
-            onClose={() => setPreviewImage(null)}
-          />
-        </ModuleErrorBoundary>
+          {/* ── 1. Collapsible Header (hides on scroll down, shows on scroll up) ── */}
+          <Animated.View
+            style={{
+              position: 'absolute',
+              top: topInset,
+              left: 0,
+              right: 0,
+              height: HOME_HEADER_HEIGHT,
+              backgroundColor: colors.bg,
+              zIndex: 30,
+              transform: [{ translateY: headerTranslateY }],
+            }}
+          >
+            <AhdaHeader
+              user={currentUser}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              onPressProfile={() => setShowProfile(true)}
+              onPressDatePicker={() => {
+                const parts = selectedDate.split('-');
+                setPickerYear(parseInt(parts[0], 10) || new Date().getFullYear());
+                setPickerMonth(parseInt(parts[1], 10) || (new Date().getMonth() + 1));
+                setShowDatePickerModal(true);
+              }}
+            />
+          </Animated.View>
 
-        {/* Animated Alert Modal with Lottie in Expenses Page */}
-        <AhdaActionAlertModal
-          config={alertConfig}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          onClose={() => setAlertConfig(null)}
-        />
-      </View>
-    );
-  }
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingTop: topInset + HOME_HEADER_HEIGHT + 14,
+                paddingBottom: 28,
+                flexGrow: 1,
+                justifyContent: 'space-around',
+              },
+            ]}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#047857']} />}
+          >
+            {loading ? (
+              <>
+                <AhdaNetCustodyCardSkeleton colors={colors} isDarkMode={isDarkMode} />
+                <AhdaCategoryGridSkeleton colors={colors} isDarkMode={isDarkMode} />
+                <AhdaDayExpensesSummaryCardSkeleton colors={colors} isDarkMode={isDarkMode} />
+              </>
+            ) : (
+              <>
+                {/* ── 2. Primary Custody Target Card (Delegate App Style - Isolated) ── */}
+                <ModuleErrorBoundary moduleName="AhdaNetCustodyCard">
+                  <AhdaNetCustodyCard
+                    currentDay={currentDay}
+                    effectiveOpeningBalance={effectiveOpeningBalance}
+                    custodyAddedLogs={custodyAddedLogs}
+                    colors={colors}
+                    isDarkMode={isDarkMode}
+                    onPressCard={() => setShowAddCustodyModal(true)}
+                    onPressManageLogs={() => setShowLogsSheet(true)}
+                  />
+                </ModuleErrorBoundary>
 
-  const custodyAddedLogs = dayLogs.filter((l) => l.action_type === 'ADD_CUSTODY');
-  const custodyTotalAvailable = effectiveOpeningBalance + (currentDay?.added_amount ?? 0);
-  const spentPct = custodyTotalAvailable > 0
-    ? Math.min(100, Math.round(((currentDay?.total_expenses ?? 0) / custodyTotalAvailable) * 100))
-    : 0;
+                {/* ── 3. Category Breakdown Grid (Isolated & Fault-Tolerant) ── */}
+                <ModuleErrorBoundary moduleName="AhdaCategoryGrid">
+                  <AhdaCategoryGrid
+                    categories={CATEGORIES}
+                    currentDay={currentDay}
+                    colors={colors}
+                    isDarkMode={isDarkMode}
+                    onSelectCategory={(catKey) => {
+                      setSelectedCategoryFilter(catKey);
+                      setShowDayExpensesPage(true);
+                    }}
+                    onLongPressCategory={(catKey) => {
+                      setSelectedCategory(catKey);
+                      setShowAddExpenseModal(true);
+                    }}
+                  />
+                </ModuleErrorBoundary>
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-      {/* ── Status Bar Solid Cover (Hides header completely when it slides up under status bar) ── */}
-      <View
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: topInset,
-          backgroundColor: colors.bg,
-          zIndex: 40,
-        }}
-        pointerEvents="none"
-      />
-
-      {/* ── 1. Collapsible Header (hides on scroll down, shows on scroll up) ── */}
-      <Animated.View
-        style={{
-          position: 'absolute',
-          top: topInset,
-          left: 0,
-          right: 0,
-          height: HOME_HEADER_HEIGHT,
-          backgroundColor: colors.bg,
-          zIndex: 30,
-          transform: [{ translateY: headerTranslateY }],
-        }}
-      >
-        <AhdaHeader
-          user={currentUser}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          onPressProfile={() => setShowProfile(true)}
-          onPressDatePicker={() => {
-            const parts = selectedDate.split('-');
-            setPickerYear(parseInt(parts[0], 10) || new Date().getFullYear());
-            setPickerMonth(parseInt(parts[1], 10) || (new Date().getMonth() + 1));
-            setShowDatePickerModal(true);
-          }}
-        />
-      </Animated.View>
-
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingTop: topInset + HOME_HEADER_HEIGHT + 14,
-            paddingBottom: 28,
-            flexGrow: 1,
-            justifyContent: 'space-around',
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#047857']} />}
-      >
-        {loading ? (
-          <>
-            <AhdaNetCustodyCardSkeleton colors={colors} isDarkMode={isDarkMode} />
-            <AhdaCategoryGridSkeleton colors={colors} isDarkMode={isDarkMode} />
-            <AhdaDayExpensesSummaryCardSkeleton colors={colors} isDarkMode={isDarkMode} />
-          </>
-        ) : (
-          <>
-            {/* ── 2. Primary Custody Target Card (Delegate App Style - Isolated) ── */}
-            <ModuleErrorBoundary moduleName="AhdaNetCustodyCard">
-              <AhdaNetCustodyCard
-                currentDay={currentDay}
-                effectiveOpeningBalance={effectiveOpeningBalance}
-                custodyAddedLogs={custodyAddedLogs}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                onPressCard={() => setShowAddCustodyModal(true)}
-                onPressManageLogs={() => setShowLogsSheet(true)}
-              />
-            </ModuleErrorBoundary>
-
-            {/* ── 3. Category Breakdown Grid (Isolated & Fault-Tolerant) ── */}
-            <ModuleErrorBoundary moduleName="AhdaCategoryGrid">
-              <AhdaCategoryGrid
-                categories={CATEGORIES}
-                currentDay={currentDay}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                onSelectCategory={(catKey) => {
-                  setSelectedCategoryFilter(catKey);
-                  setShowDayExpensesPage(true);
-                }}
-                onLongPressCategory={(catKey) => {
-                  setSelectedCategory(catKey);
-                  setShowAddExpenseModal(true);
-                }}
-              />
-            </ModuleErrorBoundary>
-
-            {/* ── 4. Simple Invoices Summary Card (Isolated & Fault-Tolerant) ── */}
-            <ModuleErrorBoundary moduleName="AhdaDayExpensesSummaryCard">
-              <AhdaDayExpensesSummaryCard
-                currentDay={currentDay}
-                onPress={() => setShowDayExpensesPage(true)}
-              />
-            </ModuleErrorBoundary>
-          </>
-        )}
-      </ScrollView>
+                {/* ── 4. Simple Invoices Summary Card (Isolated & Fault-Tolerant) ── */}
+                <ModuleErrorBoundary moduleName="AhdaDayExpensesSummaryCard">
+                  <AhdaDayExpensesSummaryCard
+                    currentDay={currentDay}
+                    onPress={() => setShowDayExpensesPage(true)}
+                  />
+                </ModuleErrorBoundary>
+              </>
+            )}
+          </ScrollView>
+        </>
+      )}
 
       {/* ── 6. BOTTOM SHEET MODAL: Add Expense & Invoice (Isolated & Fault-Tolerant) ── */}
       <ModuleErrorBoundary moduleName="AhdaAddExpenseModal">
