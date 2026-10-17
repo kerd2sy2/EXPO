@@ -51,67 +51,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* ── Live Branch KPIs (Quick Stats Bar) ── */}
-      <View style={[styles.kpiGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        {/* 1. Active on Shift */}
-        <TouchableOpacity
-          style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: '#10b98135' }]}
-          onPress={() => onNavigateToTab('field')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.kpiIconBox, { backgroundColor: '#10b98115' }]}>
-            <Ionicons name="bicycle" size={20} color="#10b981" />
-          </View>
-          <Text style={[styles.kpiValue, { color: '#10b981' }]}>{workingDelegatesCount}</Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>في الميدان</Text>
-        </TouchableOpacity>
-
-        {/* 2. Pending Orders / Approvals */}
-        <TouchableOpacity
-          style={[
-            styles.kpiCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: pendingCount > 0 ? '#f59e0b50' : colors.border,
-            },
-          ]}
-          onPress={() => onNavigateToTab('approvals')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.kpiIconBox, { backgroundColor: '#f59e0b15' }]}>
-            <Ionicons name="time" size={20} color="#f59e0b" />
-          </View>
-          <Text style={[styles.kpiValue, { color: '#f59e0b' }]}>{pendingCount}</Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>طلبات معلقة</Text>
-        </TouchableOpacity>
-
-        {/* 3. Total Branch Delegates */}
-        <TouchableOpacity
-          style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => onNavigateToTab('field')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.kpiIconBox, { backgroundColor: colors.primaryLight }]}>
-            <Ionicons name="people" size={20} color={colors.primary} />
-          </View>
-          <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{totalDelegatesCount}</Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>إجمالي المناديب</Text>
-        </TouchableOpacity>
-
-        {/* 4. Today Orders */}
-        <TouchableOpacity
-          style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => onNavigateToTab('dashboard')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.kpiIconBox, { backgroundColor: '#0284c715' }]}>
-            <Ionicons name="cube" size={20} color="#0284c7" />
-          </View>
-          <Text style={[styles.kpiValue, { color: '#0284c7' }]}>{todayOrdersCount}</Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>طلبات اليوم</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* ── CORE SUPERVISOR HUBS & MODULES ── */}
       <View style={styles.modulesSection}>
         {/* Module 1: Branch Dashboard & Live KPIs */}
@@ -227,42 +166,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
     gap: 16,
-  },
-  kpiGrid: {
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'space-between',
-  },
-  kpiCard: {
-    flex: 1,
-    minWidth: '22%',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 6,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  kpiIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  kpiValue: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  kpiLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   modulesSection: {
     gap: 12,

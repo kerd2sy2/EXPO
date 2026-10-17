@@ -63,13 +63,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
         </View>
       </TouchableOpacity>
 
-      <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <View style={[styles.supervisorBadge, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-          <Text style={[styles.supervisorBadgeText, { color: colors.primary }]}>
-            مشرف
-          </Text>
-        </View>
-      </View>
+      <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} />
     </View>
   );
 };
