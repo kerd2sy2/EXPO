@@ -34,7 +34,7 @@ interface LoginScreenProps {
   t: any;
   lang: Language;
   onSetLang: (lang: Language) => void;
-  onLogin: (natId?: string, pass?: string) => Promise<void>;
+  onLogin: (phone?: string, pass?: string) => Promise<void>;
   onOtpSuccess: (loginResp: any) => Promise<void>;
   loginError: string;
   submitting: boolean;
@@ -81,6 +81,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     };
     checkBiometrics();
   }, []);
+
+  useEffect(() => {
+    if (loginError) {
+      setAlertConfig({
+        type: 'error',
+        title: isRTL ? 'تنبيه تسجيل الدخول' : (t.loginAlertTitle || 'Login Notice'),
+        message: loginError,
+        primaryButtonText: isRTL ? 'حسناً' : 'OK',
+      });
+    }
+  }, [loginError]);
 
   const handleBiometricAuth = async () => {
     try {
@@ -143,23 +154,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const handleLoginPress = async () => {
     if (submitting || biometricLoading) return;
 
-    const rawNormalizedId = normalizeDigits(loginInput.trim());
+    const rawNormalizedPhone = normalizeDigits(loginInput.trim());
     const rawNormalizedPass = normalizeDigits(passwordInput.trim());
 
-    if (!rawNormalizedId) {
-      onLogin('', '');
+    if (!rawNormalizedPhone) {
+      setAlertConfig({
+        type: 'error',
+        title: isRTL ? 'تنبيه تسجيل الدخول' : (t.loginAlertTitle || 'Login Notice'),
+        message: isRTL ? 'يرجى إدخال رقم الهاتف' : (t.phoneRequired || 'Phone number is required'),
+        primaryButtonText: isRTL ? 'حسناً' : 'OK',
+      });
       return;
     }
     if (!rawNormalizedPass) {
-      onLogin(rawNormalizedId, '');
+      setAlertConfig({
+        type: 'error',
+        title: isRTL ? 'تنبيه تسجيل الدخول' : (t.loginAlertTitle || 'Login Notice'),
+        message: isRTL ? 'يرجى إدخال كلمة المرور' : (t.passwordRequired || 'Password is required'),
+        primaryButtonText: isRTL ? 'حسناً' : 'OK',
+      });
       return;
     }
 
-    const cleanId = rawNormalizedId.replace(/[^0-9+]/g, '') || rawNormalizedId;
+    const cleanPhone = rawNormalizedPhone.replace(/[^0-9+]/g, '') || rawNormalizedPhone;
     const cleanPass = rawNormalizedPass;
 
     // Proceed directly with password login without OTP
-    onLogin(cleanId, cleanPass);
+    onLogin(cleanPhone, cleanPass);
   };
 
   return (
@@ -202,15 +223,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <Text style={[styles.loginCardSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                 {isRTL ? 'بوابة إدارة ومتابعة شفتات وعمليات المناديب الميدانية' : (t.loginSubtitle || 'Supervisor Operations Portal')}
               </Text>
-
-              {loginError ? (
-                <View style={[styles.errorBanner, { backgroundColor: colors.errorBg }]}>
-                  <Ionicons name="alert-circle" size={18} color={colors.errorText} />
-                  <Text style={[styles.errorBannerText, { color: colors.errorText, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {loginError}
-                  </Text>
-                </View>
-              ) : null}
 
               {/* Phone Number Input */}
               <View style={styles.formGroup}>

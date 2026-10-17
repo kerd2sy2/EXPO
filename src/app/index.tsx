@@ -880,16 +880,16 @@ export default function DelegateApp() {
   };
 
   // Login Handler
-  const handleLogin = async (rawNatId?: string, rawPass?: string) => {
-    const inputVal = (rawNatId || '').trim();
+  const handleLogin = async (rawPhone?: string, rawPass?: string) => {
+    const inputVal = (rawPhone || '').trim();
     if (!inputVal) {
-      setLoginError(t.nationalIdLabel + ' ' + (lang === 'ar' ? 'مطلوب' : 'is required'));
+      setLoginError(t.phoneRequired || (lang === 'ar' ? 'يرجى إدخال رقم الهاتف' : 'Phone number is required'));
       return;
     }
 
     const password = (rawPass || '').trim();
     if (!password) {
-      setLoginError(lang === 'ar' ? 'يرجى إدخال كلمة المرور' : 'Password is required');
+      setLoginError(t.passwordRequired || (lang === 'ar' ? 'يرجى إدخال كلمة المرور' : 'Password is required'));
       return;
     }
 
