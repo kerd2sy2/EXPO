@@ -49,8 +49,8 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
         </View>
       </TouchableOpacity>
 
-      {/* Center: Branch Selector Pill */}
-      {activeBranchName ? (
+      {/* Center: Branch Selector Pill (Only visible for users with multi-branch / all-branch access) */}
+      {canSwitchBranch && activeBranchName ? (
         <TouchableOpacity
           style={[
             styles.branchPill,
@@ -59,17 +59,14 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
               borderColor: isDarkMode ? '#334155' : '#bbf7d0',
             },
           ]}
-          onPress={canSwitchBranch ? onPressBranchSelector : undefined}
-          activeOpacity={canSwitchBranch ? 0.75 : 1}
-          disabled={!canSwitchBranch}
+          onPress={onPressBranchSelector}
+          activeOpacity={0.75}
         >
           <Ionicons name="business" size={15} color="#047857" />
           <Text style={[styles.branchPillText, { color: colors.textPrimary }]} numberOfLines={1}>
             {activeBranchName}
           </Text>
-          {canSwitchBranch && (
-            <Ionicons name="chevron-down" size={14} color="#047857" style={{ marginRight: -2 }} />
-          )}
+          <Ionicons name="chevron-down" size={14} color="#047857" style={{ marginRight: -2 }} />
         </TouchableOpacity>
       ) : (
         <View style={{ flex: 1 }} />

@@ -135,12 +135,25 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const canSwitchBranch = useMemo(() => {
     if (!currentUser) return false;
     const role = (currentUser.role || '').toUpperCase();
-    return (
-      role === 'SUPER_ADMIN' ||
-      role === 'ADMIN' ||
-      role === 'SUPERADMIN' ||
-      !currentUser.branch_id
-    );
+    const permissions: string[] = Array.isArray(currentUser.permissions) ? currentUser.permissions : [];
+
+    const hasAllBranchesPermission =
+      permissions.includes('all_branches') ||
+      permissions.includes('manage_branches') ||
+      permissions.includes('view_all_branches') ||
+      permissions.includes('branches:all') ||
+      permissions.includes('custody:all_branches') ||
+      permissions.includes('*');
+
+    const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'SUPERADMIN';
+
+    // If assigned to a single specific branch and not a super admin or granted all branches permission:
+    if (currentUser.branch_id && !isSuperAdmin && !hasAllBranchesPermission) {
+      return false;
+    }
+
+    // Has multi-branch / all-branches authority:
+    return isSuperAdmin || hasAllBranchesPermission || !currentUser.branch_id;
   }, [currentUser]);
 
   // Scroll Header Animation (Hides on scroll down, shows on scroll up - exactly like delegate app)
@@ -1231,21 +1244,23 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         onClose={() => setAlertConfig(null)}
       />
 
-      {/* ── 15. Multi-Branch Selector Modal (Bottom Sheet) ── */}
-      <AhdaBranchSelectorModal
-        visible={showBranchModal}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        branches={branches}
-        selectedBranchId={activeBranch?.id || null}
-        mustSelect={mustSelectBranch}
-        onSelectBranch={handleSelectBranch}
-        onClose={() => {
-          if (!mustSelectBranch) {
-            setShowBranchModal(false);
-          }
-        }}
-      />
+      {/* ── 15. Multi-Branch Selector Modal (Bottom Sheet - Only for multi-branch users) ── */}
+      {canSwitchBranch && (
+        <AhdaBranchSelectorModal
+          visible={showBranchModal}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          branches={branches}
+          selectedBranchId={activeBranch?.id || null}
+          mustSelect={mustSelectBranch}
+          onSelectBranch={handleSelectBranch}
+          onClose={() => {
+            if (!mustSelectBranch) {
+              setShowBranchModal(false);
+            }
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 };
