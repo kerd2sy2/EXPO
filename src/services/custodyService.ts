@@ -273,13 +273,7 @@ export const hasCustodyPermission = (user: any): boolean => {
   }
 
   const role = String(user.role || '').toUpperCase();
-  if (
-    role === 'SUPER_ADMIN' ||
-    role === 'ACCOUNTANT' ||
-    role === 'CUSTODY' ||
-    role === 'CUSTODY_ADMIN' ||
-    user.is_super_admin
-  ) {
+  if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || user.is_super_admin) {
     return true;
   }
 
@@ -295,16 +289,11 @@ export const hasCustodyPermission = (user: any): boolean => {
     }
   }
 
+  // Strictly require apps.ohda, app.ohda, or wildcard *
   const allowedPermissions = [
     '*',
     'apps.ohda',
     'app.ohda',
-    'custody',
-    'custody.access',
-    'custody.view',
-    'custody.manage',
-    'custody.add',
-    'custody:access',
   ];
 
   for (const perm of allowedPermissions) {

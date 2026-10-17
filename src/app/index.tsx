@@ -200,12 +200,10 @@ export default function AhdaApp() {
           if (cachedUser) {
             setCurrentUser(cachedUser);
           } else {
-            // Default super admin info for kerd2sy
-            setCurrentUser({
-              email: 'kerd2sy@gmail.com',
-              name: 'الإدارة العامة - العهد',
-              role: 'SUPER_ADMIN',
-            });
+            // No valid user session cached, require clean login
+            await setAuthToken(null);
+            setTokenState(null);
+            setCurrentUser(null);
           }
         }
       } catch (err) {

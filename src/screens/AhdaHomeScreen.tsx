@@ -134,6 +134,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   const canSwitchBranch = useMemo(() => {
     if (!currentUser) return false;
+    const userBranchId = currentUser.branch_id || currentUser.admin?.branch_id || currentUser.employee?.branch_id;
+    // Strict rule: If user is assigned to a specific branch, they belong to that branch ONLY and CANNOT switch branches
+    if (userBranchId) {
+      return false;
+    }
     const role = (currentUser.role || '').toUpperCase();
     const permissions: string[] = Array.isArray(currentUser.permissions) ? currentUser.permissions : [];
 
@@ -147,13 +152,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
     const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'SUPERADMIN';
 
-    // If assigned to a single specific branch and not a super admin or granted all branches permission:
-    if (currentUser.branch_id && !isSuperAdmin && !hasAllBranchesPermission) {
-      return false;
-    }
-
-    // Has multi-branch / all-branches authority:
-    return isSuperAdmin || hasAllBranchesPermission || !currentUser.branch_id;
+    return isSuperAdmin || hasAllBranchesPermission;
   }, [currentUser]);
 
   // Scroll Header Animation (Hides on scroll down, shows on scroll up - exactly like delegate app)
@@ -323,23 +322,28 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
         const stored = await loadActiveBranch();
 
-        // If user is locked to a single assigned branch:
-        if (currentUser?.branch_id && !canSwitchBranch) {
-          const matchingBranch = fetched.find((b) => b.id === currentUser.branch_id);
-          const bName = matchingBranch?.name || currentUser.branch_name || 'الفرع المحدد';
-          await setActiveBranch(currentUser.branch_id, bName);
+        const userBranchId = currentUser?.branch_id || currentUser?.admin?.branch_id || currentUser?.employee?.branch_id;
+
+        // 1. If user has an assigned branch (Single branch user):
+        if (userBranchId) {
+          const matchingBranch = fetched.find((b) => b.id === userBranchId);
+          const bName = matchingBranch?.name || currentUser?.branch_name || 'الفرع الأول';
+          await setActiveBranch(userBranchId, bName);
           if (isMounted) {
-            setActiveBranchState({ id: currentUser.branch_id, name: bName });
+            setActiveBranchState({ id: userBranchId, name: bName });
+            setMustSelectBranch(false);
+            setShowBranchModal(false);
           }
           return;
         }
 
-        // For multi-branch users (Super Admins / Admins / Unassigned):
+        // 2. For multi-branch users without a designated branch (Super Admins):
         if (stored.id) {
           if (isMounted) {
             setActiveBranchState(stored);
+            setMustSelectBranch(false);
           }
-        } else {
+        } else if (canSwitchBranch) {
           // No branch stored yet: show bottom sheet modal to choose branch!
           if (isMounted) {
             setMustSelectBranch(true);
