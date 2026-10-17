@@ -908,7 +908,7 @@ export default function DelegateApp() {
         (res?.admin?.permissions && (res.admin.permissions.includes('*') || res.admin.permissions.includes('apps.eshraf')));
 
       if (!hasEshrafAccess) {
-        setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للمشرفين والإدارة فقط.' : 'This app is for supervisors and admins only.');
+        setLoginError(lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.');
         await setAuthToken(null);
         await saveCachedUser(null);
         setEmployee(null);
@@ -992,7 +992,7 @@ export default function DelegateApp() {
       (loginResp?.admin?.permissions && (loginResp.admin.permissions.includes('*') || loginResp.admin.permissions.includes('apps.eshraf')));
 
     if (!hasEshrafAccess) {
-      setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للمشرفين والإدارة فقط.' : 'This app is for supervisors and admins only.');
+      setLoginError(lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.');
       await setAuthToken(null);
       await saveCachedUser(null);
       setEmployee(null);
