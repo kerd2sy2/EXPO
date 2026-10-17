@@ -131,4 +131,12 @@ export const operationsApi = {
       body: JSON.stringify(payload),
     });
   },
+
+  // 6. Update vehicle status (e.g. ACTIVE <-> MAINTENANCE)
+  updateVehicleStatus: async (id: string, status: 'ACTIVE' | 'MAINTENANCE' | 'OUT_OF_SERVICE'): Promise<any> => {
+    return apiRequest(`/vehicles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  },
 };

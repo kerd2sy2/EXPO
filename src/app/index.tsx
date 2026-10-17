@@ -1849,8 +1849,8 @@ export default function DelegateApp() {
                 <HomeScreen
                   employee={employee}
                   pendingSessions={pendingSessions}
-                  workingDelegatesCount={workingDelegates.length}
-                  totalDelegatesCount={branchDelegates.length}
+                  workingDelegatesCount={workingDelegates.filter(d => !d.job_role?.includes('SUPERVISOR') && !(d as any).role_name?.includes('SUPERVISOR')).length}
+                  totalDelegatesCount={branchDelegates.filter(d => !d.job_role?.includes('SUPERVISOR') && !(d as any).role_name?.includes('SUPERVISOR')).length}
                   todayOrdersCount={totalApprovedOrdersCount}
                   colors={colors}
                   isDarkMode={isDarkMode}
@@ -2015,10 +2015,15 @@ export default function DelegateApp() {
             {currentTab === 'field' && (
               <ModuleErrorBoundary moduleName="إدارة الميدان" colors={colors} onReset={fetchSupervisorData}>
                 <FieldScreen
-                  delegates={branchDelegates.map((d) => ({
-                    ...d,
-                    is_working: workingDelegates.some((w) => w.id === d.id),
-                  }))}
+                  delegates={branchDelegates
+                    .filter((d) => {
+                      const role = (d.job_role || (d as any).role_name || '').toUpperCase();
+                      return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
+                    })
+                    .map((d) => ({
+                      ...d,
+                      is_working: workingDelegates.some((w) => w.id === d.id),
+                    }))}
                   loading={loadingSupervisorData}
                   onRefresh={fetchSupervisorData}
                   colors={colors}

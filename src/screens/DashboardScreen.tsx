@@ -42,7 +42,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onRefresh,
   refreshing,
 }) => {
-  const workingPct = stats.totalCount > 0 ? Math.round((stats.workingCount / stats.totalCount) * 100) : 0;
+  const activeDrivers = (workingDelegates || []).filter((del) => {
+    const role = (del.job_role || (del as any).role_name || '').toUpperCase();
+    return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
+  });
+
+  const workingPct = stats.totalCount > 0 ? Math.round((activeDrivers.length / stats.totalCount) * 100) : 0;
 
   return (
     <ScrollView
@@ -208,7 +213,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {workingDelegates.length === 0 ? (
+        {activeDrivers.length === 0 ? (
           <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Ionicons name="bicycle-outline" size={44} color={colors.textSecondary} style={{ opacity: 0.5 }} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا يوجد مناديب في الميدان الآن</Text>
@@ -217,7 +222,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </Text>
           </View>
         ) : (
-          workingDelegates.slice(0, 5).map((del) => (
+          activeDrivers.slice(0, 5).map((del) => (
             <TouchableOpacity
               key={del.id}
               activeOpacity={0.85}

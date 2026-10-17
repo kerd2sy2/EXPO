@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -61,6 +61,51 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
   const [newModel, setNewModel] = useState('دباب توصيل سوزوكي');
   const [newVin, setNewVin] = useState('');
   const [newKm, setNewKm] = useState('0');
+
+  // Fleet Search & Filter State
+  const [fleetSearchQuery, setFleetSearchQuery] = useState('');
+  const [fleetStatusFilter, setFleetStatusFilter] = useState<'ALL' | 'ACTIVE' | 'MAINTENANCE'>('ALL');
+  const [updatingVehicleId, setUpdatingVehicleId] = useState<string | null>(null);
+
+  // Filtered Vehicles
+  const filteredVehicles = useMemo(() => {
+    return vehicles.filter((v) => {
+      if (fleetStatusFilter === 'ACTIVE' && v.status !== 'ACTIVE') return false;
+      if (fleetStatusFilter === 'MAINTENANCE' && v.status !== 'MAINTENANCE') return false;
+
+      if (fleetSearchQuery.trim()) {
+        const q = fleetSearchQuery.toLowerCase().trim();
+        const matchPlate = (v.plate_number || '').toLowerCase().includes(q);
+        const matchModel = (v.model || '').toLowerCase().includes(q);
+        const matchVin = (v.vin || '').toLowerCase().includes(q);
+        return matchPlate || matchModel || matchVin;
+      }
+      return true;
+    });
+  }, [vehicles, fleetStatusFilter, fleetSearchQuery]);
+
+  // Toggle Vehicle Status
+  const handleToggleVehicleStatus = async (v: VehicleItem) => {
+    const nextStatus = v.status === 'ACTIVE' ? 'MAINTENANCE' : 'ACTIVE';
+    try {
+      setUpdatingVehicleId(v.id);
+      await operationsApi.updateVehicleStatus(v.id, nextStatus);
+      Alert.alert('تم بنجاح', nextStatus === 'ACTIVE' ? 'تم تنشيط الدباب وجعله جاهزاً بالخدمة' : 'تمت إحالة الدباب إلى مركز الصيانة');
+      onRefresh();
+    } catch (err: any) {
+      Alert.alert('خطأ', err?.message || 'فشل تحديث حالة الدباب');
+    } finally {
+      setUpdatingVehicleId(null);
+    }
+  };
+
+  // Quick Dispense Oil for specific vehicle
+  const handleQuickDispense = (v: VehicleItem) => {
+    setDispensePlate(v.plate_number);
+    setDispenseKm(String(v.current_km || 0));
+    setDispenseNotes('صرف زيت دوري معتمد');
+    setDispenseModalVisible(true);
+  };
 
   // Accident Report State
   const [accidentDelName, setAccidentDelName] = useState('');
@@ -295,7 +340,7 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
               </View>
 
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+                style={[styles.actionBtn, { backgroundColor: colors.primary, marginTop: 12 }]}
                 onPress={() => setAddVehicleModalVisible(true)}
               >
                 <Ionicons name="add-circle" size={18} color="#fff" />
@@ -303,45 +348,185 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
               </TouchableOpacity>
             </View>
 
+            {/* Fleet Search Bar */}
+            <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="search" size={18} color={colors.textSecondary} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder="ابحث برقم اللوحة، الموديل، أو الشاصي..."
+                placeholderTextColor={colors.textSecondary}
+                value={fleetSearchQuery}
+                onChangeText={setFleetSearchQuery}
+              />
+              {fleetSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setFleetSearchQuery('')}>
+                  <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Filter Pills */}
+            <View style={styles.filterPillsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  fleetStatusFilter === 'ALL' && [styles.filterPillActive, { backgroundColor: colors.primary }],
+                ]}
+                onPress={() => setFleetStatusFilter('ALL')}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    { color: fleetStatusFilter === 'ALL' ? '#fff' : colors.textSecondary },
+                  ]}
+                >
+                  الكل ({vehicles.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  fleetStatusFilter === 'ACTIVE' && [styles.filterPillActive, { backgroundColor: '#10B981' }],
+                ]}
+                onPress={() => setFleetStatusFilter('ACTIVE')}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    { color: fleetStatusFilter === 'ACTIVE' ? '#fff' : colors.textSecondary },
+                  ]}
+                >
+                  جاهز بالخدمة ({activeVehiclesCount})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  fleetStatusFilter === 'MAINTENANCE' && [styles.filterPillActive, { backgroundColor: '#F59E0B' }],
+                ]}
+                onPress={() => setFleetStatusFilter('MAINTENANCE')}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    { color: fleetStatusFilter === 'MAINTENANCE' ? '#fff' : colors.textSecondary },
+                  ]}
+                >
+                  في الصيانة ({maintenanceVehiclesCount})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Vehicle List */}
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>دبابات ومركبات الفرع</Text>
-            {vehicles.length === 0 ? (
+            {filteredVehicles.length === 0 ? (
               <View style={styles.emptyBox}>
-                <Ionicons name="bicycle-outline" size={40} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>لا توجد دبابات مسجلة</Text>
+                <Ionicons name="bicycle-outline" size={44} color={colors.textSecondary} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  {fleetSearchQuery ? `لا توجد دبابات مطابقة لـ "${fleetSearchQuery}"` : 'لا توجد دبابات مسجلة بهذا التصنيف'}
+                </Text>
               </View>
             ) : (
-              vehicles.map((v) => {
+              filteredVehicles.map((v) => {
                 const plate = parsePlateComponents(v.plate_number || '');
                 const isActive = v.status === 'ACTIVE';
+                const isUpdating = updatingVehicleId === v.id;
 
                 return (
-                  <View key={v.id} style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <View style={styles.vehicleInfoCol}>
+                  <View key={v.id} style={[styles.fleetCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    {/* Header Row: Plate + Status Badge */}
+                    <View style={styles.fleetCardHeader}>
                       <SaudiPlateView
                         digits={plate.digits}
                         letters={plate.letters}
                         editable={false}
-                        scale={0.65}
+                        scale={0.72}
                         isDarkMode={isDarkMode}
                       />
-                      <Text style={[styles.vehicleModelText, { color: colors.textSecondary }]}>
-                        {v.model || 'دباب توصيل'} {v.current_km ? `(${v.current_km} كم)` : ''}
-                      </Text>
+
+                      <View
+                        style={[
+                          styles.statusTag,
+                          {
+                            backgroundColor: isActive ? '#10B98115' : '#F59E0B15',
+                            borderColor: isActive ? '#10B981' : '#F59E0B',
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.statusTagText, { color: isActive ? '#10B981' : '#F59E0B' }]}>
+                          {isActive ? 'جاهز بالخدمة' : 'في الصيانة'}
+                        </Text>
+                      </View>
                     </View>
 
-                    <View
-                      style={[
-                        styles.statusTag,
-                        {
-                          backgroundColor: isActive ? '#10B98115' : '#F59E0B15',
-                          borderColor: isActive ? '#10B981' : '#F59E0B',
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.statusTagText, { color: isActive ? '#10B981' : '#F59E0B' }]}>
-                        {isActive ? 'جاهز بالخدمة' : 'في الصيانة'}
-                      </Text>
+                    {/* Meta Row: Model, KM, VIN */}
+                    <View style={[styles.fleetMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <View style={styles.fleetMetaItem}>
+                        <Ionicons name="speedometer-outline" size={15} color={colors.primary} />
+                        <Text style={[styles.fleetMetaVal, { color: colors.textPrimary }]}>
+                          {v.current_km ? `${v.current_km} كم` : '0 كم'}
+                        </Text>
+                      </View>
+
+                      <View style={styles.fleetMetaItem}>
+                        <Ionicons name="bicycle-outline" size={15} color={colors.textSecondary} />
+                        <Text style={[styles.fleetMetaVal, { color: colors.textSecondary }]}>
+                          {v.model || 'دباب توصيل'}
+                        </Text>
+                      </View>
+
+                      {v.vin ? (
+                        <View style={styles.fleetMetaItem}>
+                          <Ionicons name="barcode-outline" size={15} color={colors.textSecondary} />
+                          <Text style={[styles.fleetMetaVal, { color: colors.textSecondary }]}>
+                            {v.vin.slice(-6)}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    {/* Actions Row: Toggle Status + Quick Dispense */}
+                    <View style={[styles.fleetActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <TouchableOpacity
+                        style={[
+                          styles.fleetActionBtn,
+                          {
+                            backgroundColor: isActive ? '#F59E0B15' : '#10B98115',
+                            borderColor: isActive ? '#F59E0B' : '#10B981',
+                          },
+                        ]}
+                        onPress={() => handleToggleVehicleStatus(v)}
+                        disabled={isUpdating}
+                      >
+                        {isUpdating ? (
+                          <ActivityIndicator size="small" color={isActive ? '#F59E0B' : '#10B981'} />
+                        ) : (
+                          <>
+                            <Ionicons
+                              name={isActive ? 'build-outline' : 'checkmark-circle-outline'}
+                              size={16}
+                              color={isActive ? '#F59E0B' : '#10B981'}
+                            />
+                            <Text
+                              style={[
+                                styles.fleetActionBtnText,
+                                { color: isActive ? '#F59E0B' : '#10B981' },
+                              ]}
+                            >
+                              {isActive ? 'إحالة للصيانة' : 'تنشيط للخدمة'}
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.fleetActionBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+                        onPress={() => handleQuickDispense(v)}
+                      >
+                        <Ionicons name="water-outline" size={16} color={colors.primary} />
+                        <Text style={[styles.fleetActionBtnText, { color: colors.primary }]}>صرف زيت</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 );
@@ -757,6 +942,81 @@ const styles = StyleSheet.create({
   },
   statusTagText: {
     fontSize: 11,
+    fontWeight: '700',
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    height: '100%',
+  },
+  filterPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  filterPillActive: {
+    borderColor: 'transparent',
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  fleetCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  fleetCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  fleetMetaRow: {
+    alignItems: 'center',
+    gap: 14,
+  },
+  fleetMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  fleetMetaVal: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  fleetActionsRow: {
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  fleetActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 6,
+  },
+  fleetActionBtnText: {
+    fontSize: 12,
     fontWeight: '700',
   },
   inputLabel: {

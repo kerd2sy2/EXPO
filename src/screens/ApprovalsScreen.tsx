@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -51,6 +51,20 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<ApprovalTab>('shifts');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter pending sessions by delegate name, employee code, motorcycle, or national id
+  const filteredSessions = useMemo(() => {
+    if (!searchQuery.trim()) return pendingSessions;
+    const q = searchQuery.toLowerCase().trim();
+    return pendingSessions.filter((s) => {
+      const name = (s.employee_name || s.employee?.name || '').toLowerCase();
+      const code = (s.employee?.employee_number || '').toLowerCase();
+      const bike = (s.motorcycle_number || s.employee?.motorcycle_number || '').toLowerCase();
+      const natId = (s.employee?.national_id || '').toLowerCase();
+      return name.includes(q) || code.includes(q) || bike.includes(q) || natId.includes(q);
+    });
+  }, [pendingSessions, searchQuery]);
 
   // Edit & Review Shift Modal State
   const [editingSession, setEditingSession] = useState<WorkSession | null>(null);
@@ -164,33 +178,68 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         {/* SHIFTS TAB */}
         {activeTab === 'shifts' && (
           <>
-            {pendingSessions.length === 0 ? (
+            {/* Search Bar for Pending Shifts */}
+            {pendingSessions.length > 0 && (
+              <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Ionicons name="search" size={18} color={colors.textSecondary} />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                  placeholder="ابحث باسم المندوب، الكود، أو رقم الدباب..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {filteredSessions.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="checkmark-done-circle" size={54} color="#10B981" />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد ورديات معلقة</Text>
+                <Ionicons name={searchQuery ? 'search-outline' : 'checkmark-done-circle'} size={54} color={searchQuery ? colors.textSecondary : '#10B981'} />
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                  {searchQuery ? `لا توجد نتائج مطابقة لـ "${searchQuery}"` : 'لا توجد ورديات معلقة'}
+                </Text>
                 <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                  جميع ورديات فرعك معتمدة ومحدثة بالكامل
+                  {searchQuery ? 'تأكد من كتابة الاسم أو رقم الدباب بشكل صحيح' : 'جميع ورديات فرعك معتمدة ومحدثة بالكامل'}
                 </Text>
               </View>
             ) : (
-              pendingSessions.map((session) => {
+              filteredSessions.map((session) => {
                 const isLoading = actionLoadingId === session.id;
                 const distance =
                   session.end_km && session.start_km ? Math.max(0, session.end_km - session.start_km) : 0;
+                const plateStr = session.motorcycle_number || session.employee?.motorcycle_number || '';
+                const parsedPlate = plateStr ? parsePlateComponents(plateStr) : null;
 
                 return (
                   <View key={session.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={styles.cardHeader}>
                       <View style={styles.headerTitleCol}>
                         <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                          مندوب: {session.employee_name || session.employee_id}
+                          مندوب: {session.employee_name || session.employee?.name || session.employee_id}
                         </Text>
                         <Text style={[styles.cardTime, { color: colors.textSecondary }]}>
+                          {session.employee?.employee_number ? `كود: ${session.employee.employee_number} • ` : ''}
                           {session.start_time ? new Date(session.start_time).toLocaleDateString('ar-SA') : 'اليوم'}
                         </Text>
                       </View>
-                      <View style={[styles.statusTag, { backgroundColor: '#F59E0B15', borderColor: '#F59E0B' }]}>
-                        <Text style={styles.statusTagText}>بانتظار الاعتماد</Text>
+                      <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                        <View style={[styles.statusTag, { backgroundColor: '#F59E0B15', borderColor: '#F59E0B' }]}>
+                          <Text style={styles.statusTagText}>بانتظار الاعتماد</Text>
+                        </View>
+                        {parsedPlate && (
+                          <SaudiPlateView
+                            digits={parsedPlate.digits}
+                            letters={parsedPlate.letters}
+                            editable={false}
+                            scale={0.55}
+                            isDarkMode={isDarkMode}
+                          />
+                        )}
                       </View>
                     </View>
 
@@ -460,6 +509,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 4,
     gap: 4,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    height: '100%',
   },
   segmentBtn: {
     flex: 1,

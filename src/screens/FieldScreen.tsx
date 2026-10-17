@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -163,9 +163,63 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
     }
   };
 
-  // Filter delegates
+  // 1. Exclude supervisors and administrators from branch delegates so only actual drivers appear
+  const branchDriversOnly = useMemo(() => {
+    return (delegates || []).filter((del) => {
+      const role = (del.job_role || (del as any).role_name || '').toUpperCase();
+      return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
+    });
+  }, [delegates]);
+
+  // 2. Cross-branch search state ("التركاية": فروع أخرى تظهر فقط عند البحث)
+  const [remoteSearchResults, setRemoteSearchResults] = useState<DelegateWithStatus[]>([]);
+  const [isSearchingRemote, setIsSearchingRemote] = useState(false);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setRemoteSearchResults([]);
+      setIsSearchingRemote(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setIsSearchingRemote(true);
+        const results = await supervisorApi.searchDelegates(q);
+        setRemoteSearchResults(results);
+      } catch (err) {
+        console.warn('[FieldScreen] search error:', err);
+      } finally {
+        setIsSearchingRemote(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // 3. Combined list: default is ONLY supervisor's branch. When searching, include cross-branch matches.
+  const activeDelegatesPool = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return branchDriversOnly;
+    }
+
+    const map = new Map<string, DelegateWithStatus>();
+    // First, local branch drivers
+    branchDriversOnly.forEach((d) => map.set(d.id, d));
+    // Second, remote drivers matching query (from any branch)
+    remoteSearchResults.forEach((d) => {
+      if (!map.has(d.id)) {
+        map.set(d.id, d);
+      }
+    });
+
+    return Array.from(map.values());
+  }, [branchDriversOnly, remoteSearchResults, searchQuery]);
+
+  // Filter delegates by active tab and search query
   const filteredDelegates = useMemo(() => {
-    return delegates.filter((del) => {
+    return activeDelegatesPool.filter((del) => {
       // Tab filter
       if (filter === 'working' && !del.is_working) return false;
       if (filter === 'idle' && del.is_working) return false;
@@ -177,14 +231,15 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
         const matchPhone = del.phone?.includes(q);
         const matchId = del.national_id?.includes(q);
         const matchBike = del.motorcycle_number?.toLowerCase().includes(q);
-        return matchName || matchPhone || matchId || matchBike;
+        const matchBranch = (del.branch_name || '').toLowerCase().includes(q);
+        return matchName || matchPhone || matchId || matchBike || matchBranch;
       }
       return true;
     });
-  }, [delegates, filter, searchQuery]);
+  }, [activeDelegatesPool, filter, searchQuery]);
 
-  const workingCount = delegates.filter((d) => d.is_working).length;
-  const idleCount = delegates.length - workingCount;
+  const workingCount = branchDriversOnly.filter((d) => d.is_working).length;
+  const idleCount = Math.max(0, branchDriversOnly.length - workingCount);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -193,16 +248,18 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
         <Ionicons name="search" size={20} color={colors.textSecondary} />
         <TextInput
           style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-          placeholder="ابحث بالاسم، الهوية، الجوال أو رقم الدباب..."
+          placeholder="ابحث بالاسم، الهوية، الجوال أو رقم الدباب (بحث عام بكافة الفروع)..."
           placeholderTextColor={colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-        {searchQuery.length > 0 && (
+        {isSearchingRemote ? (
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginHorizontal: 6 }} />
+        ) : searchQuery.length > 0 ? (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
             <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
-        )}
+        ) : null}
       </View>
 
       {/* Filter Tabs */}
@@ -292,7 +349,14 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
                       )}
                     </View>
                     <View style={styles.nameBlock}>
-                      <Text style={[styles.delName, { color: colors.textPrimary }]}>{del.name}</Text>
+                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={[styles.delName, { color: colors.textPrimary }]}>{del.name}</Text>
+                        {del.branch_name ? (
+                          <View style={[styles.branchPill, { backgroundColor: colors.primaryLight }]}>
+                            <Text style={[styles.branchPillText, { color: colors.primary }]}>{del.branch_name}</Text>
+                          </View>
+                        ) : null}
+                      </View>
                       <Text style={[styles.delPhone, { color: colors.textSecondary }]}>
                         {del.phone || del.national_id}
                       </Text>
@@ -792,5 +856,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '800',
+  },
+  branchPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  branchPillText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

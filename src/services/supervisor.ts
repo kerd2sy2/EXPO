@@ -74,21 +74,49 @@ export interface PendingMaintenanceRequest {
 }
 
 export const supervisorApi = {
-  // 1. Get all employees in supervisor branch
+  // 1. Get all employees in supervisor branch (drivers only, full branch roster)
   getAllBranchDelegates: async (): Promise<DelegateWithStatus[]> => {
     try {
-      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>('/employees', {
+      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>('/employees?limit=500&job_role=DRIVER', {
         timeoutMs: 10000,
       });
+      let list: DelegateWithStatus[] = [];
       if (Array.isArray(resp)) {
-        return resp;
+        list = resp;
+      } else if (resp && Array.isArray(resp.data)) {
+        list = resp.data;
       }
-      if (resp && Array.isArray(resp.data)) {
-        return resp.data;
-      }
-      return [];
+      // Ensure only drivers (delegates), not supervisors or administrators
+      return list.filter((e) => {
+        const role = (e.job_role || (e as any).role_name || '').toUpperCase();
+        return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
+      });
     } catch (err) {
       console.warn('[supervisorApi] getAllBranchDelegates error:', err);
+      return [];
+    }
+  },
+
+  // 1b. Search delegates across all branches ("التركاية": يظهر عند البحث فقط)
+  searchDelegates: async (query: string): Promise<DelegateWithStatus[]> => {
+    try {
+      if (!query || query.trim().length === 0) return [];
+      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>(
+        `/employees/search?q=${encodeURIComponent(query.trim())}&all_branches=true`,
+        { timeoutMs: 10000 }
+      );
+      let list: DelegateWithStatus[] = [];
+      if (Array.isArray(resp)) {
+        list = resp;
+      } else if (resp && Array.isArray((resp as any).data)) {
+        list = (resp as any).data;
+      }
+      return list.filter((e) => {
+        const role = (e.job_role || (e as any).role_name || '').toUpperCase();
+        return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
+      });
+    } catch (err) {
+      console.warn('[supervisorApi] searchDelegates error:', err);
       return [];
     }
   },
