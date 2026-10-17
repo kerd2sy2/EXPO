@@ -211,19 +211,21 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
         </View>
 
         {/* Icon Circle with Glow or Lottie */}
-        <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>
-          {lottieSource ? (
+        {lottieSource ? (
+          <View style={styles.lottieWrap}>
             <LottieView
               source={lottieSource}
               autoPlay
               loop={false}
-              style={{ width: 56, height: 56 }}
+              style={{ width: 175, height: 95 }}
               resizeMode="contain"
             />
-          ) : (
-            iconComponent
-          )}
-        </View>
+          </View>
+        ) : (
+          <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>
+            {iconComponent}
+          </View>
+        )}
 
         {/* Title */}
         <Text style={[styles.title, { color: colors.textPrimary, textAlign: 'center' }]}>
@@ -298,6 +300,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 5,
     borderRadius: 3,
+  },
+  lottieWrap: {
+    width: '100%',
+    height: 95,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   iconCircle: {
     width: 64,

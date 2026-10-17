@@ -814,7 +814,7 @@ export default function DelegateApp() {
         (res?.admin?.permissions && (res.admin.permissions.includes('*') || res.admin.permissions.includes('apps.edara')));
 
       if (!hasEdaraAccess) {
-        setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للإدارة والمشرفين فقط.' : 'This app is for administration and supervisors only.');
+        setLoginError(lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.');
         await setAuthToken(null);
         await saveCachedUser(null);
         setEmployee(null);
@@ -897,7 +897,7 @@ export default function DelegateApp() {
       (loginResp?.admin?.permissions && (loginResp.admin.permissions.includes('*') || loginResp.admin.permissions.includes('apps.edara')));
 
     if (!hasEdaraAccess) {
-      setLoginError(lang === 'ar' ? 'هذا التطبيق مخصص للإدارة والمشرفين فقط.' : 'This app is for administration and supervisors only.');
+      setLoginError(lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.');
       await setAuthToken(null);
       await saveCachedUser(null);
       setEmployee(null);

@@ -42,6 +42,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  const normalizeDigits = (str: string) => {
+    return str
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString())
+      .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+  };
+
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -151,19 +157,23 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!oldPassword.trim()) {
+    const cleanOld = normalizeDigits(oldPassword.trim()).replace(/[^0-9]/g, '');
+    const cleanNew = normalizeDigits(newPassword.trim()).replace(/[^0-9]/g, '');
+    const cleanConfirm = normalizeDigits(confirmPassword.trim()).replace(/[^0-9]/g, '');
+
+    if (!cleanOld) {
       setErrorMessage(t.currentPasswordPlaceholder || 'يرجى إدخال كلمة المرور الحالية');
       return;
     }
-    if (!newPassword.trim() || newPassword.trim().length < 4) {
+    if (!cleanNew || cleanNew.length < 4) {
       setErrorMessage(
         isRTL
-          ? 'كلمة المرور الجديدة يجب ألا تقل عن 4 أرقام / أحرف'
-          : 'New password must be at least 4 characters'
+          ? 'كلمة المرور الجديدة يجب أن تكون أرقاماً فقط ولا تقل عن 4 أرقام'
+          : 'New password must be numbers only and at least 4 digits'
       );
       return;
     }
-    if (newPassword.trim() !== confirmPassword.trim()) {
+    if (cleanNew !== cleanConfirm) {
       setErrorMessage(t.passwordMismatchError || 'كلمات المرور الجديدة غير متطابقة');
       return;
     }
@@ -172,7 +182,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     setLoading(true);
 
     try {
-      await changeMyPasswordApi(oldPassword, newPassword);
+      await changeMyPasswordApi(cleanOld, cleanNew);
       handleAnimatedClose(() => {
         onSuccess();
       });
@@ -321,7 +331,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                   placeholderTextColor={colors.textSecondary + '88'}
                   secureTextEntry={!showOld}
                   value={oldPassword}
-                  onChangeText={setOldPassword}
+                  onChangeText={(val) => setOldPassword(normalizeDigits(val).replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
                   autoCapitalize="none"
                 />
                 <TouchableOpacity
@@ -374,7 +385,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                   placeholderTextColor={colors.textSecondary + '88'}
                   secureTextEntry={!showNew}
                   value={newPassword}
-                  onChangeText={setNewPassword}
+                  onChangeText={(val) => setNewPassword(normalizeDigits(val).replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
                   autoCapitalize="none"
                 />
                 <TouchableOpacity
@@ -427,7 +439,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                   placeholderTextColor={colors.textSecondary + '88'}
                   secureTextEntry={!showConfirm}
                   value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  onChangeText={(val) => setConfirmPassword(normalizeDigits(val).replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
                   autoCapitalize="none"
                 />
                 <TouchableOpacity
