@@ -53,7 +53,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   isRTL,
   onPreviewPhoto,
 }) => {
-  const [activeTab, setActiveTab] = useState<ApprovalTab>('shifts');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -69,30 +68,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
       return name.includes(q) || code.includes(q) || bike.includes(q) || natId.includes(q);
     });
   }, [pendingSessions, searchQuery]);
-
-  // Filter pending advances and reports by delegate name, reason, or type
-  const filteredAdvances = useMemo(() => {
-    if (!searchQuery.trim()) return pendingAdvances;
-    const q = searchQuery.toLowerCase().trim();
-    return pendingAdvances.filter((a) => {
-      const name = (a.employee_name || '').toLowerCase();
-      const reason = (a.reason || a.notes || a.report_text || '').toLowerCase();
-      const type = (a.type || '').toLowerCase();
-      return name.includes(q) || reason.includes(q) || type.includes(q);
-    });
-  }, [pendingAdvances, searchQuery]);
-
-  // Filter pending maintenance requests by delegate name, plate, or description
-  const filteredMaintenance = useMemo(() => {
-    if (!searchQuery.trim()) return pendingMaintenance;
-    const q = searchQuery.toLowerCase().trim();
-    return pendingMaintenance.filter((m) => {
-      const name = (m.employee_name || '').toLowerCase();
-      const bike = (m.motorcycle_number || '').toLowerCase();
-      const desc = (m.issue_description || '').toLowerCase();
-      return name.includes(q) || bike.includes(q) || desc.includes(q);
-    });
-  }, [pendingMaintenance, searchQuery]);
 
   // Edit & Review Shift Modal State
   const [editingSession, setEditingSession] = useState<WorkSession | null>(null);
@@ -228,38 +203,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
     }
   };
 
-  // Maintenance action
-  const handleAdvanceAction = async (id: string, action: 'approve' | 'reject') => {
-    try {
-      setActionLoadingId(id);
-      if (action === 'approve') {
-        await supervisorApi.approveInvestigation(id);
-        Alert.alert('تم بنجاح', 'تمت الموافقة على الطلب بنجاح وتحديث السجلات');
-      } else {
-        await supervisorApi.rejectInvestigation(id, 'مرفوض بواسطة المشرف');
-        Alert.alert('تم', 'تم رفض الطلب');
-      }
-      onRefresh();
-    } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشلت معالجة الطلب');
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
-  const handleMaintenanceAction = async (id: string, status: 'APPROVED' | 'REJECTED') => {
-    try {
-      setActionLoadingId(id);
-      await supervisorApi.updateMaintenanceStatus(id, status);
-      Alert.alert('تم', status === 'APPROVED' ? 'تمت الموافقة وإحالة الدباب لمركز الصيانة' : 'تم رفض الطلب');
-      onRefresh();
-    } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشل تحديث طلب الصيانة');
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* ── TOP SEARCH BAR (ابحث بالحرفين يظهر فوراً) ── */}
@@ -279,34 +222,28 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         )}
       </View>
 
-      {/* Segmented Top Bar */}
-      <View style={[styles.segmentContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <TouchableOpacity
-          style={[styles.segmentBtn, activeTab === 'shifts' && [styles.activeSegment, { backgroundColor: colors.primary }]]}
-          onPress={() => setActiveTab('shifts')}
-        >
-          <Text style={[styles.segmentText, { color: activeTab === 'shifts' ? '#fff' : colors.textSecondary }]}>
-            الورديات ({filteredSessions.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.segmentBtn, activeTab === 'advances' && [styles.activeSegment, { backgroundColor: colors.primary }]]}
-          onPress={() => setActiveTab('advances')}
-        >
-          <Text style={[styles.segmentText, { color: activeTab === 'advances' ? '#fff' : colors.textSecondary }]}>
-            السلف والتقارير ({filteredAdvances.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.segmentBtn, activeTab === 'maintenance' && [styles.activeSegment, { backgroundColor: colors.primary }]]}
-          onPress={() => setActiveTab('maintenance')}
-        >
-          <Text style={[styles.segmentText, { color: activeTab === 'maintenance' ? '#fff' : colors.textSecondary }]}>
-            الصيانة ({filteredMaintenance.length})
-          </Text>
-        </TouchableOpacity>
+      {/* ── Pending Shifts Header Counter Banner ── */}
+      <View style={[styles.summaryBadgeRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+          <View style={[styles.summaryIconBox, { backgroundColor: '#3b82f615' }]}>
+            <Ionicons name="bicycle" size={20} color="#2563eb" />
+          </View>
+          <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+            <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>
+              ورديات المناديب بانتظار الاعتماد
+            </Text>
+            <Text style={[styles.summarySub, { color: colors.textSecondary }]}>
+              {filteredSessions.length > 0
+                ? `${filteredSessions.length} وردية بانتظار مراجعة وتوثيق الطلبات`
+                : 'جميع ورديات الفرع معتمدة بالكامل'}
+            </Text>
+          </View>
+        </View>
+        {filteredSessions.length > 0 && (
+          <View style={[styles.pendingCountPill, { backgroundColor: '#f59e0b15', borderColor: '#f59e0b' }]}>
+            <Text style={[styles.pendingCountText, { color: '#d97706' }]}>{filteredSessions.length} معلق</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView
@@ -316,313 +253,148 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           <RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }
       >
-        {/* SHIFTS TAB */}
-        {activeTab === 'shifts' && (
-          <>
-            {filteredSessions.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name={searchQuery ? 'search-outline' : 'checkmark-done-circle'} size={54} color={searchQuery ? colors.textSecondary : '#10B981'} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                  {searchQuery ? `لا توجد نتائج مطابقة لـ "${searchQuery}"` : 'لا توجد ورديات معلقة'}
-                </Text>
-                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                  {searchQuery ? 'تأكد من كتابة الاسم أو رقم الدباب بشكل صحيح' : 'جميع ورديات فرعك معتمدة ومحدثة بالكامل'}
-                </Text>
-              </View>
-            ) : (
-              filteredSessions.map((session) => {
-                const isLoading = actionLoadingId === session.id;
-                const distance =
-                  session.end_km && session.start_km ? Math.max(0, session.end_km - session.start_km) : 0;
-                const plateStr = session.motorcycle_number || session.employee?.motorcycle_number || '';
-                const parsedPlate = plateStr ? parsePlateComponents(plateStr) : null;
+        {filteredSessions.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name={searchQuery ? 'search-outline' : 'checkmark-done-circle'} size={54} color={searchQuery ? colors.textSecondary : '#10B981'} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+              {searchQuery ? `لا توجد نتائج مطابقة لـ "${searchQuery}"` : 'لا توجد ورديات معلقة'}
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+              {searchQuery ? 'تأكد من كتابة الاسم أو رقم الدباب بشكل صحيح' : 'جميع ورديات فرعك معتمدة ومحدثة بالكامل'}
+            </Text>
+          </View>
+        ) : (
+          filteredSessions.map((session) => {
+            const isLoading = actionLoadingId === session.id;
+            const distance =
+              session.end_km && session.start_km ? Math.max(0, session.end_km - session.start_km) : 0;
+            const plateStr = session.motorcycle_number || session.employee?.motorcycle_number || '';
+            const parsedPlate = plateStr ? parsePlateComponents(plateStr) : null;
 
-                return (
-                  <View key={session.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <View style={styles.cardHeader}>
-                      <View style={styles.headerTitleCol}>
-                        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                          مندوب: {session.employee_name || session.employee?.name || session.employee_id}
-                        </Text>
-                        <Text style={[styles.cardTime, { color: colors.textSecondary }]}>
-                          {session.employee?.employee_number ? `كود: ${session.employee.employee_number} • ` : ''}
-                          {session.start_time ? new Date(session.start_time).toLocaleDateString('ar-SA') : 'اليوم'}
-                        </Text>
-                      </View>
-                      <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                        <View style={[styles.statusTag, { backgroundColor: '#F59E0B15', borderColor: '#F59E0B' }]}>
-                          <Text style={styles.statusTagText}>بانتظار الاعتماد</Text>
-                        </View>
-                        {parsedPlate && (
-                          <SaudiPlateView
-                            digits={parsedPlate.digits}
-                            letters={parsedPlate.letters}
-                            editable={false}
-                            scale={0.55}
-                            isDarkMode={isDarkMode}
-                          />
-                        )}
-                      </View>
-                    </View>
-
-                    {/* Highlight Reported Orders Banner */}
-                    <View style={[styles.ordersHighlightBanner, { backgroundColor: '#3b82f615', borderColor: '#3b82f640' }]}>
-                      <Ionicons name="receipt" size={18} color="#2563eb" />
-                      <Text style={[styles.ordersHighlightText, { color: colors.textPrimary }]}>
-                        الطلبات المسجلة من المندوب:{' '}
-                        <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#2563eb' }}>
-                          {session.orders_count || 0}
-                        </Text>{' '}
-                        طلب
-                      </Text>
-                    </View>
-
-                    {/* Stats Grid */}
-                    <View style={styles.statsRow}>
-                      <View style={styles.statBox}>
-                        <Text style={[styles.statVal, { color: colors.primary }]}>{session.orders_count || 0}</Text>
-                        <Text style={[styles.statLbl, { color: colors.textSecondary }]}>الطلبات</Text>
-                      </View>
-                      <View style={styles.statBox}>
-                        <Text style={[styles.statVal, { color: colors.textPrimary }]}>{distance} كم</Text>
-                        <Text style={[styles.statLbl, { color: colors.textSecondary }]}>المسافة</Text>
-                      </View>
-                      <View style={styles.statBox}>
-                        <Text style={[styles.statVal, { color: colors.textPrimary }]}>{session.fuel_cost || 0} ر.س</Text>
-                        <Text style={[styles.statLbl, { color: colors.textSecondary }]}>الوقود</Text>
-                      </View>
-                    </View>
-
-                    {/* Photo previews if available */}
-                    {(session.start_km_image || session.end_km_image) && (
-                      <View style={styles.photoRow}>
-                        {session.start_km_image && (
-                          <TouchableOpacity
-                            style={styles.photoThumbWrapper}
-                            onPress={() =>
-                              onPreviewPhoto?.({ url: session.start_km_image!, title: 'عداد البداية' })
-                            }
-                          >
-                            <Image source={{ uri: session.start_km_image }} style={styles.photoThumb} />
-                            <Text style={styles.photoThumbLabel}>عداد البدء</Text>
-                          </TouchableOpacity>
-                        )}
-                        {session.end_km_image && (
-                          <TouchableOpacity
-                            style={styles.photoThumbWrapper}
-                            onPress={() =>
-                              onPreviewPhoto?.({ url: session.end_km_image!, title: 'عداد النهاية' })
-                            }
-                          >
-                            <Image source={{ uri: session.end_km_image }} style={styles.photoThumb} />
-                            <Text style={styles.photoThumbLabel}>عداد الإغلاق</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    )}
-
-                    {/* Action buttons */}
-                    <View style={[styles.actionsRow, { flexDirection: 'column', gap: 8 }]}>
-                      <TouchableOpacity
-                        style={[styles.primaryReviewActionBtn, { backgroundColor: colors.primary }]}
-                        onPress={() => openEditModal(session)}
-                      >
-                        <Ionicons name="videocam" size={18} color="#fff" />
-                        <Text style={styles.primaryReviewActionText}>توثيق ومراجعة الطلبات بالفيديو</Text>
-                      </TouchableOpacity>
-
-                      <View style={{ flexDirection: 'row', gap: 8 }}>
-                        {session.review_video_url ? (
-                          <TouchableOpacity
-                            style={[styles.videoProofBadgeBtn, { borderColor: '#10b981', backgroundColor: '#10b98115', flex: 1 }]}
-                            onPress={() => handlePlayVideo(session.review_video_url!)}
-                          >
-                            <Ionicons name="play-circle" size={18} color="#10b981" />
-                            <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 13 }}>مشاهدة الفيديو</Text>
-                          </TouchableOpacity>
-                        ) : null}
-
-                        <TouchableOpacity
-                          style={[styles.directApproveBtn, { borderColor: '#10B981', backgroundColor: '#10B98110', flex: 1 }]}
-                          onPress={() => handleApproveShift(session)}
-                          disabled={isLoading}
-                        >
-                          {isLoading ? (
-                            <ActivityIndicator size="small" color="#10B981" />
-                          ) : (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                              <Ionicons name="checkmark-done" size={16} color="#10B981" />
-                              <Text style={{ color: '#10B981', fontWeight: '600', fontSize: 13 }}>اعتماد فوري</Text>
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+            return (
+              <View key={session.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.headerTitleCol}>
+                    <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+                      مندوب: {session.employee_name || session.employee?.name || session.employee_id}
+                    </Text>
+                    <Text style={[styles.cardTime, { color: colors.textSecondary }]}>
+                      {session.employee?.employee_number ? `كود: ${session.employee.employee_number} • ` : ''}
+                      {session.start_time ? new Date(session.start_time).toLocaleDateString('ar-SA') : 'اليوم'}
+                    </Text>
                   </View>
-                );
-              })
-            )}
-          </>
-        )}
-
-        {/* ADVANCES & REPORTS TAB */}
-        {activeTab === 'advances' && (
-          <>
-            {filteredAdvances.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name={searchQuery ? 'search-outline' : 'wallet-outline'} size={54} color={colors.textSecondary} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                  {searchQuery ? `لا توجد طلبات سلف أو تقارير مطابقة لـ "${searchQuery}"` : 'لا توجد طلبات سلف أو تقارير معلقة'}
-                </Text>
-                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                  {searchQuery ? 'تأكد من كتابة اسم المندوب بشكل صحيح' : 'جميع طلبات السلف والتقارير الإدارية معتمدة ومحدثة'}
-                </Text>
-              </View>
-            ) : (
-              filteredAdvances.map((adv) => {
-                const isLoading = actionLoadingId === adv.id;
-                const isReport = adv.type === 'supervisor_report';
-
-                return (
-                  <View key={adv.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <View style={styles.cardHeader}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{adv.employee_name}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                          <View
-                            style={[
-                              styles.typeBadge,
-                              { backgroundColor: isReport ? '#8b5cf615' : colors.primaryLight },
-                            ]}
-                          >
-                            <Text style={[styles.typeBadgeText, { color: isReport ? '#8b5cf6' : colors.primary }]}>
-                              {isReport
-                                ? 'تقرير مشرف / شكوى'
-                                : adv.type === 'internet_advance'
-                                ? 'سلفة باقة نت'
-                                : 'طلب سلفة مالية'}
-                            </Text>
-                          </View>
-                          <Text style={[styles.cardTime, { color: colors.textSecondary }]}>
-                            {adv.created_at ? new Date(adv.created_at).toLocaleDateString('ar-SA') : 'اليوم'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {adv.amount ? (
-                        <Text style={[styles.amountText, { color: colors.primary }]}>{adv.amount} ر.س</Text>
-                      ) : null}
+                  <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                    <View style={[styles.statusTag, { backgroundColor: '#F59E0B15', borderColor: '#F59E0B' }]}>
+                      <Text style={styles.statusTagText}>بانتظار الاعتماد</Text>
                     </View>
-
-                    {(adv.report_text || adv.reason || adv.notes) && (
-                      <View style={[styles.issueBox, { backgroundColor: colors.bg }]}>
-                        <Text style={[styles.issueLabel, { color: colors.textSecondary }]}>
-                          {isReport ? 'بيان التقرير الإداري:' : 'سبب طلب السلفة:'}
-                        </Text>
-                        <Text style={[styles.issueText, { color: colors.textPrimary }]}>
-                          {adv.report_text || adv.reason || adv.notes}
-                        </Text>
-                        {adv.deduction_month ? (
-                          <Text style={[styles.issueText, { color: colors.textSecondary, marginTop: 4, fontSize: 11 }]}>
-                            شهر الاستقطاع: {adv.deduction_month}
-                          </Text>
-                        ) : null}
-                      </View>
-                    )}
-
-                    {/* Advance / Report Management Notice */}
-                    <View
-                      style={[
-                        styles.adminApprovalNotice,
-                        {
-                          backgroundColor: isDarkMode ? '#064e3b20' : '#ecfdf5',
-                          borderColor: '#10b981',
-                        },
-                      ]}
-                    >
-                      <Ionicons name="shield-checkmark-outline" size={16} color="#059669" />
-                      <Text style={[styles.adminApprovalNoticeText, { color: '#059669' }]}>
-                        {isReport
-                          ? 'تم إرسال التقرير للإدارة العامة للمتابعة واتخاذ الإجراء'
-                          : 'بانتظار الاعتماد المالي: صلاحية الموافقة لدى الإدارة العامة والحسابات'}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </>
-        )}
-
-        {/* MAINTENANCE TAB */}
-        {activeTab === 'maintenance' && (
-          <>
-            {filteredMaintenance.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name={searchQuery ? 'search-outline' : 'build-outline'} size={54} color={colors.textSecondary} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                  {searchQuery ? `لا توجد طلبات صيانة مطابقة لـ "${searchQuery}"` : 'لا توجد طلبات صيانة معلقة'}
-                </Text>
-                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                  {searchQuery ? 'تأكد من كتابة الاسم أو اللوحة بشكل صحيح' : 'أسطول دبابات الفرع في حالة ممتازة'}
-                </Text>
-              </View>
-            ) : (
-              filteredMaintenance.map((maint) => {
-                const isLoading = actionLoadingId === maint.id;
-                const plate = parsePlateComponents(maint.motorcycle_number || '');
-
-                return (
-                  <View key={maint.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <View style={styles.cardHeader}>
-                      <View>
-                        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                          المندوب: {maint.employee_name || 'غير محدد'}
-                        </Text>
-                        <Text style={[styles.cardTime, { color: colors.textSecondary }]}>
-                          {new Date(maint.created_at).toLocaleDateString('ar-SA')}
-                        </Text>
-                      </View>
+                    {parsedPlate && (
                       <SaudiPlateView
-                        digits={plate.digits}
-                        letters={plate.letters}
+                        digits={parsedPlate.digits}
+                        letters={parsedPlate.letters}
                         editable={false}
-                        scale={0.65}
+                        scale={0.55}
                         isDarkMode={isDarkMode}
                       />
-                    </View>
-
-                    <View style={styles.issueBox}>
-                      <Text style={[styles.issueLabel, { color: colors.textSecondary }]}>وصف العطل المبلغ عنه:</Text>
-                      <Text style={[styles.issueText, { color: colors.textPrimary }]}>{maint.issue_description}</Text>
-                    </View>
-
-                    <View style={styles.actionsRow}>
-                      <TouchableOpacity
-                        style={[styles.rejectBtn, { borderColor: '#EF4444' }]}
-                        onPress={() => handleMaintenanceAction(maint.id, 'REJECTED')}
-                        disabled={isLoading}
-                      >
-                        <Text style={[styles.rejectBtnText, { color: '#EF4444' }]}>رفض</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.approveBtn, { backgroundColor: '#10B981' }]}
-                        onPress={() => handleMaintenanceAction(maint.id, 'APPROVED')}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <Text style={styles.approveBtnText}>إحالة للورشة والعهدة</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
+                    )}
                   </View>
-                );
-              })
-            )}
-          </>
+                </View>
+
+                {/* Highlight Reported Orders Banner */}
+                <View style={[styles.ordersHighlightBanner, { backgroundColor: '#3b82f615', borderColor: '#3b82f640' }]}>
+                  <Ionicons name="receipt" size={18} color="#2563eb" />
+                  <Text style={[styles.ordersHighlightText, { color: colors.textPrimary }]}>
+                    الطلبات المسجلة من المندوب:{' '}
+                    <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#2563eb' }}>
+                      {session.orders_count || 0}
+                    </Text>{' '}
+                    طلب
+                  </Text>
+                </View>
+
+                {/* Stats Grid */}
+                <View style={styles.statsRow}>
+                  <View style={styles.statBox}>
+                    <Text style={[styles.statVal, { color: colors.primary }]}>{session.orders_count || 0}</Text>
+                    <Text style={[styles.statLbl, { color: colors.textSecondary }]}>الطلبات</Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <Text style={[styles.statVal, { color: colors.textPrimary }]}>{distance} كم</Text>
+                    <Text style={[styles.statLbl, { color: colors.textSecondary }]}>المسافة</Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <Text style={[styles.statVal, { color: colors.textPrimary }]}>{session.fuel_cost || 0} ر.س</Text>
+                    <Text style={[styles.statLbl, { color: colors.textSecondary }]}>الوقود</Text>
+                  </View>
+                </View>
+
+                {/* Photo previews if available */}
+                {(session.start_km_image || session.end_km_image) && (
+                  <View style={styles.photoRow}>
+                    {session.start_km_image && (
+                      <TouchableOpacity
+                        style={styles.photoThumbWrapper}
+                        onPress={() =>
+                          onPreviewPhoto?.({ url: session.start_km_image!, title: 'عداد البداية' })
+                        }
+                      >
+                        <Image source={{ uri: session.start_km_image }} style={styles.photoThumb} />
+                        <Text style={styles.photoThumbLabel}>عداد البدء</Text>
+                      </TouchableOpacity>
+                    )}
+                    {session.end_km_image && (
+                      <TouchableOpacity
+                        style={styles.photoThumbWrapper}
+                        onPress={() =>
+                          onPreviewPhoto?.({ url: session.end_km_image!, title: 'عداد النهاية' })
+                        }
+                      >
+                        <Image source={{ uri: session.end_km_image }} style={styles.photoThumb} />
+                        <Text style={styles.photoThumbLabel}>عداد الإغلاق</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                {/* Action buttons */}
+                <View style={[styles.actionsRow, { flexDirection: 'column', gap: 8 }]}>
+                  <TouchableOpacity
+                    style={[styles.primaryReviewActionBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => openEditModal(session)}
+                  >
+                    <Ionicons name="videocam" size={18} color="#fff" />
+                    <Text style={styles.primaryReviewActionText}>توثيق ومراجعة الطلبات بالفيديو</Text>
+                  </TouchableOpacity>
+
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {session.review_video_url ? (
+                      <TouchableOpacity
+                        style={[styles.videoProofBadgeBtn, { borderColor: '#10b981', backgroundColor: '#10b98115', flex: 1 }]}
+                        onPress={() => handlePlayVideo(session.review_video_url!)}
+                      >
+                        <Ionicons name="play-circle" size={18} color="#10b981" />
+                        <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 13 }}>مشاهدة الفيديو</Text>
+                      </TouchableOpacity>
+                    ) : null}
+
+                    <TouchableOpacity
+                      style={[styles.directApproveBtn, { borderColor: '#10B981', backgroundColor: '#10B98110', flex: 1 }]}
+                      onPress={() => handleApproveShift(session)}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="#10B981" />
+                      ) : (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                          <Ionicons name="checkmark-done" size={16} color="#10B981" />
+                          <Text style={{ color: '#10B981', fontWeight: '600', fontSize: 13 }}>اعتماد فوري</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            );
+          })
         )}
       </ScrollView>
 
@@ -756,6 +528,42 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 4,
     gap: 4,
+  },
+  summaryBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  summaryIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  summarySub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  pendingCountPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  pendingCountText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   topSearchWrapper: {
     flexDirection: 'row',

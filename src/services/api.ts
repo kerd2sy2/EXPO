@@ -22,6 +22,23 @@ export const formatImageUrl = (url?: string | null): string | null => {
   }
   const cleanUrl = trimmed.replace(/^\/+/, '');
   const baseDomain = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+
+  // Operational proof videos: always route through secure authenticated stream endpoint
+  if (cleanUrl.includes('operation-videos/') || cleanUrl.includes('operation_videos/')) {
+    const uuidMatch = cleanUrl.match(/[0-9a-fA-F-]{36}/);
+    if (uuidMatch) {
+      return `${baseDomain}/api/v1/operation-videos/${uuidMatch[0]}/stream`;
+    }
+    if (cleanUrl.startsWith('api/')) {
+      return `${baseDomain}/${cleanUrl}`;
+    }
+  }
+
+  // Any other direct API route
+  if (cleanUrl.startsWith('api/')) {
+    return `${baseDomain}/${cleanUrl}`;
+  }
+
   if (cleanUrl.startsWith('uploads/')) {
     return `${baseDomain}/${cleanUrl}`;
   }

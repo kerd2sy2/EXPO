@@ -187,7 +187,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </TouchableOpacity>
         )}
 
-        {/* Module 6: Operation Video Documentation (توثيق العمليات) */}
+        {/* Module 6: Review Videos (مراجعة الفيديوهات) */}
         {(onOpenOperationVideosModal || onOpenWhatsAppModal) && (
           <TouchableOpacity
             style={[
@@ -198,17 +198,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             activeOpacity={0.75}
           >
             <View style={[styles.moduleIconBox, { backgroundColor: '#3b82f620' }]}>
-              <Ionicons name="videocam" size={26} color="#3b82f6" />
+              <Ionicons name="film" size={26} color="#3b82f6" />
             </View>
             <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
               <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>توثيق العمليات</Text>
+                <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>مراجعة الفيديوهات</Text>
                 <View style={[styles.miniBadge, { backgroundColor: '#3b82f620' }]}>
-                  <Text style={[styles.miniBadgeText, { color: '#2563eb' }]}>60 يوم تلقائي</Text>
+                  <Text style={[styles.miniBadgeText, { color: '#2563eb' }]}>آخر 60 يوماً</Text>
                 </View>
               </View>
               <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-                تصوير فيديو صامت خفيف موثق ومخزن بسيرفر AAMS مع الأرشيف والبحث
+                أرشيف وفيديوهات التوثيق الصامتة، البحث باليوم والتقويم، ومراجعة الطلبات
               </Text>
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color="#3b82f6" />
