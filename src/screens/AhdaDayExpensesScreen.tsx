@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Platform,
   Dimensions,
   Modal,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -21,6 +23,261 @@ import { toArabicDigits, formatArabicNumber } from '../utils/formatters';
 import { AhdaInvoicesSkeleton } from '../components/skeleton/AhdaInvoicesSkeleton';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+interface DraggableExpenseCardProps {
+  item: CustodyExpenseItem;
+  idx: number;
+  totalCount: number;
+  catObj: { key: string; label: string; icon: string; color: string; bg: string };
+  fullImg: string | null;
+  timeStr: string;
+  dateStr: string;
+  isReorderMode: boolean;
+  isHighlighted: boolean;
+  colors: ThemeColors;
+  isDarkMode: boolean;
+  onPressDetails: () => void;
+  onLongPressAction: () => void;
+  onPreviewImage: (url: string) => void;
+  onDragStart: (id: string, startIdx: number) => void;
+  onDragMove: (startIdx: number, dy: number) => void;
+  onDragEnd: () => void;
+}
+
+const DraggableExpenseCard: React.FC<DraggableExpenseCardProps> = ({
+  item,
+  idx,
+  totalCount,
+  catObj,
+  fullImg,
+  timeStr,
+  dateStr,
+  isReorderMode,
+  isHighlighted,
+  colors,
+  isDarkMode,
+  onPressDetails,
+  onLongPressAction,
+  onPreviewImage,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+}) => {
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const [isDragging, setIsDragging] = useState(false);
+
+  const idxRef = useRef(idx);
+  idxRef.current = idx;
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => isReorderMode,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          if (!isReorderMode) return false;
+          return Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3;
+        },
+        onPanResponderGrant: () => {
+          setIsDragging(true);
+          onDragStart(item.id, idxRef.current);
+          Animated.spring(scale, {
+            toValue: 1.04,
+            friction: 6,
+            tension: 100,
+            useNativeDriver: false,
+          }).start();
+        },
+        onPanResponderMove: (_, gestureState) => {
+          pan.setValue({ x: gestureState.dx, y: gestureState.dy });
+          onDragMove(idxRef.current, gestureState.dy);
+        },
+        onPanResponderRelease: () => {
+          setIsDragging(false);
+          Animated.parallel([
+            Animated.spring(pan, {
+              toValue: { x: 0, y: 0 },
+              friction: 6,
+              tension: 80,
+              useNativeDriver: false,
+            }),
+            Animated.spring(scale, {
+              toValue: 1,
+              friction: 6,
+              tension: 100,
+              useNativeDriver: false,
+            }),
+          ]).start(() => {
+            onDragEnd();
+          });
+        },
+        onPanResponderTerminate: () => {
+          setIsDragging(false);
+          Animated.parallel([
+            Animated.spring(pan, {
+              toValue: { x: 0, y: 0 },
+              friction: 6,
+              tension: 80,
+              useNativeDriver: false,
+            }),
+            Animated.spring(scale, {
+              toValue: 1,
+              friction: 6,
+              tension: 100,
+              useNativeDriver: false,
+            }),
+          ]).start(() => {
+            onDragEnd();
+          });
+        },
+      }),
+    [isReorderMode, item.id]
+  );
+
+  return (
+    <Animated.View
+      style={[
+        styles.invoiceCard,
+        {
+          backgroundColor: isDragging
+            ? (isDarkMode ? '#1e3a2f' : '#ecfdf5')
+            : (isHighlighted ? (isDarkMode ? '#142e24' : '#f0fdf4') : colors.card),
+          borderColor: isDragging
+            ? '#047857'
+            : (isHighlighted ? '#059669' : colors.border),
+          borderWidth: isDragging || isHighlighted ? 2 : 1,
+          transform: [
+            { translateX: pan.x },
+            { translateY: pan.y },
+            { scale },
+          ],
+          zIndex: isDragging ? 9999 : (isHighlighted ? 100 : 1),
+          elevation: isDragging ? 16 : (isHighlighted ? 4 : 2),
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: isDragging ? 12 : 2 },
+          shadowOpacity: isDragging ? 0.35 : 0.05,
+          shadowRadius: isDragging ? 16 : 8,
+        },
+      ]}
+      {...panResponder.panHandlers}
+    >
+      <TouchableOpacity
+        activeOpacity={isReorderMode ? 1 : 0.88}
+        onPress={() => {
+          if (!isReorderMode) onPressDetails();
+        }}
+        onLongPress={() => {
+          if (!isReorderMode) onLongPressAction();
+        }}
+        disabled={isReorderMode}
+      >
+        {/* Top: Icon + Category + Date & Time Stamp + Ledger Index / Drag Handle */}
+        <View style={styles.invoiceCardTop}>
+          <View style={styles.invoiceLeftInfo}>
+            <View style={[styles.catBadge, { backgroundColor: catObj.bg }]}>
+              <Ionicons name={catObj.icon as any} size={18} color={catObj.color} />
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[styles.invoiceCategory, { color: colors.textPrimary }]}>
+                {catObj.label}
+              </Text>
+              <View style={styles.timestampRow}>
+                <Ionicons name="time-outline" size={11} color={colors.textSecondary} />
+                <Text style={[styles.invoiceTime, { color: colors.textSecondary }]}>
+                  {timeStr} • {toArabicDigits(dateStr)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Right side: Reorder Grab Handle OR Ledger Index & Thumbnail */}
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+            {isReorderMode ? (
+              <View style={[styles.dragHandlePill, { backgroundColor: isDragging ? '#047857' : (isDarkMode ? '#064e3b' : '#ecfdf5') }]}>
+                <Ionicons name="reorder-three" size={22} color={isDragging ? '#ffffff' : '#047857'} />
+                <Text style={[styles.dragHandlePillText, { color: isDragging ? '#ffffff' : '#047857' }]}>
+                  #{toArabicDigits(idx + 1)}
+                </Text>
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.ledgerCardIndexPill,
+                  {
+                    backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.ledgerCardIndexText, { color: colors.textSecondary }]}>
+                  #{toArabicDigits(idx + 1)}
+                </Text>
+              </View>
+            )}
+
+            {/* Thumbnail in corner if attached */}
+            {fullImg ? (
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onPreviewImage(fullImg);
+                }}
+                style={styles.cardHeaderThumbBtn}
+                activeOpacity={0.8}
+                disabled={isReorderMode}
+              >
+                <Image source={{ uri: fullImg }} style={styles.cardHeaderThumbImg} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Middle: Recipient & Note */}
+        <View style={styles.invoiceCardMiddle}>
+          <View style={styles.invoiceRecipientRow}>
+            <Ionicons name="person-outline" size={13} color="#047857" />
+            <Text style={[styles.invoiceRecipientText, { color: colors.textPrimary }]} numberOfLines={2}>
+              المستلم / البيان: {item.recipient_name || '—'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Bottom: Amount Badge + Attachment indicator / Reorder Hint */}
+        <View style={styles.invoiceCardBottom}>
+          <View style={styles.amountPill}>
+            <Text style={styles.amountPillVal}>
+              {formatArabicNumber(item.amount, 2)}
+            </Text>
+            <Image
+              source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
+              style={{ width: 13, height: 13, tintColor: '#047857', marginLeft: 4 }}
+              resizeMode="contain"
+            />
+          </View>
+
+          {isReorderMode ? (
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="hand-left" size={12} color="#047857" />
+              <Text style={{ fontSize: 11, color: '#047857', fontWeight: '800' }}>
+                {isDragging ? 'جارِ التحريك بيدك...' : (isHighlighted ? 'جاهز للتحريك • امسك الكرت واسحبه' : 'امسك الكرت واسحبه بحرية')}
+              </Text>
+            </View>
+          ) : fullImg ? (
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="image" size={13} color="#047857" />
+              <Text style={{ fontSize: 11, color: '#047857', fontWeight: '700' }}>مرفق فاتورة</Text>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="receipt-outline" size={12} color={colors.textSecondary} />
+              <Text style={{ fontSize: 11, color: colors.textSecondary }}>لا يوجد مرفق لهذا الإيصال</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 interface AhdaDayExpensesScreenProps {
   currentDay: CustodyDayData | null;
@@ -106,6 +363,14 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
     return orderedExpenses.filter((e) => e.category === categoryFilter);
   }, [orderedExpenses, categoryFilter]);
 
+  // Reorder & Free-Hand Drag and Drop State
+  const [isReorderMode, setIsReorderMode] = useState<boolean>(false);
+  const [scrollEnabled, setScrollEnabled] = useState<boolean>(true);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
+  const dragStartIdxRef = useRef<number>(-1);
+  const dragCurrentIdxRef = useRef<number>(-1);
+
   // Current action item index in the displayed list
   const currentActionIdx = useMemo(() => {
     if (!selectedExpenseForAction) return -1;
@@ -115,7 +380,64 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
   const isFirstInList = currentActionIdx <= 0;
   const isLastInList = currentActionIdx === -1 || currentActionIdx >= filteredExpenses.length - 1;
 
-  // Move expense up, down, to top, or to bottom
+  // Drag & Drop Handlers for Free Hand Movement
+  const handleDragStart = (id: string, startIdx: number) => {
+    setScrollEnabled(false);
+    setActiveDragId(id);
+    setHighlightedCardId(id);
+    dragStartIdxRef.current = startIdx;
+    dragCurrentIdxRef.current = startIdx;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  };
+
+  const handleDragMove = (startIdx: number, dy: number) => {
+    const ROW_HEIGHT = 125;
+    const offsetSlots = Math.round(dy / ROW_HEIGHT);
+    const targetIdx = Math.max(0, Math.min(filteredExpenses.length - 1, startIdx + offsetSlots));
+    const currentIdx = dragCurrentIdxRef.current;
+
+    if (targetIdx !== currentIdx && targetIdx >= 0 && targetIdx < filteredExpenses.length) {
+      setOrderedExpenses((prevList) => {
+        const nextList = [...prevList];
+        const fromItem = filteredExpenses[currentIdx];
+        const toItem = filteredExpenses[targetIdx];
+        if (!fromItem || !toItem) return prevList;
+
+        const fromMasterIdx = nextList.findIndex((e) => e.id === fromItem.id);
+        const toMasterIdx = nextList.findIndex((e) => e.id === toItem.id);
+        if (fromMasterIdx !== -1 && toMasterIdx !== -1) {
+          const [moved] = nextList.splice(fromMasterIdx, 1);
+          nextList.splice(toMasterIdx, 0, moved);
+          dragCurrentIdxRef.current = targetIdx;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          return nextList;
+        }
+        return prevList;
+      });
+    }
+  };
+
+  const handleDragEnd = () => {
+    setScrollEnabled(true);
+    setActiveDragId(null);
+    dragStartIdxRef.current = -1;
+    dragCurrentIdxRef.current = -1;
+
+    setOrderedExpenses((current) => {
+      const orderIds = current.map((e) => e.id);
+      AsyncStorage.setItem(`@custody_expenses_order_${selectedDate}`, JSON.stringify(orderIds)).catch((e) =>
+        console.warn('Failed to save order to storage:', e)
+      );
+      if (onReorderExpenses) {
+        onReorderExpenses(current);
+      }
+      return current;
+    });
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  };
+
+  // Move expense up, down, to top, or to bottom via buttons
   const handleMoveExpense = async (
     item: CustodyExpenseItem,
     direction: 'up' | 'down' | 'top' | 'bottom'
@@ -192,10 +514,64 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
           </Text>
           <View style={[styles.titleUnderlineBar, { backgroundColor: matchedCategory ? matchedCategory.color : '#047857' }]} />
         </View>
-        <View style={{ width: 40 }} />
+
+        {/* Toggle Reorder Mode Button in Header */}
+        <TouchableOpacity
+          style={[
+            styles.headerReorderToggleBtn,
+            isReorderMode && { backgroundColor: '#047857', borderColor: '#047857' },
+          ]}
+          onPress={() => {
+            setIsReorderMode((prev) => !prev);
+            setHighlightedCardId(null);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={isReorderMode ? 'checkmark' : 'hand-left-outline'}
+            size={19}
+            color={isReorderMode ? '#ffffff' : colors.textPrimary}
+          />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, filteredExpenses.length === 0 && !loading && { flex: 1, justifyContent: 'center' }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        scrollEnabled={scrollEnabled}
+        contentContainerStyle={[styles.scrollContent, filteredExpenses.length === 0 && !loading && { flex: 1, justifyContent: 'center' }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Floating Active Banner in Reorder Mode ── */}
+        {isReorderMode && (
+          <View style={[styles.reorderBanner, { backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5', borderColor: '#059669' }]}>
+            <View style={styles.reorderBannerInfo}>
+              <View style={styles.reorderBannerIconBox}>
+                <Ionicons name="hand-left" size={20} color="#047857" />
+              </View>
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text style={[styles.reorderBannerTitle, { color: isDarkMode ? '#34d399' : '#047857' }]}>
+                  وضع السحب والتحريك الحر
+                </Text>
+                <Text style={[styles.reorderBannerSub, { color: isDarkMode ? '#a7f3d0' : '#065f46' }]}>
+                  امسك أي كرت بالكامل واسحبه بيدك بحرية للأعلى أو للأسفل
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.reorderBannerDoneBtn}
+              activeOpacity={0.8}
+              onPress={() => {
+                setIsReorderMode(false);
+                setHighlightedCardId(null);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+              }}
+            >
+              <Ionicons name="checkmark-circle" size={17} color="#ffffff" />
+              <Text style={styles.reorderBannerDoneBtnText}>تم الاعتماد ✓</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ── Invoices List ── */}
         {loading ? (
           <AhdaInvoicesSkeleton colors={colors} isDarkMode={isDarkMode} count={4} />
@@ -221,107 +597,26 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                 : selectedDate;
 
               return (
-                <TouchableOpacity
+                <DraggableExpenseCard
                   key={item.id || idx}
-                  style={[
-                    styles.invoiceCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  activeOpacity={0.88}
-                  onPress={() => setSelectedExpenseForDetails(item)}
-                  onLongPress={() => setSelectedExpenseForAction(item)}
-                >
-                  {/* Top: Icon + Category + Date & Time Stamp + Ledger Index */}
-                  <View style={styles.invoiceCardTop}>
-                    <View style={styles.invoiceLeftInfo}>
-                      <View style={[styles.catBadge, { backgroundColor: catObj.bg }]}>
-                        <Ionicons name={catObj.icon as any} size={18} color={catObj.color} />
-                      </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={[styles.invoiceCategory, { color: colors.textPrimary }]}>
-                          {catObj.label}
-                        </Text>
-                        {/* Date and Time Badge */}
-                        <View style={styles.timestampRow}>
-                          <Ionicons name="time-outline" size={11} color={colors.textSecondary} />
-                          <Text style={[styles.invoiceTime, { color: colors.textSecondary }]}>
-                            {timeStr} • {toArabicDigits(dateStr)}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Right side: Ledger index pill + Thumbnail if attached */}
-                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
-                      <View
-                        style={[
-                          styles.ledgerCardIndexPill,
-                          {
-                            backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-                            borderColor: colors.border,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.ledgerCardIndexText, { color: colors.textSecondary }]}>
-                          #{toArabicDigits(idx + 1)}
-                        </Text>
-                      </View>
-
-                      {/* Thumbnail in corner if attached */}
-                      {fullImg ? (
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            onPreviewImage(fullImg);
-                          }}
-                          style={styles.cardHeaderThumbBtn}
-                          activeOpacity={0.8}
-                        >
-                          <Image source={{ uri: fullImg }} style={styles.cardHeaderThumbImg} />
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                  </View>
-
-                  {/* Middle: Recipient & Note */}
-                  <View style={styles.invoiceCardMiddle}>
-                    <View style={styles.invoiceRecipientRow}>
-                      <Ionicons name="person-outline" size={13} color="#047857" />
-                      <Text style={[styles.invoiceRecipientText, { color: colors.textPrimary }]} numberOfLines={2}>
-                        المستلم / البيان: {item.recipient_name || '—'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Bottom: Amount Badge (with halalas) + Attachment indicator */}
-                  <View style={styles.invoiceCardBottom}>
-                    <View style={styles.amountPill}>
-                      <Text style={styles.amountPillVal}>
-                        {formatArabicNumber(item.amount, 2)}
-                      </Text>
-                      <Image
-                        source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-                        style={{ width: 13, height: 13, tintColor: '#047857', marginLeft: 4 }}
-                        resizeMode="contain"
-                      />
-                    </View>
-
-                    {fullImg ? (
-                      <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-                        <Ionicons name="image" size={13} color="#047857" />
-                        <Text style={{ fontSize: 11, color: '#047857', fontWeight: '700' }}>مرفق فاتورة</Text>
-                      </View>
-                    ) : (
-                      <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-                        <Ionicons name="receipt-outline" size={12} color={colors.textSecondary} />
-                        <Text style={{ fontSize: 11, color: colors.textSecondary }}>لا يوجد مرفق لهذا الإيصال</Text>
-                      </View>
-                    )}
-                  </View>
-                </TouchableOpacity>
+                  item={item}
+                  idx={idx}
+                  totalCount={filteredExpenses.length}
+                  catObj={catObj}
+                  fullImg={fullImg}
+                  timeStr={timeStr}
+                  dateStr={dateStr}
+                  isReorderMode={isReorderMode}
+                  isHighlighted={highlightedCardId === item.id}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  onPressDetails={() => setSelectedExpenseForDetails(item)}
+                  onLongPressAction={() => setSelectedExpenseForAction(item)}
+                  onPreviewImage={onPreviewImage}
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                />
               );
             })}
           </View>
@@ -515,9 +810,35 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                     </Text>
                   </View>
                   <Text style={[styles.reorderCardTitle, { color: colors.textPrimary }]}>
-                    ترتيب الفاتورة في الدفتر
+                    ترتيب وموقع الفاتورة
                   </Text>
                 </View>
+
+                {/* Free-Hand Drag and Move Button */}
+                <TouchableOpacity
+                  style={styles.freeDragLaunchBtn}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    const target = selectedExpenseForAction;
+                    setSelectedExpenseForAction(null);
+                    setHighlightedCardId(target.id);
+                    setIsReorderMode(true);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                  }}
+                >
+                  <View style={styles.freeDragIconBox}>
+                    <Ionicons name="hand-left" size={20} color="#047857" />
+                  </View>
+                  <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                    <Text style={styles.freeDragTitle}>
+                      تحريك وسحب الكرت بيدك في الصفحة ✋
+                    </Text>
+                    <Text style={styles.freeDragSub}>
+                      امسك الكرت بالكامل وتحرك به بحرية في الصفحة لترتيبه
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-back" size={18} color="#a7f3d0" />
+                </TouchableOpacity>
 
                 {/* Move Step Buttons Row */}
                 <View style={styles.reorderButtonsRow}>
@@ -664,6 +985,72 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerReorderToggleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reorderBanner: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: 'column',
+    gap: 10,
+  },
+  reorderBannerInfo: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+  },
+  reorderBannerIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#ecfdf5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reorderBannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  reorderBannerSub: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  reorderBannerDoneBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#047857',
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  reorderBannerDoneBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  dragHandlePill: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  dragHandlePillText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   subPageTitleContainer: {
     flex: 1,
@@ -973,6 +1360,36 @@ const styles = StyleSheet.create({
   reorderCardTitle: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  freeDragLaunchBtn: {
+    width: '100%',
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#047857',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    marginBottom: 12,
+  },
+  freeDragIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#ecfdf5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  freeDragTitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  freeDragSub: {
+    color: '#a7f3d0',
+    fontSize: 11,
+    fontWeight: '500',
   },
   reorderLedgerPill: {
     flexDirection: 'row-reverse',
