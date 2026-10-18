@@ -2325,6 +2325,8 @@ export default function DelegateApp() {
         visible={showOperationVideoModal}
         onClose={() => setShowOperationVideoModal(false)}
         branchDelegates={branchDelegates}
+        pendingSessions={pendingSessions}
+        onRefresh={fetchSupervisorData}
         colors={colors}
         isDarkMode={isDarkMode}
         isRTL={isRTL}

@@ -15,11 +15,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { ThemeColors } from '@shared/theme';
 import { WorkSession } from '@shared/types';
 import { SaudiPlateView } from '@shared/components';
 import { parsePlateComponents } from '@shared/utils/plateUtils';
-import { formatImageUrl } from '../services/api';
+import { formatImageUrl, getStoredToken } from '../services/api';
 import {
   supervisorApi,
   PendingAdvanceRequest,
@@ -130,7 +131,32 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
     setEditVideoUri(null);
   };
 
-  // Record Silent Review Proof Video
+  // Play Video inside app with authenticated token
+  const handlePlayVideo = async (videoUrl: string) => {
+    try {
+      let fullUrl = formatImageUrl(videoUrl);
+      if (!fullUrl) {
+        Alert.alert('خطأ', 'رابط الفيديو غير صالح');
+        return;
+      }
+      const token = await getStoredToken();
+      if (token) {
+        const sep = fullUrl.includes('?') ? '&' : '?';
+        fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
+      }
+      await WebBrowser.openBrowserAsync(fullUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+        controlsColor: colors.primary,
+        toolbarColor: isDarkMode ? '#0f172a' : '#ffffff',
+        showTitle: true,
+        enableBarCollapsing: true,
+      });
+    } catch (err: any) {
+      Alert.alert('خطأ', 'تعذر فتح مشغل الفيديو داخل التطبيق');
+    }
+  };
+
+  // Record Silent Review Proof Video (Default to Back / Rear Camera)
   const handleRecordReviewVideo = async () => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -139,10 +165,11 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         return;
       }
 
-      // Record compressed low-quality video (480p) to keep size tiny (1-3MB) and digits fully readable
+      // Record compressed low-quality video (480p) defaulting to REAR / BACK camera
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['videos'],
         allowsEditing: false,
+        cameraType: ImagePicker.CameraType.back,
         quality: 0.3,
         videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
         videoMaxDuration: 45,
@@ -338,6 +365,18 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                       </View>
                     </View>
 
+                    {/* Highlight Reported Orders Banner */}
+                    <View style={[styles.ordersHighlightBanner, { backgroundColor: '#3b82f615', borderColor: '#3b82f640' }]}>
+                      <Ionicons name="receipt" size={18} color="#2563eb" />
+                      <Text style={[styles.ordersHighlightText, { color: colors.textPrimary }]}>
+                        الطلبات المسجلة من المندوب:{' '}
+                        <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#2563eb' }}>
+                          {session.orders_count || 0}
+                        </Text>{' '}
+                        طلب
+                      </Text>
+                    </View>
+
                     {/* Stats Grid */}
                     <View style={styles.statsRow}>
                       <View style={styles.statBox}>
@@ -383,29 +422,41 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     )}
 
                     {/* Action buttons */}
-                    <View style={styles.actionsRow}>
+                    <View style={[styles.actionsRow, { flexDirection: 'column', gap: 8 }]}>
                       <TouchableOpacity
-                        style={[styles.editBtn, { borderColor: '#3b82f6', backgroundColor: '#3b82f610' }]}
+                        style={[styles.primaryReviewActionBtn, { backgroundColor: colors.primary }]}
                         onPress={() => openEditModal(session)}
                       >
-                        <Ionicons name="videocam-outline" size={16} color="#3b82f6" />
-                        <Text style={[styles.editBtnText, { color: '#3b82f6' }]}>مراجعة وتوثيق</Text>
+                        <Ionicons name="videocam" size={18} color="#fff" />
+                        <Text style={styles.primaryReviewActionText}>توثيق ومراجعة الطلبات بالفيديو</Text>
                       </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={[styles.approveBtn, { backgroundColor: '#10B981' }]}
-                        onPress={() => handleApproveShift(session)}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <>
-                            <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                            <Text style={styles.approveBtnText}>اعتماد مباشر</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {session.review_video_url ? (
+                          <TouchableOpacity
+                            style={[styles.videoProofBadgeBtn, { borderColor: '#10b981', backgroundColor: '#10b98115', flex: 1 }]}
+                            onPress={() => handlePlayVideo(session.review_video_url!)}
+                          >
+                            <Ionicons name="play-circle" size={18} color="#10b981" />
+                            <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 13 }}>مشاهدة الفيديو</Text>
+                          </TouchableOpacity>
+                        ) : null}
+
+                        <TouchableOpacity
+                          style={[styles.directApproveBtn, { borderColor: '#10B981', backgroundColor: '#10B98110', flex: 1 }]}
+                          onPress={() => handleApproveShift(session)}
+                          disabled={isLoading}
+                        >
+                          {isLoading ? (
+                            <ActivityIndicator size="small" color="#10B981" />
+                          ) : (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                              <Ionicons name="checkmark-done" size={16} color="#10B981" />
+                              <Text style={{ color: '#10B981', fontWeight: '600', fontSize: 13 }}>اعتماد فوري</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 );
@@ -577,95 +628,116 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
       {/* Edit & Review Modal */}
       <Modal visible={!!editingSession} transparent animationType="slide" onRequestClose={() => setEditingSession(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>مراجعة وتعديل بيانات الوردية</Text>
-              <TouchableOpacity onPress={() => setEditingSession(null)}>
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Guidance Badge */}
-              <View style={[styles.infoCallout, { backgroundColor: '#3b82f615', borderColor: '#3b82f640' }]}>
-                <Ionicons name="information-circle" size={20} color="#3b82f6" />
-                <Text style={[styles.infoCalloutText, { color: colors.textPrimary }]}>
-                  العدد المسجل من المندوب: {editingSession.orders_count || 0} طلب.{'\n'}
-                  راجع الفيديو وحدد العدد النهائي الفعلي (مثلاً اعتماد 12 بدلاً من 16).
-                </Text>
+        {editingSession ? (
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>مراجعة وتعديل بيانات الوردية</Text>
+                <TouchableOpacity onPress={() => setEditingSession(null)}>
+                  <Ionicons name="close" size={24} color={colors.textSecondary} />
+                </TouchableOpacity>
               </View>
 
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>العدد النهائي المعتمد للطلبات</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                keyboardType="numeric"
-                value={editOrdersCount}
-                onChangeText={setEditOrdersCount}
-              />
-
-              {/* Video Documentation Section */}
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary, marginTop: 12 }]}>فيديو التوثيق الصامت (دليل المراجعة)</Text>
-              {!editVideoUri ? (
-                <TouchableOpacity
-                  style={[styles.cameraActionBtn, { backgroundColor: '#3b82f6' }]}
-                  onPress={handleRecordReviewVideo}
-                >
-                  <Ionicons name="videocam" size={20} color="#fff" />
-                  <Text style={styles.cameraActionText}>تصوير فيديو صامت للإثبات (جودة خفيفة)</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={[styles.videoRecordedCard, { borderColor: '#10b981', backgroundColor: '#10b98115' }]}>
-                  <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Guidance Badge with Delegate info */}
+                <View style={[styles.infoCallout, { backgroundColor: '#3b82f615', borderColor: '#3b82f640' }]}>
+                  <Ionicons name="information-circle" size={24} color="#3b82f6" />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.videoRecordedTitle, { color: colors.textPrimary }]}>تم تسجيل فيديو الإثبات</Text>
-                    <Text style={[styles.videoRecordedSub, { color: colors.textSecondary }]}>
-                      سيتم ربطه بالوردية وحفظه بالسيرفر 60 يوماً
+                    <Text style={[styles.infoCalloutTitle, { color: colors.textPrimary, fontWeight: 'bold', fontSize: 15 }]}>
+                      المندوب: {editingSession.employee_name || editingSession.employee?.name || 'مندوب'}
+                    </Text>
+                    <Text style={[styles.infoCalloutText, { color: colors.textPrimary, marginTop: 4, fontSize: 14 }]}>
+                      عدد الطلبات المسجل من المندوب:{' '}
+                      <Text style={{ fontWeight: 'bold', color: colors.primary, fontSize: 16 }}>
+                        {editingSession.orders_count || 0}
+                      </Text>{' '}
+                      طلب.{'\n'}
+                      سجّل فيديو التوثيق الصامت بالكاميرا الخلفية، ثم أكد أو عدّل العدد النهائي قبل الموافقة.
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => setEditVideoUri(null)} style={styles.reRecordSmallBtn}>
-                    <Ionicons name="refresh" size={16} color="#ef4444" />
-                    <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>إعادة</Text>
+                </View>
+
+                {/* Video Documentation Section */}
+                <Text style={[styles.fieldLabel, { color: colors.textPrimary, marginTop: 12 }]}>
+                  1. فيديو التوثيق الصامت (الكاميرا الخلفية)
+                </Text>
+                {!editVideoUri ? (
+                  <TouchableOpacity
+                    style={[styles.cameraActionBtn, { backgroundColor: '#3b82f6' }]}
+                    onPress={handleRecordReviewVideo}
+                  >
+                    <Ionicons name="videocam" size={20} color="#fff" />
+                    <Text style={styles.cameraActionText}>فتح الكاميرا الخلفية لتصوير فيديو التوثيق (صامت)</Text>
                   </TouchableOpacity>
-                </View>
-              )}
+                ) : (
+                  <View style={[styles.videoRecordedCard, { borderColor: '#10b981', backgroundColor: '#10b98115' }]}>
+                    <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.videoRecordedTitle, { color: colors.textPrimary }]}>تم تسجيل فيديو الإثبات (صامت)</Text>
+                      <Text style={[styles.videoRecordedSub, { color: colors.textSecondary }]}>
+                        سيتم حفظه بأمان على السيرفر لمدة 60 يوماً
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setEditVideoUri(null)} style={styles.reRecordSmallBtn}>
+                      <Ionicons name="refresh" size={16} color="#ef4444" />
+                      <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>إعادة</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary, marginTop: 10 }]}>تكلفة الوقود المعتمدة (ريال)</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                keyboardType="numeric"
-                value={editFuelCost}
-                onChangeText={setEditFuelCost}
-              />
+                <Text style={[styles.fieldLabel, { color: colors.textPrimary, marginTop: 14 }]}>
+                  2. العدد النهائي المعتمد للطلبات
+                </Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                  keyboardType="numeric"
+                  value={editOrdersCount}
+                  onChangeText={setEditOrdersCount}
+                  placeholder={`العدد المسجل: ${editingSession.orders_count || 0}`}
+                  placeholderTextColor={colors.textSecondary}
+                />
 
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary, marginTop: 10 }]}>ملاحظات الاعتماد والتدقيق</Text>
-              <TextInput
-                style={[styles.textArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                multiline
-                numberOfLines={2}
-                value={editReviewNotes}
-                onChangeText={setEditReviewNotes}
-              />
-            </ScrollView>
+                <Text style={[styles.fieldLabel, { color: colors.textPrimary, marginTop: 10 }]}>
+                  3. تكلفة الوقود المعتمدة (ريال)
+                </Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                  keyboardType="numeric"
+                  value={editFuelCost}
+                  onChangeText={setEditFuelCost}
+                />
 
-            <TouchableOpacity
-              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-              onPress={handleSaveEditReview}
-              disabled={submittingReview}
-            >
-              {submittingReview ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Ionicons name="checkmark-done" size={20} color="#fff" />
-                  <Text style={styles.saveBtnText}>
-                    {editVideoUri ? 'موافقة واعتماد الوردية (مع حفظ الفيديو)' : 'موافقة واعتماد الوردية'}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+                <Text style={[styles.fieldLabel, { color: colors.textPrimary, marginTop: 10 }]}>
+                  4. ملاحظات الاعتماد والتدقيق
+                </Text>
+                <TextInput
+                  style={[styles.textArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                  multiline
+                  numberOfLines={2}
+                  value={editReviewNotes}
+                  onChangeText={setEditReviewNotes}
+                />
+              </ScrollView>
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                onPress={handleSaveEditReview}
+                disabled={submittingReview}
+              >
+                {submittingReview ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="checkmark-done" size={20} color="#fff" />
+                    <Text style={styles.saveBtnText}>
+                      {editVideoUri ? 'موافقة واعتماد الوردية (مع حفظ الفيديو)' : 'موافقة واعتماد الوردية'}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        ) : null}
       </Modal>
     </View>
   );
@@ -1015,5 +1087,53 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
     backgroundColor: '#ef444415',
+  },
+  ordersHighlightBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  ordersHighlightText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  primaryReviewActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 11,
+    borderRadius: 10,
+  },
+  primaryReviewActionText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  videoProofBadgeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  directApproveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  infoCalloutTitle: {
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

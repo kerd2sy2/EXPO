@@ -14,8 +14,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { ThemeColors } from '@shared/theme';
-import { formatImageUrl } from '../services/api';
+import { WorkSession } from '@shared/types';
+import { formatImageUrl, getStoredToken } from '../services/api';
 import {
   supervisorApi,
   OperationVideo,
@@ -26,6 +28,8 @@ interface OperationVideoModalProps {
   visible: boolean;
   onClose: () => void;
   branchDelegates: DelegateWithStatus[];
+  pendingSessions?: WorkSession[];
+  onRefresh?: () => void;
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL?: boolean;
@@ -37,6 +41,8 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
   visible,
   onClose,
   branchDelegates,
+  pendingSessions = [],
+  onRefresh,
   colors,
   isDarkMode,
   isRTL = true,
@@ -45,6 +51,7 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
 
   // Form State
   const [recordedVideoUri, setRecordedVideoUri] = useState<string | null>(null);
+  const [selectedSession, setSelectedSession] = useState<WorkSession | null>(null);
   const [selectedDelegate, setSelectedDelegate] = useState<DelegateWithStatus | null>(null);
   const [showDelegatePicker, setShowDelegatePicker] = useState(false);
   const [delegateSearch, setDelegateSearch] = useState('');
@@ -101,10 +108,11 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
         return;
       }
 
-      // Record video with Low quality (480p) to keep size tiny (1-3MB) and digits fully readable
+      // Record video with Low quality (480p) to keep size tiny (1-3MB) and digits fully readable, defaulting to REAR / BACK camera
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['videos'],
         allowsEditing: false,
+        cameraType: ImagePicker.CameraType.back,
         quality: 0.3,
         videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
         videoMaxDuration: 45, // 45 seconds max
@@ -118,7 +126,7 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
     }
   };
 
-  // Submit Video
+  // Submit Video & Optionally Approve Pending Session
   const handleUpload = async () => {
     if (!recordedVideoUri) {
       Alert.alert('تنبيه', 'يرجى تسجيل الفيديو أولاً قبل الحفظ.');
@@ -127,25 +135,43 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
 
     try {
       setUploading(true);
-      await supervisorApi.uploadOperationVideo({
+      const empName = selectedDelegate?.name || 'توثيق عام للفرع';
+      const videoRes = await supervisorApi.uploadOperationVideo({
         videoUri: recordedVideoUri,
         employeeId: selectedDelegate?.id,
-        employeeName: selectedDelegate?.name || 'توثيق عام للفرع',
+        employeeName: empName,
         orderNumber: orderNumber.trim(),
-        notes: notes.trim(),
+        sessionId: selectedSession?.id,
+        notes: notes.trim() || `توثيق مراجعة وردية - عدد الطلبات: ${orderNumber}`,
       });
 
+      // If tied to a pending shift, approve the shift with video proof
+      if (selectedSession) {
+        await supervisorApi.reviewSession({
+          sessionId: selectedSession.id,
+          isReviewed: true,
+          ordersCount: Number(orderNumber) || selectedSession.orders_count || 0,
+          fuelCost: selectedSession.fuel_cost || 0,
+          reviewNotes: notes.trim() || 'معتمد بواسطة المشرف مع فيديو التوثيق',
+          reviewVideoUrl: videoRes.video_url,
+        });
+      }
+
       Alert.alert(
-        'تم التوثيق بنجاح',
-        'تم حفظ الفيديو بنجاح على سيرفر AAMS وسيتم الاحتفاظ به لمدة 60 يوماً.',
+        'تم التوثيق والاعتماد بنجاح',
+        selectedSession
+          ? 'تم اعتماد وردية المندوب والعدد النهائي وحفظ فيديو التوثيق على سيرفر AAMS لمدة 60 يوماً.'
+          : 'تم حفظ الفيديو بنجاح على سيرفر AAMS وسيتم الاحتفاظ به لمدة 60 يوماً.',
         [
           {
             text: 'حسناً',
             onPress: () => {
               setRecordedVideoUri(null);
               setSelectedDelegate(null);
+              setSelectedSession(null);
               setOrderNumber('');
               setNotes('');
+              onRefresh?.();
               setActiveTab('archive');
               fetchArchive();
             },
@@ -153,7 +179,7 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
         ]
       );
     } catch (err: any) {
-      Alert.alert('خطأ في الرفع', err?.message || 'فشل رفع الفيديو إلى السيرفر');
+      Alert.alert('خطأ في الرفع والاعتماد', err?.message || 'فشل رفع الفيديو إلى السيرفر');
     } finally {
       setUploading(false);
     }
@@ -183,16 +209,29 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
     );
   };
 
-  // Play Video
-  const handlePlayVideo = (videoUrl: string) => {
-    const fullUrl = formatImageUrl(videoUrl);
-    if (!fullUrl) {
-      Alert.alert('خطأ', 'رابط الفيديو غير صالح');
-      return;
+  // Play Video inside app via authenticated in-app browser
+  const handlePlayVideo = async (videoUrl: string) => {
+    try {
+      let fullUrl = formatImageUrl(videoUrl);
+      if (!fullUrl) {
+        Alert.alert('خطأ', 'رابط الفيديو غير صالح');
+        return;
+      }
+      const token = await getStoredToken();
+      if (token) {
+        const sep = fullUrl.includes('?') ? '&' : '?';
+        fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
+      }
+      await WebBrowser.openBrowserAsync(fullUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+        controlsColor: colors.primary,
+        toolbarColor: isDarkMode ? '#0f172a' : '#ffffff',
+        showTitle: true,
+        enableBarCollapsing: true,
+      });
+    } catch (err: any) {
+      Alert.alert('خطأ', 'تعذر فتح مشغل الفيديو داخل التطبيق');
     }
-    Linking.openURL(fullUrl).catch(() => {
-      Alert.alert('خطأ', 'تعذر فتح مشغل الفيديو على هذا الجهاز');
-    });
   };
 
   // Filtered Archive
@@ -264,19 +303,88 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
               </Text>
             </View>
 
+            {/* Pending Shifts Section: Shows actual delegate reported orders */}
+            {pendingSessions && pendingSessions.length > 0 && (
+              <View style={[styles.cardBox, { backgroundColor: colors.card, borderColor: '#3b82f640', borderWidth: 1.5 }]}>
+                <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                    مناديب بانتظار اعتماد الطلبات ({pendingSessions.length})
+                  </Text>
+                  <View style={[styles.badgePill, { backgroundColor: '#3b82f620' }]}>
+                    <Text style={{ color: '#2563eb', fontSize: 12, fontWeight: '700' }}>مباشر</Text>
+                  </View>
+                </View>
+                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  اضغط على المندوب لمراجعة عدد الطلبات التي سجلها، وتصوير فيديو التوثيق بالخلفية
+                </Text>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 8 }}>
+                  {pendingSessions.map((sess) => {
+                    const isSelected = selectedSession?.id === sess.id;
+                    const empName = sess.employee_name || sess.employee?.name || 'مندوب';
+                    return (
+                      <TouchableOpacity
+                        key={sess.id}
+                        style={[
+                          styles.pendingShiftCard,
+                          {
+                            backgroundColor: isSelected ? '#3b82f615' : colors.bg,
+                            borderColor: isSelected ? '#2563eb' : colors.border,
+                            borderWidth: isSelected ? 2 : 1,
+                          },
+                        ]}
+                        onPress={() => {
+                          if (isSelected) {
+                            setSelectedSession(null);
+                            setSelectedDelegate(null);
+                            setOrderNumber('');
+                          } else {
+                            setSelectedSession(sess);
+                            setSelectedDelegate({
+                              id: sess.employee_id,
+                              name: empName,
+                              employee_number: sess.employee?.employee_number,
+                            } as any);
+                            setOrderNumber(String(sess.orders_count || 0));
+                            setNotes(`مراجعة وتوثيق وردية مندوب: ${empName}`);
+                          }
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="person" size={14} color={isSelected ? '#2563eb' : colors.textSecondary} />
+                          <Text style={[styles.pendingShiftName, { color: colors.textPrimary, fontWeight: '700' }]}>{empName}</Text>
+                        </View>
+                        <View style={[styles.pendingOrdersTag, { backgroundColor: isSelected ? '#2563eb' : '#3b82f615' }]}>
+                          <Ionicons name="receipt" size={12} color={isSelected ? '#fff' : '#2563eb'} />
+                          <Text style={[styles.pendingOrdersText, { color: isSelected ? '#fff' : '#2563eb', fontWeight: 'bold' }]}>
+                            {sess.orders_count || 0} طلب مسجل
+                          </Text>
+                        </View>
+                        {sess.employee?.employee_number && (
+                          <Text style={[styles.pendingShiftCode, { color: colors.textSecondary }]}>
+                            كود: {sess.employee.employee_number}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
             {/* Video Capture Box */}
             <View style={[styles.cardBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                فيديو التوثيق الصامت
+                {selectedSession ? `فيديو التوثيق للمندوب: ${selectedSession.employee_name || selectedSession.employee?.name || ''}` : 'فيديو التوثيق الصامت'}
               </Text>
               <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                يتم تصوير فيديو صامت بجودة خفيفة موفرة للمساحة وبدقة كافية لقراءة الأرقام والشاشة بوضوح.
+                يتم تصوير فيديو صامت بالكاميرا الخلفية بجودة خفيفة موفرة للمساحة وبدقة كافية لقراءة الأرقام والشاشة بوضوح.
               </Text>
 
               {!recordedVideoUri ? (
                 <TouchableOpacity style={[styles.cameraActionBtn, { backgroundColor: colors.primary }]} onPress={handleRecordVideo}>
                   <Ionicons name="camera" size={28} color="#fff" />
-                  <Text style={styles.cameraActionText}>فتح الكاميرا لتسجيل الفيديو</Text>
+                  <Text style={styles.cameraActionText}>فتح الكاميرا الخلفية لتسجيل الفيديو</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={[styles.videoPreviewCard, { borderColor: '#10b981', backgroundColor: '#10b98110' }]}>
@@ -387,8 +495,10 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Ionicons name="cloud-upload" size={22} color="#fff" />
-                  <Text style={styles.submitBtnText}>حفظ وتوثيق الفيديو على السيرفر</Text>
+                  <Ionicons name={selectedSession ? "checkmark-done-circle" : "cloud-upload"} size={22} color="#fff" />
+                  <Text style={styles.submitBtnText}>
+                    {selectedSession ? 'موافقة واعتماد الوردية مع حفظ الفيديو' : 'حفظ وتوثيق الفيديو على السيرفر'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -862,5 +972,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pendingShiftCard: {
+    padding: 12,
+    borderRadius: 12,
+    minWidth: 140,
+    gap: 6,
+  },
+  pendingShiftName: {
+    fontSize: 13,
+  },
+  pendingOrdersTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  pendingOrdersText: {
+    fontSize: 12,
+  },
+  pendingShiftCode: {
+    fontSize: 11,
+  },
+  badgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
 });
