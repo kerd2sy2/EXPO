@@ -3,9 +3,12 @@ import { apiRequest } from './api';
 export interface InventoryItem {
   id: string;
   name: string;
+  type?: string;
   category?: string;
-  quantity: number;
+  quantity?: number;
+  branch_quantity?: number;
   unit?: string;
+  min_alert?: number;
   min_limit?: number;
   barcode?: string;
 }
@@ -67,13 +70,15 @@ export const operationsApi = {
 
   // 2. Dispense oil for a motorcycle and update vehicle KM
   dispenseOil: async (params: DispenseOilParams): Promise<any> => {
-    const payload = {
+    const payload: Record<string, any> = {
       plate_number: params.motorcycleNumber.trim(),
       current_km: Number(params.currentKm) || 0,
-      item_id: params.oilItemId || '',
       quantity: Number(params.quantity) || 1,
       notes: params.notes || 'صرف زيت معتمد من المشرف',
     };
+    if (params.oilItemId) {
+      payload.item_id = params.oilItemId;
+    }
 
     return apiRequest('/inventory/dispense-oil', {
       method: 'POST',

@@ -130,6 +130,7 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
       const params: DispenseOilParams = {
         motorcycleNumber: dispensePlate.trim(),
         currentKm: kmVal,
+        oilItemId: oilItem?.id,
         quantity: Number(dispenseQty) || 1,
         notes: dispenseNotes.trim(),
       };
@@ -204,13 +205,24 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
     }
   };
 
-  // Oil stock calculation
-  const oilItem = inventoryItems.find(
-    (item) => item.name.includes('زيت') || item.category === 'OIL' || item.name.toLowerCase().includes('oil')
-  ) || inventoryItems[0];
+  // Oil stock calculation - search for oil items by type or name and read branch_quantity
+  const oilItems = inventoryItems.filter(
+    (item) =>
+      item.type === 'oil' ||
+      item.category === 'OIL' ||
+      item.name.includes('زيت') ||
+      item.name.toLowerCase().includes('oil')
+  );
 
-  const totalOilQty = oilItem ? oilItem.quantity : 0;
-  const isOilLow = totalOilQty <= (oilItem?.min_limit || 5);
+  const totalOilQty =
+    oilItems.length > 0
+      ? oilItems.reduce((acc, itm) => acc + (itm.branch_quantity ?? itm.quantity ?? 0), 0)
+      : inventoryItems[0]
+      ? (inventoryItems[0].branch_quantity ?? inventoryItems[0].quantity ?? 0)
+      : 0;
+
+  const oilItem = oilItems[0] || inventoryItems[0];
+  const isOilLow = totalOilQty <= (oilItem?.min_alert || oilItem?.min_limit || 5);
 
   const activeVehiclesCount = vehicles.filter((v) => v.status === 'ACTIVE').length;
   const maintenanceVehiclesCount = vehicles.filter((v) => v.status === 'MAINTENANCE').length;
@@ -310,8 +322,10 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
                     </Text>
                   </View>
                   <View style={styles.itemQtyBadge}>
-                    <Text style={[styles.itemQtyText, { color: colors.primary }]}>{item.quantity}</Text>
-                    <Text style={[styles.itemUnitText, { color: colors.textSecondary }]}>{item.unit || 'قطعة'}</Text>
+                    <Text style={[styles.itemQtyText, { color: colors.primary }]}>
+                      {item.branch_quantity ?? item.quantity ?? 0}
+                    </Text>
+                    <Text style={[styles.itemUnitText, { color: colors.textSecondary }]}>{item.unit || 'علبة'}</Text>
                   </View>
                 </View>
               ))
