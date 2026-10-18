@@ -25,6 +25,7 @@ interface DashboardScreenProps {
   isRTL: boolean;
   onNavigateToTab: (tab: TabType) => void;
   onOpenOverrideModal: (delegate?: DelegateWithStatus) => void;
+  onOpenReportModal?: () => void;
   onRefresh: () => void;
   refreshing: boolean;
 }
@@ -39,6 +40,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   isRTL,
   onNavigateToTab,
   onOpenOverrideModal,
+  onOpenReportModal,
   onRefresh,
   refreshing,
 }) => {
@@ -63,34 +65,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         />
       }
     >
-      {/* 1. Header Card with Supervisor & Branch Badges */}
-      <View style={[styles.welcomeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.welcomeRow}>
-          <View style={styles.avatarCircle}>
-            <Ionicons name="shield-checkmark" size={28} color="#ffffff" />
-          </View>
-          <View style={styles.welcomeTextGroup}>
-            <View style={styles.badgeRow}>
-              <View style={[styles.branchBadge, { backgroundColor: colors.primaryLight }]}>
-                <Ionicons name="location" size={12} color={colors.primary} style={{ marginRight: 4 }} />
-                <Text style={[styles.branchBadgeText, { color: colors.primary }]}>
-                  {branchName || 'فرع الإشراف'}
-                </Text>
-              </View>
-              <View style={[styles.roleBadge, { backgroundColor: colors.accentLight }]}>
-                <Text style={[styles.roleBadgeText, { color: colors.accent }]}>مشرف ميداني</Text>
-              </View>
-            </View>
-            <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>
-              مرحباً، {adminName || 'المشرف'}
-            </Text>
-            <Text style={[styles.welcomeSub, { color: colors.textSecondary }]}>
-              متابعة العمليات الميدانية والورديات الحية
-            </Text>
-          </View>
-        </View>
-      </View>
-
       {/* 2. Hero KPI Statistics Grid */}
       <View style={styles.kpiGrid}>
         {/* Working in Field Card */}
@@ -184,20 +158,31 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => onOpenOverrideModal()}
-            style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
+            style={[styles.actionBtnItem, { backgroundColor: colors.primary }]}
           >
-            <Ionicons name="flash" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-            <Text style={styles.primaryActionBtnText}>تسجيل وردية استثنائية</Text>
+            <Ionicons name="flash" size={16} color="#ffffff" style={{ marginHorizontal: 4 }} />
+            <Text style={styles.primaryActionBtnText}>تسجيل وردية</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => onNavigateToTab('approvals')}
-            style={[styles.secondaryActionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.actionBtnItem, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
           >
-            <Ionicons name="file-tray-full-outline" size={20} color={colors.textPrimary} style={{ marginRight: 8 }} />
-            <Text style={[styles.secondaryActionBtnText, { color: colors.textPrimary }]}>سجل الموافقات</Text>
+            <Ionicons name="checkmark-done-circle" size={16} color={colors.textPrimary} style={{ marginHorizontal: 4 }} />
+            <Text style={[styles.secondaryActionBtnText, { color: colors.textPrimary }]}>مركز الموافقات</Text>
           </TouchableOpacity>
+
+          {onOpenReportModal && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onOpenReportModal}
+              style={[styles.actionBtnItem, { backgroundColor: colors.primaryLight, borderColor: colors.primary, borderWidth: 1 }]}
+            >
+              <Ionicons name="document-text" size={16} color={colors.primary} style={{ marginHorizontal: 4 }} />
+              <Text style={[styles.secondaryActionBtnText, { color: colors.primary }]}>تقارير الموظفين</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -444,20 +429,23 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
-  primaryActionBtn: {
-    flex: 1.2,
+  actionBtnItem: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    shadowColor: '#0369a1',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  primaryActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   primaryActionBtnText: {
     color: '#ffffff',

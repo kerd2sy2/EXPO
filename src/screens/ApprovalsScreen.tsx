@@ -66,6 +66,30 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
     });
   }, [pendingSessions, searchQuery]);
 
+  // Filter pending advances and reports by delegate name, reason, or type
+  const filteredAdvances = useMemo(() => {
+    if (!searchQuery.trim()) return pendingAdvances;
+    const q = searchQuery.toLowerCase().trim();
+    return pendingAdvances.filter((a) => {
+      const name = (a.employee_name || '').toLowerCase();
+      const reason = (a.reason || a.notes || a.report_text || '').toLowerCase();
+      const type = (a.type || '').toLowerCase();
+      return name.includes(q) || reason.includes(q) || type.includes(q);
+    });
+  }, [pendingAdvances, searchQuery]);
+
+  // Filter pending maintenance requests by delegate name, plate, or description
+  const filteredMaintenance = useMemo(() => {
+    if (!searchQuery.trim()) return pendingMaintenance;
+    const q = searchQuery.toLowerCase().trim();
+    return pendingMaintenance.filter((m) => {
+      const name = (m.employee_name || '').toLowerCase();
+      const bike = (m.motorcycle_number || '').toLowerCase();
+      const desc = (m.issue_description || '').toLowerCase();
+      return name.includes(q) || bike.includes(q) || desc.includes(q);
+    });
+  }, [pendingMaintenance, searchQuery]);
+
   // Edit & Review Shift Modal State
   const [editingSession, setEditingSession] = useState<WorkSession | null>(null);
   const [editOrdersCount, setEditOrdersCount] = useState('');
@@ -123,6 +147,24 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   };
 
   // Maintenance action
+  const handleAdvanceAction = async (id: string, action: 'approve' | 'reject') => {
+    try {
+      setActionLoadingId(id);
+      if (action === 'approve') {
+        await supervisorApi.approveInvestigation(id);
+        Alert.alert('تم بنجاح', 'تمت الموافقة على الطلب بنجاح وتحديث السجلات');
+      } else {
+        await supervisorApi.rejectInvestigation(id, 'مرفوض بواسطة المشرف');
+        Alert.alert('تم', 'تم رفض الطلب');
+      }
+      onRefresh();
+    } catch (err: any) {
+      Alert.alert('خطأ', err?.message || 'فشلت معالجة الطلب');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   const handleMaintenanceAction = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     try {
       setActionLoadingId(id);
@@ -138,6 +180,23 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      {/* ── TOP SEARCH BAR (ابحث بالحرفين يظهر فوراً) ── */}
+      <View style={[styles.topSearchWrapper, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Ionicons name="search" size={18} color={colors.textSecondary} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+          placeholder="ابحث باسم المندوب (حرفين أو أكثر)، الكود، أو رقم الدباب..."
+          placeholderTextColor={colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Segmented Top Bar */}
       <View style={[styles.segmentContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <TouchableOpacity
@@ -145,7 +204,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           onPress={() => setActiveTab('shifts')}
         >
           <Text style={[styles.segmentText, { color: activeTab === 'shifts' ? '#fff' : colors.textSecondary }]}>
-            الورديات ({pendingSessions.length})
+            الورديات ({filteredSessions.length})
           </Text>
         </TouchableOpacity>
 
@@ -154,7 +213,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           onPress={() => setActiveTab('advances')}
         >
           <Text style={[styles.segmentText, { color: activeTab === 'advances' ? '#fff' : colors.textSecondary }]}>
-            السلف ({pendingAdvances.length})
+            السلف والتقارير ({filteredAdvances.length})
           </Text>
         </TouchableOpacity>
 
@@ -163,7 +222,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           onPress={() => setActiveTab('maintenance')}
         >
           <Text style={[styles.segmentText, { color: activeTab === 'maintenance' ? '#fff' : colors.textSecondary }]}>
-            الصيانة ({pendingMaintenance.length})
+            الصيانة ({filteredMaintenance.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -178,25 +237,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         {/* SHIFTS TAB */}
         {activeTab === 'shifts' && (
           <>
-            {/* Search Bar for Pending Shifts */}
-            {pendingSessions.length > 0 && (
-              <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Ionicons name="search" size={18} color={colors.textSecondary} />
-                <TextInput
-                  style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                  placeholder="ابحث باسم المندوب، الكود، أو رقم الدباب..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
             {filteredSessions.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Ionicons name={searchQuery ? 'search-outline' : 'checkmark-done-circle'} size={54} color={searchQuery ? colors.textSecondary : '#10B981'} />
@@ -319,53 +359,95 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           </>
         )}
 
-        {/* ADVANCES TAB */}
+        {/* ADVANCES & REPORTS TAB */}
         {activeTab === 'advances' && (
           <>
-            {pendingAdvances.length === 0 ? (
+            {filteredAdvances.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="wallet-outline" size={54} color={colors.textSecondary} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد طلبات سلف معلقة</Text>
+                <Ionicons name={searchQuery ? 'search-outline' : 'wallet-outline'} size={54} color={colors.textSecondary} />
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                  {searchQuery ? `لا توجد طلبات سلف أو تقارير مطابقة لـ "${searchQuery}"` : 'لا توجد طلبات سلف أو تقارير معلقة'}
+                </Text>
                 <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                  جميع طلبات السلف تمت معالجتها
+                  {searchQuery ? 'تأكد من كتابة اسم المندوب بشكل صحيح' : 'جميع طلبات السلف والتقارير الإدارية معتمدة ومحدثة'}
                 </Text>
               </View>
             ) : (
-              pendingAdvances.map((adv) => (
-                <View key={adv.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={styles.cardHeader}>
-                    <View>
-                      <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{adv.employee_name}</Text>
-                      <Text style={[styles.cardTime, { color: colors.textSecondary }]}>
-                        {adv.type === 'internet_advance' ? 'سلفة باقة إنترنت' : 'سلفة مالية شهرية'}
-                      </Text>
+              filteredAdvances.map((adv) => {
+                const isLoading = actionLoadingId === adv.id;
+                const isReport = adv.type === 'supervisor_report';
+
+                return (
+                  <View key={adv.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <View style={styles.cardHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{adv.employee_name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          <View
+                            style={[
+                              styles.typeBadge,
+                              { backgroundColor: isReport ? '#8b5cf615' : colors.primaryLight },
+                            ]}
+                          >
+                            <Text style={[styles.typeBadgeText, { color: isReport ? '#8b5cf6' : colors.primary }]}>
+                              {isReport
+                                ? 'تقرير مشرف / شكوى'
+                                : adv.type === 'internet_advance'
+                                ? 'سلفة باقة نت'
+                                : 'طلب سلفة مالية'}
+                            </Text>
+                          </View>
+                          <Text style={[styles.cardTime, { color: colors.textSecondary }]}>
+                            {adv.created_at ? new Date(adv.created_at).toLocaleDateString('ar-SA') : 'اليوم'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {adv.amount ? (
+                        <Text style={[styles.amountText, { color: colors.primary }]}>{adv.amount} ر.س</Text>
+                      ) : null}
                     </View>
-                    <Text style={[styles.amountText, { color: colors.primary }]}>{adv.amount} ر.س</Text>
+
+                    {(adv.report_text || adv.reason || adv.notes) && (
+                      <View style={[styles.issueBox, { backgroundColor: colors.bg }]}>
+                        <Text style={[styles.issueLabel, { color: colors.textSecondary }]}>
+                          {isReport ? 'بيان التقرير الإداري:' : 'سبب طلب السلفة:'}
+                        </Text>
+                        <Text style={[styles.issueText, { color: colors.textPrimary }]}>
+                          {adv.report_text || adv.reason || adv.notes}
+                        </Text>
+                        {adv.deduction_month ? (
+                          <Text style={[styles.issueText, { color: colors.textSecondary, marginTop: 4, fontSize: 11 }]}>
+                            شهر الاستقطاع: {adv.deduction_month}
+                          </Text>
+                        ) : null}
+                      </View>
+                    )}
+
+                    <View style={styles.actionsRow}>
+                      <TouchableOpacity
+                        style={[styles.rejectBtn, { borderColor: '#EF4444' }]}
+                        onPress={() => handleAdvanceAction(adv.id, 'reject')}
+                        disabled={isLoading}
+                      >
+                        <Text style={[styles.rejectBtnText, { color: '#EF4444' }]}>رفض الطلب</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.approveBtn, { backgroundColor: '#10B981' }]}
+                        onPress={() => handleAdvanceAction(adv.id, 'approve')}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Text style={styles.approveBtnText}>موافقة واعتماد</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
-
-                  {adv.reason && (
-                    <Text style={[styles.reasonText, { color: colors.textSecondary }]}>
-                      السبب: {adv.reason}
-                    </Text>
-                  )}
-
-                  <View style={styles.actionsRow}>
-                    <TouchableOpacity
-                      style={[styles.rejectBtn, { borderColor: '#EF4444' }]}
-                      onPress={() => Alert.alert('رفض الطلب', 'هل تود رفض طلب السلفة؟')}
-                    >
-                      <Text style={[styles.rejectBtnText, { color: '#EF4444' }]}>رفض</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.approveBtn, { backgroundColor: '#10B981' }]}
-                      onPress={() => Alert.alert('موافقة', 'تم إرسال الموافقة للإدارة المالية')}
-                    >
-                      <Text style={styles.approveBtnText}>موافقة واعتماد</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
+                );
+              })
             )}
           </>
         )}
@@ -373,16 +455,18 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         {/* MAINTENANCE TAB */}
         {activeTab === 'maintenance' && (
           <>
-            {pendingMaintenance.length === 0 ? (
+            {filteredMaintenance.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="build-outline" size={54} color={colors.textSecondary} />
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد طلبات صيانة معلقة</Text>
+                <Ionicons name={searchQuery ? 'search-outline' : 'build-outline'} size={54} color={colors.textSecondary} />
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                  {searchQuery ? `لا توجد طلبات صيانة مطابقة لـ "${searchQuery}"` : 'لا توجد طلبات صيانة معلقة'}
+                </Text>
                 <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                  أسطول دبابات الفرع في حالة ممتازة
+                  {searchQuery ? 'تأكد من كتابة الاسم أو اللوحة بشكل صحيح' : 'أسطول دبابات الفرع في حالة ممتازة'}
                 </Text>
               </View>
             ) : (
-              pendingMaintenance.map((maint) => {
+              filteredMaintenance.map((maint) => {
                 const isLoading = actionLoadingId === maint.id;
                 const plate = parsePlateComponents(maint.motorcycle_number || '');
 
@@ -510,6 +594,18 @@ const styles = StyleSheet.create({
     padding: 4,
     gap: 4,
   },
+  topSearchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -520,6 +616,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     gap: 8,
+  },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  typeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   searchInput: {
     flex: 1,

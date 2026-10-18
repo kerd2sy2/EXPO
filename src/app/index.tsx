@@ -72,6 +72,7 @@ import {
   BranchStats,
   DelegateWithStatus,
   PendingMaintenanceRequest,
+  PendingAdvanceRequest,
 } from '../services/supervisor';
 import {
   operationsApi,
@@ -93,6 +94,7 @@ import { BroadcastHistoryModal } from '../components/modals/BroadcastHistoryModa
 import { OilChangeBottomSheet } from '../components/modals/OilChangeBottomSheet';
 import { PlateScannerModal } from '../features/plate-scanner';
 import { AccidentAlertModal } from '../components/modals/AccidentAlertModal';
+import { EmployeeReportModal } from '../components/modals/EmployeeReportModal';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 
 
@@ -159,6 +161,8 @@ export default function DelegateApp() {
   const [workingDelegates, setWorkingDelegates] = useState<DelegateWithStatus[]>([]);
   const [pendingMaintenance, setPendingMaintenance] = useState<PendingMaintenanceRequest[]>([]);
   const [pendingSessions, setPendingSessions] = useState<WorkSession[]>([]);
+  const [pendingAdvances, setPendingAdvances] = useState<PendingAdvanceRequest[]>([]);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [loadingSupervisorData, setLoadingSupervisorData] = useState(false);
 
   // Operations & Fleet States
@@ -185,16 +189,18 @@ export default function DelegateApp() {
   const fetchSupervisorData = useCallback(async () => {
     try {
       setLoadingSupervisorData(true);
-      const [allDel, workDel, maint, pending] = await Promise.all([
+      const [allDel, workDel, maint, pending, advances] = await Promise.all([
         supervisorApi.getAllBranchDelegates(),
         supervisorApi.getWorkingDelegates(),
         supervisorApi.getPendingMaintenance(),
         supervisorApi.getPendingSessions(),
+        supervisorApi.getPendingInvestigations(),
       ]);
       setBranchDelegates(allDel);
       setWorkingDelegates(workDel);
       setPendingMaintenance(maint);
       setPendingSessions(pending);
+      setPendingAdvances(advances);
     } catch (e) {
       console.warn('[Eshraf] Error fetching supervisor data:', e);
     } finally {
@@ -1859,6 +1865,7 @@ export default function DelegateApp() {
                   lang={lang}
                   onNavigateToTab={handleNavigateToTab}
                   onConfirmOrders={handleConfirmOrders}
+                  onOpenReportModal={() => setShowReportModal(true)}
                   onRefresh={fetchSupervisorData}
                 />
               </ModuleErrorBoundary>
@@ -2006,6 +2013,7 @@ export default function DelegateApp() {
                   isRTL={isRTL}
                   onNavigateToTab={(tab) => setCurrentTab(tab)}
                   onOpenOverrideModal={() => setCurrentTab('field')}
+                  onOpenReportModal={() => setShowReportModal(true)}
                   onRefresh={fetchSupervisorData}
                   refreshing={loadingSupervisorData}
                 />
@@ -2038,7 +2046,7 @@ export default function DelegateApp() {
               <ModuleErrorBoundary moduleName="مركز الموافقات" colors={colors} onReset={fetchSupervisorData}>
                 <ApprovalsScreen
                   pendingSessions={pendingSessions}
-                  pendingAdvances={[]}
+                  pendingAdvances={pendingAdvances}
                   pendingMaintenance={pendingMaintenance}
                   loading={loadingSupervisorData}
                   onRefresh={() => {
@@ -2257,6 +2265,17 @@ export default function DelegateApp() {
           lang={lang}
         />
       </ModuleErrorBoundary>
+
+      {/* Employee Reports & Financial Advances Modal with AI Assistant */}
+      <EmployeeReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        branchDelegates={branchDelegates}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        onSuccess={fetchSupervisorData}
+      />
     </SafeAreaView>
   );
 }

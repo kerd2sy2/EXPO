@@ -20,6 +20,7 @@ export interface HomeScreenProps {
   t: any;
   lang?: Language;
   onNavigateToTab: (tab: TabType) => void;
+  onOpenReportModal?: () => void;
   onConfirmOrders?: (session: WorkSession, ordersCount?: number, notes?: string) => Promise<void>;
   onRefresh?: () => void;
   // Backward compatibility
@@ -46,6 +47,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   isDarkMode,
   isRTL = true,
   onNavigateToTab,
+  onOpenReportModal,
 }) => {
   const pendingCount = pendingSessions.length;
 
@@ -102,7 +104,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Module 3: Approvals & Confirmation (صفحة اعتماد وتأكيد مستقلة) */}
+        {/* Module 3: Approvals Hub (مركز الموافقات) */}
         <TouchableOpacity
           style={[
             styles.moduleCard,
@@ -121,7 +123,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
           <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
             <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>مركز الاعتماد والتأكيد</Text>
+              <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>مركز الموافقات</Text>
               {pendingCount > 0 && (
                 <View style={[styles.alertBadge, { backgroundColor: '#ef4444' }]}>
                   <Text style={styles.alertBadgeText}>{pendingCount} معلق</Text>
@@ -129,7 +131,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               )}
             </View>
             <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-              اعتماد شفتات المناديب، مراجعة الطلبات، والسلف والصيانة
+              موافقة شفتات المناديب، الطلبات المعلقة، والسلف والصيانة
             </Text>
           </View>
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={pendingCount > 0 ? '#f59e0b' : colors.textSecondary} />
@@ -155,6 +157,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
         </TouchableOpacity>
+
+        {/* Module 5: Employee Reports & Advances (تقارير الموظفين والسلف) */}
+        {onOpenReportModal && (
+          <TouchableOpacity
+            style={[
+              styles.moduleCard,
+              { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+            ]}
+            onPress={onOpenReportModal}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.moduleIconBox, { backgroundColor: '#8b5cf615' }]}>
+              <Ionicons name="document-text" size={24} color="#8b5cf6" />
+            </View>
+            <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>تقارير الموظفين والسلف</Text>
+                <View style={[styles.miniBadge, { backgroundColor: '#8b5cf620' }]}>
+                  <Text style={[styles.miniBadgeText, { color: '#8b5cf6' }]}>ذكاء اصطناعي ✨</Text>
+                </View>
+              </View>
+              <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
+                رفع تقرير مشرف إداري أو طلب سلفة مالية بصياغة ذكية
+              </Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

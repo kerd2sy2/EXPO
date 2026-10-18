@@ -56,11 +56,26 @@ export interface PendingAdvanceRequest {
   id: string;
   employee_id: string;
   employee_name: string;
-  type: string; // 'advance' | 'internet_advance'
-  amount: number;
+  type: string; // 'advance' | 'internet_advance' | 'supervisor_report' | 'investigation'
+  amount?: number;
   status: string;
   reason?: string;
+  report_text?: string;
+  notes?: string;
+  deduction_month?: string;
+  supervisor_name?: string;
   created_at: string;
+}
+
+export interface CreateEmployeeReportParams {
+  employeeId: string;
+  employeeName?: string;
+  nationalId?: string;
+  type: 'supervisor_report' | 'advance' | 'internet_advance';
+  reportText: string;
+  amount?: number;
+  deductionMonth?: string;
+  notes?: string;
 }
 
 export interface PendingMaintenanceRequest {
@@ -249,4 +264,60 @@ export const supervisorApi = {
       return [];
     }
   },
+
+  // 10. Get pending investigations, advances, and supervisor reports
+  getPendingInvestigations: async (): Promise<PendingAdvanceRequest[]> => {
+    try {
+      const resp = await apiRequest<PendingAdvanceRequest[]>('/investigations', {
+        timeoutMs: 8000,
+      });
+      if (Array.isArray(resp)) {
+        return resp.filter(
+          (inv) =>
+            inv.status === 'pending' ||
+            inv.status === 'PENDING' ||
+            !inv.status
+        );
+      }
+      return [];
+    } catch (err) {
+      console.warn('[supervisorApi] getPendingInvestigations error:', err);
+      return [];
+    }
+  },
+
+  // 11. Approve investigation/advance/report
+  approveInvestigation: async (id: string): Promise<any> => {
+    return apiRequest(`/investigations/${id}/approve`, {
+      method: 'POST',
+    });
+  },
+
+  // 12. Reject investigation/advance/report
+  rejectInvestigation: async (id: string, reason?: string): Promise<any> => {
+    return apiRequest(`/investigations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'rejected', notes: reason }),
+    });
+  },
+
+  // 13. Create supervisor report or employee advance request
+  createEmployeeReportOrAdvance: async (params: CreateEmployeeReportParams): Promise<any> => {
+    const payload = {
+      employee_id: params.employeeId,
+      employee_name: params.employeeName || '',
+      national_id: params.nationalId || '',
+      type: params.type,
+      report_text: params.reportText,
+      amount: params.amount,
+      deduction_month: params.deductionMonth,
+      notes: params.notes || params.reportText,
+    };
+
+    return apiRequest('/investigations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 };
+
