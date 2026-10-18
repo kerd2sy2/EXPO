@@ -180,7 +180,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               style={[styles.actionBtnItem, { backgroundColor: colors.primaryLight, borderColor: colors.primary, borderWidth: 1 }]}
             >
               <Ionicons name="document-text" size={16} color={colors.primary} style={{ marginHorizontal: 4 }} />
-              <Text style={[styles.secondaryActionBtnText, { color: colors.primary }]}>تقارير الموظفين</Text>
+              <Text style={[styles.secondaryActionBtnText, { color: colors.primary }]}>التقارير</Text>
             </TouchableOpacity>
           )}
         </View>

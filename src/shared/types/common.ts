@@ -73,5 +73,17 @@ export interface PreviewPhotoData {
   rotate?: boolean;
 }
 
-export type TabType = 'home' | 'dashboard' | 'field' | 'approvals' | 'operations' | 'shift' | 'history' | 'profile' | 'violations' | 'oil-change';
+export type TabType =
+  | 'home'
+  | 'dashboard'
+  | 'field'
+  | 'approvals'
+  | 'operations'
+  | 'shift'
+  | 'history'
+  | 'profile'
+  | 'violations'
+  | 'oil-change'
+  | 'supervisor-report'
+  | 'advance-request';
 export type Language = 'ar' | 'en' | 'bn' | 'ur';

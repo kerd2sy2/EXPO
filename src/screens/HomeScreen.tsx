@@ -173,10 +173,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </View>
             <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
               <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>تقارير الموظفين والسلف</Text>
+                <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>التقارير</Text>
               </View>
               <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-                رفع تقرير مشرف إداري أو طلب سلفة مالية بلهجة وصياغة مباشرة
+                رفع تقرير مشرف أو طلب سلفة مالية
               </Text>
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />

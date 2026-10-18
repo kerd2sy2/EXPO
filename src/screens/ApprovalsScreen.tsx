@@ -424,26 +424,22 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                       </View>
                     )}
 
-                    <View style={styles.actionsRow}>
-                      <TouchableOpacity
-                        style={[styles.rejectBtn, { borderColor: '#EF4444' }]}
-                        onPress={() => handleAdvanceAction(adv.id, 'reject')}
-                        disabled={isLoading}
-                      >
-                        <Text style={[styles.rejectBtnText, { color: '#EF4444' }]}>رفض الطلب</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.approveBtn, { backgroundColor: '#10B981' }]}
-                        onPress={() => handleAdvanceAction(adv.id, 'approve')}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <Text style={styles.approveBtnText}>موافقة واعتماد</Text>
-                        )}
-                      </TouchableOpacity>
+                    {/* Advance / Report Management Notice */}
+                    <View
+                      style={[
+                        styles.adminApprovalNotice,
+                        {
+                          backgroundColor: isDarkMode ? '#064e3b20' : '#ecfdf5',
+                          borderColor: '#10b981',
+                        },
+                      ]}
+                    >
+                      <Ionicons name="shield-checkmark-outline" size={16} color="#059669" />
+                      <Text style={[styles.adminApprovalNoticeText, { color: '#059669' }]}>
+                        {isReport
+                          ? 'تم إرسال التقرير للإدارة العامة للمتابعة واتخاذ الإجراء'
+                          : 'بانتظار الاعتماد المالي: صلاحية الموافقة لدى الإدارة العامة والحسابات'}
+                      </Text>
                     </View>
                   </View>
                 );
@@ -853,5 +849,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '800',
+  },
+  adminApprovalNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  adminApprovalNoticeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
   },
 });

@@ -67,6 +67,8 @@ import { DashboardScreen } from '../screens/DashboardScreen';
 import { FieldScreen } from '../screens/FieldScreen';
 import { ApprovalsScreen } from '../screens/ApprovalsScreen';
 import { OperationsScreen } from '../screens/OperationsScreen';
+import { SupervisorReportScreen } from '../screens/SupervisorReportScreen';
+import { AdvanceRequestScreen } from '../screens/AdvanceRequestScreen';
 import {
   supervisorApi,
   BranchStats,
@@ -95,6 +97,7 @@ import { OilChangeBottomSheet } from '../components/modals/OilChangeBottomSheet'
 import { PlateScannerModal } from '../features/plate-scanner';
 import { AccidentAlertModal } from '../components/modals/AccidentAlertModal';
 import { EmployeeReportModal } from '../components/modals/EmployeeReportModal';
+import { ReportTypePickerModal } from '../components/modals/ReportTypePickerModal';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 
 
@@ -1769,9 +1772,13 @@ export default function DelegateApp() {
                   : currentTab === 'field'
                   ? 'متابعة الميدان والورديات'
                   : currentTab === 'approvals'
-                  ? 'مركز الموافقات والاعتمادات'
+                  ? 'مركز الموافقات'
                   : currentTab === 'operations'
                   ? 'إدارة العمليات والأسطول'
+                  : currentTab === 'supervisor-report'
+                  ? 'تقرير مشرف'
+                  : currentTab === 'advance-request'
+                  ? 'سلفة'
                   : currentTab === 'shift'
                   ? (activeSession ? t.endShiftTitle : t.startShiftTitle)
                   : currentTab === 'history'
@@ -2074,6 +2081,33 @@ export default function DelegateApp() {
                 />
               </ModuleErrorBoundary>
             )}
+
+            {currentTab === 'supervisor-report' && (
+              <ModuleErrorBoundary moduleName="تقرير مشرف" colors={colors} onReset={fetchSupervisorData}>
+                <SupervisorReportScreen
+                  branchDelegates={branchDelegates}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  isRTL={isRTL}
+                  onSuccess={fetchSupervisorData}
+                  onBack={() => setCurrentTab('home')}
+                />
+              </ModuleErrorBoundary>
+            )}
+
+            {currentTab === 'advance-request' && (
+              <ModuleErrorBoundary moduleName="سلفة" colors={colors} onReset={fetchSupervisorData}>
+                <AdvanceRequestScreen
+                  branchDelegates={branchDelegates}
+                  pendingAdvances={pendingAdvances}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  isRTL={isRTL}
+                  onSuccess={fetchSupervisorData}
+                  onBack={() => setCurrentTab('home')}
+                />
+              </ModuleErrorBoundary>
+            )}
           </ScrollView>
         )}
       </KeyboardAvoidingView>
@@ -2266,15 +2300,17 @@ export default function DelegateApp() {
         />
       </ModuleErrorBoundary>
 
-      {/* Employee Reports & Financial Advances Modal with AI Assistant */}
-      <EmployeeReportModal
+      {/* Report & Advance Type Picker BottomSheet Modal */}
+      <ReportTypePickerModal
         visible={showReportModal}
         onClose={() => setShowReportModal(false)}
-        branchDelegates={branchDelegates}
+        onSelect={(selectedType) => {
+          setShowReportModal(false);
+          setCurrentTab(selectedType);
+        }}
         colors={colors}
         isDarkMode={isDarkMode}
         isRTL={isRTL}
-        onSuccess={fetchSupervisorData}
       />
     </SafeAreaView>
   );
