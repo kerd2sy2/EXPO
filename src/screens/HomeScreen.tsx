@@ -174,12 +174,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
               <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>تقارير الموظفين والسلف</Text>
-                <View style={[styles.miniBadge, { backgroundColor: '#8b5cf620' }]}>
-                  <Text style={[styles.miniBadgeText, { color: '#8b5cf6' }]}>ذكاء اصطناعي ✨</Text>
-                </View>
               </View>
               <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-                رفع تقرير مشرف إداري أو طلب سلفة مالية بصياغة ذكية
+                رفع تقرير مشرف إداري أو طلب سلفة مالية بلهجة وصياغة مباشرة
               </Text>
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />

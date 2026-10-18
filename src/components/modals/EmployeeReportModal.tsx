@@ -73,7 +73,7 @@ export const EmployeeReportModal: React.FC<EmployeeReportModalProps> = ({
   // AI Professional Rewriting Engine
   const handleAiRewrite = () => {
     if (!reportText.trim()) {
-      Alert.alert('تنبيه', 'يرجى كتابة بعض الكلمات أو الملاحظات أولاً ليقوم الذكاء الاصطناعي بإعادة صياغتها باحترافية');
+      Alert.alert('تنبيه', 'يرجى كتابة بعض الكلمات أو الملاحظات أولاً لتحسين صياغتها ولغتها');
       return;
     }
 
@@ -82,76 +82,93 @@ export const EmployeeReportModal: React.FC<EmployeeReportModalProps> = ({
 
     setTimeout(() => {
       try {
-        const raw = reportText.trim();
-        const delegateName = selectedDelegate?.name || 'المندوب المعني';
-        const delegateCode = selectedDelegate?.employee_number ? ` (رقم وظيفي: ${selectedDelegate.employee_number})` : '';
+        let text = reportText.trim();
 
-        let professionalDraft = '';
+        // 1. Replacements for dialect and informal slang to clean concise Arabic
+        const dialectMap: [RegExp, string][] = [
+          // Negations & refusal
+          [/\b(مش راضي|ما بدو|ما يبي|ما بيرضى|مش موافق)\b/gi, 'يرفض'],
+          [/\b(مش عايز|مش عاوز|مش حابب|ما وده)\b/gi, 'لا يرغب في'],
+          [/\b(مش بيسمع الكلام|مابيردش على التعليمات)\b/gi, 'عدم الالتزام بالتعليمات'],
+          [/\b(مش ملتزم|مش منضبط)\b/gi, 'غير ملتزم'],
 
-        if (reportType === 'advance') {
-          // Advance format
-          const reqAmount = amount ? `${amount} ريال سعودي` : 'المبلغ المذكور';
-          professionalDraft =
-`الموضوع: طلب صرف سلفة مالية استثنائية لمندوب
+          // Attendance & Time
+          [/\b(عمال يتاخر|بيتاخر كتير|دايما بيتاخر|عم يتأخر|بيتاخر)\b/gi, 'يتأخر باستمرار عن مواعيد العمل'],
+          [/\b(تاخير كتير|تأخير كتير)\b/gi, 'تأخر متكرر'],
+          [/\b(ما جاش|مجاش|ما حضرش|ما اجا|ماجا)\b/gi, 'لم يحضر للعمل'],
+          [/\b(ساب الشغل|سيب الوردية|سيب الشغل|ساب الوردية)\b/gi, 'ترك الوردية دون إذن'],
+          [/\b(اختفى|هرب|مش لاقينه|مش لاقيه)\b/gi, 'تعذر الوصول إليه في موقع العمل'],
 
-سعادة مدير العمليات / الموارد البشرية المحترمين،
-تحية طيبة وبعد،،
+          // Communication
+          [/\b(مردش عليا|ما ردش عليا|ما ردش|مش بيرد|مابيردش|ما بيجاوب|قفل في وشي)\b/gi, 'لا يستجيب للاتصالات'],
+          [/\b(تليفون|موبايل|جوال)\b/gi, 'الهاتف'],
+          [/\b(مقفول|تليفونه مقفول)\b/gi, 'مغلق'],
 
-بناءً على التماس المندوب: ${delegateName}${delegateCode}، ونظراً لمروره بظروف معيشية والتزامات شخصية طارئة، نرفع لسعادتكم التوصية بالموافقة على صرف سلفة مالية بقيمة (${reqAmount}).
+          // Orders & Field Work
+          [/\b(يروح يسلم|يروح يوصل)\b/gi, 'التوجه لتسليم'],
+          [/\b(اوردرات|أوردرات)\b/gi, 'طلبات'],
+          [/\b(اوردر|أوردر)\b/gi, 'طلب'],
+          [/\b(كنسل الاوردر|كنسل الطلب)\b/gi, 'ألغى الطلب'],
 
-بيان السبب والحاجة:
-${raw}
+          // Vehicles & incidents
+          [/\b(دباب|موتوسيكل|سيكل)\b/gi, 'المركبة'],
+          [/\b(اتخبط|خبط|صدم|عمل حادثة|وقع بالدباب)\b/gi, 'تعرض لحادث مروري'],
+          [/\b(باظ|عطلان|خربان|خرب|مش شغال)\b/gi, 'معطل'],
 
-التوصية الإدارية:
-نوصي بالموافقة على الطلب تقديراً لالتزام المندوب وانتظامه في العمل الميداني، مع جدولة استقطاع المبلغ وفق السياسة واللوائح المعتمدة.
+          // Interpersonal
+          [/\b(زبون|الزبون)\b/gi, 'العميل'],
+          [/\b(اتخانق مع|بيزعق مع|مسك في)\b/gi, 'حدث خلاف وتلاسن مع'],
+          [/\b(بيعمل مشاكل)\b/gi, 'يثير خلافات تشغيلية'],
 
-وتقبلوا خالص التحية والتقدير،،
-مشرف العمليات الميدانية`;
-        } else {
-          // Supervisor report / complaint format
-          const rawLower = raw.toLowerCase();
-          let subject = 'تقرير إداري بشأن متابعة الأداء الميداني';
-          if (rawLower.includes('تاخير') || rawLower.includes('تأخير') || rawLower.includes('وقت') || rawLower.includes('تاخر')) {
-            subject = 'تقرير إداري بشأن تكرار التأخر عن مواعيد العمل الميداني';
-          } else if (rawLower.includes('غياب') || rawLower.includes('حضر') || rawLower.includes('اختفى') || rawLower.includes('مردش')) {
-            subject = 'إفادة رسمية بشأن الغياب وعدم الاستجابة للبلاغات التشغيلية';
-          } else if (rawLower.includes('دباب') || rawLower.includes('حادث') || rawLower.includes('صدم') || rawLower.includes('عطل')) {
-            subject = 'تقرير معاينة وضبط واقعة متعلقة بمركبة العمل';
-          } else if (rawLower.includes('عميل') || rawLower.includes('مطعم') || rawLower.includes('شكوى') || rawLower.includes('زبون')) {
-            subject = 'تقرير إداري بشأن شكوى تشغيلية مع الشركاء والعملاء';
-          } else if (rawLower.includes('طلب') || rawLower.includes('اوردر') || rawLower.includes('الغاء') || rawLower.includes('توصيل')) {
-            subject = 'تقرير مخالفة تشغيلية وتدني معدل إنجاز الطلبات';
-          }
+          // Dialect fillers & modifiers
+          [/\b(علشان|عشان|كرمال)\b/gi, 'بسبب'],
+          [/\b(دلوقتي|هلق|الحين)\b/gi, 'حالياً'],
+          [/\b(كويس|منيح)\b/gi, 'بشكل مناسب'],
+          [/\b(شوية|شوي)\b/gi, 'قليلاً'],
+          [/\b(كتير اوي|كتير|واجد)\b/gi, 'بشكل ملحوظ'],
+          [/\b(معاهوش|معهوش|ما معه|مش معاه)\b/gi, 'لا يتوفر لديه'],
+          [/\b(فلوس)\b/gi, 'مبلغ مالي'],
+          [/\b(بصراحة|يعني|اصلا|أصلاً)\b/gi, ''],
 
-          professionalDraft =
-`الموضوع: ${subject}
+          // Advance specifics
+          [/\b(عاوز سلفة|عايز سلفة|بدي سلفة|محتاج سلفة)\b/gi, 'طلب سلفة مالية'],
+          [/\b(ابنه تعبان|ابنه عيان)\b/gi, 'ظرف صحي يمر به ابنه'],
+          [/\b(والده تعبان|والدته تعبانة)\b/gi, 'ظرف صحي عائلي طارئ'],
+          [/\b(علاج|يجيب علاج|دوا)\b/gi, 'توفير مستلزمات علاجية'],
+          [/\b(ايجار|الإيجار متأخر)\b/gi, 'سداد التزامات إيجارية متأخرة'],
+        ];
 
-سعادة إدارة العمليات والتشغيل المحترمين،
-تحية طيبة وبعد،،
-
-نفيدكم بأنه في إطار المتابعة الميدانية المستمرة لمناديب الفرع، تم رصد الملاحظات الإدارية التالية بحق المندوب: ${delegateName}${delegateCode}:
-
-تفاصيل الواقعة والملاحظات المرصودة:
-- ${raw.replace(/\n+/g, '\n- ')}
-
-الأثر التشغيلي:
-تؤثر هذه الملاحظات بشكل مباشر على انتظام سير العمل الميداني ومستوى الخدمة المقدمة في نطاق الفرع.
-
-التوصية الإدارية:
-نرفع لسعادتكم هذا التقرير لاتخاذ الإجراء النظامي المناسب وتوجيه التوجيه الإداري اللازم لضمان الالتزام بمعايير الأداء التشغيلي المعتمدة.
-
-وتقبلوا فائق الاحترام والتقدير،،
-مشرف العمليات الميدانية`;
+        for (const [rgx, replacement] of dialectMap) {
+          text = text.replace(rgx, replacement);
         }
 
-        setReportText(professionalDraft);
+        // 2. Clean spaces and typography
+        text = text
+          .replace(/[ \t]+/g, ' ')
+          .replace(/ \n/g, '\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .replace(/ ,/g, '،')
+          .replace(/,/g, '،')
+          .trim();
+
+        // 3. For advance, keep concise directly
+        if (reportType === 'advance' && !text.startsWith('طلب سلفة')) {
+          text = `طلب سلفة: ${text}`;
+        }
+
+        // Add terminating punctuation if missing
+        if (text && !/[.!?،。]$/.test(text)) {
+          text += '.';
+        }
+
+        setReportText(text);
         setAiSuccessBadge(true);
       } catch (err) {
-        console.warn('AI Rewrite error:', err);
+        console.warn('AI Polish error:', err);
       } finally {
         setIsAiRewriting(false);
       }
-    }, 450);
+    }, 300);
   };
 
   const handleSubmit = async () => {
@@ -380,7 +397,7 @@ ${raw}
                 {reportType === 'advance' ? 'سبب السلفة وتفاصيل الحاجة *' : 'نص الشكوى أو التقرير الإداري *'}
               </Text>
 
-              {/* AI Professional Rewrite Button */}
+              {/* AI Language & Dialect Polish Button */}
               <TouchableOpacity
                 style={[styles.aiBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
                 onPress={handleAiRewrite}
@@ -392,7 +409,7 @@ ${raw}
                 ) : (
                   <>
                     <Ionicons name="sparkles" size={15} color={colors.primary} />
-                    <Text style={[styles.aiBtnText, { color: colors.primary }]}>صياغة ذكية بالذكاء الاصطناعي</Text>
+                    <Text style={[styles.aiBtnText, { color: colors.primary }]}>تحسين الصياغة واللهجة</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -408,8 +425,8 @@ ${raw}
               numberOfLines={6}
               placeholder={
                 reportType === 'advance'
-                  ? 'اكتب سبب السلفة باختصار، وسيقوم الذكاء الاصطناعي بتحسينها رسمياً...'
-                  : 'اكتب الشكوى أو الملاحظات (حتى لو كانت سريعة أو بالعامية)، واضغط على زر الصياغة الذكية لترتيبها رسمياً...'
+                  ? 'اكتب سبب السلفة، واضغط على تحسين الصياغة لضبط اللهجة واللغة فصحى ومباشرة...'
+                  : 'اكتب الشكوى أو الملاحظات (سريعة أو بالعامية)، واضغط لتحسين اللهجة واللغة فصحى ومباشرة بدون إطالة...'
               }
               placeholderTextColor={colors.textSecondary}
               value={reportText}
@@ -422,7 +439,7 @@ ${raw}
             {aiSuccessBadge && (
               <View style={styles.aiBadgeRow}>
                 <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                <Text style={styles.aiBadgeText}>تمت إعادة الصياغة الإدارية باحترافية - يمكنك مراجعتها وتعديلها</Text>
+                <Text style={styles.aiBadgeText}>تم تحسين الصياغة وتعديل اللهجة فصحى ومباشرة</Text>
               </View>
             )}
 
