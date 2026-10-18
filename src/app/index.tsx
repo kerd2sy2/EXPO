@@ -98,6 +98,7 @@ import { PlateScannerModal } from '../features/plate-scanner';
 import { AccidentAlertModal } from '../components/modals/AccidentAlertModal';
 import { EmployeeReportModal } from '../components/modals/EmployeeReportModal';
 import { ReportTypePickerModal } from '../components/modals/ReportTypePickerModal';
+import { OperationVideoModal } from '../components/OperationVideoModal';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 
 
@@ -166,6 +167,7 @@ export default function DelegateApp() {
   const [pendingSessions, setPendingSessions] = useState<WorkSession[]>([]);
   const [pendingAdvances, setPendingAdvances] = useState<PendingAdvanceRequest[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showOperationVideoModal, setShowOperationVideoModal] = useState(false);
   const [loadingSupervisorData, setLoadingSupervisorData] = useState(false);
 
   // Operations & Fleet States
@@ -1873,6 +1875,7 @@ export default function DelegateApp() {
                   onNavigateToTab={handleNavigateToTab}
                   onConfirmOrders={handleConfirmOrders}
                   onOpenReportModal={() => setShowReportModal(true)}
+                  onOpenOperationVideosModal={() => setShowOperationVideoModal(true)}
                   onRefresh={fetchSupervisorData}
                 />
               </ModuleErrorBoundary>
@@ -2021,6 +2024,7 @@ export default function DelegateApp() {
                   onNavigateToTab={(tab) => setCurrentTab(tab)}
                   onOpenOverrideModal={() => setCurrentTab('field')}
                   onOpenReportModal={() => setShowReportModal(true)}
+                  onOpenOperationVideosModal={() => setShowOperationVideoModal(true)}
                   onRefresh={fetchSupervisorData}
                   refreshing={loadingSupervisorData}
                 />
@@ -2099,7 +2103,6 @@ export default function DelegateApp() {
               <ModuleErrorBoundary moduleName="سلفة" colors={colors} onReset={fetchSupervisorData}>
                 <AdvanceRequestScreen
                   branchDelegates={branchDelegates}
-                  pendingAdvances={pendingAdvances}
                   colors={colors}
                   isDarkMode={isDarkMode}
                   isRTL={isRTL}
@@ -2304,10 +2307,24 @@ export default function DelegateApp() {
       <ReportTypePickerModal
         visible={showReportModal}
         onClose={() => setShowReportModal(false)}
-        onSelect={(selectedType) => {
+        onSelectAction={(action) => {
           setShowReportModal(false);
-          setCurrentTab(selectedType);
+          if (action === 'supervisor-report-create' || action === 'supervisor-reports-list') {
+            setCurrentTab('supervisor-report');
+          } else {
+            setCurrentTab('advance-request');
+          }
         }}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+      />
+
+      {/* Operation Video Documentation Modal (60-day auto-purge on server) */}
+      <OperationVideoModal
+        visible={showOperationVideoModal}
+        onClose={() => setShowOperationVideoModal(false)}
+        branchDelegates={branchDelegates}
         colors={colors}
         isDarkMode={isDarkMode}
         isRTL={isRTL}

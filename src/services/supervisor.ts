@@ -1,4 +1,4 @@
-import { apiRequest } from './api';
+import { apiRequest, API_BASE_URL, getStoredToken, loadStoredToken } from './api';
 import { EmployeeProfile, WorkSession } from '@shared/types';
 
 export interface BranchStats {
@@ -50,6 +50,37 @@ export interface ReviewSessionParams {
   endKm?: number;
   startKm?: number;
   fuelCost?: number;
+  reviewVideoUrl?: string;
+}
+
+export interface OperationVideo {
+  id: string;
+  branch_id?: string;
+  employee_id?: string;
+  employee_name: string;
+  order_number: string;
+  session_id?: string;
+  video_url: string;
+  thumbnail_url?: string;
+  duration_sec: number;
+  file_size: number;
+  notes: string;
+  recorded_at: string;
+  expires_at: string;
+  days_left: number;
+  is_deleted: boolean;
+  created_at: string;
+}
+
+export interface UploadOperationVideoParams {
+  videoUri: string;
+  employeeId?: string;
+  employeeName?: string;
+  orderNumber?: string;
+  sessionId?: string;
+  branchId?: string;
+  notes?: string;
+  durationSec?: number;
 }
 
 export interface PendingAdvanceRequest {
@@ -216,6 +247,7 @@ export const supervisorApi = {
       end_km: params.endKm,
       start_km: params.startKm,
       fuel_cost: params.fuelCost,
+      review_video_url: params.reviewVideoUrl,
     };
 
     const resp = await apiRequest<WorkSession>(`/work/sessions/${params.sessionId}/review`, {
@@ -319,5 +351,129 @@ export const supervisorApi = {
       body: JSON.stringify(payload),
     });
   },
+
+  // 14. Update investigation/advance/report
+  updateInvestigation: async (id: string, data: Partial<CreateEmployeeReportParams> & { status?: string }): Promise<any> => {
+    return apiRequest(`/investigations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        employee_id: data.employeeId,
+        employee_name: data.employeeName,
+        national_id: data.nationalId,
+        type: data.type,
+        report_text: data.reportText,
+        amount: data.amount,
+        deduction_month: data.deductionMonth,
+        notes: data.notes || data.reportText,
+        status: data.status,
+      }),
+    });
+  },
+
+  // 15. Delete investigation/advance/report
+  deleteInvestigation: async (id: string): Promise<any> => {
+    return apiRequest(`/investigations/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // 16. Get all investigations
+  getAllInvestigations: async (): Promise<PendingAdvanceRequest[]> => {
+    try {
+      const resp = await apiRequest<PendingAdvanceRequest[]>('/investigations', {
+        timeoutMs: 8000,
+      });
+      return Array.isArray(resp) ? resp : [];
+    } catch (err) {
+      console.warn('[supervisorApi] getAllInvestigations error:', err);
+      return [];
+    }
+  },
+
+  // 17. Upload silent operation video (retained for 60 days on AAMS server)
+  uploadOperationVideo: async (params: UploadOperationVideoParams): Promise<OperationVideo> => {
+    const token = getStoredToken() || (await loadStoredToken());
+    const formData = new FormData();
+
+    const filename = params.videoUri.split('/').pop() || `operation_video_${Date.now()}.mp4`;
+    // @ts-ignore: React Native FormData file shape
+    formData.append('video', {
+      uri: params.videoUri,
+      name: filename,
+      type: 'video/mp4',
+    });
+
+    if (params.employeeId) formData.append('employee_id', params.employeeId);
+    if (params.employeeName) formData.append('employee_name', params.employeeName);
+    if (params.orderNumber) formData.append('order_number', params.orderNumber);
+    if (params.sessionId) formData.append('session_id', params.sessionId);
+    if (params.branchId) formData.append('branch_id', params.branchId);
+    if (params.notes) formData.append('notes', params.notes);
+    if (params.durationSec) formData.append('duration_sec', String(params.durationSec));
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_BASE_URL}/operation-videos/upload`);
+      xhr.timeout = 60000;
+      xhr.setRequestHeader('Accept', 'application/json');
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+
+      xhr.onload = () => {
+        let resData: any;
+        try {
+          resData = JSON.parse(xhr.responseText);
+        } catch {
+          resData = { error: xhr.responseText };
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(resData.data || resData);
+        } else {
+          reject(new Error(resData?.error || resData?.message || `فشل في رفع الفيديو (رمز: ${xhr.status})`));
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('فشل الاتصال بالخادم أثناء رفع الفيديو. يرجى التحقق من الشبكة.'));
+      };
+
+      xhr.ontimeout = () => {
+        reject(new Error('انتهت مهلة رفع الفيديو (60 ثانية). يرجى المحاولة مجدداً.'));
+      };
+
+      xhr.send(formData);
+    });
+  },
+
+  // 18. Get operation videos archive (with filters by date, employee, or order number)
+  getOperationVideos: async (filter?: { date?: string; employeeName?: string; orderNumber?: string }): Promise<OperationVideo[]> => {
+    try {
+      const params = new URLSearchParams();
+      if (filter?.date) params.append('date', filter.date);
+      if (filter?.employeeName) params.append('employee_name', filter.employeeName);
+      if (filter?.orderNumber) params.append('order_number', filter.orderNumber);
+      params.append('limit', '100');
+
+      const url = `/operation-videos?${params.toString()}`;
+      const resp = await apiRequest<{ data: OperationVideo[]; total: number }>(url, {
+        timeoutMs: 12000,
+      });
+
+      return resp?.data || [];
+    } catch (err) {
+      console.warn('[supervisorApi] getOperationVideos error:', err);
+      return [];
+    }
+  },
+
+  // 19. Delete operation video manually if authorized
+  deleteOperationVideo: async (id: string): Promise<any> => {
+    return apiRequest(`/operation-videos/${id}`, {
+      method: 'DELETE',
+    });
+  },
 };
+
 

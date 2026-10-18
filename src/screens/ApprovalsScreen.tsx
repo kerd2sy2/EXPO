@@ -13,10 +13,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
 import { ThemeColors } from '@shared/theme';
 import { WorkSession } from '@shared/types';
 import { SaudiPlateView } from '@shared/components';
 import { parsePlateComponents } from '@shared/utils/plateUtils';
+import { formatImageUrl } from '../services/api';
 import {
   supervisorApi,
   PendingAdvanceRequest,
@@ -95,6 +98,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   const [editOrdersCount, setEditOrdersCount] = useState('');
   const [editFuelCost, setEditFuelCost] = useState('');
   const [editReviewNotes, setEditReviewNotes] = useState('');
+  const [editVideoUri, setEditVideoUri] = useState<string | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
 
   // Quick Approve Shift
@@ -122,25 +126,76 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
     setEditingSession(session);
     setEditOrdersCount(String(session.orders_count || 0));
     setEditFuelCost(String(session.fuel_cost || 0));
-    setEditReviewNotes(session.review_notes || 'تمت المراجعة والتعديل بواسطة المشرف');
+    setEditReviewNotes(session.review_notes || 'معتمد بواسطة المشرف');
+    setEditVideoUri(null);
   };
 
+  // Record Silent Review Proof Video
+  const handleRecordReviewVideo = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('إذن الكاميرا مطلوب', 'يرجى تفعيل صلاحية الكاميرا لتسجيل فيديو توثيق الطلبات.');
+        return;
+      }
+
+      // Record compressed low-quality video (480p) to keep size tiny (1-3MB) and digits fully readable
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['videos'],
+        allowsEditing: false,
+        quality: 0.3,
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
+        videoMaxDuration: 45,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setEditVideoUri(result.assets[0].uri);
+      }
+    } catch (err: any) {
+      Alert.alert('خطأ بالكاميرا', err?.message || 'فشل فتح الكاميرا');
+    }
+  };
+
+  // Unified Save: Final Order Count + Video Upload + Shift Approval
   const handleSaveEditReview = async () => {
     if (!editingSession) return;
     try {
       setSubmittingReview(true);
+
+      let uploadedVideoUrl: string | undefined = undefined;
+      if (editVideoUri) {
+        const empName = editingSession.employee_name || editingSession.employee?.name || 'مندوب';
+        const videoRes = await supervisorApi.uploadOperationVideo({
+          videoUri: editVideoUri,
+          employeeId: editingSession.employee_id,
+          employeeName: empName,
+          orderNumber: editOrdersCount,
+          sessionId: editingSession.id,
+          notes: `توثيق مراجعة وردية - عدد الطلبات المعتمد: ${editOrdersCount}`,
+        });
+        uploadedVideoUrl = videoRes.video_url;
+      }
+
       await supervisorApi.reviewSession({
         sessionId: editingSession.id,
         isReviewed: true,
         ordersCount: Number(editOrdersCount) || 0,
         fuelCost: Number(editFuelCost) || 0,
         reviewNotes: editReviewNotes.trim(),
+        reviewVideoUrl: uploadedVideoUrl,
       });
-      Alert.alert('تم بنجاح', 'تم تعديل واعتماد الوردية بنجاح');
+
+      Alert.alert(
+        'تم بنجاح',
+        editVideoUri
+          ? 'تم اعتماد الوردية والعدد النهائي وحفظ فيديو التوثيق على السيرفر لمدة 60 يوماً.'
+          : 'تم تعديل واعتماد الوردية بنجاح.'
+      );
       setEditingSession(null);
+      setEditVideoUri(null);
       onRefresh();
     } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشل حفظ التعديلات');
+      Alert.alert('خطأ', err?.message || 'فشل حفظ التعديلات والاعتماد');
     } finally {
       setSubmittingReview(false);
     }
@@ -330,11 +385,11 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     {/* Action buttons */}
                     <View style={styles.actionsRow}>
                       <TouchableOpacity
-                        style={[styles.editBtn, { borderColor: colors.border }]}
+                        style={[styles.editBtn, { borderColor: '#3b82f6', backgroundColor: '#3b82f610' }]}
                         onPress={() => openEditModal(session)}
                       >
-                        <Ionicons name="create-outline" size={16} color={colors.textPrimary} />
-                        <Text style={[styles.editBtnText, { color: colors.textPrimary }]}>مراجعة وتعديل</Text>
+                        <Ionicons name="videocam-outline" size={16} color="#3b82f6" />
+                        <Text style={[styles.editBtnText, { color: '#3b82f6' }]}>مراجعة وتوثيق</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -532,7 +587,16 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>عدد الطلبات الفعلي</Text>
+              {/* Guidance Badge */}
+              <View style={[styles.infoCallout, { backgroundColor: '#3b82f615', borderColor: '#3b82f640' }]}>
+                <Ionicons name="information-circle" size={20} color="#3b82f6" />
+                <Text style={[styles.infoCalloutText, { color: colors.textPrimary }]}>
+                  العدد المسجل من المندوب: {editingSession.orders_count || 0} طلب.{'\n'}
+                  راجع الفيديو وحدد العدد النهائي الفعلي (مثلاً اعتماد 12 بدلاً من 16).
+                </Text>
+              </View>
+
+              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>العدد النهائي المعتمد للطلبات</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
                 keyboardType="numeric"
@@ -540,7 +604,33 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                 onChangeText={setEditOrdersCount}
               />
 
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>تكلفة الوقود المعتمدة (ريال)</Text>
+              {/* Video Documentation Section */}
+              <Text style={[styles.fieldLabel, { color: colors.textPrimary, marginTop: 12 }]}>فيديو التوثيق الصامت (دليل المراجعة)</Text>
+              {!editVideoUri ? (
+                <TouchableOpacity
+                  style={[styles.cameraActionBtn, { backgroundColor: '#3b82f6' }]}
+                  onPress={handleRecordReviewVideo}
+                >
+                  <Ionicons name="videocam" size={20} color="#fff" />
+                  <Text style={styles.cameraActionText}>تصوير فيديو صامت للإثبات (جودة خفيفة)</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={[styles.videoRecordedCard, { borderColor: '#10b981', backgroundColor: '#10b98115' }]}>
+                  <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.videoRecordedTitle, { color: colors.textPrimary }]}>تم تسجيل فيديو الإثبات</Text>
+                    <Text style={[styles.videoRecordedSub, { color: colors.textSecondary }]}>
+                      سيتم ربطه بالوردية وحفظه بالسيرفر 60 يوماً
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setEditVideoUri(null)} style={styles.reRecordSmallBtn}>
+                    <Ionicons name="refresh" size={16} color="#ef4444" />
+                    <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>إعادة</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <Text style={[styles.fieldLabel, { color: colors.textPrimary, marginTop: 10 }]}>تكلفة الوقود المعتمدة (ريال)</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
                 keyboardType="numeric"
@@ -548,11 +638,11 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                 onChangeText={setEditFuelCost}
               />
 
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>ملاحظات الاعتماد والتدقيق</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textPrimary, marginTop: 10 }]}>ملاحظات الاعتماد والتدقيق</Text>
               <TextInput
                 style={[styles.textArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
                 value={editReviewNotes}
                 onChangeText={setEditReviewNotes}
               />
@@ -566,7 +656,12 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
               {submittingReview ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.saveBtnText}>تأكيد التعديل والاعتماد</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="checkmark-done" size={20} color="#fff" />
+                  <Text style={styles.saveBtnText}>
+                    {editVideoUri ? 'موافقة واعتماد الوردية (مع حفظ الفيديو)' : 'موافقة واعتماد الوردية'}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
@@ -863,5 +958,62 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     flex: 1,
+  },
+  infoCallout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 6,
+  },
+  infoCalloutText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  cameraActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  cameraActionText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  videoRecordedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  videoRecordedTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  videoRecordedSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  reRecordSmallBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#ef444415',
   },
 });

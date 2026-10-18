@@ -46,6 +46,7 @@ export interface WorkSession {
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
   is_reviewed?: boolean;
   review_notes?: string;
+  review_video_url?: string;
   is_edited_by_supervisor?: boolean;
   edited_by_name?: string;
   original_orders_count?: number;

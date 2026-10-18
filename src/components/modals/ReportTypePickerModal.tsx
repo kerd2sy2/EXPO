@@ -8,13 +8,19 @@ import {
   TouchableWithoutFeedback,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { ThemeColors } from '../../types/delegate';
+
+export type ReportPickerAction =
+  | 'supervisor-reports-list'
+  | 'supervisor-report-create'
+  | 'advances-list'
+  | 'advance-create';
 
 interface ReportTypePickerModalProps {
   visible: boolean;
   onClose: () => void;
-  onSelect: (type: 'supervisor-report' | 'advance-request') => void;
+  onSelectAction: (action: ReportPickerAction) => void;
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL: boolean;
@@ -23,7 +29,7 @@ interface ReportTypePickerModalProps {
 export const ReportTypePickerModal: React.FC<ReportTypePickerModalProps> = ({
   visible,
   onClose,
-  onSelect,
+  onSelectAction,
   colors,
   isDarkMode,
   isRTL,
@@ -39,97 +45,112 @@ export const ReportTypePickerModal: React.FC<ReportTypePickerModalProps> = ({
         <View style={styles.backdrop}>
           <TouchableWithoutFeedback>
             <View style={[styles.bottomSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {/* Top Drag Handle Indicator */}
-              <View style={[styles.handleIndicator, { backgroundColor: colors.border }]} />
+              {/* Drag Handle */}
+              <View style={[styles.handleIndicator, { backgroundColor: isDarkMode ? '#3f3f46' : '#cbd5e1' }]} />
 
-              {/* Header */}
-              <View style={[styles.headerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.headerTitles, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.title, { color: colors.textPrimary }]}>التقارير الميدانية</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    اختر نوع الإجراء المطلوب تسجيله للمندوب
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#27272a' : '#f4f4f5' }]}
-                  onPress={onClose}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
+              {/* Title & Instructions */}
+              <View style={[styles.headerBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                <Text style={[styles.title, { color: colors.textPrimary }]}>التقارير الميدانية</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                  اضغط ضغطة عادية لعرض السجل، أو ضغطة مطولة لإنشاء طلب جديد
+                </Text>
               </View>
 
-              {/* 2 Options Cards */}
-              <View style={styles.cardsContainer}>
+              {/* Options Column - Styled cleanly like Ohda */}
+              <View style={styles.actionSheetBtnsCol}>
                 {/* Option 1: تقرير مشرف */}
                 <TouchableOpacity
                   style={[
-                    styles.optionCard,
+                    styles.sheetOptionBtn,
                     {
-                      backgroundColor: isDarkMode ? '#1e1b4b25' : '#f5f3ff',
-                      borderColor: '#8b5cf6',
+                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                      borderColor: colors.border,
                       flexDirection: isRTL ? 'row-reverse' : 'row',
                     },
                   ]}
-                  activeOpacity={0.8}
+                  activeOpacity={0.7}
                   onPress={() => {
                     onClose();
-                    onSelect('supervisor-report');
+                    onSelectAction('supervisor-reports-list');
                   }}
+                  onLongPress={() => {
+                    onClose();
+                    onSelectAction('supervisor-report-create');
+                  }}
+                  delayLongPress={400}
                 >
-                  <View style={[styles.iconWrapper, { backgroundColor: '#8b5cf618' }]}>
-                    <Ionicons name="document-text" size={28} color="#8b5cf6" />
+                  <View style={[styles.sheetOptionIconBox, { backgroundColor: '#8b5cf618' }]}>
+                    <Ionicons name="document-text-outline" size={20} color="#8b5cf6" />
                   </View>
-                  <View style={[styles.optionInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                    <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>تقرير مشرف</Text>
-                    <Text style={[styles.optionDesc, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      تسجيل ملاحظة، إفادة، أو مخالفة تشغيلية على مندوب وإرسالها للإدارة
+                  <View style={[styles.textCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                    <View style={[styles.rowTitleBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <Text style={[styles.sheetOptionTitle, { color: colors.textPrimary }]}>تقرير مشرف</Text>
+                      <View style={styles.hintBadge}>
+                        <Text style={styles.hintBadgeText}>سجل التقارير</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.sheetOptionSub, { color: colors.textSecondary }]}>
+                      عرض تقارير الفرع (أو اضغط مطولاً لإنشاء تقرير)
                     </Text>
                   </View>
                   <Ionicons
                     name={isRTL ? 'chevron-back' : 'chevron-forward'}
-                    size={22}
-                    color="#8b5cf6"
+                    size={18}
+                    color={colors.textSecondary}
                   />
                 </TouchableOpacity>
 
                 {/* Option 2: سلفة */}
                 <TouchableOpacity
                   style={[
-                    styles.optionCard,
+                    styles.sheetOptionBtn,
                     {
-                      backgroundColor: isDarkMode ? '#064e3b25' : '#ecfdf5',
-                      borderColor: '#10b981',
+                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                      borderColor: colors.border,
                       flexDirection: isRTL ? 'row-reverse' : 'row',
                     },
                   ]}
-                  activeOpacity={0.8}
+                  activeOpacity={0.7}
                   onPress={() => {
                     onClose();
-                    onSelect('advance-request');
+                    onSelectAction('advances-list');
                   }}
+                  onLongPress={() => {
+                    onClose();
+                    onSelectAction('advance-create');
+                  }}
+                  delayLongPress={400}
                 >
-                  <View style={[styles.iconWrapper, { backgroundColor: '#10b98118' }]}>
-                    <Ionicons name="cash" size={28} color="#10b981" />
+                  <View style={[styles.sheetOptionIconBox, { backgroundColor: '#10b98118' }]}>
+                    <Ionicons name="cash-outline" size={20} color="#10b981" />
                   </View>
-                  <View style={[styles.optionInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                    <View style={[styles.badgeTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>سلفة</Text>
-                      <View style={styles.approvalNoticeBadge}>
-                        <Text style={styles.approvalNoticeText}>اعتماد الإدارة والمالية</Text>
+                  <View style={[styles.textCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                    <View style={[styles.rowTitleBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <Text style={[styles.sheetOptionTitle, { color: colors.textPrimary }]}>سلفة</Text>
+                      <View style={[styles.hintBadge, { backgroundColor: '#10b98115' }]}>
+                        <Text style={[styles.hintBadgeText, { color: '#059669' }]}>سجل السلف</Text>
                       </View>
                     </View>
-                    <Text style={[styles.optionDesc, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      رفع طلب سلفة مالية لمندوب ليتم اعتمادها من الإدارة والحسابات المالية
+                    <Text style={[styles.sheetOptionSub, { color: colors.textSecondary }]}>
+                      عرض جميع السلف (أو اضغط مطولاً لطلب سلفة جديدة)
                     </Text>
                   </View>
                   <Ionicons
                     name={isRTL ? 'chevron-back' : 'chevron-forward'}
-                    size={22}
-                    color="#10b981"
+                    size={18}
+                    color={colors.textSecondary}
                   />
                 </TouchableOpacity>
               </View>
+
+              {/* Cancel Button */}
+              <TouchableOpacity
+                style={[styles.sheetCancelBtn, { borderColor: colors.border }]}
+                onPress={onClose}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.sheetCancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
+              </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -150,80 +171,82 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
   },
   handleIndicator: {
-    width: 44,
-    height: 5,
-    borderRadius: 3,
+    width: 40,
+    height: 4,
+    borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
   },
-  headerRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  headerTitles: {
-    flex: 1,
+  headerBox: {
+    marginBottom: 16,
   },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
+    lineHeight: 18,
   },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
+  actionSheetBtnsCol: {
+    gap: 10,
+    marginBottom: 14,
+  },
+  sheetOptionBtn: {
     alignItems: 'center',
-  },
-  cardsContainer: {
     gap: 12,
-  },
-  optionCard: {
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    gap: 14,
-  },
-  iconWrapper: {
-    width: 52,
-    height: 52,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 14,
+    borderWidth: 1,
+  },
+  sheetOptionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  optionInfo: {
+  textCol: {
     flex: 1,
-    gap: 4,
+    gap: 2,
   },
-  badgeTitleRow: {
+  rowTitleBadge: {
     alignItems: 'center',
     gap: 8,
   },
-  optionTitle: {
-    fontSize: 16,
+  sheetOptionTitle: {
+    fontSize: 15,
     fontWeight: '800',
   },
-  approvalNoticeBadge: {
-    backgroundColor: '#10b98122',
-    paddingHorizontal: 8,
+  hintBadge: {
+    backgroundColor: '#8b5cf615',
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: 6,
   },
-  approvalNoticeText: {
-    color: '#059669',
+  hintBadgeText: {
+    color: '#8b5cf6',
     fontSize: 10,
     fontWeight: '700',
   },
-  optionDesc: {
+  sheetOptionSub: {
     fontSize: 12,
-    lineHeight: 18,
+  },
+  sheetCancelBtn: {
+    width: '100%',
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

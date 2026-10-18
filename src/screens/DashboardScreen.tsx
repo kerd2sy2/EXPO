@@ -26,6 +26,8 @@ interface DashboardScreenProps {
   onNavigateToTab: (tab: TabType) => void;
   onOpenOverrideModal: (delegate?: DelegateWithStatus) => void;
   onOpenReportModal?: () => void;
+  onOpenOperationVideosModal?: () => void;
+  onOpenWhatsAppModal?: () => void;
   onRefresh: () => void;
   refreshing: boolean;
 }
@@ -41,6 +43,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onNavigateToTab,
   onOpenOverrideModal,
   onOpenReportModal,
+  onOpenOperationVideosModal,
+  onOpenWhatsAppModal,
   onRefresh,
   refreshing,
 }) => {
@@ -181,6 +185,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             >
               <Ionicons name="document-text" size={16} color={colors.primary} style={{ marginHorizontal: 4 }} />
               <Text style={[styles.secondaryActionBtnText, { color: colors.primary }]}>التقارير</Text>
+            </TouchableOpacity>
+          )}
+
+          {(onOpenOperationVideosModal || onOpenWhatsAppModal) && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onOpenOperationVideosModal || onOpenWhatsAppModal}
+              style={[styles.actionBtnItem, { backgroundColor: '#3b82f615', borderColor: '#3b82f6', borderWidth: 1 }]}
+            >
+              <Ionicons name="videocam" size={16} color="#3b82f6" style={{ marginHorizontal: 4 }} />
+              <Text style={[styles.secondaryActionBtnText, { color: '#2563eb' }]}>توثيق العمليات</Text>
             </TouchableOpacity>
           )}
         </View>

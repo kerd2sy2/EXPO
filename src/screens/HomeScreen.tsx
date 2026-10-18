@@ -21,6 +21,8 @@ export interface HomeScreenProps {
   lang?: Language;
   onNavigateToTab: (tab: TabType) => void;
   onOpenReportModal?: () => void;
+  onOpenOperationVideosModal?: () => void;
+  onOpenWhatsAppModal?: () => void;
   onConfirmOrders?: (session: WorkSession, ordersCount?: number, notes?: string) => Promise<void>;
   onRefresh?: () => void;
   // Backward compatibility
@@ -48,6 +50,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   isRTL = true,
   onNavigateToTab,
   onOpenReportModal,
+  onOpenOperationVideosModal,
+  onOpenWhatsAppModal,
 }) => {
   const pendingCount = pendingSessions.length;
 
@@ -158,7 +162,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Module 5: Employee Reports & Advances (تقارير الموظفين والسلف) */}
+        {/* Module 5: Reports (التقارير) */}
         {onOpenReportModal && (
           <TouchableOpacity
             style={[
@@ -176,10 +180,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>التقارير</Text>
               </View>
               <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-                رفع تقرير مشرف أو طلب سلفة مالية
+                تقرير مشرف أو طلب سلفة مالية
               </Text>
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+
+        {/* Module 6: Operation Video Documentation (توثيق العمليات) */}
+        {(onOpenOperationVideosModal || onOpenWhatsAppModal) && (
+          <TouchableOpacity
+            style={[
+              styles.moduleCard,
+              { backgroundColor: colors.card, borderColor: '#3b82f640', borderWidth: 1.5, flexDirection: isRTL ? 'row-reverse' : 'row' },
+            ]}
+            onPress={onOpenOperationVideosModal || onOpenWhatsAppModal}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.moduleIconBox, { backgroundColor: '#3b82f620' }]}>
+              <Ionicons name="videocam" size={26} color="#3b82f6" />
+            </View>
+            <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>توثيق العمليات</Text>
+                <View style={[styles.miniBadge, { backgroundColor: '#3b82f620' }]}>
+                  <Text style={[styles.miniBadgeText, { color: '#2563eb' }]}>60 يوم تلقائي</Text>
+                </View>
+              </View>
+              <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
+                تصوير فيديو صامت خفيف موثق ومخزن بسيرفر AAMS مع الأرشيف والبحث
+              </Text>
+            </View>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color="#3b82f6" />
           </TouchableOpacity>
         )}
       </View>
