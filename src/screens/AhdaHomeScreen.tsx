@@ -412,9 +412,31 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           custodyService.getDays(bId),
           custodyService.getLogs(selectedDate),
         ]);
+        let finalDaysData = daysData;
         if (Array.isArray(daysData)) {
-          setDays(daysData);
-          AsyncStorage.setItem(getDaysCacheKey(bId || null), JSON.stringify(daysData)).catch(() => {});
+          try {
+            const savedOrderStr = await AsyncStorage.getItem(`@custody_expenses_order_${selectedDate}`);
+            if (savedOrderStr) {
+              const ids: string[] = JSON.parse(savedOrderStr);
+              if (Array.isArray(ids) && ids.length > 0) {
+                const map = new Map(ids.map((id, idx) => [id, idx]));
+                finalDaysData = daysData.map((d) => {
+                  if (d.date === selectedDate && Array.isArray(d.expenses)) {
+                    const sortedExpenses = [...d.expenses].sort((a, b) => {
+                      const aIdx = map.has(a.id) ? map.get(a.id)! : 9999;
+                      const bIdx = map.has(b.id) ? map.get(b.id)! : 9999;
+                      if (aIdx !== bIdx) return aIdx - bIdx;
+                      return 0;
+                    });
+                    return { ...d, expenses: sortedExpenses };
+                  }
+                  return d;
+                });
+              }
+            }
+          } catch (_) {}
+          setDays(finalDaysData);
+          AsyncStorage.setItem(getDaysCacheKey(bId || null), JSON.stringify(finalDaysData)).catch(() => {});
         }
         const freshLogs = logsData?.data || [];
         setDayLogs(freshLogs);
@@ -858,6 +880,24 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     });
   };
 
+  // 5b. Handle Reordering of Expenses in Ledger
+  const handleReorderExpenses = useCallback((reorderedExpenses: CustodyExpenseItem[]) => {
+    setDays((prevDays) =>
+      prevDays.map((d) => (d.date === selectedDate ? { ...d, expenses: reorderedExpenses } : d))
+    );
+    // Also update cached days in AsyncStorage
+    const bId = activeBranch.id || getActiveBranchId() || null;
+    AsyncStorage.getItem(getDaysCacheKey(bId)).then((cachedStr) => {
+      if (cachedStr) {
+        try {
+          const parsed: CustodyDayData[] = JSON.parse(cachedStr);
+          const updated = parsed.map((d) => (d.date === selectedDate ? { ...d, expenses: reorderedExpenses } : d));
+          AsyncStorage.setItem(getDaysCacheKey(bId), JSON.stringify(updated)).catch(() => {});
+        } catch (_) {}
+      }
+    }).catch(() => {});
+  }, [selectedDate, activeBranch.id]);
+
   // 6. PDF Export with Full Receipts and Embedded Images (Preview or Share)
   const handleExportPdf = async (mode: 'preview' | 'share' = 'share') => {
     if (!currentDay) {
@@ -939,6 +979,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           onEditExpense={handleOpenEditExpense}
           onDeleteExpense={handleDeleteExpense}
           onPreviewImage={(url) => setPreviewImage(url)}
+          onReorderExpenses={handleReorderExpenses}
         />
       ) : (
         <>

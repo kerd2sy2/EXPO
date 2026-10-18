@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeColors } from '../types/delegate';
 import { CustodyDayData, CustodyExpenseItem } from '../services/custodyService';
 import { formatImageUrl } from '../services/api';
@@ -33,6 +35,7 @@ interface AhdaDayExpensesScreenProps {
   onEditExpense: (item: CustodyExpenseItem) => void;
   onDeleteExpense: (item: CustodyExpenseItem) => void;
   onPreviewImage: (url: string) => void;
+  onReorderExpenses?: (reorderedExpenses: CustodyExpenseItem[]) => void;
 }
 
 export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
@@ -48,19 +51,131 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
   onEditExpense,
   onDeleteExpense,
   onPreviewImage,
+  onReorderExpenses,
 }) => {
   // Long press options modal state
   const [selectedExpenseForAction, setSelectedExpenseForAction] = useState<CustodyExpenseItem | null>(null);
   // Single press invoice details and picture modal state
   const [selectedExpenseForDetails, setSelectedExpenseForDetails] = useState<CustodyExpenseItem | null>(null);
 
+  // Local list of expenses ordered to match the physical ledger
+  const [orderedExpenses, setOrderedExpenses] = useState<CustodyExpenseItem[]>([]);
+
+  // Load and apply saved custom order from AsyncStorage
+  useEffect(() => {
+    let isMounted = true;
+    const syncExpenses = async () => {
+      const base = currentDay?.expenses || [];
+      if (base.length === 0) {
+        if (isMounted) setOrderedExpenses([]);
+        return;
+      }
+      try {
+        const storedOrderStr = await AsyncStorage.getItem(`@custody_expenses_order_${selectedDate}`);
+        if (storedOrderStr && isMounted) {
+          const ids: string[] = JSON.parse(storedOrderStr);
+          if (Array.isArray(ids) && ids.length > 0) {
+            const map = new Map(ids.map((id, idx) => [id, idx]));
+            const sorted = [...base].sort((a, b) => {
+              const aIdx = map.has(a.id) ? map.get(a.id)! : 9999;
+              const bIdx = map.has(b.id) ? map.get(b.id)! : 9999;
+              if (aIdx !== bIdx) return aIdx - bIdx;
+              return 0;
+            });
+            setOrderedExpenses(sorted);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load expenses order:', err);
+      }
+      if (isMounted) setOrderedExpenses(base);
+    };
+
+    syncExpenses();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentDay?.expenses, selectedDate]);
+
   const matchedCategory = categories.find((c) => c.key === categoryFilter);
   const pageTitle = matchedCategory ? matchedCategory.label : 'فواتير ومصاريف اليوم';
 
-  const allExpenses = currentDay?.expenses || [];
-  const filteredExpenses = categoryFilter
-    ? allExpenses.filter((e) => e.category === categoryFilter)
-    : allExpenses;
+  const filteredExpenses = useMemo(() => {
+    if (!categoryFilter) return orderedExpenses;
+    return orderedExpenses.filter((e) => e.category === categoryFilter);
+  }, [orderedExpenses, categoryFilter]);
+
+  // Current action item index in the displayed list
+  const currentActionIdx = useMemo(() => {
+    if (!selectedExpenseForAction) return -1;
+    return filteredExpenses.findIndex((e) => e.id === selectedExpenseForAction.id);
+  }, [selectedExpenseForAction, filteredExpenses]);
+
+  const isFirstInList = currentActionIdx <= 0;
+  const isLastInList = currentActionIdx === -1 || currentActionIdx >= filteredExpenses.length - 1;
+
+  // Move expense up, down, to top, or to bottom
+  const handleMoveExpense = async (
+    item: CustodyExpenseItem,
+    direction: 'up' | 'down' | 'top' | 'bottom'
+  ) => {
+    const curIdx = filteredExpenses.findIndex((e) => e.id === item.id);
+    if (curIdx === -1) return;
+
+    let targetFilteredIdx = curIdx;
+    if (direction === 'up') {
+      if (curIdx === 0) return;
+      targetFilteredIdx = curIdx - 1;
+    } else if (direction === 'down') {
+      if (curIdx === filteredExpenses.length - 1) return;
+      targetFilteredIdx = curIdx + 1;
+    } else if (direction === 'top') {
+      if (curIdx === 0) return;
+      targetFilteredIdx = 0;
+    } else if (direction === 'bottom') {
+      if (curIdx === filteredExpenses.length - 1) return;
+      targetFilteredIdx = filteredExpenses.length - 1;
+    }
+
+    const nextFiltered = [...filteredExpenses];
+    const [moved] = nextFiltered.splice(curIdx, 1);
+    nextFiltered.splice(targetFilteredIdx, 0, moved);
+
+    let nextAll: CustodyExpenseItem[];
+    if (!categoryFilter) {
+      nextAll = nextFiltered;
+    } else {
+      const targetItem = filteredExpenses[targetFilteredIdx];
+      const master = [...orderedExpenses];
+      const fromMasterIdx = master.findIndex((e) => e.id === item.id);
+      const toMasterIdx = master.findIndex((e) => e.id === targetItem.id);
+      if (fromMasterIdx !== -1 && toMasterIdx !== -1) {
+        const [mItem] = master.splice(fromMasterIdx, 1);
+        master.splice(toMasterIdx, 0, mItem);
+        nextAll = master;
+      } else {
+        const others = orderedExpenses.filter((e) => e.category !== categoryFilter);
+        nextAll = [...nextFiltered, ...others];
+      }
+    }
+
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (_) {}
+
+    setOrderedExpenses(nextAll);
+
+    // Persist new order IDs in AsyncStorage
+    const orderIds = nextAll.map((e) => e.id);
+    AsyncStorage.setItem(`@custody_expenses_order_${selectedDate}`, JSON.stringify(orderIds)).catch((e) =>
+      console.warn('Failed to save order to storage:', e)
+    );
+
+    if (onReorderExpenses) {
+      onReorderExpenses(nextAll);
+    }
+  };
 
   const totalFilteredAmount = filteredExpenses.reduce((sum, item) => sum + (item.amount || 0), 0);
 
@@ -119,7 +234,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                   onPress={() => setSelectedExpenseForDetails(item)}
                   onLongPress={() => setSelectedExpenseForAction(item)}
                 >
-                  {/* Top: Icon + Category + Date & Time Stamp (Clean header without direct delete/edit icons) */}
+                  {/* Top: Icon + Category + Date & Time Stamp + Ledger Index */}
                   <View style={styles.invoiceCardTop}>
                     <View style={styles.invoiceLeftInfo}>
                       <View style={[styles.catBadge, { backgroundColor: catObj.bg }]}>
@@ -139,19 +254,36 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                       </View>
                     </View>
 
-                    {/* Thumbnail in corner if attached (replacing 3 dots and options text) */}
-                    {fullImg ? (
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          onPreviewImage(fullImg);
-                        }}
-                        style={styles.cardHeaderThumbBtn}
-                        activeOpacity={0.8}
+                    {/* Right side: Ledger index pill + Thumbnail if attached */}
+                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+                      <View
+                        style={[
+                          styles.ledgerCardIndexPill,
+                          {
+                            backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
+                            borderColor: colors.border,
+                          },
+                        ]}
                       >
-                        <Image source={{ uri: fullImg }} style={styles.cardHeaderThumbImg} />
-                      </TouchableOpacity>
-                    ) : null}
+                        <Text style={[styles.ledgerCardIndexText, { color: colors.textSecondary }]}>
+                          #{toArabicDigits(idx + 1)}
+                        </Text>
+                      </View>
+
+                      {/* Thumbnail in corner if attached */}
+                      {fullImg ? (
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            onPreviewImage(fullImg);
+                          }}
+                          style={styles.cardHeaderThumbBtn}
+                          activeOpacity={0.8}
+                        >
+                          <Image source={{ uri: fullImg }} style={styles.cardHeaderThumbImg} />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
                   </View>
 
                   {/* Middle: Recipient & Note */}
@@ -327,7 +459,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
         </View>
       </Modal>
 
-      {/* ── 2. Long Press Options Bottom Sheet Modal (Edit or Delete) ── */}
+      {/* ── 2. Long Press Options Bottom Sheet Modal (Reorder, Edit, Delete) ── */}
       <Modal
         visible={!!selectedExpenseForAction}
         transparent
@@ -343,10 +475,129 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
           <View style={[styles.actionSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.sheetHandle} />
 
-            <Text style={[styles.actionSheetTitle, { color: colors.textPrimary, marginBottom: 16 }]}>
-              إدارة الفاتورة
-            </Text>
+            {/* Action Sheet Header with Category & Info */}
+            {(() => {
+              if (!selectedExpenseForAction) return null;
+              const catObj = categories.find((c) => c.key === selectedExpenseForAction.category) || categories[5];
+              return (
+                <View style={styles.actionSheetHeaderRow}>
+                  <View style={[styles.catBadge, { backgroundColor: catObj.bg }]}>
+                    <Ionicons name={catObj.icon as any} size={20} color={catObj.color} />
+                  </View>
+                  <View style={{ alignItems: 'flex-end', flex: 1 }}>
+                    <Text style={[styles.actionSheetTitle, { color: colors.textPrimary }]}>
+                      إدارة فاتورة {catObj.label}
+                    </Text>
+                    <Text style={[styles.actionSheetSub, { color: colors.textSecondary }]}>
+                      المستلم: {selectedExpenseForAction.recipient_name || 'بدون بيان'} • {formatArabicNumber(selectedExpenseForAction.amount, 2)} ر.س
+                    </Text>
+                  </View>
+                </View>
+              );
+            })()}
 
+            {/* ── Reorder Section (ترتيب الفاتورة في الدفتر) ── */}
+            {selectedExpenseForAction && filteredExpenses.length > 1 && (
+              <View
+                style={[
+                  styles.reorderCard,
+                  {
+                    backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <View style={styles.reorderCardHeader}>
+                  <View style={styles.reorderLedgerPill}>
+                    <Ionicons name="book-outline" size={13} color="#047857" />
+                    <Text style={styles.reorderLedgerPillText}>
+                      السطر {toArabicDigits(currentActionIdx + 1)} من {toArabicDigits(filteredExpenses.length)}
+                    </Text>
+                  </View>
+                  <Text style={[styles.reorderCardTitle, { color: colors.textPrimary }]}>
+                    ترتيب الفاتورة في الدفتر
+                  </Text>
+                </View>
+
+                {/* Move Step Buttons Row */}
+                <View style={styles.reorderButtonsRow}>
+                  {/* Move Down Button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.reorderStepBtn,
+                      {
+                        borderColor: isLastInList ? (isDarkMode ? '#334155' : '#e2e8f0') : '#38bdf8',
+                        backgroundColor: isLastInList ? (isDarkMode ? '#0f172a' : '#f1f5f9') : (isDarkMode ? '#082f49' : '#f0f9ff'),
+                        opacity: isLastInList ? 0.45 : 1,
+                      },
+                    ]}
+                    disabled={isLastInList}
+                    activeOpacity={0.7}
+                    onPress={() => handleMoveExpense(selectedExpenseForAction, 'down')}
+                  >
+                    <Ionicons name="arrow-down-circle" size={24} color={isLastInList ? colors.textSecondary : '#0284c7'} />
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={[styles.reorderStepBtnText, { color: isLastInList ? colors.textSecondary : '#0284c7' }]}>
+                        تحريك للأسفل
+                      </Text>
+                      <Text style={[styles.reorderStepSubText, { color: colors.textSecondary }]}>
+                        {isLastInList ? 'نهاية القائمة' : 'تأخير سطر واحد'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Move Up Button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.reorderStepBtn,
+                      {
+                        borderColor: isFirstInList ? (isDarkMode ? '#334155' : '#e2e8f0') : '#34d399',
+                        backgroundColor: isFirstInList ? (isDarkMode ? '#0f172a' : '#f1f5f9') : (isDarkMode ? '#064e3b' : '#ecfdf5'),
+                        opacity: isFirstInList ? 0.45 : 1,
+                      },
+                    ]}
+                    disabled={isFirstInList}
+                    activeOpacity={0.7}
+                    onPress={() => handleMoveExpense(selectedExpenseForAction, 'up')}
+                  >
+                    <Ionicons name="arrow-up-circle" size={24} color={isFirstInList ? colors.textSecondary : '#059669'} />
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={[styles.reorderStepBtnText, { color: isFirstInList ? colors.textSecondary : '#059669' }]}>
+                        تحريك للأعلى
+                      </Text>
+                      <Text style={[styles.reorderStepSubText, { color: colors.textSecondary }]}>
+                        {isFirstInList ? 'أعلى القائمة' : 'تقديم سطر واحد'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Jump to top / bottom shortcuts if list >= 3 */}
+                {filteredExpenses.length >= 3 && (
+                  <View style={styles.reorderJumpRow}>
+                    <TouchableOpacity
+                      style={[styles.jumpBtn, { opacity: isLastInList ? 0.4 : 1 }]}
+                      disabled={isLastInList}
+                      onPress={() => handleMoveExpense(selectedExpenseForAction, 'bottom')}
+                    >
+                      <Ionicons name="chevron-down-circle-outline" size={14} color={colors.textSecondary} />
+                      <Text style={[styles.jumpBtnText, { color: colors.textSecondary }]}>نقل لأسفل الدفتر مباشرة</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.jumpBtn, { opacity: isFirstInList ? 0.4 : 1 }]}
+                      disabled={isFirstInList}
+                      onPress={() => handleMoveExpense(selectedExpenseForAction, 'top')}
+                    >
+                      <Ionicons name="chevron-up-circle-outline" size={14} color={colors.textSecondary} />
+                      <Text style={[styles.jumpBtnText, { color: colors.textSecondary }]}>نقل لأعلى الدفتر مباشرة</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Standard Actions (Edit / Delete) */}
             <View style={styles.actionSheetBtnsCol}>
               {/* Edit Option */}
               <TouchableOpacity
@@ -387,7 +638,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
               style={[styles.sheetCancelBtn, { borderColor: colors.border }]}
               onPress={() => setSelectedExpenseForAction(null)}
             >
-              <Text style={[styles.sheetCancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
+              <Text style={[styles.sheetCancelBtnText, { color: colors.textSecondary }]}>تم / إغلاق</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -674,15 +925,113 @@ const styles = StyleSheet.create({
     backgroundColor: '#cbd5e1',
     marginBottom: 16,
   },
+  ledgerCardIndexPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ledgerCardIndexText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  actionSheetHeaderRow: {
+    width: '100%',
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#cbd5e1',
+  },
   actionSheetTitle: {
     fontSize: 16,
     fontWeight: '800',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   actionSheetSub: {
     fontSize: 12,
     fontWeight: '500',
-    marginBottom: 18,
+  },
+  reorderCard: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 14,
+  },
+  reorderCardHeader: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reorderCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  reorderLedgerPill: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  reorderLedgerPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  reorderButtonsRow: {
+    flexDirection: 'row-reverse',
+    gap: 10,
+  },
+  reorderStepBtn: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  reorderStepBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  reorderStepSubText: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  reorderJumpRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e2e8f0',
+  },
+  jumpBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  jumpBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   actionSheetBtnsCol: {
     width: '100%',
