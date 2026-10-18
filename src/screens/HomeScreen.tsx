@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EmployeeProfile, WorkSession, TabType, ThemeColors, Language } from '../types/delegate';
+import { FleetActionPickerModal } from '../components/modals/FleetActionPickerModal';
 
 export interface HomeScreenProps {
   employee: EmployeeProfile;
@@ -20,7 +21,7 @@ export interface HomeScreenProps {
   t: any;
   lang?: Language;
   onNavigateToTab: (tab: TabType) => void;
-  onOpenReportModal?: () => void;
+  onOpenReportModal?: (preferredMode?: 'list' | 'create') => void;
   onOpenOperationVideosModal?: () => void;
   onOpenWhatsAppModal?: () => void;
   onConfirmOrders?: (session: WorkSession, ordersCount?: number, notes?: string) => Promise<void>;
@@ -53,7 +54,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenOperationVideosModal,
   onOpenWhatsAppModal,
 }) => {
-  const pendingCount = pendingSessions.length;
+  const [showFleetModal, setShowFleetModal] = useState(false);
+  const pendingCount = useMemo(() => {
+    return (pendingSessions || []).filter(
+      (s) => !!(s.end_time || s.end_km != null || s.status === 'COMPLETED')
+    ).length;
+  }, [pendingSessions]);
+
 
   return (
     <View style={styles.container}>
@@ -147,7 +154,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             styles.moduleCard,
             { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
           ]}
-          onPress={() => onNavigateToTab('operations')}
+          onPress={() => setShowFleetModal(true)}
           activeOpacity={0.75}
         >
           <View style={[styles.moduleIconBox, { backgroundColor: '#0284c715' }]}>
@@ -156,7 +163,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
             <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>إدارة الأسطول والدبابات</Text>
             <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-              جاهزية الدبابات، الصيانة الدورية، وصرف الزيت
+              تغيير زيت، إضافة مركبة جديدة، أو بلاغ عن حادث
             </Text>
           </View>
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
@@ -169,7 +176,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               styles.moduleCard,
               { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
             ]}
-            onPress={onOpenReportModal}
+            onPress={() => onOpenReportModal('list')}
+            onLongPress={() => onOpenReportModal('create')}
+            delayLongPress={400}
             activeOpacity={0.75}
           >
             <View style={[styles.moduleIconBox, { backgroundColor: '#8b5cf615' }]}>
@@ -180,7 +189,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>التقارير</Text>
               </View>
               <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-                تقرير مشرف أو طلب سلفة مالية
+                ضغطة لعرض السجل • ضغطة مطولة لإنشاء طلب جديد
               </Text>
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
@@ -215,6 +224,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Fleet Action Modal (تغيير زيت / إضافة مركبة جديدة / بلاغ عن حادث) */}
+      <FleetActionPickerModal
+        visible={showFleetModal}
+        onClose={() => setShowFleetModal(false)}
+        onSelectAction={(action) => {
+          setShowFleetModal(false);
+          onNavigateToTab(action);
+        }}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+      />
     </View>
   );
 };

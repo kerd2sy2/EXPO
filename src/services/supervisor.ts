@@ -284,11 +284,15 @@ export const supervisorApi = {
       const resp: any = await apiRequest('/reports?is_reviewed=false&limit=150', {
         timeoutMs: 10000,
       });
+      const filterFinished = (s: any) => {
+        const hasEnded = !!(s.end_time || s.end_km != null || (s.status && s.status !== 'ACTIVE' && s.status !== 'OPEN'));
+        return !s.is_reviewed && hasEnded;
+      };
       if (Array.isArray(resp)) {
-        return resp.filter((s: any) => !s.is_reviewed);
+        return resp.filter(filterFinished);
       }
       if (resp && Array.isArray(resp.data)) {
-        return resp.data.filter((s: any) => !s.is_reviewed);
+        return resp.data.filter(filterFinished);
       }
       return [];
     } catch (err) {
@@ -468,12 +472,24 @@ export const supervisorApi = {
     }
   },
 
-  // 19. Delete operation video manually if authorized
+  // 19. Update operation video order number or notes
+  updateOperationVideo: async (id: string, updates: { orderNumber?: string; notes?: string }): Promise<any> => {
+    return apiRequest(`/operation-videos/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        order_number: updates.orderNumber,
+        notes: updates.notes,
+      }),
+    });
+  },
+
+  // 20. Delete operation video manually if authorized
   deleteOperationVideo: async (id: string): Promise<any> => {
     return apiRequest(`/operation-videos/${id}`, {
       method: 'DELETE',
     });
   },
 };
+
 
 

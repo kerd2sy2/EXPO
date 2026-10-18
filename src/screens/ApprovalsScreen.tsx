@@ -56,11 +56,14 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Filter pending sessions by delegate name, employee code, motorcycle, or national id
+  // Filter pending sessions by delegate name, employee code, motorcycle, or national id (only ended shifts)
   const filteredSessions = useMemo(() => {
-    if (!searchQuery.trim()) return pendingSessions;
+    const finishedOnly = pendingSessions.filter(
+      (s) => !!(s.end_time || s.end_km != null || s.status === 'COMPLETED')
+    );
+    if (!searchQuery.trim()) return finishedOnly;
     const q = searchQuery.toLowerCase().trim();
-    return pendingSessions.filter((s) => {
+    return finishedOnly.filter((s) => {
       const name = (s.employee_name || s.employee?.name || '').toLowerCase();
       const code = (s.employee?.employee_number || '').toLowerCase();
       const bike = (s.motorcycle_number || s.employee?.motorcycle_number || '').toLowerCase();

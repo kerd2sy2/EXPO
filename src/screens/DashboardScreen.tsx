@@ -69,142 +69,72 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         />
       }
     >
-      {/* 2. Hero KPI Statistics Grid */}
-      <View style={styles.kpiGrid}>
+      {/* 2. Hero KPI Statistics Grid (Only Active Now & Not Started Yet) */}
+      <View style={[styles.kpiRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         {/* Working in Field Card */}
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => onNavigateToTab('field')}
-          style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: '#10b981' }]}
+          style={[styles.kpiHeroCard, { backgroundColor: colors.card, borderColor: '#10b981' }]}
         >
-          <View style={styles.kpiHeader}>
+          <View style={[styles.kpiHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={[styles.pulseBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
               <View style={styles.pulseDot} />
-              <Text style={styles.pulseText}>نشط الآن</Text>
+              <Text style={[styles.pulseText, { color: '#10b981' }]}>نشط الآن</Text>
             </View>
             <View style={[styles.kpiIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-              <Ionicons name="bicycle" size={22} color="#10b981" />
+              <Ionicons name="bicycle" size={20} color="#10b981" />
             </View>
           </View>
-          <Text style={[styles.kpiValue, { color: '#10b981' }]}>{stats.workingCount}</Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>في الميدان</Text>
+          <Text style={[styles.kpiValue, { color: '#10b981', textAlign: isRTL ? 'right' : 'left' }]}>
+            {stats.workingCount}
+          </Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+            مندوب في الميدان
+          </Text>
         </TouchableOpacity>
 
         {/* Not Started Yet Card */}
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => onNavigateToTab('field')}
-          style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[styles.kpiHeroCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
-          <View style={styles.kpiHeader}>
-            <View style={[styles.pulseBadge, { backgroundColor: colors.border }]}>
+          <View style={[styles.kpiHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.pulseBadge, { backgroundColor: colors.cardHeader }]}>
               <Text style={[styles.pulseText, { color: colors.textSecondary }]}>لم يبدأوا</Text>
             </View>
             <View style={[styles.kpiIconWrap, { backgroundColor: colors.cardHeader }]}>
-              <Ionicons name="time-outline" size={22} color={colors.textSecondary} />
+              <Ionicons name="time-outline" size={20} color={colors.textSecondary} />
             </View>
           </View>
-          <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{stats.notStartedCount}</Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>متبقي بالفرع</Text>
+          <Text style={[styles.kpiValue, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+            {stats.notStartedCount}
+          </Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+            متبقي بالفرع
+          </Text>
         </TouchableOpacity>
-
-        {/* Pending Approvals Card */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => onNavigateToTab('approvals')}
-          style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: '#f59e0b' }]}
-        >
-          <View style={styles.kpiHeader}>
-            <View style={[styles.pulseBadge, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-              <Text style={[styles.pulseText, { color: '#f59e0b' }]}>معلق</Text>
-            </View>
-            <View style={[styles.kpiIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-              <Ionicons name="checkmark-circle-outline" size={22} color="#f59e0b" />
-            </View>
-          </View>
-          <Text style={[styles.kpiValue, { color: '#f59e0b' }]}>{stats.pendingApprovalsCount}</Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>موافقات مطلوبة</Text>
-        </TouchableOpacity>
-
-        {/* Total Branch Fleet Card */}
-        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.kpiHeader}>
-            <View style={[styles.pulseBadge, { backgroundColor: colors.cardHeader }]}>
-              <Text style={[styles.pulseText, { color: colors.textSecondary }]}>الإجمالي</Text>
-            </View>
-            <View style={[styles.kpiIconWrap, { backgroundColor: colors.accentLight }]}>
-              <Ionicons name="people" size={22} color={colors.accent} />
-            </View>
-          </View>
-          <Text style={[styles.kpiValue, { color: colors.accent }]}>{stats.totalCount}</Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>إجمالي قوة الفرع</Text>
-        </View>
       </View>
 
       {/* 3. Field Coverage Progress Banner */}
       <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.progressHeader}>
+        <View style={[styles.progressHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Text style={[styles.progressTitle, { color: colors.textPrimary }]}>نسبة التغطية الميدانية</Text>
           <Text style={[styles.progressPct, { color: colors.primary }]}>{workingPct}%</Text>
         </View>
         <View style={[styles.progressBarBg, { backgroundColor: colors.cardHeader }]}>
           <View style={[styles.progressBarFill, { width: `${workingPct}%`, backgroundColor: colors.primary }]} />
         </View>
-        <Text style={[styles.progressCaption, { color: colors.textSecondary }]}>
+        <Text style={[styles.progressCaption, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
           {stats.workingCount} من أصل {stats.totalCount} مندوب خرجوا في ورديات العمل اليوم
         </Text>
       </View>
 
-      {/* 4. Quick Actions Bar */}
-      <View style={styles.quickActionsContainer}>
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>إجراءات سريعة</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => onOpenOverrideModal()}
-            style={[styles.actionBtnItem, { backgroundColor: colors.primary }]}
-          >
-            <Ionicons name="flash" size={16} color="#ffffff" style={{ marginHorizontal: 4 }} />
-            <Text style={styles.primaryActionBtnText}>تسجيل وردية</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => onNavigateToTab('approvals')}
-            style={[styles.actionBtnItem, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
-          >
-            <Ionicons name="checkmark-done-circle" size={16} color={colors.textPrimary} style={{ marginHorizontal: 4 }} />
-            <Text style={[styles.secondaryActionBtnText, { color: colors.textPrimary }]}>مركز الموافقات</Text>
-          </TouchableOpacity>
-
-          {onOpenReportModal && (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={onOpenReportModal}
-              style={[styles.actionBtnItem, { backgroundColor: colors.primaryLight, borderColor: colors.primary, borderWidth: 1 }]}
-            >
-              <Ionicons name="document-text" size={16} color={colors.primary} style={{ marginHorizontal: 4 }} />
-              <Text style={[styles.secondaryActionBtnText, { color: colors.primary }]}>التقارير</Text>
-            </TouchableOpacity>
-          )}
-
-          {(onOpenOperationVideosModal || onOpenWhatsAppModal) && (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={onOpenOperationVideosModal || onOpenWhatsAppModal}
-              style={[styles.actionBtnItem, { backgroundColor: '#3b82f615', borderColor: '#3b82f6', borderWidth: 1 }]}
-            >
-              <Ionicons name="videocam" size={16} color="#3b82f6" style={{ marginHorizontal: 4 }} />
-              <Text style={[styles.secondaryActionBtnText, { color: '#2563eb' }]}>توثيق العمليات</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* 5. Live In-Field Active Delegates List */}
+      {/* 4. Live In-Field Active Delegates List */}
       <View style={styles.liveSection}>
-        <View style={styles.sectionHeaderRow}>
-          <View style={styles.sectionHeaderTitleGroup}>
+        <View style={[styles.sectionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.sectionHeaderTitleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row', gap: 6 }]}>
             <View style={styles.liveGreenDot} />
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>المناديب في الميدان حالياً</Text>
           </View>
@@ -218,7 +148,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <Ionicons name="bicycle-outline" size={44} color={colors.textSecondary} style={{ opacity: 0.5 }} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا يوجد مناديب في الميدان الآن</Text>
             <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-              يمكنك بدء وردية لمندوب متعطل عبر زر الوردية الاستثنائية أعلاه
+              يمكنك متابعة حالة المناديب وبدء وردية استثنائية من شاشة الميدان
             </Text>
           </View>
         ) : (
@@ -227,25 +157,32 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               key={del.id}
               activeOpacity={0.85}
               onPress={() => onOpenOverrideModal(del)}
-              style={[styles.delegateCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              style={[
+                styles.delegateCard,
+                { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+              ]}
             >
-              <View style={styles.delegateInfoRow}>
+              {/* Delegate Avatar & Info on Start */}
+              <View style={[styles.delegateInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 10, flex: 1 }]}>
                 {del.personal_image ? (
                   <Image source={{ uri: del.personal_image }} style={styles.delAvatar} />
                 ) : (
                   <View style={[styles.delAvatarPlaceholder, { backgroundColor: colors.cardHeader }]}>
-                    <Ionicons name="person" size={20} color={colors.textSecondary} />
+                    <Ionicons name="person" size={18} color={colors.textSecondary} />
                   </View>
                 )}
-                <View style={styles.delTextGroup}>
-                  <Text style={[styles.delName, { color: colors.textPrimary }]}>{del.name}</Text>
+                <View style={[styles.delTextGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={[styles.delName, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {del.name}
+                  </Text>
                   <Text style={[styles.delPhone, { color: colors.textSecondary }]}>
-                    {del.phone || del.national_id}
+                    {del.employee_number ? `كود: ${del.employee_number}` : (del.phone || del.national_id)}
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.delPlateCol}>
+              {/* Motorcycle Plate & Status on End */}
+              <View style={[styles.delPlateCol, { alignItems: isRTL ? 'flex-start' : 'flex-end', gap: 4 }]}>
                 {del.motorcycle_number ? (() => {
                   const plate = parsePlateComponents(del.motorcycle_number);
                   return (
@@ -253,16 +190,16 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       digits={plate.digits}
                       letters={plate.letters}
                       editable={false}
-                      scale={0.65}
+                      scale={0.52}
                       isDarkMode={isDarkMode}
                     />
                   );
                 })() : (
                   <Text style={[styles.noBikeText, { color: colors.textSecondary }]}>بدون دباب</Text>
                 )}
-                <View style={styles.activeTag}>
+                <View style={[styles.activeTag, { backgroundColor: '#10b98115', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <View style={styles.pulseDot} />
-                  <Text style={styles.activeTagText}>قيد العمل</Text>
+                  <Text style={[styles.activeTagText, { color: '#10b981' }]}>في الميدان</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -342,23 +279,20 @@ const styles = StyleSheet.create({
   welcomeSub: {
     fontSize: 13,
   },
-  kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  kpiRow: {
+    gap: 12,
     marginBottom: 16,
   },
-  kpiCard: {
-    width: '48%',
+  kpiHeroCard: {
+    flex: 1,
     borderRadius: 16,
     borderWidth: 1.5,
     padding: 14,
-    marginBottom: 12,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   kpiHeader: {
     flexDirection: 'row',

@@ -167,8 +167,11 @@ export default function DelegateApp() {
   const [pendingSessions, setPendingSessions] = useState<WorkSession[]>([]);
   const [pendingAdvances, setPendingAdvances] = useState<PendingAdvanceRequest[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [reportInitialMode, setReportInitialMode] = useState<'list' | 'create'>('list');
+  const [advanceInitialMode, setAdvanceInitialMode] = useState<'list' | 'create'>('list');
   const [showOperationVideoModal, setShowOperationVideoModal] = useState(false);
   const [loadingSupervisorData, setLoadingSupervisorData] = useState(false);
+
 
   // Operations & Fleet States
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -809,14 +812,27 @@ export default function DelegateApp() {
   // Auto-fetch supervisor branch data when entering supervisor tabs
   useEffect(() => {
     if (employee?.id) {
-      if (currentTab === 'dashboard' || currentTab === 'field' || currentTab === 'approvals' || currentTab === 'home') {
+      if (
+        currentTab === 'dashboard' ||
+        currentTab === 'field' ||
+        currentTab === 'approvals' ||
+        currentTab === 'home' ||
+        currentTab === 'supervisor-report' ||
+        currentTab === 'advance-request'
+      ) {
         fetchSupervisorData();
       }
-      if (currentTab === 'operations') {
+      if (
+        currentTab === 'operations' ||
+        currentTab === 'oil-change' ||
+        currentTab === 'add-vehicle' ||
+        currentTab === 'accident-report'
+      ) {
         fetchOperationsData();
       }
     }
   }, [currentTab, employee?.id, fetchSupervisorData, fetchOperationsData]);
+
 
   // Auto-fetch fresh profile data when user opens Profile tab without requiring manual pull-to-refresh
   useEffect(() => {
@@ -1777,6 +1793,12 @@ export default function DelegateApp() {
                   ? 'مركز الموافقات'
                   : currentTab === 'operations'
                   ? 'إدارة العمليات والأسطول'
+                  : currentTab === 'oil-change'
+                  ? 'تغيير زيت'
+                  : currentTab === 'add-vehicle'
+                  ? 'إضافة مركبة جديدة'
+                  : currentTab === 'accident-report'
+                  ? 'بلاغ عن حادث'
                   : currentTab === 'supervisor-report'
                   ? 'تقرير مشرف'
                   : currentTab === 'advance-request'
@@ -1795,11 +1817,10 @@ export default function DelegateApp() {
                       : t.historyTitle)
                   : currentTab === 'violations'
                   ? (t.violationsTitle || 'سجل المخالفات والجزاءات')
-                  : currentTab === 'oil-change'
-                  ? (t.oilChangeScreenTitle || (lang === 'ar' ? 'صفحة تغيير الزيت' : 'Oil Change Page'))
                   : t.profileTitle}
               </Text>
               <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
+
             </View>
           </View>
         </View>
@@ -1833,6 +1854,186 @@ export default function DelegateApp() {
               lang={lang}
             />
           </ModuleErrorBoundary>
+        ) : currentTab === 'dashboard' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="لوحة التحكم" colors={colors} onReset={fetchSupervisorData}>
+              <DashboardScreen
+                adminName={employee?.name || 'المشرف'}
+                branchName={employee?.branch_name || 'فرع الإشراف'}
+                stats={branchStats}
+                workingDelegates={workingDelegates}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                onNavigateToTab={(tab) => setCurrentTab(tab)}
+                onOpenOverrideModal={() => setCurrentTab('field')}
+                onOpenReportModal={() => setShowReportModal(true)}
+                onOpenOperationVideosModal={() => setShowOperationVideoModal(true)}
+                onRefresh={fetchSupervisorData}
+                refreshing={loadingSupervisorData}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'field' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="إدارة الميدان" colors={colors} onReset={fetchSupervisorData}>
+              <FieldScreen
+                delegates={branchDelegates
+                  .filter((d) => {
+                    const role = (d.job_role || (d as any).role_name || '').toUpperCase();
+                    return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
+                  })
+                  .map((d) => ({
+                    ...d,
+                    is_working: workingDelegates.some((w) => w.id === d.id),
+                  }))}
+                loading={loadingSupervisorData}
+                onRefresh={fetchSupervisorData}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                onOverrideSuccess={fetchSupervisorData}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'approvals' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="مركز الموافقات" colors={colors} onReset={fetchSupervisorData}>
+              <ApprovalsScreen
+                pendingSessions={pendingSessions}
+                pendingAdvances={pendingAdvances}
+                pendingMaintenance={pendingMaintenance}
+                loading={loadingSupervisorData}
+                onRefresh={() => {
+                  fetchSupervisorData();
+                  if (employee?.id) fetchHistory(employee.id);
+                }}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                onPreviewPhoto={setPreviewPhoto}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'operations' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="العمليات والأسطول" colors={colors} onReset={fetchOperationsData}>
+              <OperationsScreen
+                mode="all"
+                inventoryItems={inventoryItems}
+                vehicles={vehicles}
+                loading={loadingOperationsData}
+                onRefresh={fetchOperationsData}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'oil-change' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="تغيير زيت" colors={colors} onReset={fetchOperationsData}>
+              <OperationsScreen
+                mode="oil"
+                inventoryItems={inventoryItems}
+                vehicles={vehicles}
+                loading={loadingOperationsData}
+                onRefresh={fetchOperationsData}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'add-vehicle' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="إضافة مركبة جديدة" colors={colors} onReset={fetchOperationsData}>
+              <OperationsScreen
+                mode="add-vehicle"
+                inventoryItems={inventoryItems}
+                vehicles={vehicles}
+                loading={loadingOperationsData}
+                onRefresh={fetchOperationsData}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'accident-report' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="بلاغ عن حادث" colors={colors} onReset={fetchOperationsData}>
+              <OperationsScreen
+                mode="accidents"
+                inventoryItems={inventoryItems}
+                vehicles={vehicles}
+                loading={loadingOperationsData}
+                onRefresh={fetchOperationsData}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'supervisor-report' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="تقرير مشرف" colors={colors} onReset={fetchSupervisorData}>
+              <SupervisorReportScreen
+                initialMode={reportInitialMode}
+                branchDelegates={branchDelegates}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                onSuccess={fetchSupervisorData}
+                onBack={() => setCurrentTab('home')}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'advance-request' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="سلفة" colors={colors} onReset={fetchSupervisorData}>
+              <AdvanceRequestScreen
+                initialMode={advanceInitialMode}
+                branchDelegates={branchDelegates}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                onSuccess={fetchSupervisorData}
+                onBack={() => setCurrentTab('home')}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'history' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary
+              moduleName="سجل الشفتات"
+              colors={colors}
+              onReset={() => {
+                if (employee?.id) fetchHistory(employee.id);
+              }}
+            >
+              <HistoryScreen
+                historySessions={historySessions}
+                loading={loadingHistory}
+                selectedSession={selectedHistorySession}
+                onSelectSession={setSelectedHistorySession}
+                selectedMonthKey={selectedHistoryMonthKey}
+                onSelectMonthKey={(key, label) => {
+                  setSelectedHistoryMonthKey(key);
+                  setSelectedHistoryMonthLabel(label);
+                }}
+                onPreviewPhoto={setPreviewPhoto}
+                formatDateStr={formatDateStr}
+                formatTimeStr={formatTimeStr}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                t={t}
+                lang={lang}
+                monthlyTarget={monthlyTarget}
+              />
+            </ModuleErrorBoundary>
+          </View>
         ) : (
           <ScrollView
             ref={mainScrollRef}
@@ -1874,7 +2075,16 @@ export default function DelegateApp() {
                   lang={lang}
                   onNavigateToTab={handleNavigateToTab}
                   onConfirmOrders={handleConfirmOrders}
-                  onOpenReportModal={() => setShowReportModal(true)}
+                  onOpenReportModal={(prefMode) => {
+                    if (prefMode === 'create') {
+                      setReportInitialMode('create');
+                      setAdvanceInitialMode('create');
+                    } else {
+                      setReportInitialMode('list');
+                      setAdvanceInitialMode('list');
+                    }
+                    setShowReportModal(true);
+                  }}
                   onOpenOperationVideosModal={() => setShowOperationVideoModal(true)}
                   onRefresh={fetchSupervisorData}
                 />
@@ -1935,37 +2145,6 @@ export default function DelegateApp() {
               </ModuleErrorBoundary>
             )}
 
-            {currentTab === 'history' && (
-              <ModuleErrorBoundary
-                moduleName="سجل الشفتات"
-                colors={colors}
-                onReset={() => {
-                  if (employee?.id) fetchHistory(employee.id);
-                }}
-              >
-                <HistoryScreen
-                  historySessions={historySessions}
-                  loading={loadingHistory}
-                  selectedSession={selectedHistorySession}
-                  onSelectSession={setSelectedHistorySession}
-                  selectedMonthKey={selectedHistoryMonthKey}
-                  onSelectMonthKey={(key, label) => {
-                    setSelectedHistoryMonthKey(key);
-                    setSelectedHistoryMonthLabel(label);
-                  }}
-                  onPreviewPhoto={setPreviewPhoto}
-                  formatDateStr={formatDateStr}
-                  formatTimeStr={formatTimeStr}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                  t={t}
-                  lang={lang}
-                  monthlyTarget={monthlyTarget}
-                />
-              </ModuleErrorBoundary>
-            )}
-
             {currentTab === 'profile' && (
               <ModuleErrorBoundary moduleName="الملف الشخصي" colors={colors} onReset={() => checkSession(false)}>
                 <ProfileScreen
@@ -1993,126 +2172,9 @@ export default function DelegateApp() {
                 />
               </ModuleErrorBoundary>
             )}
-
-            {currentTab === 'oil-change' && (
-              <ModuleErrorBoundary moduleName="صفحة تغيير الزيت" colors={colors} onReset={handleRecheckOil}>
-                <OilChangeScreen
-                  motorcycleNumber={enteredMotorcycle}
-                  distanceSinceOil={Number(startKm) || 0}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                  lang={lang}
-                  t={t}
-                  onRecheck={handleRecheckOil}
-                  onScanAnother={() => setShowPlateScannerModal(true)}
-                  onBackToHome={() => setCurrentTab('home')}
-                />
-              </ModuleErrorBoundary>
-            )}
-
-            {currentTab === 'dashboard' && (
-              <ModuleErrorBoundary moduleName="لوحة التحكم" colors={colors} onReset={fetchSupervisorData}>
-                <DashboardScreen
-                  adminName={employee?.name || 'المشرف'}
-                  branchName={employee?.branch_name || 'فرع الإشراف'}
-                  stats={branchStats}
-                  workingDelegates={workingDelegates}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                  onNavigateToTab={(tab) => setCurrentTab(tab)}
-                  onOpenOverrideModal={() => setCurrentTab('field')}
-                  onOpenReportModal={() => setShowReportModal(true)}
-                  onOpenOperationVideosModal={() => setShowOperationVideoModal(true)}
-                  onRefresh={fetchSupervisorData}
-                  refreshing={loadingSupervisorData}
-                />
-              </ModuleErrorBoundary>
-            )}
-
-            {currentTab === 'field' && (
-              <ModuleErrorBoundary moduleName="إدارة الميدان" colors={colors} onReset={fetchSupervisorData}>
-                <FieldScreen
-                  delegates={branchDelegates
-                    .filter((d) => {
-                      const role = (d.job_role || (d as any).role_name || '').toUpperCase();
-                      return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
-                    })
-                    .map((d) => ({
-                      ...d,
-                      is_working: workingDelegates.some((w) => w.id === d.id),
-                    }))}
-                  loading={loadingSupervisorData}
-                  onRefresh={fetchSupervisorData}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                  onOverrideSuccess={fetchSupervisorData}
-                />
-              </ModuleErrorBoundary>
-            )}
-
-            {currentTab === 'approvals' && (
-              <ModuleErrorBoundary moduleName="مركز الموافقات" colors={colors} onReset={fetchSupervisorData}>
-                <ApprovalsScreen
-                  pendingSessions={pendingSessions}
-                  pendingAdvances={pendingAdvances}
-                  pendingMaintenance={pendingMaintenance}
-                  loading={loadingSupervisorData}
-                  onRefresh={() => {
-                    fetchSupervisorData();
-                    if (employee?.id) fetchHistory(employee.id);
-                  }}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                  onPreviewPhoto={setPreviewPhoto}
-                />
-              </ModuleErrorBoundary>
-            )}
-
-            {currentTab === 'operations' && (
-              <ModuleErrorBoundary moduleName="العمليات والأسطول" colors={colors} onReset={fetchOperationsData}>
-                <OperationsScreen
-                  inventoryItems={inventoryItems}
-                  vehicles={vehicles}
-                  loading={loadingOperationsData}
-                  onRefresh={fetchOperationsData}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                />
-              </ModuleErrorBoundary>
-            )}
-
-            {currentTab === 'supervisor-report' && (
-              <ModuleErrorBoundary moduleName="تقرير مشرف" colors={colors} onReset={fetchSupervisorData}>
-                <SupervisorReportScreen
-                  branchDelegates={branchDelegates}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                  onSuccess={fetchSupervisorData}
-                  onBack={() => setCurrentTab('home')}
-                />
-              </ModuleErrorBoundary>
-            )}
-
-            {currentTab === 'advance-request' && (
-              <ModuleErrorBoundary moduleName="سلفة" colors={colors} onReset={fetchSupervisorData}>
-                <AdvanceRequestScreen
-                  branchDelegates={branchDelegates}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                  onSuccess={fetchSupervisorData}
-                  onBack={() => setCurrentTab('home')}
-                />
-              </ModuleErrorBoundary>
-            )}
           </ScrollView>
         )}
+
       </KeyboardAvoidingView>
 
       {/* Fullscreen QR Modal */}
@@ -2309,14 +2371,23 @@ export default function DelegateApp() {
         onClose={() => setShowReportModal(false)}
         onSelectAction={(action) => {
           setShowReportModal(false);
-          if (action === 'supervisor-report-create' || action === 'supervisor-reports-list') {
+          if (action === 'supervisor-report-create') {
+            setReportInitialMode('create');
             setCurrentTab('supervisor-report');
+          } else if (action === 'supervisor-reports-list') {
+            setReportInitialMode('list');
+            setCurrentTab('supervisor-report');
+          } else if (action === 'advance-create') {
+            setAdvanceInitialMode('create');
+            setCurrentTab('advance-request');
           } else {
+            setAdvanceInitialMode('list');
             setCurrentTab('advance-request');
           }
         }}
         colors={colors}
         isDarkMode={isDarkMode}
+
         isRTL={isRTL}
       />
 

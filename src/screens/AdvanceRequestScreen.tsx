@@ -41,6 +41,13 @@ export const AdvanceRequestScreen: React.FC<AdvanceRequestScreenProps> = ({
   const [advances, setAdvances] = useState<PendingAdvanceRequest[]>([]);
   const [loadingAdvances, setLoadingAdvances] = useState(false);
 
+  useEffect(() => {
+    if (initialMode) {
+      setActiveTab(initialMode);
+    }
+  }, [initialMode]);
+
+
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [advanceType, setAdvanceType] = useState<'advance' | 'internet_advance'>('advance');

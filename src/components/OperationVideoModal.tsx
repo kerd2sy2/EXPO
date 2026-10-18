@@ -10,12 +10,14 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  RefreshControl,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as WebBrowser from 'expo-web-browser';
 import { ThemeColors } from '@shared/theme';
 import { WorkSession } from '@shared/types';
+import InAppVideoPlayer from './InAppVideoPlayer';
 import { formatImageUrl, getStoredToken } from '../services/api';
 import {
   supervisorApi,
@@ -75,7 +77,19 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
   const [archiveVideos, setArchiveVideos] = useState<OperationVideo[]>([]);
   const [loadingArchive, setLoadingArchive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateFilter, setDateFilter] = useState(''); // YYYY-MM-DD
+  // Default to today's date only as requested by user
+  const [dateFilter, setDateFilter] = useState<string>(() => formatDateToYMD(new Date()));
+
+  // In-App Video Playback State
+  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+
+  // Video Action Bottom Sheet & Edit State
+  const [actionVideo, setActionVideo] = useState<OperationVideo | null>(null);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editOrderNumber, setEditOrderNumber] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Calendar / Date Picker Bottom Sheet Modal State
   const [showDatePickerModal, setShowDatePickerModal] = useState(false);
@@ -90,6 +104,7 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
   const [orderNumber, setOrderNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);
+
 
   // Generate 60 days history for calendar picker
   const availableDates = useMemo(() => {
@@ -250,7 +265,7 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
     }
   };
 
-  // Play Video inside app via authenticated in-app browser
+  // Play Video inside app via embedded in-app video player
   const handlePlayVideo = async (videoUrl: string) => {
     try {
       let fullUrl = formatImageUrl(videoUrl);
@@ -263,33 +278,68 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
         const sep = fullUrl.includes('?') ? '&' : '?';
         fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
       }
-      await WebBrowser.openBrowserAsync(fullUrl, {
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-        controlsColor: colors.primary,
-        toolbarColor: isDarkMode ? '#0f172a' : '#ffffff',
-        showTitle: true,
-        enableBarCollapsing: true,
-      });
+      setPlayingVideoUrl(fullUrl);
     } catch (err: any) {
-      Alert.alert('خطأ', 'تعذر فتح مشغل الفيديو داخل التطبيق');
+      Alert.alert('خطأ', 'تعذر تشغيل مشغل الفيديو داخل التطبيق');
+    }
+  };
+
+  // Open Action Sheet on Long Press
+  const handleOpenActionSheet = (video: OperationVideo) => {
+    setActionVideo(video);
+    setShowActionModal(true);
+  };
+
+  // Start Edit Modal
+  const handleStartEdit = (video: OperationVideo) => {
+    setActionVideo(video);
+    setEditOrderNumber(video.order_number || '');
+    setEditNotes(video.notes || '');
+    setShowActionModal(false);
+    setShowEditModal(true);
+  };
+
+  // Save Edit
+  const handleSaveEdit = async () => {
+    if (!actionVideo) return;
+    try {
+      setSavingEdit(true);
+      await supervisorApi.updateOperationVideo(actionVideo.id, {
+        orderNumber: editOrderNumber.trim(),
+        notes: editNotes.trim(),
+      });
+      setArchiveVideos((prev) =>
+        prev.map((v) =>
+          v.id === actionVideo.id
+            ? { ...v, order_number: editOrderNumber.trim(), notes: editNotes.trim() }
+            : v
+        )
+      );
+      setShowEditModal(false);
+      Alert.alert('تم بنجاح', 'تم تحديث بيانات وتوثيق الفيديو بنجاح.');
+    } catch (err: any) {
+      Alert.alert('خطأ', err?.message || 'فشل تحديث بيانات الفيديو');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
   // Delete Video
   const handleDeleteVideo = (video: OperationVideo) => {
     Alert.alert(
-      'تأكيد الحذف',
-      'هل أنت متأكد من حذف هذا الفيديو نهائياً من سيرفر AAMS؟',
+      'تأكيد الحذف النهائي',
+      'هل أنت متأكد من حذف هذا الفيديو نهائياً من سيرفر AAMS؟ لا يمكن التراجع عن هذا الإجراء.',
       [
         { text: 'إلغاء', style: 'cancel' },
         {
-          text: 'حذف',
+          text: 'حذف نهائي',
           style: 'destructive',
           onPress: async () => {
             try {
+              setShowActionModal(false);
               await supervisorApi.deleteOperationVideo(video.id);
               setArchiveVideos((prev) => prev.filter((v) => v.id !== video.id));
-              Alert.alert('تم', 'تم حذف الفيديو بنجاح.');
+              Alert.alert('تم', 'تم حذف الفيديو نهائياً بنجاح.');
             } catch (err: any) {
               Alert.alert('خطأ', err?.message || 'فشل حذف الفيديو');
             }
@@ -302,7 +352,7 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={[styles.container, { backgroundColor: colors.bg }]}>
-        {/* ── HEADER IDENTICAL TO "لوحة مؤشرات الفرع" ── */}
+        {/* ── HEADER IDENTICAL TO OHDA & MANDOB ── */}
         <View style={[styles.subPageHeaderContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <View style={[styles.subPageHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <TouchableOpacity
@@ -330,16 +380,20 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
               </Text>
             </View>
 
-            {/* Quick Action: Record proof video */}
+            {/* Quick Action: Calendar Picker in Header (replaced camera icon) */}
             <TouchableOpacity
-              style={[styles.headerCameraBtn, { backgroundColor: colors.primary }]}
-              onPress={handleLaunchCamera}
+              style={[
+                styles.headerCalendarBtn,
+                { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border },
+              ]}
+              onPress={() => setShowDatePickerModal(true)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="videocam" size={18} color="#fff" />
+              <Ionicons name="calendar-outline" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
+
 
         {/* ── SEARCH & CALENDAR DATE FILTER BAR ── */}
         <View style={[styles.filterBarContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -457,7 +511,18 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
             )}
           </View>
         ) : (
-          <ScrollView contentContainerStyle={styles.archiveList} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={styles.archiveList}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={loadingArchive}
+                onRefresh={fetchArchive}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+          >
             {filteredArchive.map((video) => {
               const formattedDate = new Date(video.recorded_at).toLocaleDateString('ar-SA', {
                 day: 'numeric',
@@ -468,9 +533,12 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
               });
 
               return (
-                <View
+                <TouchableOpacity
                   key={video.id}
                   style={[styles.videoCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  activeOpacity={0.85}
+                  onLongPress={() => handleOpenActionSheet(video)}
+                  delayLongPress={400}
                 >
                   {/* Top Info */}
                   <View style={[styles.videoCardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -556,17 +624,184 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.deleteVideoBtn, { borderColor: '#ef4444', backgroundColor: '#ef444410' }]}
-                      onPress={() => handleDeleteVideo(video)}
+                      style={[
+                        styles.moreActionBtn,
+                        { borderColor: colors.border, backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' },
+                      ]}
+                      onPress={() => handleOpenActionSheet(video)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                      <Ionicons name="ellipsis-vertical" size={18} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </ScrollView>
         )}
+
+        {/* ── IN-APP VIDEO PLAYER MODAL ── */}
+        <Modal
+          visible={!!playingVideoUrl}
+          transparent={false}
+          animationType="fade"
+          onRequestClose={() => setPlayingVideoUrl(null)}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }}>
+            <View
+              style={{
+                height: 52,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                backgroundColor: '#111827',
+                borderBottomWidth: 1,
+                borderBottomColor: '#1f2937',
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => setPlayingVideoUrl(null)}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: '#374151',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={22} color="#ffffff" />
+              </TouchableOpacity>
+              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>
+                مشاهدة توثيق الفيديو
+              </Text>
+              <View style={{ width: 36 }} />
+            </View>
+            <View style={{ flex: 1, backgroundColor: '#000000' }}>
+              {playingVideoUrl ? <InAppVideoPlayer url={playingVideoUrl} /> : null}
+            </View>
+          </SafeAreaView>
+        </Modal>
+
+        {/* ── LONG PRESS ACTION BOTTOM SHEET ── */}
+        <Modal
+          visible={showActionModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowActionModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.sheetOverlay}
+            activeOpacity={1}
+            onPress={() => setShowActionModal(false)}
+          >
+            <View style={[styles.bottomSheetCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.sheetHandle, { backgroundColor: isDarkMode ? '#3f3f46' : '#cbd5e1' }]} />
+              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', marginBottom: 14 }}>
+                <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
+                  إجراءات الفيديو • {actionVideo?.employee_name || 'توثيق عام'}
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                  اختر الإجراء المطلوب لهذا التسجيل
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.sheetActionItem,
+                  { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+                ]}
+                onPress={() => {
+                  if (actionVideo) handleStartEdit(actionVideo);
+                }}
+              >
+                <View style={[styles.sheetActionIconBox, { backgroundColor: '#3b82f618' }]}>
+                  <Ionicons name="create-outline" size={20} color="#3b82f6" />
+                </View>
+                <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                  <Text style={[styles.sheetActionText, { color: colors.textPrimary }]}>تعديل البيانات والطلبات</Text>
+                  <Text style={{ fontSize: 11, color: colors.textSecondary }}>تعديل عدد الطلبات أو الملاحظات</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.sheetActionItem,
+                  { backgroundColor: '#ef444410', borderColor: '#ef444440', flexDirection: isRTL ? 'row-reverse' : 'row' },
+                ]}
+                onPress={() => {
+                  if (actionVideo) handleDeleteVideo(actionVideo);
+                }}
+              >
+                <View style={[styles.sheetActionIconBox, { backgroundColor: '#ef444420' }]}>
+                  <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                </View>
+                <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                  <Text style={[styles.sheetActionText, { color: '#ef4444' }]}>حذف نهائي</Text>
+                  <Text style={{ fontSize: 11, color: '#ef444499' }}>حذف الفيديو وسجله نهائياً من السيرفر</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* ── EDIT VIDEO DETAILS MODAL ── */}
+        <Modal
+          visible={showEditModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowEditModal(false)}
+        >
+          <View style={styles.sheetOverlay}>
+            <View style={[styles.editDialogCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.dialogHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={[styles.dialogTitle, { color: colors.textPrimary }]}>تعديل بيانات الفيديو</Text>
+                <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                  <Ionicons name="close" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 10 }]}>
+                عدد الطلبات / رقم الطلب
+              </Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
+                value={editOrderNumber}
+                onChangeText={setEditOrderNumber}
+                placeholder="عدد الطلبات أو رقم الطلب..."
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 10 }]}>
+                الملاحظات
+              </Text>
+              <TextInput
+                style={[styles.textArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
+                value={editNotes}
+                onChangeText={setEditNotes}
+                multiline
+                numberOfLines={3}
+                placeholder="أدخل أي ملاحظات تصحيحية..."
+                placeholderTextColor={colors.textSecondary}
+              />
+
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: colors.primary, marginTop: 16 }]}
+                onPress={handleSaveEdit}
+                disabled={savingEdit}
+              >
+                {savingEdit ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.actionBtnText}>حفظ التعديلات</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
 
         {/* ── BOTTOM SHEET CALENDAR MODAL (موديولا التقويم لآخر شهرين) ── */}
         <Modal
@@ -1094,6 +1329,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  headerCalendarBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  moreActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   deleteVideoBtn: {
     paddingHorizontal: 12,
     paddingVertical: 9,
@@ -1101,6 +1352,94 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheetCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    gap: 12,
+  },
+  sheetHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  sheetActionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  sheetActionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  editDialogCard: {
+    margin: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    alignSelf: 'center',
+    width: '90%',
+    maxWidth: 420,
+  },
+  dialogHeader: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  dialogTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  actionBtn: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  input: {
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  textArea: {
+    height: 72,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    fontSize: 14,
+    textAlignVertical: 'top',
   },
 
   // Loaders & Empty states

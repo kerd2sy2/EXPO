@@ -332,25 +332,29 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
                   styles.card,
                   {
                     backgroundColor: colors.card,
-                    borderColor: isWorking ? '#10B98140' : colors.border,
+                    borderColor: isWorking ? '#10B98150' : colors.border,
+                    borderWidth: isWorking ? 1.5 : 1,
                   },
                 ]}
               >
-                {/* Header: Avatar, Name, Status Badge */}
-                <View style={styles.cardHeader}>
-                  <View style={styles.delegateInfoRow}>
-                    <View style={[styles.avatarCircle, { backgroundColor: colors.primary + '20' }]}>
+                {/* Top Row: Delegate Avatar & Info on Start, Status Badge on End */}
+                <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {/* Start of card: Avatar + Name + Code/Phone */}
+                  <View style={[styles.delegateInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 10, flex: 1 }]}>
+                    <View style={[styles.avatarCircle, { backgroundColor: isWorking ? '#10b98120' : colors.primaryLight }]}>
                       {(del.photo_url || del.personal_image) ? (
                         <Image source={{ uri: del.photo_url || del.personal_image }} style={styles.avatarImg} />
                       ) : (
-                        <Text style={[styles.avatarInitial, { color: colors.primary }]}>
+                        <Text style={[styles.avatarInitial, { color: isWorking ? '#10b981' : colors.primary }]}>
                           {del.name ? del.name.charAt(0) : 'م'}
                         </Text>
                       )}
                     </View>
-                    <View style={styles.nameBlock}>
+                    <View style={[styles.nameBlock, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                       <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <Text style={[styles.delName, { color: colors.textPrimary }]}>{del.name}</Text>
+                        <Text style={[styles.delName, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {del.name}
+                        </Text>
                         {del.branch_name ? (
                           <View style={[styles.branchPill, { backgroundColor: colors.primaryLight }]}>
                             <Text style={[styles.branchPillText, { color: colors.primary }]}>{del.branch_name}</Text>
@@ -358,18 +362,19 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
                         ) : null}
                       </View>
                       <Text style={[styles.delPhone, { color: colors.textSecondary }]}>
-                        {del.phone || del.national_id}
+                        {del.employee_number ? `كود: ${del.employee_number} • ` : ''}{del.phone || del.national_id}
                       </Text>
                     </View>
                   </View>
 
-                  {/* Status Indicator */}
+                  {/* End of card: Status Badge */}
                   <View
                     style={[
                       styles.statusBadge,
                       {
                         backgroundColor: isWorking ? '#10B98115' : '#6B728015',
                         borderColor: isWorking ? '#10B981' : '#9CA3AF',
+                        flexDirection: isRTL ? 'row-reverse' : 'row',
                       },
                     ]}
                   >
@@ -380,39 +385,39 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
                   </View>
                 </View>
 
-                {/* Body: Bike Plate & Zone Flags */}
-                <View style={styles.cardBody}>
-                  <View style={styles.bikeSection}>
-                    <Text style={[styles.bikeLabel, { color: colors.textSecondary }]}>الدباب المسجل:</Text>
+                {/* Middle Row: Plate on Start / Warning on End */}
+                <View style={[styles.cardMiddleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={[styles.bikePlateWrap, { flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }]}>
+                    <Ionicons name="bicycle" size={16} color={colors.textSecondary} />
                     {del.motorcycle_number ? (
                       <SaudiPlateView
                         digits={plate.digits}
                         letters={plate.letters}
                         editable={false}
-                        scale={0.65}
+                        scale={0.52}
                         isDarkMode={isDarkMode}
                       />
                     ) : (
-                      <Text style={[styles.noBikeText, { color: colors.textSecondary }]}>غير مسجل</Text>
+                      <Text style={[styles.noBikeText, { color: colors.textSecondary }]}>بدون دباب مسجل</Text>
                     )}
                   </View>
 
                   {del.out_of_zone && (
-                    <View style={styles.warningFlag}>
-                      <Ionicons name="warning" size={14} color="#EF4444" />
-                      <Text style={styles.warningFlagText}>خارج النطاق الميداني</Text>
+                    <View style={[styles.warningFlag, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <Ionicons name="warning" size={13} color="#EF4444" />
+                      <Text style={styles.warningFlagText}>خارج النطاق</Text>
                     </View>
                   )}
                 </View>
 
-                {/* Footer Action Buttons */}
+                {/* Footer: Compact Action Button */}
                 <View style={styles.cardFooter}>
                   {isWorking ? (
                     <TouchableOpacity
                       style={[styles.overrideBtn, { backgroundColor: '#EF444415', borderColor: '#EF4444' }]}
                       onPress={() => openOverrideModal(del, 'end')}
                     >
-                      <Ionicons name="stop-circle" size={18} color="#EF4444" />
+                      <Ionicons name="stop-circle" size={16} color="#EF4444" />
                       <Text style={[styles.overrideBtnText, { color: '#EF4444' }]}>إنهاء الوردية استثنائياً</Text>
                     </TouchableOpacity>
                   ) : (
@@ -420,7 +425,7 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
                       style={[styles.overrideBtn, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}
                       onPress={() => openOverrideModal(del, 'start')}
                     >
-                      <Ionicons name="play-circle" size={18} color={colors.primary} />
+                      <Ionicons name="play-circle" size={16} color={colors.primary} />
                       <Text style={[styles.overrideBtnText, { color: colors.primary }]}>بدء الوردية استثنائياً</Text>
                     </TouchableOpacity>
                   )}
@@ -654,70 +659,65 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
-    gap: 12,
+    padding: 12,
+    gap: 10,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  cardTopRow: {
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   delegateInfoRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    flex: 1,
   },
   avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarImg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
   },
   avatarInitial: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
   },
   nameBlock: {
     gap: 2,
+    flex: 1,
   },
   delName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
   delPhone: {
-    fontSize: 12,
+    fontSize: 11,
   },
   statusBadge: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
     borderWidth: 1,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
-  cardBody: {
-    flexDirection: 'row',
+  cardMiddleRow: {
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 2,
   },
-  bikeSection: {
-    flexDirection: 'row',
+  bikePlateWrap: {
     alignItems: 'center',
-    gap: 8,
-  },
-  bikeLabel: {
-    fontSize: 12,
+    gap: 6,
   },
   noBikeText: {
     fontSize: 12,

@@ -40,6 +40,13 @@ export const SupervisorReportScreen: React.FC<SupervisorReportScreenProps> = ({
   const [reports, setReports] = useState<PendingAdvanceRequest[]>([]);
   const [loadingReports, setLoadingReports] = useState(false);
 
+  useEffect(() => {
+    if (initialMode) {
+      setActiveTab(initialMode);
+    }
+  }, [initialMode]);
+
+
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');

@@ -85,6 +85,9 @@ export type TabType =
   | 'profile'
   | 'violations'
   | 'oil-change'
+  | 'add-vehicle'
+  | 'accident-report'
   | 'supervisor-report'
   | 'advance-request';
 export type Language = 'ar' | 'en' | 'bn' | 'ur';
+
