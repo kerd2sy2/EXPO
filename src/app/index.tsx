@@ -52,6 +52,7 @@ import {
   onSessionExpired,
   getStoredLanguage,
   saveStoredLanguage,
+  formatImageUrl,
 } from '../services/api';
 
 // Screens
@@ -1519,11 +1520,14 @@ export default function DelegateApp() {
       ? Number(endKm) - Number(activeSession.start_km)
       : 0;
 
-  const empPhotoUrl = employee?.personal_image
-    ? (employee.personal_image.startsWith('http') || employee.personal_image.startsWith('data:')
-        ? employee.personal_image
-        : `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/uploads/${employee.personal_image.replace(/^\/+/, '')}`)
-    : null;
+  const rawEmpPhoto =
+    employee?.personal_image ||
+    (employee as any)?.avatar ||
+    (employee as any)?.google_avatar ||
+    (employee as any)?.photo ||
+    (employee as any)?.image ||
+    null;
+  const empPhotoUrl = formatImageUrl(rawEmpPhoto);
 
   // Loading Screen
   if (loading) {
