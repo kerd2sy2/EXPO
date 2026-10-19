@@ -36,7 +36,8 @@ export const AhdaShakeExcelModal: React.FC<AhdaShakeExcelModalProps> = ({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        {/* Static non-clickable backdrop (Must use X or cancel button to close) */}
+        <View style={StyleSheet.absoluteFill} />
 
         <View
           style={[
@@ -47,8 +48,23 @@ export const AhdaShakeExcelModal: React.FC<AhdaShakeExcelModalProps> = ({
             },
           ]}
         >
-          {/* Top handle bar */}
-          <View style={styles.handleBar} />
+          {/* Top Row: Close X Button + Handle Bar */}
+          <View style={styles.topControlRow}>
+            <TouchableOpacity
+              onPress={onClose}
+              disabled={loading}
+              style={[
+                styles.modalCloseXBtn,
+                { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border },
+              ]}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <View style={styles.handleBar} />
+            <View style={{ width: 32 }} />
+          </View>
 
           {/* Lottie Animation / PDF Icon + Title */}
           <View style={styles.headerGroup}>
@@ -188,13 +204,27 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 20,
   },
+  topControlRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalCloseXBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   handleBar: {
     width: 44,
     height: 4.5,
     borderRadius: 3,
     backgroundColor: '#cbd5e1',
     alignSelf: 'center',
-    marginBottom: 10,
   },
   shakeBadgeRow: {
     alignItems: 'center',

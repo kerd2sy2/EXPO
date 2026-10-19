@@ -47,7 +47,8 @@ export const AhdaSharedImageCategoryModal: React.FC<AhdaSharedImageCategoryModal
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        {/* Static non-clickable backdrop (Must use X or cancel button to close) */}
+        <View style={StyleSheet.absoluteFill} />
 
         <View
           style={[
@@ -58,8 +59,19 @@ export const AhdaSharedImageCategoryModal: React.FC<AhdaSharedImageCategoryModal
             },
           ]}
         >
-          {/* Top Handle */}
-          <View style={styles.handleBar} />
+          {/* Top Row: Handle + Close X Button */}
+          <View style={styles.topControlRow}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.modalCloseXBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border }]}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <View style={styles.handleBar} />
+            <View style={{ width: 32 }} />
+          </View>
 
           {/* Header Row: Received image thumb + Title */}
           <View style={styles.headerRow}>
@@ -169,13 +181,27 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
   },
+  topControlRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalCloseXBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   handleBar: {
     width: 44,
     height: 4,
     borderRadius: 2,
     backgroundColor: '#cbd5e1',
     alignSelf: 'center',
-    marginBottom: 14,
   },
   headerRow: {
     flexDirection: 'row-reverse',

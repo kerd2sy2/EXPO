@@ -74,6 +74,7 @@ export const AhdaDatePickerModal: React.FC<AhdaDatePickerModalProps> = ({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.bottomSheetBackdrop}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
         <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border, maxHeight: '88%' }]}>
           <View style={styles.sheetIndicator} />
 

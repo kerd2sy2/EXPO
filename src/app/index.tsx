@@ -186,11 +186,18 @@ export default function AhdaApp() {
   const isDarkMode = useMemo(() => {
     if (themePreference === 'dark') return true;
     if (themePreference === 'light') return false;
-    return false; // Default white mode
-  }, [themePreference]);
+    return systemColorScheme === 'dark';
+  }, [themePreference, systemColorScheme]);
 
   const toggleTheme = useCallback(() => {
     setThemePreference((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
+
+  const handleSelectThemePreference = useCallback(async (pref: 'system' | 'light' | 'dark') => {
+    setThemePreference(pref);
+    try {
+      await AsyncStorage.setItem('@ahda_theme_preference', pref);
+    } catch (_) {}
   }, []);
 
   const colors = isDarkMode ? darkColors : lightColors;
@@ -199,8 +206,16 @@ export default function AhdaApp() {
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const stored = await loadStoredToken();
-        const cachedUser = await getCachedUser();
+        const [stored, cachedUser, savedPref] = await Promise.all([
+          loadStoredToken(),
+          getCachedUser(),
+          AsyncStorage.getItem('@ahda_theme_preference'),
+        ]);
+
+        if (savedPref === 'system' || savedPref === 'light' || savedPref === 'dark') {
+          setThemePreference(savedPref);
+        }
+
         if (stored) {
           setTokenState(stored);
           if (cachedUser) {
@@ -277,6 +292,9 @@ export default function AhdaApp() {
           currentUser={currentUser}
           onLogout={handleLogout}
           onToggleTheme={toggleTheme}
+          themePreference={themePreference}
+          onSelectThemePreference={handleSelectThemePreference}
+          onUpdateUser={(updated) => setCurrentUser(updated)}
         />
       )}
     </SafeAreaProvider>

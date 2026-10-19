@@ -83,6 +83,9 @@ interface AhdaHomeScreenProps {
   currentUser: any;
   onLogout: () => void;
   onToggleTheme: () => void;
+  themePreference?: 'system' | 'light' | 'dark';
+  onSelectThemePreference?: (pref: 'system' | 'light' | 'dark') => void;
+  onUpdateUser?: (updated: any) => void;
 }
 
 // Categories ordered according to user priority:
@@ -102,6 +105,9 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   currentUser,
   onLogout,
   onToggleTheme,
+  themePreference,
+  onSelectThemePreference,
+  onUpdateUser,
 }) => {
   const insets = useSafeAreaInsets();
   const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? 24 : 0);
@@ -956,6 +962,9 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           onBack={() => setShowProfile(false)}
           onLogout={onLogout}
           onToggleTheme={onToggleTheme}
+          themePreference={themePreference}
+          onSelectThemePreference={onSelectThemePreference}
+          onUpdateUser={onUpdateUser}
         />
       ) : showDayExpensesPage ? (
         <AhdaDayExpensesScreen
