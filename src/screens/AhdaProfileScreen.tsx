@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -108,6 +108,19 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
       setCheckingUpdate(false);
     }
   };
+
+  // Auto-close update modal 1 second after 'up_to_date' animation completes (with safety fallback)
+  useEffect(() => {
+    let timer: any;
+    if (updateModalVisible && updateModalState === 'up_to_date') {
+      timer = setTimeout(() => {
+        setUpdateModalVisible(false);
+      }, 3500);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [updateModalVisible, updateModalState]);
 
   const handleApplyUpdateNow = async () => {
     try {
@@ -519,17 +532,26 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
         </View>
       </Modal>
 
-      {/* ── 4. Cloud Update Status Modal (No Expo or Channel Mentions) ── */}
+      {/* ── 4. Cloud Update Status Modal (Bottom Sheet Presentation) ── */}
       <Modal
         visible={updateModalVisible}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => {
           if (updateModalState !== 'downloading') setUpdateModalVisible(false);
         }}
       >
-        <View style={styles.modalCenterBackdrop}>
-          <View style={[styles.updateCardBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => {
+              if (updateModalState !== 'downloading') setUpdateModalVisible(false);
+            }}
+          />
+          <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.sheetHandle} />
+
             {updateModalState === 'checking' && (
               <View style={styles.updateModalContent}>
                 <View style={[styles.updateIconCircle, { backgroundColor: '#ecfdf5' }]}>
@@ -552,21 +574,19 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
                     autoPlay
                     loop={false}
                     style={styles.updateLottieAnim}
+                    onAnimationFinish={() => {
+                      setTimeout(() => {
+                        setUpdateModalVisible(false);
+                      }, 1000);
+                    }}
                   />
                 </View>
                 <Text style={[styles.updateModalTitle, { color: colors.textPrimary }]}>
-                  أنت على آخر إصدار بنجاح ✓
+                  أنت على آخر إصدار
                 </Text>
                 <Text style={[styles.updateModalSub, { color: colors.textSecondary }]}>
-                  تطبيقك محدث بالكامل ومزود بأحدث التحسينات والميزات المعتمدة.
+                  تطبيقك محدث بالكامل ومزود بأحدث التحسينات المعتمدة.
                 </Text>
-                <TouchableOpacity
-                  style={styles.updateMainBtn}
-                  onPress={() => setUpdateModalVisible(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.updateMainBtnText}>حسناً</Text>
-                </TouchableOpacity>
               </View>
             )}
 

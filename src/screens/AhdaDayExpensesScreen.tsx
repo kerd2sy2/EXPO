@@ -749,7 +749,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
       <Modal
         visible={!!selectedExpenseForAction}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setSelectedExpenseForAction(null)}
       >
         <View style={styles.modalBackdrop}>
