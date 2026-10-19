@@ -10,9 +10,11 @@ import {
   Dimensions,
   Modal,
   Animated,
-  PanResponder,
   LayoutAnimation,
   UIManager,
+  TextInput,
+  KeyboardAvoidingView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -30,7 +32,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface DraggableExpenseCardProps {
+interface ExpenseCardProps {
   item: CustodyExpenseItem;
   idx: number;
   totalCount: number;
@@ -44,13 +46,10 @@ interface DraggableExpenseCardProps {
   onPressDetails: () => void;
   onLongPressAction: () => void;
   onPreviewImage: (url: string) => void;
-  onNudge: (idx: number, direction: 'up' | 'down') => void;
-  onDragStart: (id: string) => void;
-  onDragCommit: (fromIdx: number, toIdx: number) => void;
-  onDragEnd: () => void;
+  onOpenReorderModal: (item: CustodyExpenseItem, idx: number) => void;
 }
 
-const DraggableExpenseCard: React.FC<DraggableExpenseCardProps> = ({
+const ExpenseCard: React.FC<ExpenseCardProps> = ({
   item,
   idx,
   totalCount,
@@ -64,137 +63,37 @@ const DraggableExpenseCard: React.FC<DraggableExpenseCardProps> = ({
   onPressDetails,
   onLongPressAction,
   onPreviewImage,
-  onNudge,
-  onDragStart,
-  onDragCommit,
-  onDragEnd,
+  onOpenReorderModal,
 }) => {
-  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const scale = useRef(new Animated.Value(1)).current;
-  const [isDragging, setIsDragging] = useState(false);
-  const [targetSlot, setTargetSlot] = useState<number | null>(null);
-
-  const idxRef = useRef(idx);
-  idxRef.current = idx;
-  const totalCountRef = useRef(totalCount);
-  totalCountRef.current = totalCount;
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => isReorderMode,
-        onMoveShouldSetPanResponder: (_, gestureState) => {
-          if (!isReorderMode) return false;
-          return Math.abs(gestureState.dx) > 6 || Math.abs(gestureState.dy) > 6;
-        },
-        onPanResponderGrant: () => {
-          setIsDragging(true);
-          setTargetSlot(idxRef.current);
-          onDragStart(item.id);
-          Animated.spring(scale, {
-            toValue: 1.03,
-            friction: 7,
-            tension: 120,
-            useNativeDriver: false,
-          }).start();
-        },
-        onPanResponderMove: (_, gestureState) => {
-          pan.setValue({ x: gestureState.dx, y: gestureState.dy });
-          const rowOffset = Math.round(gestureState.dy / 125);
-          const computedTarget = Math.max(0, Math.min(totalCountRef.current - 1, idxRef.current + rowOffset));
-          setTargetSlot(computedTarget);
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          const rowOffset = Math.round(gestureState.dy / 125);
-          const finalTarget = Math.max(0, Math.min(totalCountRef.current - 1, idxRef.current + rowOffset));
-          const from = idxRef.current;
-
-          setIsDragging(false);
-          setTargetSlot(null);
-
-          Animated.parallel([
-            Animated.spring(pan, {
-              toValue: { x: 0, y: 0 },
-              friction: 8,
-              tension: 90,
-              useNativeDriver: false,
-            }),
-            Animated.spring(scale, {
-              toValue: 1,
-              friction: 7,
-              tension: 100,
-              useNativeDriver: false,
-            }),
-          ]).start(() => {
-            onDragEnd();
-          });
-
-          if (finalTarget !== from) {
-            onDragCommit(from, finalTarget);
-          }
-        },
-        onPanResponderTerminate: () => {
-          setIsDragging(false);
-          setTargetSlot(null);
-          Animated.parallel([
-            Animated.spring(pan, {
-              toValue: { x: 0, y: 0 },
-              friction: 8,
-              tension: 90,
-              useNativeDriver: false,
-            }),
-            Animated.spring(scale, {
-              toValue: 1,
-              friction: 7,
-              tension: 100,
-              useNativeDriver: false,
-            }),
-          ]).start(() => {
-            onDragEnd();
-          });
-        },
-      }),
-    [isReorderMode, item.id]
-  );
-
   return (
-    <Animated.View
+    <View
       style={[
         styles.invoiceCard,
         {
-          backgroundColor: isDragging
-            ? (isDarkMode ? '#1e3a2f' : '#ecfdf5')
+          backgroundColor: isReorderMode
+            ? (isDarkMode ? '#064e3b18' : '#ecfdf5')
             : colors.card,
-          borderColor: isDragging
-            ? '#047857'
-            : (isReorderMode ? '#a7f3d0' : colors.border),
-          borderWidth: isDragging ? 2 : (isReorderMode ? 1.5 : 1),
-          transform: [
-            { translateX: pan.x },
-            { translateY: pan.y },
-            { scale },
-          ],
-          zIndex: isDragging ? 9999 : 1,
-          elevation: isDragging ? 16 : 2,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: isDragging ? 12 : 2 },
-          shadowOpacity: isDragging ? 0.35 : 0.05,
-          shadowRadius: isDragging ? 16 : 8,
+          borderColor: isReorderMode ? '#059669' : colors.border,
+          borderWidth: isReorderMode ? 1.5 : 1,
         },
       ]}
-      {...panResponder.panHandlers}
     >
       <TouchableOpacity
-        activeOpacity={isReorderMode ? 1 : 0.88}
+        activeOpacity={0.88}
         onPress={() => {
-          if (!isReorderMode) onPressDetails();
+          if (isReorderMode) {
+            onOpenReorderModal(item, idx);
+          } else {
+            onPressDetails();
+          }
         }}
         onLongPress={() => {
-          if (!isReorderMode) onLongPressAction();
+          if (!isReorderMode) {
+            onLongPressAction();
+          }
         }}
-        disabled={isReorderMode}
       >
-        {/* Top: Icon + Category + Date & Time Stamp + Ledger Index / Reorder Nudge */}
+        {/* Top: Icon + Category + Date & Time Stamp + (Optional Reorder Button in Reorder Mode) + Thumbnail */}
         <View style={styles.invoiceCardTop}>
           <View style={styles.invoiceLeftInfo}>
             <View style={[styles.catBadge, { backgroundColor: catObj.bg }]}>
@@ -213,75 +112,26 @@ const DraggableExpenseCard: React.FC<DraggableExpenseCardProps> = ({
             </View>
           </View>
 
-          {/* Right side: Reorder Controls (Arrows + Position) OR Ledger Index & Thumbnail */}
+          {/* Right side: Reorder Button (Only in Reorder Mode) OR Thumbnail (No index in normal view) */}
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
             {isReorderMode ? (
-              <View style={[styles.reorderControlsPill, { backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5' }]}>
-                {/* Nudge Up Button */}
-                <TouchableOpacity
-                  style={[
-                    styles.reorderArrowBtn,
-                    idx === 0 && styles.reorderArrowBtnDisabled,
-                  ]}
-                  disabled={idx === 0}
-                  onPress={() => onNudge(idx, 'up')}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  activeOpacity={0.6}
-                >
-                  <Ionicons
-                    name="chevron-up"
-                    size={17}
-                    color={idx === 0 ? (isDarkMode ? '#334155' : '#cbd5e1') : '#047857'}
-                  />
-                </TouchableOpacity>
-
-                {/* Line number / Destination preview badge */}
-                <View style={[styles.reorderSlotBadge, isDragging && { backgroundColor: '#047857' }]}>
-                  <Ionicons
-                    name="reorder-three"
-                    size={14}
-                    color={isDragging ? '#ffffff' : '#047857'}
-                  />
-                  <Text style={[styles.reorderSlotText, { color: isDragging ? '#ffffff' : '#047857' }]}>
-                    {isDragging && targetSlot !== null && targetSlot !== idx
-                      ? `إلى #${toArabicDigits(targetSlot + 1)}`
-                      : `#${toArabicDigits(idx + 1)}`}
-                  </Text>
-                </View>
-
-                {/* Nudge Down Button */}
-                <TouchableOpacity
-                  style={[
-                    styles.reorderArrowBtn,
-                    idx >= totalCount - 1 && styles.reorderArrowBtnDisabled,
-                  ]}
-                  disabled={idx >= totalCount - 1}
-                  onPress={() => onNudge(idx, 'down')}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  activeOpacity={0.6}
-                >
-                  <Ionicons
-                    name="chevron-down"
-                    size={17}
-                    color={idx >= totalCount - 1 ? (isDarkMode ? '#334155' : '#cbd5e1') : '#047857'}
-                  />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View
+              <TouchableOpacity
                 style={[
-                  styles.ledgerCardIndexPill,
+                  styles.reorderCardPillBtn,
                   {
-                    backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-                    borderColor: colors.border,
+                    backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5',
+                    borderColor: '#059669',
                   },
                 ]}
+                onPress={() => onOpenReorderModal(item, idx)}
+                activeOpacity={0.8}
               >
-                <Text style={[styles.ledgerCardIndexText, { color: colors.textSecondary }]}>
-                  #{toArabicDigits(idx + 1)}
+                <Feather name="edit-3" size={13} color="#047857" style={{ marginLeft: 4 }} />
+                <Text style={[styles.reorderCardPillText, { color: '#047857' }]}>
+                  الكرت #{toArabicDigits(idx + 1)}
                 </Text>
-              </View>
-            )}
+              </TouchableOpacity>
+            ) : null}
 
             {/* Thumbnail in corner if attached */}
             {fullImg ? (
@@ -310,7 +160,7 @@ const DraggableExpenseCard: React.FC<DraggableExpenseCardProps> = ({
           </View>
         </View>
 
-        {/* Bottom: Amount Badge + Attachment indicator / Reorder Hint */}
+        {/* Bottom: Amount Badge + Attachment indicator / Reorder Action Prompt */}
         <View style={styles.invoiceCardBottom}>
           <View style={styles.amountPill}>
             <Text style={styles.amountPillVal}>
@@ -324,14 +174,16 @@ const DraggableExpenseCard: React.FC<DraggableExpenseCardProps> = ({
           </View>
 
           {isReorderMode ? (
-            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="swap-vertical" size={13} color="#047857" />
+            <TouchableOpacity
+              style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}
+              onPress={() => onOpenReorderModal(item, idx)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={14} color="#047857" />
               <Text style={{ fontSize: 11, color: '#047857', fontWeight: '800' }}>
-                {isDragging
-                  ? `جارِ النقل إلى السطر #${toArabicDigits((targetSlot ?? idx) + 1)}`
-                  : 'اضغط الأسهم 🔼 🔽 أو اسحب الكرت للترتيب'}
+                اضغط لتحديد رقم الترتيب
               </Text>
-            </View>
+            </TouchableOpacity>
           ) : fullImg ? (
             <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
               <Ionicons name="image" size={13} color="#047857" />
@@ -345,7 +197,7 @@ const DraggableExpenseCard: React.FC<DraggableExpenseCardProps> = ({
           )}
         </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -436,8 +288,19 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
 
   // Reorder State
   const [isReorderMode, setIsReorderMode] = useState<boolean>(false);
-  const [scrollEnabled, setScrollEnabled] = useState<boolean>(true);
-  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  // Target item selected for direct number ordering
+  const [reorderTarget, setReorderTarget] = useState<{
+    item: CustodyExpenseItem;
+    currentIdx: number;
+  } | null>(null);
+  const [orderNumberInput, setOrderNumberInput] = useState<string>('1');
+
+  const openReorderModal = (item: CustodyExpenseItem, currentIdx: number) => {
+    setReorderTarget({ item, currentIdx });
+    setOrderNumberInput(String(currentIdx + 1));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  };
 
   // Commit atomic reorder with native 60fps LayoutAnimation
   const handleCommitReorder = (fromFilteredIdx: number, toFilteredIdx: number) => {
@@ -476,20 +339,21 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   };
 
-  const handleNudgeExpense = (fromIdx: number, direction: 'up' | 'down') => {
-    const toIdx = direction === 'up' ? fromIdx - 1 : fromIdx + 1;
-    handleCommitReorder(fromIdx, toIdx);
-  };
+  const handleApplyNewOrderNumber = () => {
+    if (!reorderTarget) return;
+    const rawVal = parseInt(orderNumberInput, 10);
+    if (isNaN(rawVal)) {
+      Alert.alert('تنبيه', 'يرجى كتابة رقم صحيح للترتيب.');
+      return;
+    }
+    const clamped1Based = Math.max(1, Math.min(filteredExpenses.length, rawVal));
+    const toIdx = clamped1Based - 1;
+    const fromIdx = reorderTarget.currentIdx;
 
-  const handleDragStart = (id: string) => {
-    setScrollEnabled(false);
-    setActiveDragId(id);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-  };
-
-  const handleDragEnd = () => {
-    setScrollEnabled(true);
-    setActiveDragId(null);
+    setReorderTarget(null);
+    if (fromIdx !== toIdx) {
+      handleCommitReorder(fromIdx, toIdx);
+    }
   };
 
   const totalFilteredAmount = filteredExpenses.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -529,7 +393,6 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
       </View>
 
       <ScrollView
-        scrollEnabled={scrollEnabled}
         contentContainerStyle={[styles.scrollContent, filteredExpenses.length === 0 && !loading && { flex: 1, justifyContent: 'center' }]}
         showsVerticalScrollIndicator={false}
       >
@@ -545,7 +408,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                   وضع ترتيب الفواتير
                 </Text>
                 <Text style={[styles.reorderBannerSub, { color: isDarkMode ? '#a7f3d0' : '#065f46' }]}>
-                  اضغط الأسهم 🔼 🔽 أو اسحب الكرت للترتيب الفوري والسلس
+                  اضغط على أي كرت لكتابة وتحديد رقم ترتيبه الجديد مباشرة
                 </Text>
               </View>
             </View>
@@ -588,7 +451,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                 : selectedDate;
 
               return (
-                <DraggableExpenseCard
+                <ExpenseCard
                   key={item.id || idx}
                   item={item}
                   idx={idx}
@@ -603,10 +466,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                   onPressDetails={() => setSelectedExpenseForDetails(item)}
                   onLongPressAction={() => setSelectedExpenseForAction(item)}
                   onPreviewImage={onPreviewImage}
-                  onNudge={handleNudgeExpense}
-                  onDragStart={handleDragStart}
-                  onDragCommit={handleCommitReorder}
-                  onDragEnd={handleDragEnd}
+                  onOpenReorderModal={openReorderModal}
                 />
               );
             })}
@@ -782,7 +642,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
               );
             })()}
 
-            {/* Standard Actions (Edit / Delete) */}
+            {/* Standard Actions (Edit / Reorder / Delete) */}
             <View style={styles.actionSheetBtnsCol}>
               {/* Edit Option */}
               <TouchableOpacity
@@ -798,6 +658,28 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                 </View>
                 <Text style={[styles.sheetOptionText, { color: colors.textPrimary }]}>
                   تعديل بيانات ومبلغ الفاتورة
+                </Text>
+              </TouchableOpacity>
+
+              {/* Set Card Order Number Option */}
+              <TouchableOpacity
+                style={[styles.sheetOptionBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border }]}
+                onPress={() => {
+                  const target = selectedExpenseForAction;
+                  setSelectedExpenseForAction(null);
+                  if (target) {
+                    const targetIdx = filteredExpenses.findIndex((e) => e.id === target.id);
+                    if (targetIdx !== -1) {
+                      openReorderModal(target, targetIdx);
+                    }
+                  }
+                }}
+              >
+                <View style={[styles.sheetOptionIconBox, { backgroundColor: '#ecfdf5' }]}>
+                  <Ionicons name="swap-vertical" size={18} color="#047857" />
+                </View>
+                <Text style={[styles.sheetOptionText, { color: colors.textPrimary }]}>
+                  تحديد رقم ترتيب الكرت
                 </Text>
               </TouchableOpacity>
 
@@ -827,6 +709,146 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      {/* ── 3. Type Card Position / Reorder Bottom Sheet Modal ── */}
+      <Modal
+        visible={!!reorderTarget}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setReorderTarget(null)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalBackdrop}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setReorderTarget(null)}
+            />
+            <View style={[styles.reorderInputSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.sheetHandle} />
+
+              {/* Header */}
+              <View style={styles.reorderModalHeaderRow}>
+                <TouchableOpacity
+                  onPress={() => setReorderTarget(null)}
+                  style={styles.reorderModalCloseBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+                <View style={{ alignItems: 'flex-end', flex: 1 }}>
+                  <Text style={[styles.reorderSheetTitle, { color: colors.textPrimary }]}>
+                    تحديد رقم ترتيب الكرت
+                  </Text>
+                  <Text style={[styles.reorderSheetSub, { color: colors.textSecondary }]}>
+                    اكتب رقم الترتيب لنقل الفاتورة إلى الموضع المطلوب مباشرة
+                  </Text>
+                </View>
+              </View>
+
+              {/* Card Summary Card */}
+              {reorderTarget && (
+                <View style={[styles.reorderCardSummary, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border }]}>
+                  <View style={styles.reorderSummaryLeft}>
+                    <Text style={[styles.reorderSummaryAmount, { color: '#047857' }]}>
+                      {formatArabicNumber(reorderTarget.item.amount, 2)} ر.س
+                    </Text>
+                  </View>
+                  <View style={styles.reorderSummaryRight}>
+                    <Text style={[styles.reorderSummaryRecipient, { color: colors.textPrimary }]} numberOfLines={1}>
+                      {reorderTarget.item.recipient_name || 'بدون بيان'}
+                    </Text>
+                    <Text style={[styles.reorderSummaryCurrentPos, { color: colors.textSecondary }]}>
+                      الترتيب الحالي: الكرت رقم ({reorderTarget.currentIdx + 1}) من إجمالي ({filteredExpenses.length})
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Number Input Control Row (+ / - and direct input) */}
+              <View style={styles.reorderInputControlRow}>
+                <TouchableOpacity
+                  style={[styles.reorderStepBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border }]}
+                  onPress={() => {
+                    const currentVal = parseInt(orderNumberInput, 10) || 1;
+                    if (currentVal < filteredExpenses.length) {
+                      setOrderNumberInput(String(currentVal + 1));
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add" size={24} color="#047857" />
+                </TouchableOpacity>
+
+                <View style={[styles.reorderInputWrap, { backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', borderColor: '#047857' }]}>
+                  <TextInput
+                    style={[styles.reorderTextInput, { color: colors.textPrimary }]}
+                    value={orderNumberInput}
+                    onChangeText={(val) => {
+                      const cleaned = val.replace(/[^0-9]/g, '');
+                      setOrderNumberInput(cleaned);
+                    }}
+                    keyboardType="number-pad"
+                    selectTextOnFocus
+                    maxLength={3}
+                    placeholder="1"
+                    placeholderTextColor={colors.textSecondary}
+                    textAlign="center"
+                  />
+                  <Text style={[styles.reorderInputLabel, { color: colors.textSecondary }]}>
+                    من {filteredExpenses.length}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.reorderStepBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border }]}
+                  onPress={() => {
+                    const currentVal = parseInt(orderNumberInput, 10) || 1;
+                    if (currentVal > 1) {
+                      setOrderNumberInput(String(currentVal - 1));
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="remove" size={24} color="#047857" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Quick Jump Shortcuts */}
+              <View style={styles.reorderQuickShortcutsRow}>
+                <TouchableOpacity
+                  style={[styles.reorderShortcutChip, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border }]}
+                  onPress={() => setOrderNumberInput('1')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.reorderShortcutText, { color: colors.textPrimary }]}>الأول (رقم 1)</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.reorderShortcutChip, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border }]}
+                  onPress={() => setOrderNumberInput(String(filteredExpenses.length))}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.reorderShortcutText, { color: colors.textPrimary }]}>الأخير (رقم {filteredExpenses.length})</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Submit Button */}
+              <TouchableOpacity
+                style={styles.reorderSubmitBtn}
+                onPress={handleApplyNewOrderNumber}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" style={{ marginLeft: 6 }} />
+                <Text style={styles.reorderSubmitBtnText}>تطبيق الترتيب الجديد</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -1418,5 +1440,152 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#047857',
+  },
+  reorderCardPillBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  reorderCardPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  reorderInputSheetBox: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  },
+  reorderModalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#cbd5e1',
+  },
+  reorderModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reorderSheetTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  reorderSheetSub: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  reorderCardSummary: {
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  reorderSummaryRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  reorderSummaryRecipient: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  reorderSummaryCurrentPos: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  reorderSummaryLeft: {
+    paddingLeft: 8,
+  },
+  reorderSummaryAmount: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  reorderInputControlRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
+  },
+  reorderStepBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reorderInputWrap: {
+    width: 140,
+    height: 64,
+    borderRadius: 16,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  reorderTextInput: {
+    fontSize: 26,
+    fontWeight: '900',
+    width: '100%',
+    textAlign: 'center',
+    padding: 0,
+  },
+  reorderInputLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: -2,
+  },
+  reorderQuickShortcutsRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  reorderShortcutChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  reorderShortcutText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  reorderSubmitBtn: {
+    width: '100%',
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: '#047857',
+    flexDirection: 'row-reverse',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#047857',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  reorderSubmitBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });
