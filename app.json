@@ -2,7 +2,7 @@
   "expo": {
     "name": "أبرار | مناديب",
     "slug": "aams-manadeeb",
-    "owner": "1eff2027ef",
+    "owner": "4e4773f0c1",
     "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -112,7 +112,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/4b61e94d-669f-46ce-abe1-0520271c0272",
+      "url": "https://u.expo.dev/952844e9-c2bd-47ea-a842-cb120a74f4bc",
       "enabled": true,
       "fallbackToCacheTimeout": 2000,
       "checkAutomatically": "ON_LOAD"
@@ -129,7 +129,7 @@
         "bn": "আবরার | প্রতিনিধি"
       },
       "eas": {
-        "projectId": "4b61e94d-669f-46ce-abe1-0520271c0272"
+        "projectId": "952844e9-c2bd-47ea-a842-cb120a74f4bc"
       }
     }
   }
