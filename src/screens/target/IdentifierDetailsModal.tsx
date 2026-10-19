@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Image,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { IdentifierDetails, AccountStatus } from '../../types/target';
@@ -630,15 +631,21 @@ export const IdentifierDetailsModal: React.FC<IdentifierDetailsModalProps> = ({
         </View>
       </View>
 
-      {/* Status Selection Modal */}
+      {/* Status Selection Bottom Sheet Modal */}
       <Modal
         visible={showStatusModal}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => !statusUpdating && setShowStatusModal(false)}
       >
         <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => !statusUpdating && setShowStatusModal(false)}
+          />
           <View style={[styles.statusDialogBox, isDarkMode && styles.darkDialogBox]}>
+            <View style={[styles.statusDragHandle, isDarkMode && { backgroundColor: '#475569' }]} />
             <View style={styles.dialogHeader}>
               <Text style={[styles.dialogTitle, isDarkMode && styles.darkText]}>
                 تعديل حالة تشغيل المعرف
@@ -1187,17 +1194,26 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: 'flex-end',
+  },
+  statusDragHandle: {
+    width: 44,
+    height: 4.5,
+    borderRadius: 3,
+    backgroundColor: '#cbd5e1',
+    alignSelf: 'center',
+    marginBottom: 14,
   },
   statusDialogBox: {
     width: '100%',
-    maxWidth: 420,
     backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
     borderColor: '#e2e8f0',
   },
   darkDialogBox: {

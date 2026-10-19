@@ -96,6 +96,19 @@ export const AppUpdateBottomSheet: React.FC<AppUpdateBottomSheetProps> = ({
     }
   }, [state]);
 
+  // Auto-close when UP_TO_DATE animation completes (+ 1s buffer)
+  useEffect(() => {
+    let timer: any;
+    if (visible && state === 'UP_TO_DATE') {
+      timer = setTimeout(() => {
+        onClose();
+      }, 3500);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [visible, state, onClose]);
+
   if (!visible) return null;
 
   return (
@@ -165,6 +178,11 @@ export const AppUpdateBottomSheet: React.FC<AppUpdateBottomSheetProps> = ({
                 autoPlay={true}
                 loop={false}
                 style={{ width: 130, height: 130 }}
+                onAnimationFinish={() => {
+                  setTimeout(() => {
+                    onClose();
+                  }, 1000);
+                }}
               />
             </View>
           )}
@@ -190,7 +208,7 @@ export const AppUpdateBottomSheet: React.FC<AppUpdateBottomSheetProps> = ({
             {state === 'READY' && (isRTL ? 'يوجد تحديث سحابي جديد متوفر' : 'New Cloud Update Available')}
             {state === 'DOWNLOADING' && (isRTL ? 'جارِ تنزيل وتطبيق التحديث...' : 'Downloading and applying update...')}
             {state === 'CHECKING' && (isRTL ? 'جارِ التحقق من التحديثات...' : 'Checking for Updates...')}
-            {state === 'UP_TO_DATE' && (isRTL ? 'أنت على آخر إصدار بنجاح ✓' : 'Your App is Up-to-Date ✓')}
+            {state === 'UP_TO_DATE' && (isRTL ? 'أنت على آخر إصدار' : 'Your App is Up-to-Date')}
             {state === 'ERROR' && (isRTL ? 'تعذر جلب التحديث' : 'Update Check Failed')}
           </Text>
 
@@ -244,16 +262,6 @@ export const AppUpdateBottomSheet: React.FC<AppUpdateBottomSheetProps> = ({
                 </Text>
               </TouchableOpacity>
             </>
-          )}
-
-          {state === 'UP_TO_DATE' && (
-            <TouchableOpacity
-              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-              onPress={onClose}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.primaryBtnText}>{isRTL ? 'حسناً، فهمت' : 'Got it'}</Text>
-            </TouchableOpacity>
           )}
 
           {state === 'ERROR' && (
