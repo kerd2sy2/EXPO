@@ -20,6 +20,14 @@ export interface AhdaHeaderProps {
   onPressBranchSelector?: () => void;
 }
 
+const getFirstTwoNames = (fullName?: string | null): string => {
+  if (!fullName || typeof fullName !== 'string') return 'مسؤول العهدة';
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'مسؤول العهدة';
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[1]}`;
+};
+
 export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
   user,
   colors,
@@ -31,61 +39,75 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
   onPressBranchSelector,
 }) => {
   const avatarUrl = user?.google_avatar || user?.avatar || null;
+  const rawName =
+    user?.name ||
+    user?.full_name ||
+    user?.username ||
+    user?.employee?.name ||
+    user?.admin?.name ||
+    'مسؤول العهدة';
+  const employeeDisplayName = getFirstTwoNames(rawName);
+  const branchDisplayName = activeBranchName || 'الفرع الأول';
 
   return (
     <View style={[styles.headerContainer, { borderBottomColor: 'transparent' }]}>
-      {/* Right Side: Photo only (Clickable for Profile) */}
-      <TouchableOpacity
-        style={styles.headerAvatarTouch}
-        onPress={onPressProfile}
-        activeOpacity={0.8}
-      >
-        <View style={[styles.headerAvatar, { backgroundColor: '#ecfdf5', borderColor: '#047857' }]}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.headerAvatarImg} />
+      {/* Right Side: Avatar + Employee Name (First & Second) + Branch Name (No Background) */}
+      <View style={styles.headerRightGroup}>
+        <TouchableOpacity
+          style={styles.headerAvatarTouch}
+          onPress={onPressProfile}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.headerAvatar, { backgroundColor: '#ecfdf5', borderColor: '#047857' }]}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.headerAvatarImg} />
+            ) : (
+              <Ionicons name="person" size={20} color="#047857" />
+            )}
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.headerUserInfoCol}>
+          {/* Employee Name (First & Second Name) */}
+          <TouchableOpacity onPress={onPressProfile} activeOpacity={0.7}>
+            <Text
+              style={[styles.employeeNameText, { color: colors.textPrimary }]}
+              numberOfLines={1}
+            >
+              {employeeDisplayName}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Branch Name without background */}
+          {canSwitchBranch && onPressBranchSelector ? (
+            <TouchableOpacity
+              style={styles.branchRowNoBg}
+              onPress={onPressBranchSelector}
+              activeOpacity={0.7}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="business-outline" size={13} color="#047857" />
+              <Text
+                style={[styles.branchTextNoBg, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {branchDisplayName}
+              </Text>
+              <Ionicons name="chevron-down" size={12} color="#047857" />
+            </TouchableOpacity>
           ) : (
-            <Ionicons name="person" size={20} color="#047857" />
+            <View style={styles.branchRowNoBg}>
+              <Ionicons name="business-outline" size={13} color="#047857" />
+              <Text
+                style={[styles.branchTextNoBg, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {branchDisplayName}
+              </Text>
+            </View>
           )}
         </View>
-      </TouchableOpacity>
-
-      {/* Center: Branch Selector Pill (Dropdown for multi-branch users, static label for single-branch) */}
-      {canSwitchBranch && activeBranchName ? (
-        <TouchableOpacity
-          style={[
-            styles.branchPill,
-            {
-              backgroundColor: isDarkMode ? '#1e293b' : '#f0fdf4',
-              borderColor: isDarkMode ? '#334155' : '#bbf7d0',
-            },
-          ]}
-          onPress={onPressBranchSelector}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="business" size={15} color="#047857" />
-          <Text style={[styles.branchPillText, { color: colors.textPrimary }]} numberOfLines={1}>
-            {activeBranchName}
-          </Text>
-          <Ionicons name="chevron-down" size={14} color="#047857" style={{ marginRight: -2 }} />
-        </TouchableOpacity>
-      ) : activeBranchName ? (
-        <View
-          style={[
-            styles.branchPill,
-            {
-              backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-              borderColor: isDarkMode ? '#334155' : '#e2e8f0',
-            },
-          ]}
-        >
-          <Ionicons name="business" size={15} color="#047857" />
-          <Text style={[styles.branchPillText, { color: colors.textPrimary }]} numberOfLines={1}>
-            {activeBranchName}
-          </Text>
-        </View>
-      ) : (
-        <View style={{ flex: 1 }} />
-      )}
+      </View>
 
       {/* Left Side: Header Actions (Date/Calendar Modal Icon) */}
       <View style={styles.headerActions}>
@@ -111,8 +133,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     backgroundColor: 'transparent',
+  },
+  headerRightGroup: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
   },
   headerAvatarTouch: {
     padding: 2,
@@ -130,24 +158,27 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  branchPill: {
+  headerUserInfoCol: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 2,
+    flexShrink: 1,
+  },
+  employeeNameText: {
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+  branchRowNoBg: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.2,
-    maxWidth: '55%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    gap: 4,
+    backgroundColor: 'transparent',
   },
-  branchPillText: {
-    fontSize: 13,
-    fontWeight: '700',
+  branchTextNoBg: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'right',
   },
   headerActions: {
     flexDirection: 'row',

@@ -118,21 +118,27 @@ const AuthLoadingShell: React.FC<{ colors: ThemeColors; isDarkMode: boolean }> =
           paddingVertical: 10,
         }}
       >
-        {/* Right: Avatar Placeholder */}
-        <View
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            backgroundColor: '#ecfdf5',
-            borderWidth: 1,
-            borderColor: '#047857',
-            justifyContent: 'center',
-            alignItems: 'center',
-            overflow: 'hidden',
-          }}
-        >
-          <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#fed7aa', opacity: 0.7 }} />
+        {/* Right: Avatar Placeholder + User/Branch Info */}
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }}>
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: '#ecfdf5',
+              borderWidth: 2,
+              borderColor: '#047857',
+              justifyContent: 'center',
+              alignItems: 'center',
+              overflow: 'hidden',
+            }}
+          >
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#fed7aa', opacity: 0.7 }} />
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            <View style={{ width: 80, height: 13, borderRadius: 4, backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }} />
+            <View style={{ width: 55, height: 10, borderRadius: 4, backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }} />
+          </View>
         </View>
 
         {/* Left: Calendar Icon Action Button */}
