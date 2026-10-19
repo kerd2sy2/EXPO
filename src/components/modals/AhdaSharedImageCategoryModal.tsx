@@ -93,14 +93,9 @@ export const AhdaSharedImageCategoryModal: React.FC<AhdaSharedImageCategoryModal
             >
               <View style={styles.ledgerRightInfo}>
                 <View style={styles.ledgerIconCircle}>
-                  <Ionicons name="book" size={20} color="#ffffff" />
+                  <Ionicons name="book" size={18} color="#ffffff" />
                 </View>
-                <View style={{ alignItems: 'flex-end', justifyContent: 'center', flex: 1 }}>
-                  <Text style={styles.ledgerBtnTitle}>صورة الدفتر اليومي للعهدة</Text>
-                  <Text style={styles.ledgerBtnSub}>
-                    حفظ وإرفاق هذه الصورة كدفتر اليومية (بدون مبلغ أو بيانات)
-                  </Text>
-                </View>
+                <Text style={styles.ledgerBtnTitle}>صورة الدفتر اليومي للعهدة</Text>
               </View>
               <Ionicons name="chevron-back" size={18} color="rgba(255, 255, 255, 0.85)" />
             </TouchableOpacity>
@@ -238,29 +233,29 @@ const styles = StyleSheet.create({
   },
   ledgerCardBtn: {
     backgroundColor: '#047857',
-    borderRadius: 16,
+    borderRadius: 14,
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
     shadowColor: '#047857',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
     elevation: 3,
   },
   ledgerRightInfo: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     flex: 1,
   },
   ledgerIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -269,13 +264,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#ffffff',
-    textAlign: 'right',
-    marginBottom: 2,
-  },
-  ledgerBtnSub: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.88)',
     textAlign: 'right',
   },
   dividerRow: {
