@@ -3,7 +3,7 @@
     "name": "أبرار | مناديب",
     "slug": "aams-manadeeb",
     "owner": "1eff2027ef",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "aams-manadeeb",
@@ -46,7 +46,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 11
+      "versionCode": 12
     },
     "web": {
       "output": "static",
