@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../types/delegate';
+import { formatImageUrl } from '../services/api';
 
 export interface AhdaHeaderProps {
   user: any;
@@ -38,7 +39,19 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
   onPressDatePicker,
   onPressBranchSelector,
 }) => {
-  const avatarUrl = user?.google_avatar || user?.avatar || null;
+  const rawAvatar =
+    user?.avatar ||
+    user?.google_avatar ||
+    user?.personal_image ||
+    user?.photo ||
+    user?.image ||
+    user?.picture ||
+    user?.employee?.personal_image ||
+    user?.employee?.avatar ||
+    user?.admin?.google_avatar ||
+    user?.admin?.avatar ||
+    null;
+  const avatarUrl = formatImageUrl(rawAvatar);
   const rawName =
     user?.name ||
     user?.full_name ||

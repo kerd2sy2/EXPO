@@ -206,10 +206,11 @@ export default function AhdaApp() {
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const [stored, cachedUser, savedPref] = await Promise.all([
+        const [stored, cachedUser, savedPref, cachedAvatar] = await Promise.all([
           loadStoredToken(),
           getCachedUser(),
           AsyncStorage.getItem('@ahda_theme_preference'),
+          AsyncStorage.getItem('@aams_cached_avatar'),
         ]);
 
         if (savedPref === 'system' || savedPref === 'light' || savedPref === 'dark') {
@@ -219,6 +220,9 @@ export default function AhdaApp() {
         if (stored) {
           setTokenState(stored);
           if (cachedUser) {
+            if (cachedAvatar && !cachedUser.avatar && !cachedUser.google_avatar && !cachedUser.personal_image) {
+              cachedUser.avatar = cachedAvatar;
+            }
             setCurrentUser(cachedUser);
           } else {
             // No valid user session cached, require clean login
@@ -248,6 +252,10 @@ export default function AhdaApp() {
     const activeToken = getStoredToken();
     if (activeToken) {
       setTokenState(activeToken);
+    }
+    const cachedAvatar = await AsyncStorage.getItem('@aams_cached_avatar').catch(() => null);
+    if (cachedAvatar && !user.avatar && !user.google_avatar && !user.personal_image) {
+      user.avatar = cachedAvatar;
     }
     setCurrentUser(user);
   }, []);

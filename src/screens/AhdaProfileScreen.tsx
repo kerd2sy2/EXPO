@@ -15,9 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import LottieView from 'lottie-react-native';
 import { ThemeColors } from '../types/delegate';
 import { custodyService } from '../services/custodyService';
-import { saveCachedUser } from '../services/api';
+import { saveCachedUser, formatImageUrl } from '../services/api';
 
 interface AhdaProfileScreenProps {
   currentUser: any;
@@ -54,9 +56,29 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
+  // Load cached avatar on mount if present
+  React.useEffect(() => {
+    AsyncStorage.getItem('@aams_cached_avatar').then((saved) => {
+      if (saved) {
+        setLocalAvatarUri(saved);
+      }
+    }).catch(() => {});
+  }, []);
+
   const userName = currentUser?.name || currentUser?.full_name || currentUser?.username || 'مسؤول العهدة';
   const userEmail = currentUser?.email || currentUser?.google_email || '—';
-  const avatarUrl = localAvatarUri || currentUser?.google_avatar || currentUser?.avatar || null;
+  const rawAvatar =
+    localAvatarUri ||
+    currentUser?.avatar ||
+    currentUser?.google_avatar ||
+    currentUser?.personal_image ||
+    currentUser?.photo ||
+    currentUser?.image ||
+    currentUser?.picture ||
+    currentUser?.employee?.personal_image ||
+    currentUser?.admin?.google_avatar ||
+    null;
+  const avatarUrl = formatImageUrl(rawAvatar);
   const userCode = currentUser?.code || currentUser?.username || '—';
 
   // Handle OTA Cloud Updates
@@ -152,8 +174,12 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
           ...currentUser,
           avatar: finalAvatarUrl,
           google_avatar: finalAvatarUrl,
+          personal_image: finalAvatarUrl,
         };
         await saveCachedUser(updatedUser);
+        try {
+          await AsyncStorage.setItem('@aams_cached_avatar', finalAvatarUrl);
+        } catch (_) {}
         if (onUpdateUser) {
           onUpdateUser(updatedUser);
         }
@@ -165,6 +191,25 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
     } finally {
       setUploadingAvatar(false);
     }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setShowAvatarActionModal(false);
+    setLocalAvatarUri(null);
+    try {
+      await AsyncStorage.removeItem('@aams_cached_avatar');
+    } catch (_) {}
+    const updatedUser = {
+      ...currentUser,
+      avatar: null,
+      google_avatar: null,
+      personal_image: null,
+    };
+    await saveCachedUser(updatedUser);
+    if (onUpdateUser) {
+      onUpdateUser(updatedUser);
+    }
+    Alert.alert('تم', 'تمت إزالة صورة الملف الشخصي.');
   };
 
   const confirmLogout = () => {
@@ -501,8 +546,13 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
 
             {updateModalState === 'up_to_date' && (
               <View style={styles.updateModalContent}>
-                <View style={[styles.updateIconCircle, { backgroundColor: '#ecfdf5' }]}>
-                  <Ionicons name="checkmark-circle" size={48} color="#047857" />
+                <View style={styles.updateLottieWrap}>
+                  <LottieView
+                    source={require('../../assets/Lottie/lottie/OfbVDo06RM.lottie')}
+                    autoPlay
+                    loop={false}
+                    style={styles.updateLottieAnim}
+                  />
                 </View>
                 <Text style={[styles.updateModalTitle, { color: colors.textPrimary }]}>
                   أنت على آخر إصدار بنجاح ✓
@@ -522,8 +572,13 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
 
             {updateModalState === 'available' && (
               <View style={styles.updateModalContent}>
-                <View style={[styles.updateIconCircle, { backgroundColor: '#eff6ff' }]}>
-                  <Ionicons name="cloud-download" size={44} color="#0284c7" />
+                <View style={styles.updateLottieWrap}>
+                  <LottieView
+                    source={require('../../assets/Lottie/lottie/lZP6vbMw39.lottie')}
+                    autoPlay
+                    loop={true}
+                    style={styles.updateLottieAnim}
+                  />
                 </View>
                 <Text style={[styles.updateModalTitle, { color: colors.textPrimary }]}>
                   يوجد تحديث سحابي جديد متوفر
@@ -553,8 +608,13 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
 
             {updateModalState === 'downloading' && (
               <View style={styles.updateModalContent}>
-                <View style={[styles.updateIconCircle, { backgroundColor: '#ecfdf5' }]}>
-                  <ActivityIndicator size="large" color="#047857" />
+                <View style={styles.updateLottieWrap}>
+                  <LottieView
+                    source={require('../../assets/Lottie/lottie/lZP6vbMw39.lottie')}
+                    autoPlay
+                    loop={true}
+                    style={styles.updateLottieAnim}
+                  />
                 </View>
                 <Text style={[styles.updateModalTitle, { color: colors.textPrimary }]}>
                   جارِ تنزيل وتطبيق التحديث...
@@ -568,7 +628,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
         </View>
       </Modal>
 
-      {/* ── 5. Avatar Action Modal (Camera / Gallery Picker) ── */}
+      {/* ── 5. Avatar Action Modal (Camera / Gallery Picker / Remove) ── */}
       <Modal
         visible={showAvatarActionModal}
         transparent
@@ -648,6 +708,32 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
                 </View>
                 <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
+
+              {/* Option 3: Remove Avatar (if exists) */}
+              {(avatarUrl || localAvatarUri) && (
+                <TouchableOpacity
+                  style={[
+                    styles.themeOptionCard,
+                    {
+                      backgroundColor: isDarkMode ? '#1e293b' : '#fef2f2',
+                      borderColor: isDarkMode ? '#334155' : '#fee2e2',
+                    },
+                  ]}
+                  onPress={handleRemoveAvatar}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.themeOptionRight}>
+                    <View style={[styles.themeIconBox, { backgroundColor: '#fee2e2' }]}>
+                      <Ionicons name="trash-outline" size={20} color="#dc2626" />
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[styles.themeOptionTitle, { color: '#dc2626' }]}>إزالة الصورة الحالية</Text>
+                      <Text style={{ fontSize: 11, color: colors.textSecondary }}>العودة إلى الأيقونة الرمزية الافتراضية</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
             </View>
 
             <TouchableOpacity
@@ -965,6 +1051,17 @@ const styles = StyleSheet.create({
   updateModalContent: {
     width: '100%',
     alignItems: 'center',
+  },
+  updateLottieWrap: {
+    width: 130,
+    height: 130,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  updateLottieAnim: {
+    width: '100%',
+    height: '100%',
   },
   updateIconCircle: {
     width: 76,
