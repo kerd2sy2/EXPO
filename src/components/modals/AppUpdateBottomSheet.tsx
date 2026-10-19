@@ -136,7 +136,7 @@ export const AppUpdateBottomSheet: React.FC<AppUpdateBottomSheetProps> = ({
           {(state === 'READY' || state === 'DOWNLOADING') && (
             <View style={{ width: 140, height: 140, alignItems: 'center', justifyContent: 'center' }}>
               <LottieView
-                source={require('../../../assets/Lottie/json/update.json')}
+                source={require('../../../assets/Lottie/lottie/lZP6vbMw39.lottie')}
                 autoPlay={true}
                 loop={true}
                 style={{ width: 140, height: 140 }}
@@ -159,16 +159,13 @@ export const AppUpdateBottomSheet: React.FC<AppUpdateBottomSheetProps> = ({
           )}
 
           {state === 'UP_TO_DATE' && (
-            <View
-              style={[
-                styles.iconBox,
-                {
-                  backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                  borderColor: '#3b82f6',
-                },
-              ]}
-            >
-              <Ionicons name="checkmark-done-circle-outline" size={40} color="#2563eb" />
+            <View style={{ width: 140, height: 140, alignItems: 'center', justifyContent: 'center' }}>
+              <LottieView
+                source={require('../../../assets/Lottie/lottie/OfbVDo06RM.lottie')}
+                autoPlay={true}
+                loop={false}
+                style={{ width: 130, height: 130 }}
+              />
             </View>
           )}
 
@@ -190,30 +187,30 @@ export const AppUpdateBottomSheet: React.FC<AppUpdateBottomSheetProps> = ({
         {/* Texts */}
         <View style={styles.textContainer}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            {state === 'READY' && (isRTL ? 'تحديث جديد متوفر للتطبيق' : 'New Update Available')}
-            {state === 'DOWNLOADING' && (isRTL ? 'جاري تنزيل التحديث الهوائي...' : 'Downloading Update...')}
-            {state === 'CHECKING' && (isRTL ? 'جاري التحقق من التحديثات...' : 'Checking for Updates...')}
-            {state === 'UP_TO_DATE' && (isRTL ? 'تطبيقك محدث بالكامل' : 'Your App is Up-to-Date')}
+            {state === 'READY' && (isRTL ? 'يوجد تحديث سحابي جديد متوفر' : 'New Cloud Update Available')}
+            {state === 'DOWNLOADING' && (isRTL ? 'جارِ تنزيل وتطبيق التحديث...' : 'Downloading and applying update...')}
+            {state === 'CHECKING' && (isRTL ? 'جارِ التحقق من التحديثات...' : 'Checking for Updates...')}
+            {state === 'UP_TO_DATE' && (isRTL ? 'أنت على آخر إصدار بنجاح ✓' : 'Your App is Up-to-Date ✓')}
             {state === 'ERROR' && (isRTL ? 'تعذر جلب التحديث' : 'Update Check Failed')}
           </Text>
 
           <Text style={[styles.message, { color: colors.textSecondary }]}>
             {state === 'READY' &&
               (isRTL
-                ? 'تم تنزيل أحدث نسخة من النظام بنجاح.\nتشمل تحسينات البصمة وعرض الطلبات وصورة الموظف وسجل الشفتات.'
-                : 'The latest update has been downloaded.\nIncludes biometric login fixes, photo display, and shifts history.')}
+                ? 'يتوفر إصدار جديد يتضمن ترقيات وتحسينات للنظام. هل تريد تطبيقه الآن؟'
+                : 'A new update is available with system improvements. Apply now?')}
             {state === 'DOWNLOADING' &&
               (isRTL
-                ? 'يرجى الانتظار ثوانٍ معدودة، جاري جلب أحدث الحزم البرمجية مباشرة إلى جهازك...'
-                : 'Please wait a few seconds while the latest update is fetched...')}
+                ? 'يرجى الانتظار ثوانٍ معدودة، سيتم إعادة تشغيل التطبيق تلقائياً بالنسخة المحدثة...'
+                : 'Please wait a few seconds, the app will reload with the latest version...')}
             {state === 'CHECKING' &&
               (isRTL
-                ? 'جاري الاتصال بخوادم Expo للتأكد من توفر إصدار أحدث...'
-                : 'Connecting to Expo servers to check for updates...')}
+                ? 'يتم فحص خادم التحديثات السحابية لتوفير أحدث نسخة معتمدة...'
+                : 'Checking the cloud server for the latest approved release...')}
             {state === 'UP_TO_DATE' &&
               (isRTL
-                ? 'أنت تعمل حالياً بأحدث إصدار رسمي من التطبيق (الإصدار 1.0.0 - Production).'
-                : 'You are currently running the latest official version of the app (v1.0.0).')}
+                ? 'تطبيقك محدث بالكامل ومزود بأحدث التحسينات والميزات المعتمدة.'
+                : 'Your app is fully up to date with the latest approved features.')}
             {state === 'ERROR' &&
               (errorMessage ||
                 (isRTL
