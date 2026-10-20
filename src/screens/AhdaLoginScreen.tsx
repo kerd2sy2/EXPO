@@ -19,6 +19,7 @@ import { ThemeColors } from '../types/delegate';
 import { custodyService, hasCustodyPermission } from '../services/custodyService';
 import { setAuthToken, saveCachedUser } from '../services/api';
 import { AhdaActionAlertModal, AhdaAlertConfig } from '../components/modals/AhdaActionAlertModal';
+import { HumanVerificationModal } from '../components/modals/HumanVerificationModal';
 
 import * as WebBrowser from 'expo-web-browser';
 
@@ -40,6 +41,8 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [alertConfig, setAlertConfig] = useState<AhdaAlertConfig | null>(null);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [pendingCredentials, setPendingCredentials] = useState<{ phone: string; pass: string } | null>(null);
 
   // Eastern / Arabic digit conversion
   const normalizeDigits = (str: string) => {
@@ -48,35 +51,11 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
   };
 
-  // Regular Phone & Password Login
-  const handlePhoneLogin = async () => {
-    if (loading) return;
-
-    const rawNormalizedPhone = normalizeDigits(phoneInput.trim());
-    const rawNormalizedPass = normalizeDigits(passwordInput.trim());
-
-    if (!rawNormalizedPhone) {
-      setAlertConfig({
-        type: 'error',
-        title: 'تنبيه تسجيل الدخول',
-        message: 'يرجى إدخال رقم الهاتف',
-        primaryButtonText: 'حسناً',
-      });
-      return;
-    }
-    if (!rawNormalizedPass) {
-      setAlertConfig({
-        type: 'error',
-        title: 'تنبيه تسجيل الدخول',
-        message: 'يرجى إدخال كلمة السر',
-        primaryButtonText: 'حسناً',
-      });
-      return;
-    }
-
+  // Execute Phone & Password Login after successful human verification
+  const executePhoneLogin = async (phone: string, pass: string) => {
     try {
       setLoading(true);
-      const res = await custodyService.login(rawNormalizedPhone, rawNormalizedPass);
+      const res = await custodyService.login(phone, pass);
       const user = res?.admin || res?.user || res?.employee;
 
       // Strict Custody Permission Verification
@@ -122,6 +101,43 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Regular Phone & Password Login Entry Point
+  const handlePhoneLogin = async () => {
+    if (loading) return;
+
+    const rawNormalizedPhone = normalizeDigits(phoneInput.trim());
+    const rawNormalizedPass = normalizeDigits(passwordInput.trim());
+
+    if (!rawNormalizedPhone) {
+      setAlertConfig({
+        type: 'error',
+        title: 'تنبيه تسجيل الدخول',
+        message: 'يرجى إدخال رقم الهاتف',
+        primaryButtonText: 'حسناً',
+      });
+      return;
+    }
+    if (!rawNormalizedPass) {
+      setAlertConfig({
+        type: 'error',
+        title: 'تنبيه تسجيل الدخول',
+        message: 'يرجى إدخال كلمة السر',
+        primaryButtonText: 'حسناً',
+      });
+      return;
+    }
+
+    setPendingCredentials({ phone: rawNormalizedPhone, pass: rawNormalizedPass });
+    setShowVerifyModal(true);
+  };
+
+  const handleVerificationSuccess = () => {
+    setShowVerifyModal(false);
+    if (pendingCredentials) {
+      executePhoneLogin(pendingCredentials.phone, pendingCredentials.pass);
     }
   };
 
@@ -271,6 +287,15 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
         colors={colors}
         isDarkMode={isDarkMode}
         onClose={() => setAlertConfig(null)}
+      />
+
+      <HumanVerificationModal
+        visible={showVerifyModal}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        appName="العهدة"
+        onSuccess={handleVerificationSuccess}
+        onCancel={() => setShowVerifyModal(false)}
       />
     </SafeAreaView>
   );
