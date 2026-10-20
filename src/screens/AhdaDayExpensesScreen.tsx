@@ -404,35 +404,6 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
         contentContainerStyle={[styles.scrollContent, filteredExpenses.length === 0 && !loading && { flex: 1, justifyContent: 'center' }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Floating Active Banner in Reorder Mode ── */}
-        {isReorderMode && (
-          <View style={[styles.reorderBanner, { backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5', borderColor: '#059669' }]}>
-            <View style={styles.reorderBannerInfo}>
-              <View style={styles.reorderBannerIconBox}>
-                <Ionicons name="swap-vertical" size={20} color="#047857" />
-              </View>
-              <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                <Text style={[styles.reorderBannerTitle, { color: isDarkMode ? '#34d399' : '#047857' }]}>
-                  وضع ترتيب الفواتير
-                </Text>
-                <Text style={[styles.reorderBannerSub, { color: isDarkMode ? '#a7f3d0' : '#065f46' }]}>
-                  اضغط على أي كرت لكتابة وتحديد رقم ترتيبه الجديد مباشرة
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.reorderBannerDoneBtn}
-              activeOpacity={0.8}
-              onPress={() => {
-                setIsReorderMode(false);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-              }}
-            >
-              <Ionicons name="checkmark-circle" size={17} color="#ffffff" />
-              <Text style={styles.reorderBannerDoneBtnText}>تم الاعتماد ✓</Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* ── Invoices List ── */}
         {loading ? (
@@ -682,27 +653,6 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                 </Text>
               </TouchableOpacity>
 
-              {/* Set Card Order Number Option */}
-              <TouchableOpacity
-                style={[styles.sheetOptionBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border }]}
-                onPress={() => {
-                  const target = selectedExpenseForAction;
-                  setSelectedExpenseForAction(null);
-                  if (target) {
-                    const targetIdx = filteredExpenses.findIndex((e) => e.id === target.id);
-                    if (targetIdx !== -1) {
-                      openReorderModal(target, targetIdx);
-                    }
-                  }
-                }}
-              >
-                <View style={[styles.sheetOptionIconBox, { backgroundColor: '#ecfdf5' }]}>
-                  <Ionicons name="swap-vertical" size={18} color="#047857" />
-                </View>
-                <Text style={[styles.sheetOptionText, { color: colors.textPrimary }]}>
-                  تحديد رقم ترتيب الكرت
-                </Text>
-              </TouchableOpacity>
 
               {/* Delete Option */}
               <TouchableOpacity
