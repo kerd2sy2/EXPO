@@ -2,7 +2,7 @@
   "expo": {
     "name": "أبرار | عهدة",
     "slug": "ahda",
-    "owner": "1eff2027ef",
+    "owner": "4e4773f0c1",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -95,7 +95,7 @@
       [
         "expo-updates",
         {
-          "username": "1eff2027ef"
+          "username": "4e4773f0c1"
         }
       ]
     ],
@@ -106,7 +106,7 @@
       "typedRoutes": true
     },
     "updates": {
-      "url": "https://u.expo.dev/cdadebab-754b-453e-9937-68839d0b9982",
+      "url": "https://u.expo.dev/bd05cce0-4566-4c1e-a09b-cef372ced967",
       "enabled": true,
       "fallbackToCacheTimeout": 2000,
       "checkAutomatically": "ON_LOAD"
@@ -114,7 +114,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "cdadebab-754b-453e-9937-68839d0b9982"
+        "projectId": "bd05cce0-4566-4c1e-a09b-cef372ced967"
       },
       "appNames": {
         "ar": "أبرار | عهدة",
