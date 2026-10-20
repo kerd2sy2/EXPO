@@ -138,12 +138,12 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
         <View style={styles.actionSection}>
           {/* Main Title */}
           <Text style={[styles.mainTitle, { color: colors.textPrimary }]}>
-            تأكيد تسجيل الدخول
+            التأكد أنك إنسان
           </Text>
 
           {/* Subtitle without any emojis */}
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            اسحب المؤشر أدناه لتأكيد الهوية والمتابعة إلى {appName}
+            اسحب المؤشر أدناه لإثبات هويتك والمتابعة إلى {appName}
           </Text>
 
           {/* Error Banner with back button to edit credentials if failed */}
@@ -211,7 +211,7 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
                   ? 'جاري التحقق وتسجيل الدخول...'
                   : verified
                   ? 'تم التحقق بنجاح'
-                  : 'اسحب المؤشر لتسجيل الدخول'}
+                  : 'اسحب المؤشر للمتابعة'}
               </Text>
 
               {/* Draggable Knob */}
