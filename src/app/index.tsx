@@ -23,6 +23,7 @@ import {
   setAuthToken,
   getCachedUser,
   saveCachedUser,
+  fetchCurrentUserProfile,
   onSessionExpired,
 } from '../services/api';
 
@@ -224,6 +225,15 @@ export default function AhdaApp() {
               cachedUser.avatar = cachedAvatar;
             }
             setCurrentUser(cachedUser);
+
+            // Silently sync latest user profile in background on app launch (once only, zero polling)
+            fetchCurrentUserProfile()
+              .then((fresh) => {
+                if (fresh) {
+                  setCurrentUser(fresh);
+                }
+              })
+              .catch(() => {});
           } else {
             // No valid user session cached, require clean login
             await setAuthToken(null);

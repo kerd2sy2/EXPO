@@ -43,6 +43,7 @@ import {
   setActiveBranch,
   getActiveBranchId,
   getActiveBranchName,
+  fetchCurrentUserProfile,
 } from '../services/api';
 import { toArabicDigits, formatArabicNumber } from '../utils/formatters';
 import {
@@ -145,7 +146,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   const canSwitchBranch = useMemo(() => {
     if (!currentUser) return false;
-    const userBranchId = currentUser.branch_id || currentUser.admin?.branch_id || currentUser.employee?.branch_id;
+    const userBranchId =
+      currentUser.branch_id ||
+      currentUser.admin?.branch_id ||
+      currentUser.employee?.branch_id ||
+      currentUser.user?.branch_id;
     // Strict rule: If user is assigned to a specific branch, they belong to that branch ONLY and CANNOT switch branches
     if (userBranchId) {
       return false;
@@ -370,7 +375,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
         const stored = await loadActiveBranch();
 
-        const userBranchId = currentUser?.branch_id || currentUser?.admin?.branch_id || currentUser?.employee?.branch_id;
+        const userBranchId =
+          currentUser?.branch_id ||
+          currentUser?.admin?.branch_id ||
+          currentUser?.employee?.branch_id ||
+          currentUser?.user?.branch_id;
 
         // 1. If user has an assigned branch (Single branch user):
         if (userBranchId) {
@@ -587,9 +596,44 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     mustSelectBranch,
   ]);
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    loadCustodyData(true);
+    try {
+      // 1. Fetch fresh user profile on explicit pull-to-refresh
+      // (Only triggered manually by user - zero background polling, zero extra server pressure)
+      const freshUser = await fetchCurrentUserProfile();
+      if (freshUser) {
+        if (onUpdateUser) {
+          onUpdateUser(freshUser);
+        }
+
+        const userBranchId =
+          freshUser.branch_id ||
+          freshUser.admin?.branch_id ||
+          freshUser.employee?.branch_id ||
+          freshUser.user?.branch_id;
+
+        // If user is now assigned to a single branch, enforce it immediately
+        if (userBranchId) {
+          const fetchedBranches = branches.length > 0 ? branches : await fetchBranches();
+          const matchingBranch = fetchedBranches.find((b) => b.id === userBranchId);
+          const bName = matchingBranch?.name || freshUser.branch_name || 'الفرع الأول';
+          await setActiveBranch(userBranchId, bName);
+          setActiveBranchState({ id: userBranchId, name: bName });
+          setMustSelectBranch(false);
+          setShowBranchModal(false);
+          await loadCustodyData(true, userBranchId);
+          return;
+        }
+      }
+
+      // 2. Fetch custody data
+      await loadCustodyData(true);
+    } catch (err) {
+      console.warn('onRefresh error:', err);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Find active day

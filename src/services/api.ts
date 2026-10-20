@@ -317,6 +317,42 @@ export const getCachedUser = async (): Promise<any | null> => {
   }
 };
 
+/**
+ * Fetch the latest user profile directly from the backend (/me),
+ * updates local cached user session in AsyncStorage, and returns the updated user object.
+ * This guarantees any branch/permission changes made by admins on the server
+ * are immediately reflected without requiring logout/login and without server overload.
+ */
+export const fetchCurrentUserProfile = async (): Promise<any | null> => {
+  try {
+    const res = await apiRequest<any>('/me');
+    if (res) {
+      const user = res.user || res;
+      const targetUser = {
+        ...(typeof user === 'object' ? user : {}),
+        id: res.id || user.id,
+        name: res.name || user.name,
+        email: res.email || user.email,
+        username: res.username || user.username,
+        role: res.role || user.role,
+        permissions: res.permissions || user.permissions,
+        branch_id: res.branch_id !== undefined ? res.branch_id : user.branch_id,
+        branch_name: res.branch_name !== undefined ? res.branch_name : user.branch_name,
+        avatar: res.avatar || user.avatar || res.google_avatar || user.google_avatar,
+      };
+
+      const existing = await getCachedUser();
+      const mergedUser = { ...(existing || {}), ...targetUser };
+      await saveCachedUser(mergedUser);
+      return mergedUser;
+    }
+    return null;
+  } catch (err) {
+    console.warn('[fetchCurrentUserProfile] failed to fetch profile:', err);
+    return null;
+  }
+};
+
 const LAST_SAVED_CREDENTIALS_KEY = 'aams_last_saved_credentials';
 const BIOMETRIC_ENABLED_KEY = 'aams_biometric_enabled';
 
