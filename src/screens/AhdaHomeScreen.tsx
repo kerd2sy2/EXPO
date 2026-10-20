@@ -67,6 +67,7 @@ import { AhdaImageViewerModal } from '../components/modals/AhdaImageViewerModal'
 import { AhdaShakeExcelModal } from '../components/modals/AhdaShakeExcelModal';
 import { AhdaReportPreviewModal } from '../components/modals/AhdaReportPreviewModal';
 import { AhdaSharedImageCategoryModal } from '../components/modals/AhdaSharedImageCategoryModal';
+import { AhdaSearchBottomSheet } from '../components/modals/AhdaSearchBottomSheet';
 import { useShareIntentContext } from 'expo-share-intent';
 import { useDeviceShake } from '../hooks/useDeviceShake';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
@@ -249,8 +250,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [editImageUri, setEditImageUri] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState<boolean>(false);
 
-  // Main Screen Search for Export Number (شريط بحث لرقم الوارد في الرئيسية)
-  const [searchExportQuery, setSearchExportQuery] = useState<string>('');
+  // Main Screen Search Bottom Sheet (مديولا البحث المنبثقة من الأسفل برقم الوارد)
+  const [showSearchModal, setShowSearchModal] = useState<boolean>(false);
   // Target expense to open details modal directly on navigation from search
   const [initialExpenseForDetails, setInitialExpenseForDetails] = useState<CustodyExpenseItem | null>(null);
 
@@ -267,22 +268,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     }
   }, [showAddExpenseModal, selectedCategory, days]);
 
-  // Search results for Outgoing Number (رقم الصادر) across all days
-  const exportSearchResults = useMemo(() => {
-    const q = searchExportQuery.trim();
-    if (!q) return [];
-    const results: Array<{ day: CustodyDayData; expense: CustodyExpenseItem }> = [];
-    for (const day of days) {
-      if (Array.isArray(day.expenses)) {
-        for (const exp of day.expenses) {
-          if (matchesExportNumberQuery(q, exp.export_number)) {
-            results.push({ day, expense: exp });
-          }
-        }
-      }
-    }
-    return results;
-  }, [days, searchExportQuery]);
 
   // Preview Image & Report Modal
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -1138,6 +1123,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               activeBranchName={activeBranch.name}
               canSwitchBranch={canSwitchBranch}
               onPressProfile={() => setShowProfile(true)}
+              onPressSearch={() => setShowSearchModal(true)}
               onPressBranchSelector={() => {
                 setMustSelectBranch(false);
                 setShowBranchModal(true);
@@ -1188,145 +1174,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               </>
             ) : (
               <>
-                {/* ── 1.5 Search Bar for Outgoing Number (شريط بحث لرقم الصادر في الرئيسية) ── */}
-                <View
-                  style={[
-                    styles.searchBoxCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: searchExportQuery ? '#059669' : colors.border,
-                    },
-                  ]}
-                >
-                  <View style={styles.searchRow}>
-                    <Ionicons
-                      name="search-outline"
-                      size={18}
-                      color={searchExportQuery ? '#059669' : colors.textSecondary}
-                      style={{ marginLeft: 8 }}
-                    />
-                    <TextInput
-                      style={[
-                        styles.searchInput,
-                        {
-                          color: colors.textPrimary,
-                        },
-                      ]}
-                      placeholder="بحث برقم الوارد (مثال: 1/أ)..."
-                      placeholderTextColor="#94a3b8"
-                      value={searchExportQuery}
-                      onChangeText={setSearchExportQuery}
-                      returnKeyType="search"
-                    />
-                    {searchExportQuery ? (
-                      <TouchableOpacity
-                        onPress={() => setSearchExportQuery('')}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        style={{ padding: 4 }}
-                      >
-                        <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                </View>
-
-                {/* Search Results Drawer if query is typed */}
-                {searchExportQuery.trim().length > 0 && (
-                  <View
-                    style={[
-                      styles.searchResultsWrap,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: '#059669',
-                      },
-                    ]}
-                  >
-                    <View style={styles.searchResultsHeader}>
-                      <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="barcode-outline" size={16} color="#047857" />
-                        <Text style={[styles.searchResultsTitle, { color: colors.textPrimary }]}>
-                          نتائج البحث برقم الوارد ({toArabicDigits(exportSearchResults.length)})
-                        </Text>
-                      </View>
-                      <TouchableOpacity onPress={() => setSearchExportQuery('')}>
-                        <Text style={{ fontSize: 12, color: '#047857', fontWeight: '700' }}>إغلاق</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {exportSearchResults.length === 0 ? (
-                      <View style={styles.searchEmptyBox}>
-                        <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
-                        <Text style={[styles.searchEmptyText, { color: colors.textSecondary }]}>
-                          لا توجد فواتير مطابقة لرقم الوارد "{searchExportQuery}"
-                        </Text>
-                      </View>
-                    ) : (
-                      exportSearchResults.map((res, sIdx) => {
-                        const catInfo = CATEGORIES.find((c) => c.key === res.expense.category) || CATEGORIES[5];
-                        return (
-                          <TouchableOpacity
-                            key={res.expense.id || sIdx}
-                            style={[
-                              styles.searchResultCard,
-                              {
-                                borderColor: colors.border,
-                                backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                              },
-                            ]}
-                            activeOpacity={0.8}
-                            onPress={() => {
-                              if (res.day.date !== selectedDate) {
-                                updateSelectedDate(res.day.date);
-                              }
-                              setSelectedCategoryFilter(res.expense.category);
-                              setInitialExpenseForDetails(res.expense);
-                              setSearchExportQuery('');
-                              setShowDayExpensesPage(true);
-                            }}
-                          >
-                            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
-                                <View style={[styles.searchCatBadge, { backgroundColor: catInfo.bg }]}>
-                                  <Ionicons name={catInfo.icon as any} size={13} color={catInfo.color} />
-                                </View>
-                                <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>
-                                  {catInfo.label}
-                                </Text>
-                                <View style={styles.searchExportBadge}>
-                                  <Ionicons name="barcode-outline" size={11} color="#047857" />
-                                  <Text style={styles.searchExportBadgeText}>
-                                    وارد: {res.expense.export_number}
-                                  </Text>
-                                </View>
-                              </View>
-
-                              <View style={styles.searchDatePill}>
-                                <Ionicons name="calendar-outline" size={11} color={colors.textSecondary} />
-                                <Text style={[styles.searchDateText, { color: colors.textSecondary }]}>
-                                  {toArabicDigits(res.day.date)}
-                                </Text>
-                              </View>
-                            </View>
-
-                            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <Text style={{ fontSize: 12, color: colors.textSecondary, flex: 1, textAlign: 'right' }} numberOfLines={1}>
-                                {res.expense.recipient_name || 'بدون بيان'}
-                              </Text>
-                              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-                                <Text style={{ fontSize: 13, fontWeight: '800', color: '#047857' }}>
-                                  {formatArabicNumber(res.expense.amount, 2)}
-                                </Text>
-                                <Text style={{ fontSize: 11, color: colors.textSecondary }}>ر.س</Text>
-                                <Ionicons name="chevron-back" size={14} color="#047857" style={{ marginRight: 4 }} />
-                              </View>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })
-                    )}
-                  </View>
-                )}
-
                 {/* ── 2. Primary Custody Target Card (Delegate App Style - Isolated) ── */}
                 <ModuleErrorBoundary moduleName="AhdaNetCustodyCard">
                   <AhdaNetCustodyCard
@@ -1575,6 +1422,24 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           }}
         />
       )}
+
+      {/* ── 16. Search Bottom Sheet Modal (البحث المنبثق برقم الوارد) ── */}
+      <AhdaSearchBottomSheet
+        visible={showSearchModal}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        days={days}
+        categories={CATEGORIES}
+        onClose={() => setShowSearchModal(false)}
+        onSelectExpense={(exp, day) => {
+          if (day.date !== selectedDate) {
+            updateSelectedDate(day.date);
+          }
+          setSelectedCategoryFilter(exp.category);
+          setInitialExpenseForDetails(exp);
+          setShowDayExpensesPage(true);
+        }}
+      />
     </SafeAreaView>
   );
 };

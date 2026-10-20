@@ -19,6 +19,7 @@ export interface AhdaHeaderProps {
   onPressProfile: () => void;
   onPressDatePicker?: () => void;
   onPressBranchSelector?: () => void;
+  onPressSearch?: () => void;
 }
 
 const getFirstTwoNames = (fullName?: string | null): string => {
@@ -38,6 +39,7 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
   onPressProfile,
   onPressDatePicker,
   onPressBranchSelector,
+  onPressSearch,
 }) => {
   const rawAvatar =
     user?.avatar ||
@@ -122,8 +124,18 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
         </View>
       </View>
 
-      {/* Left Side: Header Actions (Date/Calendar Modal Icon) */}
+      {/* Left Side: Header Actions (Search Icon + Date/Calendar Modal Icon) */}
       <View style={styles.headerActions}>
+        {onPressSearch && (
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={onPressSearch}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="search-outline" size={23} color="#047857" />
+          </TouchableOpacity>
+        )}
         {onPressDatePicker && (
           <TouchableOpacity
             style={styles.actionBtn}
@@ -131,7 +143,7 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="calendar-outline" size={25} color="#047857" />
+            <Ionicons name="calendar-outline" size={24} color="#047857" />
           </TouchableOpacity>
         )}
       </View>

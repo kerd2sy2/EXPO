@@ -20,6 +20,7 @@ import LottieView from 'lottie-react-native';
 import { ThemeColors } from '../types/delegate';
 import { custodyService } from '../services/custodyService';
 import { saveCachedUser, formatImageUrl } from '../services/api';
+import { AhdaLogoutBottomSheet } from '../components/modals/AhdaLogoutBottomSheet';
 
 interface AhdaProfileScreenProps {
   currentUser: any;
@@ -225,23 +226,17 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
     Alert.alert('تم', 'تمت إزالة صورة الملف الشخصي.');
   };
 
+  // Logout Bottom Sheet State
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const confirmLogout = () => {
-    Alert.alert(
-      'تسجيل الخروج',
-      'هل أنت متأكد من رغبتك في تسجيل الخروج من نظام العهدة؟',
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        { text: 'تسجيل الخروج', style: 'destructive', onPress: onLogout },
-      ]
-    );
+    setShowLogoutModal(true);
   };
 
   const currentThemeLabel =
-    themePreference === 'dark'
+    themePreference === 'dark' || isDarkMode
       ? 'الوضع الداكن'
-      : themePreference === 'light'
-      ? 'الوضع الفاتح'
-      : 'تلقائي (حسب النظام)';
+      : 'الوضع الفاتح';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top', 'left', 'right']}>
@@ -397,20 +392,11 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
           <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.sheetHandle} />
 
-            <View style={styles.modalHeaderRow}>
-              <TouchableOpacity
-                onPress={() => setShowThemeModal(false)}
-                style={styles.modalCloseIconBtn}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-              <View style={{ alignItems: 'flex-end', flex: 1 }}>
-                <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>مظهر التطبيق</Text>
-                <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
-                  اختر النمط المناسب لك لعرض واجهات النظام
-                </Text>
-              </View>
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <Text style={[styles.sheetTitle, { color: colors.textPrimary, textAlign: 'center' }]}>مظهر التطبيق</Text>
+              <Text style={[styles.sheetSubtitle, { color: colors.textSecondary, textAlign: 'center' }]}>
+                اختر النمط المناسب لك لعرض واجهات النظام
+              </Text>
             </View>
 
             {/* Options */}
@@ -440,7 +426,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
                     <Ionicons name="sunny" size={20} color="#047857" />
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.themeOptionTitle, { color: colors.textPrimary }]}>الوضع الفاتح (Light)</Text>
+                    <Text style={[styles.themeOptionTitle, { color: colors.textPrimary }]}>الوضع الفاتح</Text>
                     <Text style={{ fontSize: 11, color: colors.textSecondary }}>مظهر نهاري ساطع ومريح للعين</Text>
                   </View>
                 </View>
@@ -476,7 +462,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
                     <Ionicons name="moon" size={20} color="#38bdf8" />
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.themeOptionTitle, { color: colors.textPrimary }]}>الوضع الداكن (Dark)</Text>
+                    <Text style={[styles.themeOptionTitle, { color: colors.textPrimary }]}>الوضع الداكن</Text>
                     <Text style={{ fontSize: 11, color: colors.textSecondary }}>مظهر ليلي أنيق وموفر للطاقة</Text>
                   </View>
                 </View>
@@ -486,48 +472,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
                   color={themePreference === 'dark' ? '#047857' : colors.textSecondary}
                 />
               </TouchableOpacity>
-
-              {/* Option 3: System Mode */}
-              <TouchableOpacity
-                style={[
-                  styles.themeOptionCard,
-                  {
-                    backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                    borderColor: themePreference === 'system' ? '#047857' : (isDarkMode ? '#334155' : '#e2e8f0'),
-                  },
-                  themePreference === 'system' && styles.themeOptionCardActive,
-                ]}
-                onPress={() => {
-                  if (onSelectThemePreference) {
-                    onSelectThemePreference('system');
-                  }
-                  setShowThemeModal(false);
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.themeOptionRight}>
-                  <View style={[styles.themeIconBox, { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9' }]}>
-                    <Ionicons name="phone-portrait-outline" size={20} color="#64748b" />
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.themeOptionTitle, { color: colors.textPrimary }]}>تلقائي (حسب النظام)</Text>
-                    <Text style={{ fontSize: 11, color: colors.textSecondary }}>مزامنة الوضع مع إعدادات جهازك</Text>
-                  </View>
-                </View>
-                <Ionicons
-                  name={themePreference === 'system' ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={22}
-                  color={themePreference === 'system' ? '#047857' : colors.textSecondary}
-                />
-              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={[styles.modalBottomBtn, { borderColor: colors.border }]}
-              onPress={() => setShowThemeModal(false)}
-            >
-              <Text style={[styles.modalBottomBtnText, { color: colors.textSecondary }]}>إغلاق</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -765,6 +710,16 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* ── 5. Logout Confirmation Bottom Sheet ── */}
+      <AhdaLogoutBottomSheet
+        visible={showLogoutModal}
+        user={currentUser}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        onConfirm={onLogout}
+        onClose={() => setShowLogoutModal(false)}
+      />
     </SafeAreaView>
   );
 };
