@@ -19,6 +19,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors, Language } from '../types/delegate';
 import { LanguageModal } from '../components/modals/LanguageModal';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
+import { HumanVerificationModal } from '../components/modals/HumanVerificationModal';
 import {
   isBiometricEnabled,
   getSavedCredentialsForBiometrics,
@@ -164,6 +165,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
   };
 
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [pendingCredentials, setPendingCredentials] = useState<{ phone: string; pass: string } | null>(null);
+
   const handleLoginPress = async () => {
     if (submitting || biometricLoading) return;
 
@@ -192,8 +196,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     const cleanPhone = rawNormalizedPhone.replace(/[^0-9+]/g, '') || rawNormalizedPhone;
     const cleanPass = rawNormalizedPass;
 
-    // Proceed directly with password login without OTP
-    onLogin(cleanPhone, cleanPass);
+    setPendingCredentials({ phone: cleanPhone, pass: cleanPass });
+    setShowVerifyModal(true);
+  };
+
+  const handleVerificationSuccess = () => {
+    setShowVerifyModal(false);
+    if (pendingCredentials) {
+      onLogin(pendingCredentials.phone, pendingCredentials.pass);
+    }
   };
 
   return (
@@ -383,6 +394,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         isDarkMode={isDarkMode}
         isRTL={isRTL}
         onClose={() => setAlertConfig(null)}
+      />
+
+      <HumanVerificationModal
+        visible={showVerifyModal}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+        appName="المناديب"
+        onSuccess={handleVerificationSuccess}
+        onCancel={() => setShowVerifyModal(false)}
       />
     </SafeAreaView>
   );
