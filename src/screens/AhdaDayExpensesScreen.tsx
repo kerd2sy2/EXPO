@@ -225,6 +225,7 @@ interface AhdaDayExpensesScreenProps {
   onPreviewImage: (url: string) => void;
   onReorderExpenses?: (reorderedExpenses: CustodyExpenseItem[]) => void;
   initialExpenseDetails?: CustodyExpenseItem | null;
+  onClearInitialExpenseDetails?: () => void;
 }
 
 export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
@@ -242,6 +243,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
   onPreviewImage,
   onReorderExpenses,
   initialExpenseDetails = null,
+  onClearInitialExpenseDetails,
 }) => {
   // Long press options modal state
   const [selectedExpenseForAction, setSelectedExpenseForAction] = useState<CustodyExpenseItem | null>(null);
@@ -251,6 +253,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
   useEffect(() => {
     if (initialExpenseDetails) {
       setSelectedExpenseForDetails(initialExpenseDetails);
+      onClearInitialExpenseDetails?.();
     }
   }, [initialExpenseDetails]);
 

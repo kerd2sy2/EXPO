@@ -378,11 +378,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     borderWidth: 1,
     borderBottomWidth: 0,
-    maxHeight: Math.round(SCREEN_HEIGHT * 0.85),
-    minHeight: Math.round(SCREEN_HEIGHT * 0.52),
-    paddingTop: 10,
+    height: Math.round(SCREEN_HEIGHT * 0.93),
+    paddingTop: 12,
     paddingHorizontal: 18,
-    paddingBottom: 28,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.18,
@@ -445,7 +444,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   resultsContent: {
-    paddingBottom: 20,
+    paddingBottom: 80,
   },
   hintContainer: {
     alignItems: 'center',

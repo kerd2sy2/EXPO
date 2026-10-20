@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   Image,
   StyleSheet,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../types/delegate';
 import { formatImageUrl } from '../services/api';
@@ -30,7 +31,7 @@ const getFirstTwoNames = (fullName?: string | null): string => {
   return `${parts[0]} ${parts[1]}`;
 };
 
-export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
+const AhdaHeaderComponent: React.FC<AhdaHeaderProps> = ({
   user,
   colors,
   isDarkMode,
@@ -41,7 +42,25 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
   onPressBranchSelector,
   onPressSearch,
 }) => {
+  const [cachedAvatar, setCachedAvatar] = useState<string | null>(null);
+  const [imgError, setImgError] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    AsyncStorage.getItem('@aams_cached_avatar')
+      .then((saved) => {
+        if (saved && isMounted) {
+          setCachedAvatar(saved);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
   const rawAvatar =
+    cachedAvatar ||
     user?.avatar ||
     user?.google_avatar ||
     user?.personal_image ||
@@ -74,8 +93,12 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
           activeOpacity={0.8}
         >
           <View style={[styles.headerAvatar, { backgroundColor: '#ecfdf5', borderColor: '#047857' }]}>
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.headerAvatarImg} />
+            {avatarUrl && !imgError ? (
+              <Image
+                source={{ uri: avatarUrl }}
+                style={styles.headerAvatarImg}
+                onError={() => setImgError(true)}
+              />
             ) : (
               <Ionicons name="person" size={20} color="#047857" />
             )}
@@ -124,18 +147,8 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
         </View>
       </View>
 
-      {/* Left Side: Header Actions (Search Icon + Date/Calendar Modal Icon) */}
+      {/* Left Side: Header Actions (Swapped: Date/Calendar and Search Icon) */}
       <View style={styles.headerActions}>
-        {onPressSearch && (
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={onPressSearch}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="search-outline" size={23} color="#047857" />
-          </TouchableOpacity>
-        )}
         {onPressDatePicker && (
           <TouchableOpacity
             style={styles.actionBtn}
@@ -146,10 +159,22 @@ export const AhdaHeader: React.FC<AhdaHeaderProps> = ({
             <Ionicons name="calendar-outline" size={24} color="#047857" />
           </TouchableOpacity>
         )}
+        {onPressSearch && (
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={onPressSearch}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="search-outline" size={23} color="#047857" />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
 };
+
+export const AhdaHeader = React.memo(AhdaHeaderComponent);
 
 const styles = StyleSheet.create({
   headerContainer: {

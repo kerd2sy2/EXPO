@@ -228,8 +228,12 @@ export default function AhdaApp() {
 
             // Silently sync latest user profile in background on app launch (once only, zero polling)
             fetchCurrentUserProfile()
-              .then((fresh) => {
+              .then(async (fresh) => {
                 if (fresh) {
+                  const savedAvatar = await AsyncStorage.getItem('@aams_cached_avatar').catch(() => null);
+                  if (savedAvatar && !fresh.avatar && !fresh.google_avatar && !fresh.personal_image) {
+                    fresh.avatar = savedAvatar;
+                  }
                   setCurrentUser(fresh);
                 }
               })

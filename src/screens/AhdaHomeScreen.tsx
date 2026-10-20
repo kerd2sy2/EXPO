@@ -255,6 +255,28 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   // Target expense to open details modal directly on navigation from search
   const [initialExpenseForDetails, setInitialExpenseForDetails] = useState<CustodyExpenseItem | null>(null);
 
+  const handlePressProfile = useCallback(() => {
+    headerTranslateY.setValue(0);
+    isHeaderHidden.current = false;
+    setShowProfile(true);
+  }, [headerTranslateY]);
+
+  const handlePressSearch = useCallback(() => {
+    setShowSearchModal(true);
+  }, []);
+
+  const handlePressBranchSelector = useCallback(() => {
+    setMustSelectBranch(false);
+    setShowBranchModal(true);
+  }, []);
+
+  const handlePressDatePicker = useCallback(() => {
+    const parts = selectedDate.split('-');
+    setPickerYear(parseInt(parts[0], 10) || new Date().getFullYear());
+    setPickerMonth(parseInt(parts[1], 10) || (new Date().getMonth() + 1));
+    setShowDatePickerModal(true);
+  }, [selectedDate]);
+
   // Auto-generate outgoing sequence number (1/أ, 2/أ, 3/أ...) for internet & personal advance
   useEffect(() => {
     if (showAddExpenseModal) {
@@ -1054,7 +1076,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           currentUser={currentUser}
           colors={colors}
           isDarkMode={isDarkMode}
-          onBack={() => setShowProfile(false)}
+          onBack={() => {
+            headerTranslateY.setValue(0);
+            isHeaderHidden.current = false;
+            setShowProfile(false);
+          }}
           onLogout={onLogout}
           onToggleTheme={onToggleTheme}
           themePreference={themePreference}
@@ -1074,6 +1100,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             setShowDayExpensesPage(false);
             setSelectedCategoryFilter(null);
             setInitialExpenseForDetails(null);
+            headerTranslateY.setValue(0);
+            isHeaderHidden.current = false;
           }}
           onOpenAddExpense={() => {
             if (selectedCategoryFilter) {
@@ -1086,6 +1114,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           onPreviewImage={(url) => setPreviewImage(url)}
           onReorderExpenses={handleReorderExpenses}
           initialExpenseDetails={initialExpenseForDetails}
+          onClearInitialExpenseDetails={() => setInitialExpenseForDetails(null)}
         />
       ) : (
         <>
@@ -1122,18 +1151,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               isDarkMode={isDarkMode}
               activeBranchName={activeBranch.name}
               canSwitchBranch={canSwitchBranch}
-              onPressProfile={() => setShowProfile(true)}
-              onPressSearch={() => setShowSearchModal(true)}
-              onPressBranchSelector={() => {
-                setMustSelectBranch(false);
-                setShowBranchModal(true);
-              }}
-              onPressDatePicker={() => {
-                const parts = selectedDate.split('-');
-                setPickerYear(parseInt(parts[0], 10) || new Date().getFullYear());
-                setPickerMonth(parseInt(parts[1], 10) || (new Date().getMonth() + 1));
-                setShowDatePickerModal(true);
-              }}
+              onPressProfile={handlePressProfile}
+              onPressSearch={handlePressSearch}
+              onPressBranchSelector={handlePressBranchSelector}
+              onPressDatePicker={handlePressDatePicker}
             />
           </Animated.View>
 
@@ -1195,7 +1216,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     colors={colors}
                     isDarkMode={isDarkMode}
                     onSelectCategory={(catKey) => {
+                      setInitialExpenseForDetails(null);
                       setSelectedCategoryFilter(catKey);
+                      headerTranslateY.setValue(0);
+                      isHeaderHidden.current = false;
                       setShowDayExpensesPage(true);
                     }}
                     onLongPressCategory={(catKey) => {
@@ -1209,7 +1233,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                 <ModuleErrorBoundary moduleName="AhdaDayExpensesSummaryCard">
                   <AhdaDayExpensesSummaryCard
                     currentDay={currentDay}
-                    onPress={() => setShowDayExpensesPage(true)}
+                    onPress={() => {
+                      setInitialExpenseForDetails(null);
+                      setSelectedCategoryFilter(null);
+                      headerTranslateY.setValue(0);
+                      isHeaderHidden.current = false;
+                      setShowDayExpensesPage(true);
+                    }}
                   />
                 </ModuleErrorBoundary>
               </>
