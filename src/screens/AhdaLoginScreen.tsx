@@ -19,7 +19,7 @@ import { ThemeColors } from '../types/delegate';
 import { custodyService, hasCustodyPermission } from '../services/custodyService';
 import { setAuthToken, saveCachedUser } from '../services/api';
 import { AhdaActionAlertModal, AhdaAlertConfig } from '../components/modals/AhdaActionAlertModal';
-import { HumanVerificationModal } from '../components/modals/HumanVerificationModal';
+import { HumanVerificationScreen } from './HumanVerificationScreen';
 
 import * as WebBrowser from 'expo-web-browser';
 
@@ -41,7 +41,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [alertConfig, setAlertConfig] = useState<AhdaAlertConfig | null>(null);
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [screenStep, setScreenStep] = useState<'form' | 'verify'>('form');
   const [pendingCredentials, setPendingCredentials] = useState<{ phone: string; pass: string } | null>(null);
 
   // Eastern / Arabic digit conversion
@@ -62,14 +62,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       if (!hasCustodyPermission(user)) {
         await setAuthToken(null);
         await saveCachedUser(null);
-        const deniedMsg = 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة';
-        setAlertConfig({
-          type: 'error',
-          title: 'تنبيه الصلاحيات',
-          message: deniedMsg,
-          primaryButtonText: 'حسناً',
-        });
-        return;
+        throw new Error('ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة');
       }
 
       const token = res?.access_token || res?.token;
@@ -80,7 +73,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
         await saveCachedUser(user);
         onSuccess(user);
       } else {
-        throw new Error('بيانات الدخول غير صحيحة');
+        throw new Error('بيانات الدخول غير صحيحة، يرجى التأكد من كلمة المرور');
       }
     } catch (err: any) {
       console.error('Custody phone login error:', err);
@@ -93,12 +86,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
       ) {
         msg = 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة';
       }
-      setAlertConfig({
-        type: 'error',
-        title: 'تنبيه تسجيل الدخول',
-        message: msg,
-        primaryButtonText: 'حسناً',
-      });
+      throw new Error(msg);
     } finally {
       setLoading(false);
     }
@@ -131,15 +119,20 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
     }
 
     setPendingCredentials({ phone: rawNormalizedPhone, pass: rawNormalizedPass });
-    setShowVerifyModal(true);
+    setScreenStep('verify');
   };
 
-  const handleVerificationSuccess = () => {
-    setShowVerifyModal(false);
-    if (pendingCredentials) {
-      executePhoneLogin(pendingCredentials.phone, pendingCredentials.pass);
-    }
-  };
+  if (screenStep === 'verify' && pendingCredentials) {
+    return (
+      <HumanVerificationScreen
+        colors={colors}
+        isDarkMode={isDarkMode}
+        appName="العهدة"
+        onVerify={() => executePhoneLogin(pendingCredentials.phone, pendingCredentials.pass)}
+        onBack={() => setScreenStep('form')}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
@@ -287,15 +280,6 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
         colors={colors}
         isDarkMode={isDarkMode}
         onClose={() => setAlertConfig(null)}
-      />
-
-      <HumanVerificationModal
-        visible={showVerifyModal}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        appName="العهدة"
-        onSuccess={handleVerificationSuccess}
-        onCancel={() => setShowVerifyModal(false)}
       />
     </SafeAreaView>
   );
