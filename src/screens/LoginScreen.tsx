@@ -19,7 +19,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors, Language } from '../types/delegate';
 import { LanguageModal } from '../components/modals/LanguageModal';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
-import { HumanVerificationModal } from '../components/modals/HumanVerificationModal';
+import { HumanVerificationScreen } from './HumanVerificationScreen';
 import {
   isBiometricEnabled,
   getSavedCredentialsForBiometrics,
@@ -164,7 +164,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
   };
 
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [screenStep, setScreenStep] = useState<'form' | 'verify'>('form');
   const [pendingCredentials, setPendingCredentials] = useState<{ phone: string; pass: string } | null>(null);
 
   const handleLoginPress = async () => {
@@ -196,15 +196,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     const cleanPass = rawNormalizedPass;
 
     setPendingCredentials({ phone: cleanPhone, pass: cleanPass });
-    setShowVerifyModal(true);
+    setScreenStep('verify');
   };
 
-  const handleVerificationSuccess = () => {
-    setShowVerifyModal(false);
-    if (pendingCredentials) {
-      onLogin(pendingCredentials.phone, pendingCredentials.pass);
-    }
-  };
+  if (screenStep === 'verify' && pendingCredentials) {
+    return (
+      <HumanVerificationScreen
+        colors={colors}
+        isDarkMode={isDarkMode}
+        appName="الإشراف"
+        isRTL={isRTL}
+        onVerify={() => onLogin(pendingCredentials.phone, pendingCredentials.pass)}
+        onBack={() => setScreenStep('form')}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
@@ -393,16 +399,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         isDarkMode={isDarkMode}
         isRTL={isRTL}
         onClose={() => setAlertConfig(null)}
-      />
-
-      <HumanVerificationModal
-        visible={showVerifyModal}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        appName="الإشراف"
-        onSuccess={handleVerificationSuccess}
-        onCancel={() => setShowVerifyModal(false)}
       />
     </SafeAreaView>
   );
