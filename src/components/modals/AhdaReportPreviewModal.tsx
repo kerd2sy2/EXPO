@@ -469,6 +469,17 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                               </Text>
                             </View>
 
+                            {/* Export Number Row if present */}
+                            {exp.export_number ? (
+                              <View style={[styles.invoiceRecipientRow, { marginBottom: 6 }]}>
+                                <Ionicons name="barcode-outline" size={14} color="#0284c7" />
+                                <Text style={[styles.recipientLabel, { color: colors.textSecondary }]}>رقم الصادر:</Text>
+                                <Text style={[styles.recipientVal, { color: '#0284c7', fontWeight: '800' }]}>
+                                  {exp.export_number}
+                                </Text>
+                              </View>
+                            ) : null}
+
                             {/* Amount Directly Under Description */}
                             <View style={[styles.invoiceRecipientRow, { marginBottom: 10 }]}>
                               <Ionicons name="cash-outline" size={14} color="#047857" />
@@ -490,6 +501,34 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                                   style={styles.invoiceImg}
                                   resizeMode="contain"
                                 />
+                                {exp.export_number ? (
+                                  <View
+                                    style={{
+                                      position: 'absolute',
+                                      top: 8,
+                                      right: 8,
+                                      backgroundColor: '#ffffff',
+                                      borderWidth: 1.2,
+                                      borderColor: '#047857',
+                                      borderRadius: 6,
+                                      paddingHorizontal: 8,
+                                      paddingVertical: 3,
+                                      flexDirection: 'row-reverse',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      shadowColor: '#000',
+                                      shadowOffset: { width: 0, height: 1 },
+                                      shadowOpacity: 0.15,
+                                      shadowRadius: 2,
+                                      elevation: 3,
+                                    }}
+                                  >
+                                    <Ionicons name="barcode-outline" size={13} color="#047857" />
+                                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#047857' }}>
+                                      صادر: {exp.export_number}
+                                    </Text>
+                                  </View>
+                                ) : null}
                                 <View style={styles.imageOverlayBtn}>
                                   <Ionicons name="scan-outline" size={14} color="#ffffff" />
                                   <Text style={styles.imageOverlayText}>انقر لتكبير الفاتورة</Text>

@@ -158,6 +158,14 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({
               المستلم / البيان: {item.recipient_name || '—'}
             </Text>
           </View>
+          {item.export_number ? (
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 5, marginTop: 4 }}>
+              <Ionicons name="barcode-outline" size={13} color="#0284c7" />
+              <Text style={{ fontSize: 12, fontWeight: '800', color: '#0284c7' }}>
+                رقم الصادر: {item.export_number}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Bottom: Amount Badge + Attachment indicator / Reorder Action Prompt */}
@@ -551,6 +559,19 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                       {detailsItem.recipient_name || '—'}
                     </Text>
                   </View>
+
+                  {/* Export Number Row if present */}
+                  {detailsItem.export_number ? (
+                    <View style={[styles.detailsInfoRow, { borderColor: colors.border, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', marginTop: 8 }]}>
+                      <Text style={[styles.detailsInfoLabel, { color: colors.textSecondary }]}>رقم الصادر:</Text>
+                      <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="barcode-outline" size={16} color="#047857" />
+                        <Text style={[styles.detailsInfoValue, { color: '#047857', fontWeight: '800', fontSize: 15 }]}>
+                          {detailsItem.export_number}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
 
                   {/* Attached Picture Section */}
                   <View style={{ width: '100%', marginVertical: 14 }}>

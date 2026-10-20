@@ -9,6 +9,7 @@ export interface CustodyExpenseItem {
   category: 'fuel' | 'internet_advance' | 'advance' | 'license' | 'spare_parts' | 'other' | string;
   amount: number;
   recipient_name: string;
+  export_number?: string;
   image_url?: string;
   created_at: string;
 }
@@ -42,6 +43,7 @@ export interface AddExpensePayload {
   category: string;
   amount: number;
   recipient_name: string;
+  export_number?: string;
   image_url?: string;
 }
 
@@ -55,6 +57,7 @@ export interface CustodyLogItem {
   amount: number;
   description: string;
   recipient_name?: string;
+  export_number?: string;
   image_url?: string;
   admin_name?: string;
   created_at: string;

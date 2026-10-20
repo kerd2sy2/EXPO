@@ -36,6 +36,8 @@ interface AhdaAddExpenseModalProps {
   setExpenseAmount: (val: string) => void;
   expenseRecipient: string;
   setExpenseRecipient: (val: string) => void;
+  exportNumber?: string;
+  setExportNumber?: (val: string) => void;
   invoiceImageUri: string | null;
   setInvoiceImageUri: (uri: string | null) => void;
   loading: boolean;
@@ -54,6 +56,8 @@ export const AhdaAddExpenseModal: React.FC<AhdaAddExpenseModalProps> = ({
   setExpenseAmount,
   expenseRecipient,
   setExpenseRecipient,
+  exportNumber = '',
+  setExportNumber,
   invoiceImageUri,
   setInvoiceImageUri,
   loading,
@@ -63,6 +67,7 @@ export const AhdaAddExpenseModal: React.FC<AhdaAddExpenseModalProps> = ({
 }) => {
   const currentCategory = categories.find((c) => c.key === selectedCategory);
   const categoryLabel = currentCategory?.label || 'عام';
+  const isAdvanceCategory = selectedCategory === 'internet_advance' || selectedCategory === 'advance';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -101,6 +106,41 @@ export const AhdaAddExpenseModal: React.FC<AhdaAddExpenseModalProps> = ({
                   onChangeText={setExpenseAmount}
                 />
               </View>
+
+              {/* Outgoing Sequence Number Input (رقم الصادر) for Internet & Personal Advances */}
+              {isAdvanceCategory && (
+                <View style={styles.inputGroup}>
+                  <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <Text style={[styles.sheetLabel, { color: colors.textPrimary, marginBottom: 0 }]}>
+                      رقم الصادر *
+                    </Text>
+                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4, backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                      <Ionicons name="sparkles" size={11} color="#047857" />
+                      <Text style={{ fontSize: 11, color: '#047857', fontWeight: '700' }}>تسلسل تلقائي</Text>
+                    </View>
+                  </View>
+                  <TextInput
+                    style={[
+                      styles.inputBox,
+                      {
+                        backgroundColor: isDarkMode ? '#1e293b' : '#f0fdf4',
+                        borderColor: '#059669',
+                        color: colors.textPrimary,
+                        fontWeight: '700',
+                        fontSize: 15,
+                        textAlign: 'right',
+                      },
+                    ]}
+                    placeholder="مثال: 1/أ"
+                    placeholderTextColor="#94a3b8"
+                    value={exportNumber}
+                    onChangeText={(val) => setExportNumber && setExportNumber(val)}
+                  />
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 4, textAlign: 'right' }}>
+                    تم إدراج الرقم والحرف تلقائياً (مثل 1/أ، 2/أ) ويمكنك تعديلهما بحرية
+                  </Text>
+                </View>
+              )}
 
               {/* Recipient / Details */}
               <View style={styles.inputGroup}>

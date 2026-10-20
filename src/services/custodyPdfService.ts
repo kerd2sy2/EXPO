@@ -1046,10 +1046,13 @@ export const exportCustodyDayToPdf = async (
             color: rgb(group.color[0], group.color[1], group.color[2]),
           });
 
-          // Line 1: Invoice # & Category
+          // Line 1: Invoice # & Category (+ Export Number if present)
+          const invoiceTitleWithoutImg = exp.export_number
+            ? `فاتورة رقم ${invoiceIdx}  •  ${group.label}  •  صادر: ${exp.export_number}`
+            : `فاتورة رقم ${invoiceIdx}  •  ${group.label}`;
           drawRtlText(
             activePage,
-            `فاتورة رقم ${invoiceIdx}  •  ${group.label}`,
+            invoiceTitleWithoutImg,
             PAGE_WIDTH - MARGIN - 14,
             curY - 16,
             11,
@@ -1146,10 +1149,13 @@ export const exportCustodyDayToPdf = async (
             color: rgb(group.color[0], group.color[1], group.color[2]),
           });
 
-          // Line 1: Invoice # & Category
+          // Line 1: Invoice # & Category (+ Export Number if present)
+          const invoiceTitleWithImg = exp.export_number
+            ? `فاتورة رقم ${invoiceIdx}  •  ${group.label}  •  صادر: ${exp.export_number}`
+            : `فاتورة رقم ${invoiceIdx}  •  ${group.label}`;
           drawRtlText(
             activePage,
-            `فاتورة رقم ${invoiceIdx}  •  ${group.label}`,
+            invoiceTitleWithImg,
             PAGE_WIDTH - MARGIN - 14,
             curY - 16,
             11,
@@ -1246,6 +1252,50 @@ export const exportCustodyDayToPdf = async (
               width: drawW,
               height: drawH,
             });
+
+            // ── Small Note Card on Uploaded Image (كرت ملاحظة لرقم الصادر) ──
+            if (exp.export_number && exp.export_number.trim()) {
+              const noteLabel = `رقم الصادر: ${exp.export_number.trim()}`;
+              const formattedNote = formatArabicTextForFontkit(noteLabel);
+              const textW = fontBold.widthOfTextAtSize(formattedNote, 9);
+              const cardW = Math.max(textW + 20, 100);
+              const cardH = 22;
+
+              // Place note card near the top-right corner of the image area
+              const cardX = Math.min(drawX + drawW - cardW - 8, PAGE_WIDTH - MARGIN - cardW - 14);
+              const cardY = drawY + drawH - cardH - 8;
+
+              // Outer note card background (solid white with rounded aesthetic feel)
+              activePage.drawRectangle({
+                x: cardX,
+                y: cardY,
+                width: cardW,
+                height: cardH,
+                color: rgb(1, 1, 1),
+                borderColor: rgb(0.04, 0.47, 0.34), // Emerald green border
+                borderWidth: 1.2,
+              });
+
+              // Vertical accent bar on the right side of the card
+              activePage.drawRectangle({
+                x: cardX + cardW - 4,
+                y: cardY,
+                width: 4,
+                height: cardH,
+                color: rgb(0.04, 0.47, 0.34),
+              });
+
+              // Text inside the note card
+              drawRtlText(
+                activePage,
+                noteLabel,
+                cardX + cardW - 8,
+                cardY + 6.5,
+                9,
+                fontBold,
+                rgb(0.04, 0.35, 0.25)
+              );
+            }
           }
 
           curY -= TOTAL_CARD_H + 10;

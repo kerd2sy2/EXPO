@@ -30,6 +30,8 @@ interface AhdaEditExpenseModalProps {
   setEditAmount: (amt: string) => void;
   editRecipient: string;
   setEditRecipient: (rec: string) => void;
+  editExportNumber?: string;
+  setEditExportNumber?: (val: string) => void;
   editImageUri: string | null;
   setEditImageUri: (uri: string | null) => void;
   onPickImage: (fromCamera: boolean) => void;
@@ -50,6 +52,8 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
   setEditAmount,
   editRecipient,
   setEditRecipient,
+  editExportNumber = '',
+  setEditExportNumber,
   editImageUri,
   setEditImageUri,
   onPickImage,
@@ -61,6 +65,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const currentCat = categories.find((c) => c.key === editCategory) || categories[0];
+  const isAdvanceCategory = editCategory === 'internet_advance' || editCategory === 'advance';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -194,6 +199,41 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                   onChangeText={setEditRecipient}
                 />
               </View>
+
+              {/* Outgoing Sequence Number Input (رقم الصادر) for Internet & Personal Advances */}
+              {isAdvanceCategory && (
+                <View style={styles.inputGroup}>
+                  <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <Text style={[styles.sheetLabel, { color: colors.textPrimary, marginBottom: 0 }]}>
+                      رقم الصادر *
+                    </Text>
+                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4, backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                      <Ionicons name="barcode-outline" size={12} color="#047857" />
+                      <Text style={{ fontSize: 11, color: '#047857', fontWeight: '700' }}>رقم الصادر</Text>
+                    </View>
+                  </View>
+                  <TextInput
+                    style={[
+                      styles.inputBox,
+                      {
+                        backgroundColor: isDarkMode ? '#1e293b' : '#f0fdf4',
+                        borderColor: '#059669',
+                        color: colors.textPrimary,
+                        fontWeight: '700',
+                        fontSize: 15,
+                        textAlign: 'right',
+                      },
+                    ]}
+                    placeholder="مثال: 1/أ"
+                    placeholderTextColor="#94a3b8"
+                    value={editExportNumber}
+                    onChangeText={(val) => setEditExportNumber && setEditExportNumber(val)}
+                  />
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 4, textAlign: 'right' }}>
+                    تسلسل رقم الصادر (مثل 1/أ، 2/أ) مع إمكانية تعديل الرقم أو الحرف
+                  </Text>
+                </View>
+              )}
 
               {/* Image Upload / Change Section */}
               <View style={styles.inputGroup}>

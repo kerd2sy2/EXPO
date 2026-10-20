@@ -45,6 +45,11 @@ import {
   getActiveBranchName,
 } from '../services/api';
 import { toArabicDigits, formatArabicNumber } from '../utils/formatters';
+import {
+  calculateNextExportNumber,
+  matchesExportNumberQuery,
+  saveLastUsedExportNumber,
+} from '../utils/exportNumber';
 import { AhdaHeader } from '../components/AhdaHeader';
 import { AhdaProfileScreen } from './AhdaProfileScreen';
 import { AhdaDayExpensesScreen } from './AhdaDayExpensesScreen';
@@ -226,6 +231,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('fuel');
   const [expenseAmount, setExpenseAmount] = useState<string>('');
   const [expenseRecipient, setExpenseRecipient] = useState<string>('');
+  const [exportNumber, setExportNumber] = useState<string>('');
   const [invoiceImageUri, setInvoiceImageUri] = useState<string | null>(null);
   const [addExpenseLoading, setAddExpenseLoading] = useState<boolean>(false);
 
@@ -234,8 +240,42 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [editCategory, setEditCategory] = useState<string>('fuel');
   const [editAmount, setEditAmount] = useState<string>('');
   const [editRecipient, setEditRecipient] = useState<string>('');
+  const [editExportNumber, setEditExportNumber] = useState<string>('');
   const [editImageUri, setEditImageUri] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState<boolean>(false);
+
+  // Main Screen Search for Export Number (شريط بحث لرقم الصادر في الرئيسية)
+  const [searchExportQuery, setSearchExportQuery] = useState<string>('');
+
+  // Auto-generate outgoing sequence number (1/أ, 2/أ, 3/أ...) for internet & personal advance
+  useEffect(() => {
+    if (showAddExpenseModal) {
+      if (selectedCategory === 'internet_advance' || selectedCategory === 'advance') {
+        if (!exportNumber.trim()) {
+          setExportNumber(calculateNextExportNumber(days));
+        }
+      } else {
+        setExportNumber('');
+      }
+    }
+  }, [showAddExpenseModal, selectedCategory, days]);
+
+  // Search results for Outgoing Number (رقم الصادر) across all days
+  const exportSearchResults = useMemo(() => {
+    const q = searchExportQuery.trim();
+    if (!q) return [];
+    const results: Array<{ day: CustodyDayData; expense: CustodyExpenseItem }> = [];
+    for (const day of days) {
+      if (Array.isArray(day.expenses)) {
+        for (const exp of day.expenses) {
+          if (matchesExportNumberQuery(q, exp.export_number)) {
+            results.push({ day, expense: exp });
+          }
+        }
+      }
+    }
+    return results;
+  }, [days, searchExportQuery]);
 
   // Preview Image & Report Modal
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -725,15 +765,24 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         }
       }
 
+      const isAdvance = selectedCategory === 'internet_advance' || selectedCategory === 'advance';
+      const finalExportNumber = (isAdvance || exportNumber.trim()) ? exportNumber.trim() : undefined;
+
       await custodyService.addExpense(targetDayId, {
         category: selectedCategory,
         amount: amt,
         recipient_name: expenseRecipient.trim() || '—',
+        export_number: finalExportNumber,
         image_url: uploadedUrl,
       });
 
+      if (finalExportNumber) {
+        saveLastUsedExportNumber(finalExportNumber).catch(() => {});
+      }
+
       setExpenseAmount('');
       setExpenseRecipient('');
+      setExportNumber('');
       setInvoiceImageUri(null);
       setShowAddExpenseModal(false);
       await loadCustodyData();
@@ -759,6 +808,12 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     setEditCategory(item.category);
     setEditAmount(String(item.amount));
     setEditRecipient(item.recipient_name || '');
+    setEditExportNumber(
+      item.export_number ||
+        (item.category === 'internet_advance' || item.category === 'advance'
+          ? calculateNextExportNumber(days)
+          : '')
+    );
     setEditImageUri(item.image_url ? formatImageUrl(item.image_url) : null);
   };
 
@@ -832,14 +887,23 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         finalImageUrl = '';
       }
 
+      const isAdvance = editCategory === 'internet_advance' || editCategory === 'advance';
+      const finalExportNumber = (isAdvance || editExportNumber.trim()) ? editExportNumber.trim() : '';
+
       await custodyService.updateExpense(editingExpense.id, {
         category: editCategory,
         amount: amt,
         recipient_name: editRecipient.trim() || '—',
+        export_number: finalExportNumber,
         image_url: finalImageUrl,
       });
 
+      if (finalExportNumber) {
+        saveLastUsedExportNumber(finalExportNumber).catch(() => {});
+      }
+
       setEditingExpense(null);
+      setEditExportNumber('');
       setEditImageUri(null);
       await loadCustodyData();
       setAlertConfig({
@@ -1076,6 +1140,143 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               </>
             ) : (
               <>
+                {/* ── 1.5 Search Bar for Outgoing Number (شريط بحث لرقم الصادر في الرئيسية) ── */}
+                <View
+                  style={[
+                    styles.searchBoxCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: searchExportQuery ? '#059669' : colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.searchRow}>
+                    <Ionicons
+                      name="search-outline"
+                      size={18}
+                      color={searchExportQuery ? '#059669' : colors.textSecondary}
+                      style={{ marginLeft: 8 }}
+                    />
+                    <TextInput
+                      style={[
+                        styles.searchInput,
+                        {
+                          color: colors.textPrimary,
+                        },
+                      ]}
+                      placeholder="بحث برقم الصادر (مثال: 1/أ)..."
+                      placeholderTextColor="#94a3b8"
+                      value={searchExportQuery}
+                      onChangeText={setSearchExportQuery}
+                      returnKeyType="search"
+                    />
+                    {searchExportQuery ? (
+                      <TouchableOpacity
+                        onPress={() => setSearchExportQuery('')}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={{ padding: 4 }}
+                      >
+                        <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+
+                {/* Search Results Drawer if query is typed */}
+                {searchExportQuery.trim().length > 0 && (
+                  <View
+                    style={[
+                      styles.searchResultsWrap,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: '#059669',
+                      },
+                    ]}
+                  >
+                    <View style={styles.searchResultsHeader}>
+                      <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="barcode-outline" size={16} color="#047857" />
+                        <Text style={[styles.searchResultsTitle, { color: colors.textPrimary }]}>
+                          نتائج البحث برقم الصادر ({toArabicDigits(exportSearchResults.length)})
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => setSearchExportQuery('')}>
+                        <Text style={{ fontSize: 12, color: '#047857', fontWeight: '700' }}>إغلاق</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {exportSearchResults.length === 0 ? (
+                      <View style={styles.searchEmptyBox}>
+                        <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
+                        <Text style={[styles.searchEmptyText, { color: colors.textSecondary }]}>
+                          لا توجد فواتير مطابقة لرقم الصادر "{searchExportQuery}"
+                        </Text>
+                      </View>
+                    ) : (
+                      exportSearchResults.map((res, sIdx) => {
+                        const catInfo = CATEGORIES.find((c) => c.key === res.expense.category) || CATEGORIES[5];
+                        return (
+                          <TouchableOpacity
+                            key={res.expense.id || sIdx}
+                            style={[
+                              styles.searchResultCard,
+                              {
+                                borderColor: colors.border,
+                                backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                              },
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              if (res.day.date !== selectedDate) {
+                                updateSelectedDate(res.day.date);
+                              }
+                              setSelectedCategoryFilter(res.expense.category);
+                              setShowDayExpensesPage(true);
+                            }}
+                          >
+                            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                                <View style={[styles.searchCatBadge, { backgroundColor: catInfo.bg }]}>
+                                  <Ionicons name={catInfo.icon as any} size={13} color={catInfo.color} />
+                                </View>
+                                <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary }}>
+                                  {catInfo.label}
+                                </Text>
+                                <View style={styles.searchExportBadge}>
+                                  <Ionicons name="barcode-outline" size={11} color="#047857" />
+                                  <Text style={styles.searchExportBadgeText}>
+                                    صادر: {res.expense.export_number}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              <View style={styles.searchDatePill}>
+                                <Ionicons name="calendar-outline" size={11} color={colors.textSecondary} />
+                                <Text style={[styles.searchDateText, { color: colors.textSecondary }]}>
+                                  {toArabicDigits(res.day.date)}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Text style={{ fontSize: 12, color: colors.textSecondary, flex: 1, textAlign: 'right' }} numberOfLines={1}>
+                                {res.expense.recipient_name || 'بدون بيان'}
+                              </Text>
+                              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
+                                <Text style={{ fontSize: 13, fontWeight: '800', color: '#047857' }}>
+                                  {formatArabicNumber(res.expense.amount, 2)}
+                                </Text>
+                                <Text style={{ fontSize: 11, color: colors.textSecondary }}>ر.س</Text>
+                                <Ionicons name="chevron-back" size={14} color="#047857" style={{ marginRight: 4 }} />
+                              </View>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })
+                    )}
+                  </View>
+                )}
+
                 {/* ── 2. Primary Custody Target Card (Delegate App Style - Isolated) ── */}
                 <ModuleErrorBoundary moduleName="AhdaNetCustodyCard">
                   <AhdaNetCustodyCard
@@ -1132,6 +1333,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           setExpenseAmount={setExpenseAmount}
           expenseRecipient={expenseRecipient}
           setExpenseRecipient={setExpenseRecipient}
+          exportNumber={exportNumber}
+          setExportNumber={setExportNumber}
           invoiceImageUri={invoiceImageUri}
           setInvoiceImageUri={setInvoiceImageUri}
           loading={addExpenseLoading}
@@ -1149,11 +1352,18 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           isDarkMode={isDarkMode}
           categories={CATEGORIES}
           editCategory={editCategory}
-          setEditCategory={setEditCategory}
+          setEditCategory={(newCat) => {
+            setEditCategory(newCat);
+            if ((newCat === 'internet_advance' || newCat === 'advance') && !editExportNumber.trim()) {
+              setEditExportNumber(calculateNextExportNumber(days));
+            }
+          }}
           editAmount={editAmount}
           setEditAmount={setEditAmount}
           editRecipient={editRecipient}
           setEditRecipient={setEditRecipient}
+          editExportNumber={editExportNumber}
+          setEditExportNumber={setEditExportNumber}
           editImageUri={editImageUri}
           setEditImageUri={setEditImageUri}
           onPickImage={handlePickEditImage}
@@ -1381,6 +1591,102 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  searchBoxCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  searchRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'right',
+    paddingVertical: 0,
+  },
+  searchResultsWrap: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 12,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  searchResultsHeader: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#cbd5e1',
+  },
+  searchResultsTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  searchEmptyBox: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    gap: 6,
+  },
+  searchEmptyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  searchResultCard: {
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  searchCatBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchExportBadge: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  searchExportBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#047857',
+  },
+  searchDatePill: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  searchDateText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
 
