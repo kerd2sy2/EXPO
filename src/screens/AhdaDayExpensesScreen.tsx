@@ -257,41 +257,46 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
     }
   }, [initialExpenseDetails]);
 
-  // Local list of expenses ordered to match the physical ledger
-  const [orderedExpenses, setOrderedExpenses] = useState<CustodyExpenseItem[]>([]);
+  // Local list of expenses ordered to match the physical ledger (initialized immediately with currentDay.expenses)
+  const [orderedExpenses, setOrderedExpenses] = useState<CustodyExpenseItem[]>(() => currentDay?.expenses || []);
 
-  // Load and apply saved custom order from AsyncStorage
+  // Load and apply saved custom order from AsyncStorage without empty state flash
   useEffect(() => {
     let isMounted = true;
-    const syncExpenses = async () => {
-      const base = currentDay?.expenses || [];
-      if (base.length === 0) {
-        if (isMounted) setOrderedExpenses([]);
-        return;
-      }
-      try {
-        const storedOrderStr = await AsyncStorage.getItem(`@custody_expenses_order_${selectedDate}`);
-        if (storedOrderStr && isMounted) {
-          const ids: string[] = JSON.parse(storedOrderStr);
-          if (Array.isArray(ids) && ids.length > 0) {
-            const map = new Map(ids.map((id, idx) => [id, idx]));
-            const sorted = [...base].sort((a, b) => {
-              const aIdx = map.has(a.id) ? map.get(a.id)! : 9999;
-              const bIdx = map.has(b.id) ? map.get(b.id)! : 9999;
-              if (aIdx !== bIdx) return aIdx - bIdx;
-              return 0;
-            });
-            setOrderedExpenses(sorted);
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load expenses order:', err);
-      }
-      if (isMounted) setOrderedExpenses(base);
-    };
+    const base = currentDay?.expenses || [];
+    if (base.length === 0) {
+      if (isMounted) setOrderedExpenses([]);
+      return;
+    }
 
-    syncExpenses();
+    // Immediately keep in sync with base so no empty state flicker occurs
+    setOrderedExpenses((prev) => (prev.length === 0 ? base : prev));
+
+    AsyncStorage.getItem(`@custody_expenses_order_${selectedDate}`)
+      .then((storedOrderStr) => {
+        if (!isMounted) return;
+        if (storedOrderStr) {
+          try {
+            const ids: string[] = JSON.parse(storedOrderStr);
+            if (Array.isArray(ids) && ids.length > 0) {
+              const map = new Map(ids.map((id, idx) => [id, idx]));
+              const sorted = [...base].sort((a, b) => {
+                const aIdx = map.has(a.id) ? map.get(a.id)! : 9999;
+                const bIdx = map.has(b.id) ? map.get(b.id)! : 9999;
+                if (aIdx !== bIdx) return aIdx - bIdx;
+                return 0;
+              });
+              setOrderedExpenses(sorted);
+              return;
+            }
+          } catch (_) {}
+        }
+        setOrderedExpenses(base);
+      })
+      .catch(() => {
+        if (isMounted) setOrderedExpenses(base);
+      });
+
     return () => {
       isMounted = false;
     };

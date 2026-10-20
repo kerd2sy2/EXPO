@@ -19,6 +19,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   BackHandler,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -172,56 +173,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     return isSuperAdmin || hasAllBranchesPermission;
   }, [currentUser]);
 
-  // Scroll Header Animation (Hides on scroll down, shows on scroll up - exactly like delegate app)
-  const headerTranslateY = useRef(new Animated.Value(0)).current;
-  const lastScrollY = useRef(0);
-  const isHeaderHidden = useRef(false);
-  const scrollDelta = useRef(0);
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentY = event.nativeEvent.contentOffset.y;
-    const diff = currentY - lastScrollY.current;
-    lastScrollY.current = currentY;
-
-    if (currentY <= 10) {
-      scrollDelta.current = 0;
-      if (isHeaderHidden.current) {
-        isHeaderHidden.current = false;
-        Animated.spring(headerTranslateY, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 220,
-          useNativeDriver: true,
-        }).start();
-      }
-      return;
-    }
-
-    if (diff > 0) {
-      if (scrollDelta.current < 0) scrollDelta.current = 0;
-      scrollDelta.current += diff;
-      if (scrollDelta.current >= 6 && currentY > 15 && !isHeaderHidden.current) {
-        isHeaderHidden.current = true;
-        Animated.timing(headerTranslateY, {
-          toValue: -HOME_HEADER_HEIGHT,
-          duration: 180,
-          useNativeDriver: true,
-        }).start();
-      }
-    } else if (diff < 0) {
-      if (scrollDelta.current > 0) scrollDelta.current = 0;
-      scrollDelta.current += diff;
-      if (scrollDelta.current <= -6 && isHeaderHidden.current) {
-        isHeaderHidden.current = false;
-        Animated.spring(headerTranslateY, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 220,
-          useNativeDriver: true,
-        }).start();
-      }
-    }
-  };
 
   // Forms / Bottom Sheets State
   const [showAddCustodyModal, setShowAddCustodyModal] = useState<boolean>(false);
@@ -256,10 +207,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [initialExpenseForDetails, setInitialExpenseForDetails] = useState<CustodyExpenseItem | null>(null);
 
   const handlePressProfile = useCallback(() => {
-    headerTranslateY.setValue(0);
-    isHeaderHidden.current = false;
     setShowProfile(true);
-  }, [headerTranslateY]);
+  }, []);
 
   const handlePressSearch = useCallback(() => {
     setShowSearchModal(true);
@@ -1070,17 +1019,17 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     : 0;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.bg }]}
+      edges={showProfile || showDayExpensesPage ? ['left', 'right'] : ['top', 'left', 'right']}
+    >
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
       {showProfile ? (
         <AhdaProfileScreen
           currentUser={currentUser}
           colors={colors}
           isDarkMode={isDarkMode}
-          onBack={() => {
-            headerTranslateY.setValue(0);
-            isHeaderHidden.current = false;
-            setShowProfile(false);
-          }}
+          onBack={() => setShowProfile(false)}
           onLogout={onLogout}
           onToggleTheme={onToggleTheme}
           themePreference={themePreference}
@@ -1100,8 +1049,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             setShowDayExpensesPage(false);
             setSelectedCategoryFilter(null);
             setInitialExpenseForDetails(null);
-            headerTranslateY.setValue(0);
-            isHeaderHidden.current = false;
           }}
           onOpenAddExpense={() => {
             if (selectedCategoryFilter) {
@@ -1118,33 +1065,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         />
       ) : (
         <>
-          {/* ── Status Bar Solid Cover (Hides header completely when it slides up under status bar) ── */}
-          <View
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: topInset,
-              backgroundColor: colors.bg,
-              zIndex: 40,
-            }}
-            pointerEvents="none"
-          />
-
-          {/* ── 1. Collapsible Header (hides on scroll down, shows on scroll up) ── */}
-          <Animated.View
-            style={{
-              position: 'absolute',
-              top: topInset,
-              left: 0,
-              right: 0,
-              height: HOME_HEADER_HEIGHT,
-              backgroundColor: colors.bg,
-              zIndex: 30,
-              transform: [{ translateY: headerTranslateY }],
-            }}
-          >
+          {/* ── 1. Clean Fixed Header (Natively padded by SafeAreaView, zero lag, never in notification bar) ── */}
+          <View style={styles.fixedHeaderWrap}>
             <AhdaHeader
               user={currentUser}
               colors={colors}
@@ -1156,13 +1078,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               onPressBranchSelector={handlePressBranchSelector}
               onPressDatePicker={handlePressDatePicker}
             />
-          </Animated.View>
+          </View>
 
           <ScrollView
             contentContainerStyle={[
               styles.scrollContent,
               {
-                paddingTop: topInset + HOME_HEADER_HEIGHT + 14,
+                paddingTop: 8,
                 paddingBottom: 40,
                 flexGrow: 1,
                 justifyContent: 'flex-start',
@@ -1174,8 +1096,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             alwaysBounceVertical={true}
             overScrollMode="always"
             nestedScrollEnabled={true}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -1183,7 +1103,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                 colors={['#047857']}
                 tintColor="#047857"
                 progressBackgroundColor={colors.card}
-                progressViewOffset={topInset + HOME_HEADER_HEIGHT + 10}
               />
             }
           >
@@ -1218,8 +1137,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     onSelectCategory={(catKey) => {
                       setInitialExpenseForDetails(null);
                       setSelectedCategoryFilter(catKey);
-                      headerTranslateY.setValue(0);
-                      isHeaderHidden.current = false;
                       setShowDayExpensesPage(true);
                     }}
                     onLongPressCategory={(catKey) => {
@@ -1236,8 +1153,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     onPress={() => {
                       setInitialExpenseForDetails(null);
                       setSelectedCategoryFilter(null);
-                      headerTranslateY.setValue(0);
-                      isHeaderHidden.current = false;
                       setShowDayExpensesPage(true);
                     }}
                   />
@@ -1477,6 +1392,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  fixedHeaderWrap: {
+    width: '100%',
+    backgroundColor: 'transparent',
+    zIndex: 10,
   },
   scrollContent: {
     paddingHorizontal: 16,
