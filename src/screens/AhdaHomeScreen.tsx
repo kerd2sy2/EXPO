@@ -244,8 +244,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [editImageUri, setEditImageUri] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState<boolean>(false);
 
-  // Main Screen Search for Export Number (شريط بحث لرقم الصادر في الرئيسية)
+  // Main Screen Search for Export Number (شريط بحث لرقم الوارد في الرئيسية)
   const [searchExportQuery, setSearchExportQuery] = useState<string>('');
+  // Target expense to open details modal directly on navigation from search
+  const [initialExpenseForDetails, setInitialExpenseForDetails] = useState<CustodyExpenseItem | null>(null);
 
   // Auto-generate outgoing sequence number (1/أ, 2/أ, 3/أ...) for internet & personal advance
   useEffect(() => {
@@ -1042,6 +1044,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           onBack={() => {
             setShowDayExpensesPage(false);
             setSelectedCategoryFilter(null);
+            setInitialExpenseForDetails(null);
           }}
           onOpenAddExpense={() => {
             if (selectedCategoryFilter) {
@@ -1053,6 +1056,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           onDeleteExpense={handleDeleteExpense}
           onPreviewImage={(url) => setPreviewImage(url)}
           onReorderExpenses={handleReorderExpenses}
+          initialExpenseDetails={initialExpenseForDetails}
         />
       ) : (
         <>
@@ -1164,7 +1168,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                           color: colors.textPrimary,
                         },
                       ]}
-                      placeholder="بحث برقم الصادر (مثال: 1/أ)..."
+                      placeholder="بحث برقم الوارد (مثال: 1/أ)..."
                       placeholderTextColor="#94a3b8"
                       value={searchExportQuery}
                       onChangeText={setSearchExportQuery}
@@ -1197,7 +1201,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                       <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
                         <Ionicons name="barcode-outline" size={16} color="#047857" />
                         <Text style={[styles.searchResultsTitle, { color: colors.textPrimary }]}>
-                          نتائج البحث برقم الصادر ({toArabicDigits(exportSearchResults.length)})
+                          نتائج البحث برقم الوارد ({toArabicDigits(exportSearchResults.length)})
                         </Text>
                       </View>
                       <TouchableOpacity onPress={() => setSearchExportQuery('')}>
@@ -1209,7 +1213,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                       <View style={styles.searchEmptyBox}>
                         <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
                         <Text style={[styles.searchEmptyText, { color: colors.textSecondary }]}>
-                          لا توجد فواتير مطابقة لرقم الصادر "{searchExportQuery}"
+                          لا توجد فواتير مطابقة لرقم الوارد "{searchExportQuery}"
                         </Text>
                       </View>
                     ) : (
@@ -1231,6 +1235,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                                 updateSelectedDate(res.day.date);
                               }
                               setSelectedCategoryFilter(res.expense.category);
+                              setInitialExpenseForDetails(res.expense);
+                              setSearchExportQuery('');
                               setShowDayExpensesPage(true);
                             }}
                           >
@@ -1245,7 +1251,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                                 <View style={styles.searchExportBadge}>
                                   <Ionicons name="barcode-outline" size={11} color="#047857" />
                                   <Text style={styles.searchExportBadgeText}>
-                                    صادر: {res.expense.export_number}
+                                    وارد: {res.expense.export_number}
                                   </Text>
                                 </View>
                               </View>

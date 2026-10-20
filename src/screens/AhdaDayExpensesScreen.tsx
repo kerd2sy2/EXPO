@@ -162,7 +162,7 @@ const ExpenseCard: React.FC<ExpenseCardProps> = ({
             <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 5, marginTop: 4 }}>
               <Ionicons name="barcode-outline" size={13} color="#0284c7" />
               <Text style={{ fontSize: 12, fontWeight: '800', color: '#0284c7' }}>
-                رقم الصادر: {item.export_number}
+                رقم الوارد: {item.export_number}
               </Text>
             </View>
           ) : null}
@@ -224,6 +224,7 @@ interface AhdaDayExpensesScreenProps {
   onDeleteExpense: (item: CustodyExpenseItem) => void;
   onPreviewImage: (url: string) => void;
   onReorderExpenses?: (reorderedExpenses: CustodyExpenseItem[]) => void;
+  initialExpenseDetails?: CustodyExpenseItem | null;
 }
 
 export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
@@ -240,11 +241,18 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
   onDeleteExpense,
   onPreviewImage,
   onReorderExpenses,
+  initialExpenseDetails = null,
 }) => {
   // Long press options modal state
   const [selectedExpenseForAction, setSelectedExpenseForAction] = useState<CustodyExpenseItem | null>(null);
   // Single press invoice details and picture modal state
-  const [selectedExpenseForDetails, setSelectedExpenseForDetails] = useState<CustodyExpenseItem | null>(null);
+  const [selectedExpenseForDetails, setSelectedExpenseForDetails] = useState<CustodyExpenseItem | null>(initialExpenseDetails || null);
+
+  useEffect(() => {
+    if (initialExpenseDetails) {
+      setSelectedExpenseForDetails(initialExpenseDetails);
+    }
+  }, [initialExpenseDetails]);
 
   // Local list of expenses ordered to match the physical ledger
   const [orderedExpenses, setOrderedExpenses] = useState<CustodyExpenseItem[]>([]);
@@ -531,10 +539,10 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                     </Text>
                   </View>
 
-                  {/* Export Number Row if present */}
+                  {/* Incoming Number Row if present */}
                   {detailsItem.export_number ? (
                     <View style={[styles.detailsInfoRow, { borderColor: colors.border, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', marginTop: 8 }]}>
-                      <Text style={[styles.detailsInfoLabel, { color: colors.textSecondary }]}>رقم الصادر:</Text>
+                      <Text style={[styles.detailsInfoLabel, { color: colors.textSecondary }]}>رقم الوارد:</Text>
                       <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
                         <Ionicons name="barcode-outline" size={16} color="#047857" />
                         <Text style={[styles.detailsInfoValue, { color: '#047857', fontWeight: '800', fontSize: 15 }]}>

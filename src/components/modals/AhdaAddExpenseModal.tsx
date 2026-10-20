@@ -107,12 +107,12 @@ export const AhdaAddExpenseModal: React.FC<AhdaAddExpenseModalProps> = ({
                 />
               </View>
 
-              {/* Outgoing Sequence Number Input (رقم الصادر) for Internet & Personal Advances */}
+              {/* Outgoing Sequence Number Input (رقم الوارد) for Internet & Personal Advances */}
               {isAdvanceCategory && (
                 <View style={styles.inputGroup}>
                   <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <Text style={[styles.sheetLabel, { color: colors.textPrimary, marginBottom: 0 }]}>
-                      رقم الصادر *
+                      رقم الوارد *
                     </Text>
                     <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4, backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
                       <Ionicons name="sparkles" size={11} color="#047857" />

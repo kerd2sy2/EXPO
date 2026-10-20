@@ -200,16 +200,16 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                 />
               </View>
 
-              {/* Outgoing Sequence Number Input (رقم الصادر) for Internet & Personal Advances */}
+              {/* Outgoing Sequence Number Input (رقم الوارد) for Internet & Personal Advances */}
               {isAdvanceCategory && (
                 <View style={styles.inputGroup}>
                   <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <Text style={[styles.sheetLabel, { color: colors.textPrimary, marginBottom: 0 }]}>
-                      رقم الصادر *
+                      رقم الوارد *
                     </Text>
                     <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4, backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
                       <Ionicons name="barcode-outline" size={12} color="#047857" />
-                      <Text style={{ fontSize: 11, color: '#047857', fontWeight: '700' }}>رقم الصادر</Text>
+                      <Text style={{ fontSize: 11, color: '#047857', fontWeight: '700' }}>رقم الوارد</Text>
                     </View>
                   </View>
                   <TextInput
@@ -230,7 +230,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                     onChangeText={(val) => setEditExportNumber && setEditExportNumber(val)}
                   />
                   <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 4, textAlign: 'right' }}>
-                    تسلسل رقم الصادر (مثل 1/أ، 2/أ) مع إمكانية تعديل الرقم أو الحرف
+                    تسلسل رقم الوارد (مثل 1/أ، 2/أ) مع إمكانية تعديل الرقم أو الحرف
                   </Text>
                 </View>
               )}
