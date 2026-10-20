@@ -21,19 +21,19 @@ export interface HumanVerificationScreenProps {
   appName: string;
   isRTL?: boolean;
   onVerify: () => Promise<void>;
-  onBack: () => void;
+  onBack?: () => void;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TRACK_WIDTH = Math.min(SCREEN_WIDTH - 64, 320);
-const KNOB_SIZE = 52;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const TRACK_WIDTH = Math.min(SCREEN_WIDTH - 48, 330);
+const KNOB_SIZE = 50;
 const MAX_SLIDE = TRACK_WIDTH - KNOB_SIZE - 8;
+const ANIMATION_HEIGHT = Math.round(SCREEN_HEIGHT * 0.56);
 
 export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = ({
   colors,
   isDarkMode,
   appName,
-  isRTL = true,
   onVerify,
   onBack,
 }) => {
@@ -48,7 +48,7 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 300,
+      duration: 350,
       useNativeDriver: true,
     }).start();
 
@@ -72,11 +72,11 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
     }).start();
 
     try {
-      // Execute the actual login request while staying on this screen!
+      // Execute the actual login request while staying on this screen
       await onVerify();
     } catch (err: any) {
       console.error('Verification/Login error on screen:', err);
-      const msg = err?.message || 'فشل تسجيل الدخول، يرجى المحاولة مرة أخرى';
+      const msg = err?.message || 'فشل تسجيل الدخول، يرجى التأكد من صحة البيانات';
       setErrorMessage(msg);
       setVerified(false);
       setVerifying(false);
@@ -103,7 +103,7 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
       },
       onPanResponderRelease: (_, gesture) => {
         if (verifying || verified) return;
-        if (gesture.dx >= MAX_SLIDE * 0.78) {
+        if (gesture.dx >= MAX_SLIDE * 0.75) {
           handleSlideComplete();
         } else {
           Animated.spring(slideAnim, {
@@ -121,142 +121,128 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Header with Back button */}
-      <View style={styles.headerRow}>
-        <TouchableOpacity
-          style={[styles.backButton, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
-          onPress={onBack}
-          disabled={verifying}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={isRTL ? 'arrow-forward' : 'arrow-back'}
-            size={20}
-            color={colors.textPrimary}
+      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        {/* Upper 2/3 Section: Large Lottie Animation floating directly on background without card */}
+        <View style={styles.animationSection}>
+          <LottieView
+            ref={lottieRef}
+            source={require('../../assets/Lottie/lottie/41qLNI7XMt.lottie')}
+            autoPlay
+            loop
+            style={styles.fullLottie}
+            resizeMode="contain"
           />
-          <Text style={[styles.backText, { color: colors.textPrimary }]}>رجوع</Text>
-        </TouchableOpacity>
+        </View>
 
-        <View style={[styles.headerBadge, { backgroundColor: `${colors.primary}18` }]}>
-          <Ionicons name="shield-checkmark" size={15} color={colors.primary} />
-          <Text style={[styles.headerBadgeText, { color: colors.primary }]}>
-            التحقق الأمني
+        {/* Action & Verification Section */}
+        <View style={styles.actionSection}>
+          {/* Main Title */}
+          <Text style={[styles.mainTitle, { color: colors.textPrimary }]}>
+            تأكيد تسجيل الدخول
           </Text>
-        </View>
-      </View>
 
-      {/* Main Content Area */}
-      <Animated.View style={[styles.contentContainer, { opacity: fadeAnim }]}>
-        {/* Lottie Animation Display */}
-        <View style={[styles.lottieCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.lottieGlow, { backgroundColor: `${colors.primary}15` }]}>
-            <LottieView
-              ref={lottieRef}
-              source={require('../../assets/Lottie/lottie/41qLNI7XMt.lottie')}
-              autoPlay
-              loop
-              style={styles.lottieAnimation}
-              resizeMode="contain"
-            />
-          </View>
-        </View>
+          {/* Subtitle without any emojis */}
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            اسحب المؤشر أدناه لتأكيد الهوية والمتابعة إلى {appName}
+          </Text>
 
-        {/* Titles & Descriptions */}
-        <Text style={[styles.mainTitle, { color: colors.textPrimary }]}>
-          تأكيد تسجيل الدخول
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          يرجى إكمال السحب أدناه لتأكيد هويتك كإنسان وتسجيل الدخول إلى {appName}
-        </Text>
+          {/* Error Banner with back button to edit credentials if failed */}
+          {errorMessage ? (
+            <View style={[styles.errorBox, { backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2', borderColor: '#ef4444' }]}>
+              <View style={styles.errorContentRow}>
+                <Ionicons name="alert-circle" size={17} color="#ef4444" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+              {onBack ? (
+                <TouchableOpacity onPress={onBack} style={styles.errorBackBtn} activeOpacity={0.7}>
+                  <Text style={[styles.errorBackBtnText, { color: colors.primary }]}>تعديل البيانات</Text>
+                  <Ionicons name="arrow-back" size={13} color={colors.primary} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
 
-        {/* Error Banner if login fails */}
-        {errorMessage ? (
-          <View style={[styles.errorBox, { backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2', borderColor: '#ef4444' }]}>
-            <Ionicons name="alert-circle" size={18} color="#ef4444" />
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          </View>
-        ) : null}
-
-        {/* Slider Verification Track */}
-        <View style={styles.sliderSection}>
-          <View
-            style={[
-              styles.track,
-              {
-                width: TRACK_WIDTH,
-                backgroundColor: verified
-                  ? '#10b98120'
-                  : isDarkMode
-                  ? '#0f172a'
-                  : '#f1f5f9',
-                borderColor: verified ? '#10b981' : colors.border,
-              },
-            ]}
-          >
-            {/* Progress fill */}
-            <Animated.View
+          {/* Slider Verification Track */}
+          <View style={styles.sliderSection}>
+            <View
               style={[
-                styles.trackFill,
+                styles.track,
                 {
-                  width: slideAnim.interpolate({
-                    inputRange: [0, MAX_SLIDE],
-                    outputRange: [KNOB_SIZE, TRACK_WIDTH],
-                    extrapolate: 'clamp',
-                  }),
-                  backgroundColor: verified ? '#10b98125' : `${colors.primary}25`,
-                },
-              ]}
-            />
-
-            {/* Slider track label */}
-            <Text
-              style={[
-                styles.trackLabel,
-                {
-                  color: verified
-                    ? '#059669'
+                  width: TRACK_WIDTH,
+                  backgroundColor: verified
+                    ? '#10b98120'
                     : isDarkMode
-                    ? '#94a3b8'
-                    : '#64748b',
+                    ? '#0f172a'
+                    : '#f1f5f9',
+                  borderColor: verified ? '#10b981' : colors.border,
                 },
               ]}
-              numberOfLines={1}
             >
-              {verifying
-                ? 'جاري التحقق وتسجيل الدخول...'
-                : verified
-                ? 'تم التحقق بنجاح ✓'
-                : 'اسحب المؤشر لليمين لتسجيل الدخول 👉'}
-            </Text>
+              {/* Progress fill */}
+              <Animated.View
+                style={[
+                  styles.trackFill,
+                  {
+                    width: slideAnim.interpolate({
+                      inputRange: [0, MAX_SLIDE],
+                      outputRange: [KNOB_SIZE, TRACK_WIDTH],
+                      extrapolate: 'clamp',
+                    }),
+                    backgroundColor: verified ? '#10b98125' : `${colors.primary}25`,
+                  },
+                ]}
+              />
 
-            {/* Draggable Knob */}
-            <Animated.View
-              {...panResponder.panHandlers}
-              style={[
-                styles.knob,
-                {
-                  transform: [{ translateX: slideAnim }],
-                  backgroundColor: verified ? '#10b981' : colors.primary,
-                  shadowColor: verified ? '#10b981' : colors.primary,
-                },
-              ]}
-            >
-              {verifying ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <Ionicons
-                  name={verified ? 'checkmark' : 'arrow-forward'}
-                  size={24}
-                  color="#ffffff"
-                />
-              )}
-            </Animated.View>
+              {/* Slider track label without emojis */}
+              <Text
+                style={[
+                  styles.trackLabel,
+                  {
+                    color: verified
+                      ? '#059669'
+                      : isDarkMode
+                      ? '#94a3b8'
+                      : '#64748b',
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {verifying
+                  ? 'جاري التحقق وتسجيل الدخول...'
+                  : verified
+                  ? 'تم التحقق بنجاح'
+                  : 'اسحب المؤشر لتسجيل الدخول'}
+              </Text>
+
+              {/* Draggable Knob */}
+              <Animated.View
+                {...panResponder.panHandlers}
+                style={[
+                  styles.knob,
+                  {
+                    transform: [{ translateX: slideAnim }],
+                    backgroundColor: verified ? '#10b981' : colors.primary,
+                    shadowColor: verified ? '#10b981' : colors.primary,
+                  },
+                ]}
+              >
+                {verifying ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Ionicons
+                    name={verified ? 'checkmark' : 'arrow-forward'}
+                    size={24}
+                    color="#ffffff"
+                  />
+                )}
+              </Animated.View>
+            </View>
           </View>
         </View>
 
-        {/* Security Trust Note */}
+        {/* Security Trust Note at the very bottom */}
         <View style={styles.trustFooter}>
-          <Ionicons name="lock-closed" size={14} color={colors.textSecondary} />
+          <Ionicons name="lock-closed" size={13} color={colors.textSecondary} />
           <Text style={[styles.trustText, { color: colors.textSecondary }]}>
             نظام حماية أمني مشفر ومحمي ضد برامج التخمين الآلية
           </Text>
@@ -270,89 +256,56 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  headerRow: {
-    flexDirection: 'row-reverse',
+  container: {
+    flex: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
   },
-  backButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  headerBadge: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  headerBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  contentContainer: {
-    flex: 1,
-    alignItems: 'center',
+  animationSection: {
+    width: '100%',
+    height: ANIMATION_HEIGHT,
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 10,
+  },
+  fullLottie: {
+    width: '94%',
+    height: '94%',
+  },
+  actionSection: {
+    width: '100%',
+    alignItems: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  lottieCard: {
-    borderRadius: 32,
-    borderWidth: 1.5,
-    padding: 16,
-    marginBottom: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 6,
-  },
-  lottieGlow: {
-    width: 150,
-    height: 150,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  lottieAnimation: {
-    width: 140,
-    height: 140,
+    marginBottom: 'auto',
   },
   mainTitle: {
     fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
+    letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: 13,
     lineHeight: 20,
     textAlign: 'center',
     maxWidth: 320,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   errorBox: {
+    width: TRACK_WIDTH,
+    flexDirection: 'column',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 14,
+    gap: 6,
+  },
+  errorContentRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    maxWidth: 320,
-    marginBottom: 16,
   },
   errorText: {
     color: '#ef4444',
@@ -361,8 +314,20 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
   },
+  errorBackBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingTop: 4,
+  },
+  errorBackBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   sliderSection: {
-    marginVertical: 12,
+    marginTop: 4,
+    marginBottom: 10,
   },
   track: {
     height: KNOB_SIZE + 8,
@@ -403,11 +368,15 @@ const styles = StyleSheet.create({
   trustFooter: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    marginTop: 28,
+    paddingBottom: 20,
+    paddingTop: 8,
+    width: '100%',
   },
   trustText: {
     fontSize: 11,
     fontWeight: '600',
+    textAlign: 'center',
   },
 });
