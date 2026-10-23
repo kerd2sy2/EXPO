@@ -328,6 +328,15 @@ export const fetchCurrentUserProfile = async (): Promise<any | null> => {
     const res = await apiRequest<any>('/me');
     if (res) {
       const user = res.user || res;
+      const avatarVal =
+        res.personal_image ||
+        user.personal_image ||
+        res.avatar ||
+        user.avatar ||
+        res.google_avatar ||
+        user.google_avatar ||
+        null;
+
       const targetUser = {
         ...(typeof user === 'object' ? user : {}),
         id: res.id || user.id,
@@ -338,7 +347,8 @@ export const fetchCurrentUserProfile = async (): Promise<any | null> => {
         permissions: res.permissions || user.permissions,
         branch_id: res.branch_id !== undefined ? res.branch_id : user.branch_id,
         branch_name: res.branch_name !== undefined ? res.branch_name : user.branch_name,
-        avatar: res.avatar || user.avatar || res.google_avatar || user.google_avatar,
+        personal_image: avatarVal,
+        avatar: avatarVal,
       };
 
       const existing = await getCachedUser();
@@ -353,8 +363,95 @@ export const fetchCurrentUserProfile = async (): Promise<any | null> => {
   }
 };
 
+/**
+ * Updates the user's avatar permanently on the backend database (employees.personal_image / admins.google_avatar)
+ * and syncs local storage.
+ */
+export const updateMyAvatar = async (avatarUrl: string): Promise<boolean> => {
+  try {
+    const cleanAvatar = avatarUrl ? avatarUrl.trim() : '';
+
+    // 1. Try dedicated /auth/me/avatar and /me/avatar endpoints
+    let synced = false;
+    try {
+      await apiRequest('/auth/me/avatar', {
+        method: 'POST',
+        body: JSON.stringify({ avatar: cleanAvatar }),
+      });
+      synced = true;
+    } catch (_) {
+      try {
+        await apiRequest('/me/avatar', {
+          method: 'POST',
+          body: JSON.stringify({ avatar: cleanAvatar }),
+        });
+        synced = true;
+      } catch (_) {
+        try {
+          await apiRequest('/me/avatar', {
+            method: 'PUT',
+            body: JSON.stringify({ avatar: cleanAvatar }),
+          });
+          synced = true;
+        } catch (_) {}
+      }
+    }
+
+    // 2. Fallback to /employees/:id if user has employee ID
+    const current = await getCachedUser();
+    const empId = current?.id || current?.employee_id || current?.employee?.id;
+    if (empId) {
+      try {
+        await apiRequest(`/employees/${empId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ personal_image: cleanAvatar }),
+        });
+        synced = true;
+      } catch (_) {}
+    }
+
+    // 3. Fallback to /users/:id if admin
+    const adminId = current?.admin?.id || current?.id;
+    if (adminId && (current?.role === 'ADMIN' || current?.role === 'SUPER_ADMIN' || current?.role === 'SUPERVISOR')) {
+      try {
+        await apiRequest(`/users/${adminId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ avatar: cleanAvatar }),
+        });
+        synced = true;
+      } catch (_) {}
+    }
+
+    // 4. Update local cached user and storage
+    const updated = {
+      ...(current || {}),
+      avatar: cleanAvatar || null,
+      personal_image: cleanAvatar || null,
+      google_avatar: cleanAvatar || null,
+    };
+    await saveCachedUser(updated);
+    if (cleanAvatar) {
+      await AsyncStorage.setItem('@aams_cached_avatar', cleanAvatar);
+    } else {
+      await AsyncStorage.removeItem('@aams_cached_avatar');
+    }
+
+    // 5. Background re-fetch fresh profile from server
+    fetchCurrentUserProfile().catch(() => {});
+
+    return true;
+  } catch (err) {
+    console.warn('[updateMyAvatar] error updating avatar:', err);
+    return false;
+  }
+};
+
 const LAST_SAVED_CREDENTIALS_KEY = 'aams_last_saved_credentials';
 const BIOMETRIC_ENABLED_KEY = 'aams_biometric_enabled';
+const BIO_TOKEN_KEY = 'aams_bio_token';
+const BIO_REFRESH_TOKEN_KEY = 'aams_bio_refresh_token';
+const BIO_NATIONAL_ID_KEY = 'aams_bio_national_id';
+const BIO_USER_KEY = 'aams_bio_user';
 
 export const isBiometricEnabled = async (): Promise<boolean> => {
   try {
@@ -386,16 +483,29 @@ export const saveLastCredentialsForBiometrics = async (
 ): Promise<void> => {
   try {
     const rToken = refreshToken || storedRefreshToken;
-    const data = {
-      nationalId,
-      token,
-      refreshToken: rToken,
-      user,
-      timestamp: Date.now(),
-    };
-    await AsyncStorage.setItem(LAST_SAVED_CREDENTIALS_KEY, JSON.stringify(data));
+    // Store sensitive authentication tokens in hardware-backed secure storage
+    const secureTasks: Promise<void>[] = [
+      secureStorage.setItem(BIO_TOKEN_KEY, token),
+      secureStorage.setItem(BIO_NATIONAL_ID_KEY, nationalId),
+    ];
+    if (rToken) {
+      secureTasks.push(secureStorage.setItem(BIO_REFRESH_TOKEN_KEY, rToken));
+    } else {
+      secureTasks.push(secureStorage.removeItem(BIO_REFRESH_TOKEN_KEY));
+    }
+    await Promise.all(secureTasks);
+
+    // Store non-sensitive profile payload in AsyncStorage to respect SecureStore 2048-byte limit
+    if (user) {
+      await AsyncStorage.setItem(BIO_USER_KEY, JSON.stringify(user));
+    } else {
+      await AsyncStorage.removeItem(BIO_USER_KEY);
+    }
+
+    // Clean up any old unencrypted legacy record
+    await AsyncStorage.removeItem(LAST_SAVED_CREDENTIALS_KEY);
   } catch (e) {
-    console.log('Error saving biometric credentials:', e);
+    console.log('Error saving biometric credentials securely:', e);
   }
 };
 
@@ -408,8 +518,53 @@ export const getSavedCredentialsForBiometrics = async (): Promise<{
   try {
     const enabled = await isBiometricEnabled();
     if (!enabled) return null;
-    const raw = await AsyncStorage.getItem(LAST_SAVED_CREDENTIALS_KEY);
-    return raw ? JSON.parse(raw) : null;
+
+    // Read securely stored credentials
+    const [token, nationalId, rToken] = await Promise.all([
+      secureStorage.getItem(BIO_TOKEN_KEY),
+      secureStorage.getItem(BIO_NATIONAL_ID_KEY),
+      secureStorage.getItem(BIO_REFRESH_TOKEN_KEY),
+    ]);
+
+    if (token && nationalId) {
+      let user: any = null;
+      try {
+        const rawUser = await AsyncStorage.getItem(BIO_USER_KEY);
+        user = rawUser ? JSON.parse(rawUser) : await getCachedUser();
+      } catch {
+        user = await getCachedUser();
+      }
+
+      return {
+        nationalId,
+        token,
+        refreshToken: rToken || undefined,
+        user,
+      };
+    }
+
+    // Seamless migration from legacy unencrypted AsyncStorage if present
+    const legacyRaw = await AsyncStorage.getItem(LAST_SAVED_CREDENTIALS_KEY);
+    if (legacyRaw) {
+      const parsed = JSON.parse(legacyRaw);
+      if (parsed?.token && parsed?.nationalId) {
+        // Automatically migrate to secureStorage
+        await saveLastCredentialsForBiometrics(
+          parsed.nationalId,
+          parsed.token,
+          parsed.user,
+          parsed.refreshToken
+        );
+        return {
+          nationalId: parsed.nationalId,
+          token: parsed.token,
+          refreshToken: parsed.refreshToken,
+          user: parsed.user,
+        };
+      }
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -417,7 +572,13 @@ export const getSavedCredentialsForBiometrics = async (): Promise<{
 
 export const clearSavedBiometrics = async (): Promise<void> => {
   try {
-    await AsyncStorage.removeItem(LAST_SAVED_CREDENTIALS_KEY);
+    await Promise.all([
+      secureStorage.removeItem(BIO_TOKEN_KEY),
+      secureStorage.removeItem(BIO_REFRESH_TOKEN_KEY),
+      secureStorage.removeItem(BIO_NATIONAL_ID_KEY),
+      AsyncStorage.removeItem(BIO_USER_KEY),
+      AsyncStorage.removeItem(LAST_SAVED_CREDENTIALS_KEY),
+    ]);
   } catch {}
 };
 

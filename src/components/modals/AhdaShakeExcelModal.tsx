@@ -18,8 +18,10 @@ interface AhdaShakeExcelModalProps {
   colors: ThemeColors;
   isDarkMode: boolean;
   loading: boolean;
+  expensesCount?: number;
   onPreview: () => void;
   onExportAndShare: () => void;
+  onAddExpense?: () => void;
   onClose: () => void;
 }
 
@@ -29,10 +31,14 @@ export const AhdaShakeExcelModal: React.FC<AhdaShakeExcelModalProps> = ({
   colors,
   isDarkMode,
   loading,
+  expensesCount = 0,
   onPreview,
   onExportAndShare,
+  onAddExpense,
   onClose,
 }) => {
+  const hasExpenses = expensesCount > 0;
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
@@ -70,52 +76,101 @@ export const AhdaShakeExcelModal: React.FC<AhdaShakeExcelModalProps> = ({
           <View style={styles.headerGroup}>
             <View style={styles.lottieContainer}>
               <LottieView
-                source={require('../../../assets/Lottie/json/pdf.json')}
+                source={
+                  hasExpenses
+                    ? require('../../../assets/Lottie/json/pdf.json')
+                    : require('../../../assets/Lottie/json/empty_invoices.json')
+                }
                 autoPlay
                 loop
-                style={{ width: 100, height: 100 }}
+                style={{ width: hasExpenses ? 100 : 125, height: hasExpenses ? 100 : 125 }}
               />
             </View>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
-              تقرير عهدة ومصاريف اليوم (PDF)
+              {hasExpenses ? 'تقرير عهدة ومصاريف اليوم (PDF)' : 'لا توجد فواتير مسجلة لهذا اليوم'}
             </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              تاريخ العهدة: {toArabicDigits(selectedDate)}
-            </Text>
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                تاريخ العهدة: {toArabicDigits(selectedDate)}
+              </Text>
+              {hasExpenses && (
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{toArabicDigits(expensesCount)} فواتير</Text>
+                </View>
+              )}
+            </View>
           </View>
 
-          {/* Features Highlights Box */}
-          <View
-            style={[
-              styles.featuresBox,
-              {
-                backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                borderColor: isDarkMode ? '#334155' : '#e2e8f0',
-              },
-            ]}
-          >
-            <View style={styles.featureRow}>
-              <Ionicons name="images-outline" size={16} color="#047857" />
-              <Text style={[styles.featureText, { color: colors.textPrimary }]}>
-                عرض صور الفواتير واضحة بدقة عالية
+          {hasExpenses ? (
+            /* Features Highlights Box when there are expenses */
+            <View
+              style={[
+                styles.featuresBox,
+                {
+                  backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                  borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                },
+              ]}
+            >
+              <View style={styles.featureRow}>
+                <Ionicons name="images-outline" size={16} color="#047857" />
+                <Text style={[styles.featureText, { color: colors.textPrimary }]}>
+                  عرض صور الفواتير واضحة بدقة عالية
+                </Text>
+              </View>
+              <View style={styles.featureRow}>
+                <Ionicons name="layers-outline" size={16} color="#0284c7" />
+                <Text style={[styles.featureText, { color: colors.textPrimary }]}>
+                  ترتيب وتجميع كل قسم وفواتيره تحت بعضها
+                </Text>
+              </View>
+              <View style={styles.featureRow}>
+                <Ionicons name="document-text-outline" size={16} color="#16a34a" />
+                <Text style={[styles.featureText, { color: colors.textPrimary }]}>
+                  تقرير رسمي بالأرقام العربية معتمد للطباعة
+                </Text>
+              </View>
+            </View>
+          ) : (
+            /* Empty Notice Box when there are NO expenses */
+            <View
+              style={[
+                styles.emptyNoticeBox,
+                {
+                  backgroundColor: isDarkMode ? '#1e293b' : '#fff7ed',
+                  borderColor: isDarkMode ? '#334155' : '#fed7aa',
+                },
+              ]}
+            >
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Ionicons name="receipt-outline" size={16} color="#ea580c" />
+                <Text style={[styles.emptyNoticeTitle, { color: isDarkMode ? '#fed7aa' : '#9a3412' }]}>
+                  سجل فواتير اليوم فارغ
+                </Text>
+              </View>
+              <Text style={[styles.emptyNoticeSub, { color: colors.textSecondary }]}>
+                لم يتم تسجيل أي مصاريف أو فواتير لهذا اليوم. يمكنك إضافة أول فاتورة الآن، أو تصدير ومشاركة كشف حساب رصيد العهدة.
               </Text>
             </View>
-            <View style={styles.featureRow}>
-              <Ionicons name="layers-outline" size={16} color="#0284c7" />
-              <Text style={[styles.featureText, { color: colors.textPrimary }]}>
-                ترتيب وتجميع كل قسم وفواتيره تحت بعضها
-              </Text>
-            </View>
-            <View style={styles.featureRow}>
-              <Ionicons name="document-text-outline" size={16} color="#16a34a" />
-              <Text style={[styles.featureText, { color: colors.textPrimary }]}>
-                تقرير رسمي بالأرقام العربية معتمد للطباعة
-              </Text>
-            </View>
-          </View>
+          )}
 
           {/* Actions List */}
           <View style={styles.actionButtonsCol}>
+            {!hasExpenses && onAddExpense && (
+              /* Add Expense Hero Button when empty */
+              <TouchableOpacity
+                style={[styles.actionBtnPrimary, { backgroundColor: '#ea580c' }]}
+                onPress={onAddExpense}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="add-circle-outline" size={20} color="#ffffff" />
+                  <Text style={styles.actionBtnPrimaryText}>+ إضافة أول فاتورة للعهدة الآن</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
             {/* 1. Preview PDF Button (معاينة قبل الإرسال) */}
             <TouchableOpacity
               style={[
@@ -133,7 +188,7 @@ export const AhdaShakeExcelModal: React.FC<AhdaShakeExcelModalProps> = ({
               <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }}>
                 <Ionicons name="eye-outline" size={20} color={isDarkMode ? '#38bdf8' : '#0f172a'} />
                 <Text style={[styles.actionBtnSecondaryText, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
-                  معاينة الملف قبل الإرسال (PDF)
+                  {hasExpenses ? 'معاينة الملف قبل الإرسال (PDF)' : 'معاينة كشف الرصيد (PDF)'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -143,7 +198,7 @@ export const AhdaShakeExcelModal: React.FC<AhdaShakeExcelModalProps> = ({
               style={[
                 styles.actionBtnPrimary,
                 {
-                  backgroundColor: '#047857',
+                  backgroundColor: hasExpenses ? '#047857' : (isDarkMode ? '#334155' : '#0f172a'),
                   opacity: loading ? 0.7 : 1,
                 },
               ]}
@@ -160,7 +215,7 @@ export const AhdaShakeExcelModal: React.FC<AhdaShakeExcelModalProps> = ({
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }}>
                   <Ionicons name="share-social-outline" size={20} color="#ffffff" />
                   <Text style={styles.actionBtnPrimaryText}>
-                    مشاركة وإرسال ملف الـ PDF
+                    {hasExpenses ? 'مشاركة وإرسال ملف الـ PDF' : 'مشاركة كشف رصيد العهدة (PDF)'}
                   </Text>
                 </View>
               )}
@@ -267,6 +322,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  countBadge: {
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  countBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#047857',
+  },
+  emptyNoticeBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 18,
+    alignItems: 'flex-end',
+  },
+  emptyNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+  emptyNoticeSub: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500',
+    textAlign: 'right',
   },
   featuresBox: {
     borderRadius: 14,

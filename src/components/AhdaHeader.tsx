@@ -84,7 +84,7 @@ const AhdaHeaderComponent: React.FC<AhdaHeaderProps> = ({
   const branchDisplayName = activeBranchName || 'الفرع الأول';
 
   return (
-    <View style={[styles.headerContainer, { borderBottomColor: 'transparent' }]}>
+    <View style={styles.headerContainer}>
       {/* Right Side: Avatar + Employee Name (First & Second) + Branch Name (No Background) */}
       <View style={styles.headerRightGroup}>
         <TouchableOpacity
@@ -106,8 +106,9 @@ const AhdaHeaderComponent: React.FC<AhdaHeaderProps> = ({
         </TouchableOpacity>
 
         <View style={styles.headerUserInfoCol}>
-          {/* Employee Name (First & Second Name) */}
-          <TouchableOpacity onPress={onPressProfile} activeOpacity={0.7}>
+          {/* Employee Name with person icon (Matching Delegate App Style) */}
+          <TouchableOpacity onPress={onPressProfile} activeOpacity={0.7} style={styles.headerNameRow}>
+            <Ionicons name="person-outline" size={13} color="#047857" />
             <Text
               style={[styles.employeeNameText, { color: colors.textPrimary }]}
               numberOfLines={1}
@@ -178,13 +179,19 @@ export const AhdaHeader = React.memo(AhdaHeaderComponent);
 
 const styles = StyleSheet.create({
   headerContainer: {
-    height: 64,
+    height: 72,
+    borderBottomWidth: 0,
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     backgroundColor: 'transparent',
+  },
+  headerNameRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
   },
   headerRightGroup: {
     flexDirection: 'row-reverse',

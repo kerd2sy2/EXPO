@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     paddingHorizontal: 0,
     paddingVertical: 4,
-    marginBottom: 20,
+    marginBottom: 12,
   },
   cardHeaderRow: {
     flexDirection: 'row-reverse',

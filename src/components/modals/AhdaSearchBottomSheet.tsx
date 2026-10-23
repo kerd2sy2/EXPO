@@ -13,6 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import { ThemeColors } from '../../types/delegate';
 import { CustodyDayData, CustodyExpenseItem } from '../../services/custodyService';
 import { toArabicDigits, formatArabicNumber } from '../../utils/formatters';
@@ -265,11 +266,11 @@ export const AhdaSearchBottomSheet: React.FC<AhdaSearchBottomSheetProps> = ({
               </View>
             ) : searchResults.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons
-                  name="file-tray-outline"
-                  size={36}
-                  color={colors.textSecondary}
-                  style={{ marginBottom: 8 }}
+                <LottieView
+                  source={require('../../../assets/Lottie/json/empty_invoices.json')}
+                  autoPlay
+                  loop
+                  style={{ width: 130, height: 130 }}
                 />
                 <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
                   لم يتم العثور على نتائج

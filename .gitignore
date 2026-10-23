@@ -36,6 +36,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# media / videos
+*.mp4
+
 # typescript
 *.tsbuildinfo
 

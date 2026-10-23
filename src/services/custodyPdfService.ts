@@ -60,32 +60,155 @@ const base64ToUint8Array = (b64: string): Uint8Array => {
   return bytes;
 };
 
-// Helper to download an image and return its Uint8Array and format
+// Persistent Disk & In-Memory Cache for invoice images
+const memoryImageCache = new Map<string, { bytes: Uint8Array; isJpg: boolean }>();
+
+// Simple hash for cache filename
+const getCacheFilenameForUrl = (url: string): string => {
+  let hash = 0;
+  for (let i = 0; i < url.length; i++) {
+    hash = (hash << 5) - hash + url.charCodeAt(i);
+    hash |= 0;
+  }
+  const isPng = url.toLowerCase().includes('.png');
+  const ext = isPng ? 'png' : 'jpg';
+  return `${FileSystem.cacheDirectory}inv_cache_${Math.abs(hash)}.${ext}`;
+};
+
+// Helper to download an image (with persistent disk cache and memory cache)
 const fetchImageBytes = async (url: string): Promise<{ bytes: Uint8Array; isJpg: boolean } | null> => {
+  if (!url) return null;
+
+  // 1. Check in-memory cache first (0ms)
+  if (memoryImageCache.has(url)) {
+    return memoryImageCache.get(url)!;
+  }
+
   try {
     const formatted = formatImageUrl(url);
     if (!formatted) return null;
 
     const isPng = formatted.toLowerCase().endsWith('.png');
-    const ext = isPng ? 'png' : 'jpeg';
-    const tempFileUri = `${FileSystem.cacheDirectory}pdf_thumb_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+    const isJpg = !isPng;
 
-    const downloadRes = await FileSystem.downloadAsync(formatted, tempFileUri);
+    // 2. Local file URI
+    if (formatted.startsWith('file://')) {
+      const b64 = await FileSystem.readAsStringAsync(formatted, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const result = { bytes: base64ToUint8Array(b64), isJpg };
+      memoryImageCache.set(url, result);
+      return result;
+    }
+
+    // 3. Persistent disk cache check (zero server downloads if already cached)
+    const diskPath = getCacheFilenameForUrl(formatted);
+    const fileInfo = await FileSystem.getInfoAsync(diskPath);
+
+    if (fileInfo.exists && fileInfo.size > 0) {
+      const b64 = await FileSystem.readAsStringAsync(diskPath, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const result = { bytes: base64ToUint8Array(b64), isJpg };
+      memoryImageCache.set(url, result);
+      return result;
+    }
+
+    // 4. Download once from server and save persistently to disk
+    const downloadRes = await FileSystem.downloadAsync(formatted, diskPath);
     if (downloadRes.status !== 200) {
       return null;
     }
 
-    const b64 = await FileSystem.readAsStringAsync(downloadRes.uri, {
+    const b64 = await FileSystem.readAsStringAsync(diskPath, {
       encoding: FileSystem.EncodingType.Base64,
     });
-    FileSystem.deleteAsync(tempFileUri, { idempotent: true }).catch(() => {});
-
-    return { bytes: base64ToUint8Array(b64), isJpg: !isPng };
+    const result = { bytes: base64ToUint8Array(b64), isJpg };
+    memoryImageCache.set(url, result);
+    return result;
   } catch (err) {
     console.warn('[PDF] Failed to download invoice image:', err);
     return null;
   }
 };
+
+// In-Memory Cached Assets for instant PDF generation
+let cachedRegularBytes: Uint8Array | null = null;
+let cachedBoldBytes: Uint8Array | null = null;
+let cachedLogoBytes: Uint8Array | null = null;
+let cachedRiyalBytes: Uint8Array | null = null;
+
+const getFontRegularBytes = async (): Promise<Uint8Array> => {
+  if (cachedRegularBytes) return cachedRegularBytes;
+  const regularAsset = Asset.fromModule(require('../../assets/fonts/Tahoma.ttf'));
+  if (!regularAsset.localUri) await regularAsset.downloadAsync();
+  const regularUri = regularAsset.localUri || regularAsset.uri;
+  const regularB64 = await FileSystem.readAsStringAsync(regularUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  cachedRegularBytes = base64ToUint8Array(regularB64);
+  return cachedRegularBytes;
+};
+
+const getFontBoldBytes = async (): Promise<Uint8Array> => {
+  if (cachedBoldBytes) return cachedBoldBytes;
+  const boldAsset = Asset.fromModule(require('../../assets/fonts/Tahoma-Bold.ttf'));
+  if (!boldAsset.localUri) await boldAsset.downloadAsync();
+  const boldUri = boldAsset.localUri || boldAsset.uri;
+  const boldB64 = await FileSystem.readAsStringAsync(boldUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  cachedBoldBytes = base64ToUint8Array(boldB64);
+  return cachedBoldBytes;
+};
+
+const getLogoBytes = async (): Promise<Uint8Array | null> => {
+  if (cachedLogoBytes) return cachedLogoBytes;
+  try {
+    const logoAsset = Asset.fromModule(require('../../assets/images/logo.png'));
+    if (!logoAsset.localUri) await logoAsset.downloadAsync();
+    const logoUri = logoAsset.localUri || logoAsset.uri;
+    const logoB64 = await FileSystem.readAsStringAsync(logoUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    cachedLogoBytes = base64ToUint8Array(logoB64);
+    return cachedLogoBytes;
+  } catch (logoErr) {
+    return null;
+  }
+};
+
+const getRiyalBytes = async (): Promise<Uint8Array | null> => {
+  if (cachedRiyalBytes) return cachedRiyalBytes;
+  try {
+    cachedRiyalBytes = base64ToUint8Array(SAUDI_RIYAL_SYMBOL_PNG_BASE64);
+    return cachedRiyalBytes;
+  } catch (_) {
+    try {
+      const riyalAsset = Asset.fromModule(require('../../assets/Saudi_Riyal_Symbol.png'));
+      if (!riyalAsset.localUri) await riyalAsset.downloadAsync();
+      const riyalUri = riyalAsset.localUri || riyalAsset.uri;
+      const riyalB64 = await FileSystem.readAsStringAsync(riyalUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      cachedRiyalBytes = base64ToUint8Array(riyalB64);
+      return cachedRiyalBytes;
+    } catch (_) {
+      return null;
+    }
+  }
+};
+
+// Generates unique deterministic PDF cache path for a given day data state
+export function getCustodyPdfCacheUri(day: CustodyDayData): string {
+  const dateStr = String(day.date || '').replace(/[^0-9-]/g, '_');
+  const count = (day.expenses || []).length;
+  const total = Math.round(Number(day.total_expenses || 0) * 100);
+  const added = Math.round(Number(day.added_amount || 0) * 100);
+  const openBal = Math.round(Number(day.opening_balance || 0) * 100);
+  const ledger = day.ledger_image_url ? '1' : '0';
+  return `${FileSystem.documentDirectory}custody_report_${dateStr}_c${count}_t${total}_a${added}_o${openBal}_l${ledger}.pdf`;
+}
 
 // ── Arabic Eastern Numerals & BiDi Fontkit Helpers ──
 const ARABIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -148,65 +271,76 @@ const CATEGORY_ORDER: Array<{
 export interface ExportPdfOptions {
   user?: any;
   dayLogs?: CustodyLogItem[];
-  mode?: 'preview' | 'share';
+  mode?: 'preview' | 'share' | 'none';
   ledgerImageUrl?: string;
+  forceRegenerate?: boolean;
 }
 
 export const exportCustodyDayToPdf = async (
   day: CustodyDayData,
   options?: ExportPdfOptions
 ): Promise<string> => {
+  const cleanDateStr = String(day.date || '').trim();
+  const cachedPdfUri = getCustodyPdfCacheUri(day);
+
+  // 0. Instant Cache Return: If already generated for this exact state, share immediately (0ms)
+  if (!options?.forceRegenerate) {
+    try {
+      const info = await FileSystem.getInfoAsync(cachedPdfUri);
+      if (info.exists && info.size > 2000) {
+        if (options?.mode === 'share') {
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) {
+            await Sharing.shareAsync(cachedPdfUri, {
+              mimeType: 'application/pdf',
+              dialogTitle: `مشاركة تقرير العهدة (${cleanDateStr})`,
+              UTI: 'com.adobe.pdf',
+            });
+          }
+        }
+        return cachedPdfUri;
+      }
+    } catch (_) {}
+  }
+
+  // Pre-load all invoice images in PARALLEL (prevents sequential network blocking)
+  const allImageUrls: string[] = [];
+  if (options?.ledgerImageUrl) allImageUrls.push(options.ledgerImageUrl);
+  if (day.ledger_image_url) allImageUrls.push(day.ledger_image_url);
+  (day.expenses || []).forEach((e) => {
+    if (e.image_url) allImageUrls.push(e.image_url);
+  });
+  if (allImageUrls.length > 0) {
+    await Promise.all(allImageUrls.map((u) => fetchImageBytes(u)));
+  }
+
   // 1. Create Document with fontkit OpenType engine
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
-  // 2. Load Fonts (Tahoma Regular & Bold)
-  const regularAsset = Asset.fromModule(require('../../assets/fonts/Tahoma.ttf'));
-  if (!regularAsset.localUri) await regularAsset.downloadAsync();
-  const regularUri = regularAsset.localUri || regularAsset.uri;
-  const regularB64 = await FileSystem.readAsStringAsync(regularUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  const fontRegular = await pdfDoc.embedFont(base64ToUint8Array(regularB64));
+  // 2. Load Fonts (Tahoma Regular & Bold) from memory cache
+  const fontRegularBytes = await getFontRegularBytes();
+  const fontRegular = await pdfDoc.embedFont(fontRegularBytes);
 
-  const boldAsset = Asset.fromModule(require('../../assets/fonts/Tahoma-Bold.ttf'));
-  if (!boldAsset.localUri) await boldAsset.downloadAsync();
-  const boldUri = boldAsset.localUri || boldAsset.uri;
-  const boldB64 = await FileSystem.readAsStringAsync(boldUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  const fontBold = await pdfDoc.embedFont(base64ToUint8Array(boldB64));
+  const fontBoldBytes = await getFontBoldBytes();
+  const fontBold = await pdfDoc.embedFont(fontBoldBytes);
 
   // 3. Load Saudi Riyal Symbol (PNG asset / base64 fallback)
   let riyalImg: PDFImage | null = null;
-  try {
-    riyalImg = await pdfDoc.embedPng(base64ToUint8Array(SAUDI_RIYAL_SYMBOL_PNG_BASE64));
-  } catch (err) {
+  const riyalBytes = await getRiyalBytes();
+  if (riyalBytes) {
     try {
-      const riyalAsset = Asset.fromModule(require('../../assets/Saudi_Riyal_Symbol.png'));
-      if (!riyalAsset.localUri) await riyalAsset.downloadAsync();
-      const riyalUri = riyalAsset.localUri || riyalAsset.uri;
-      const riyalB64 = await FileSystem.readAsStringAsync(riyalUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      riyalImg = await pdfDoc.embedPng(base64ToUint8Array(riyalB64));
-    } catch (assetErr) {
-      console.warn('[PDF] Failed to load Saudi Riyal Symbol:', assetErr);
-    }
+      riyalImg = await pdfDoc.embedPng(riyalBytes);
+    } catch (_) {}
   }
 
   // 4. Load Company Logo (PNG asset)
   let logoImg: PDFImage | null = null;
-  try {
-    const logoAsset = Asset.fromModule(require('../../assets/images/logo.png'));
-    if (!logoAsset.localUri) await logoAsset.downloadAsync();
-    const logoUri = logoAsset.localUri || logoAsset.uri;
-    const logoB64 = await FileSystem.readAsStringAsync(logoUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    logoImg = await pdfDoc.embedPng(base64ToUint8Array(logoB64));
-  } catch (logoErr) {
-    console.warn('[PDF] Failed to load logo:', logoErr);
+  const logoBytes = await getLogoBytes();
+  if (logoBytes) {
+    try {
+      logoImg = await pdfDoc.embedPng(logoBytes);
+    } catch (_) {}
   }
 
   const PAGE_WIDTH = 595.28; // A4 standard width
@@ -362,7 +496,6 @@ export const exportCustodyDayToPdf = async (
 
   const expenses = day.expenses || [];
   const supervisorName = options?.user?.name || options?.user?.username || 'ابراهيم محمود';
-  const cleanDateStr = String(day.date || '').trim();
   const arabicDateVisual = formatArabicDateForFontkit(cleanDateStr);
 
   // ════════════════════════════════════════════════════════════
@@ -1353,35 +1486,34 @@ export const exportCustodyDayToPdf = async (
     );
   });
 
-  // 3. Save PDF to device file system
-  const pdfBytes = await pdfDoc.save();
-  const fileName = `تقرير_عهدة_${cleanDateStr.replace(/[^0-9-]/g, '_')}.pdf`;
-  const pdfUri = `${FileSystem.documentDirectory}${fileName}`;
-
-  // Convert Uint8Array to base64 for writing
-  let binary = '';
-  const len = pdfBytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(pdfBytes[i]);
-  }
-  const base64Pdf = btoa(binary);
-
-  await FileSystem.writeAsStringAsync(pdfUri, base64Pdf, {
+  // 3. Save PDF to cached file path using fast saveAsBase64
+  const base64Pdf = await pdfDoc.saveAsBase64();
+  await FileSystem.writeAsStringAsync(cachedPdfUri, base64Pdf, {
     encoding: FileSystem.EncodingType.Base64,
   });
 
   // 4. Share or Preview file via native share dialog
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (isAvailable) {
-    const isPreview = options?.mode === 'preview';
-    await Sharing.shareAsync(pdfUri, {
-      mimeType: 'application/pdf',
-      dialogTitle: isPreview
-        ? `معاينة تقرير العهدة (${cleanDateStr})`
-        : `مشاركة تقرير العهدة (${cleanDateStr})`,
-      UTI: 'com.adobe.pdf',
-    });
+  if (options?.mode === 'share') {
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (isAvailable) {
+      await Sharing.shareAsync(cachedPdfUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: `مشاركة تقرير العهدة (${cleanDateStr})`,
+        UTI: 'com.adobe.pdf',
+      });
+    }
   }
 
-  return pdfUri;
+  return cachedPdfUri;
+};
+
+/**
+ * Pre-warms the custody day PDF quietly in background so clicking share is instantaneous (0.05s)
+ * with zero server request load.
+ */
+export const prewarmCustodyPdf = async (
+  day: CustodyDayData,
+  options?: Omit<ExportPdfOptions, 'mode'>
+): Promise<string> => {
+  return exportCustodyDayToPdf(day, { ...options, mode: 'none' });
 };

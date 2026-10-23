@@ -8,8 +8,9 @@ import {
   Platform,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets, initialWindowMetrics } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -25,16 +26,13 @@ import {
   saveCachedUser,
   fetchCurrentUserProfile,
   onSessionExpired,
+  loadActiveBranch,
+  setActiveBranch,
 } from '../services/api';
 
 // Screens
 import { AhdaLoginScreen } from '../screens/AhdaLoginScreen';
 import { AhdaHomeScreen } from '../screens/AhdaHomeScreen';
-import {
-  AhdaNetCustodyCardSkeleton,
-  AhdaCategoryGridSkeleton,
-  AhdaDayExpensesSummaryCardSkeleton,
-} from '../components/skeleton/AhdaHomeSkeleton';
 import { AutoUpdateOverlay } from '../components/modals/AutoUpdateOverlay';
 
 // Dark / Light Theme Tokens - Matching AAMS delegate design system
@@ -80,98 +78,12 @@ const darkColors: ThemeColors = {
   errorText: '#fca5a5',
 };
 
-const AuthLoadingShell: React.FC<{ colors: ThemeColors; isDarkMode: boolean }> = ({
+const AuthLoadingSplash: React.FC<{ colors: ThemeColors; isDarkMode: boolean }> = ({
   colors,
-  isDarkMode,
 }) => {
-  const insets = useSafeAreaInsets();
-  const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? 24 : 0);
-
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      {/* ── Status Bar Solid Cover ── */}
-      <View
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: topInset,
-          backgroundColor: colors.bg,
-          zIndex: 40,
-        }}
-      />
-
-      {/* ── Header Shell (Matches AhdaHeader 1:1) ── */}
-      <View
-        style={{
-          position: 'absolute',
-          top: topInset,
-          left: 0,
-          right: 0,
-          height: 64,
-          backgroundColor: colors.bg,
-          zIndex: 30,
-          flexDirection: 'row-reverse',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingVertical: 10,
-        }}
-      >
-        {/* Right: Avatar Placeholder + User/Branch Info */}
-        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 10 }}>
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: '#ecfdf5',
-              borderWidth: 2,
-              borderColor: '#047857',
-              justifyContent: 'center',
-              alignItems: 'center',
-              overflow: 'hidden',
-            }}
-          >
-            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#fed7aa', opacity: 0.7 }} />
-          </View>
-          <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <View style={{ width: 80, height: 13, borderRadius: 4, backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }} />
-            <View style={{ width: 55, height: 10, borderRadius: 4, backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }} />
-          </View>
-        </View>
-
-        {/* Left: Calendar Icon Action Button */}
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 12,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <Ionicons name="calendar-outline" size={25} color="#047857" />
-        </View>
-      </View>
-
-      {/* ── Body matching AhdaHomeScreen ScrollView ── */}
-      <ScrollView
-        scrollEnabled={false}
-        contentContainerStyle={{
-          paddingTop: topInset + 64 + 14,
-          paddingBottom: 28,
-          paddingHorizontal: 16,
-          flexGrow: 1,
-          justifyContent: 'space-around',
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        <AhdaNetCustodyCardSkeleton colors={colors} isDarkMode={isDarkMode} />
-        <AhdaCategoryGridSkeleton colors={colors} isDarkMode={isDarkMode} />
-        <AhdaDayExpensesSummaryCardSkeleton colors={colors} isDarkMode={isDarkMode} />
-      </ScrollView>
+    <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }}>
+      <ActivityIndicator size="large" color="#ea580c" />
     </View>
   );
 };
@@ -207,11 +119,12 @@ export default function AhdaApp() {
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const [stored, cachedUser, savedPref, cachedAvatar] = await Promise.all([
+        const [stored, cachedUser, savedPref, cachedAvatar, storedBranch] = await Promise.all([
           loadStoredToken(),
           getCachedUser(),
           AsyncStorage.getItem('@ahda_theme_preference'),
           AsyncStorage.getItem('@aams_cached_avatar'),
+          loadActiveBranch(),
         ]);
 
         if (savedPref === 'system' || savedPref === 'light' || savedPref === 'dark') {
@@ -224,6 +137,17 @@ export default function AhdaApp() {
             if (cachedAvatar && !cachedUser.avatar && !cachedUser.google_avatar && !cachedUser.personal_image) {
               cachedUser.avatar = cachedAvatar;
             }
+
+            const userBranchId =
+              cachedUser.branch_id ||
+              cachedUser.admin?.branch_id ||
+              cachedUser.employee?.branch_id ||
+              cachedUser.user?.branch_id;
+            if (userBranchId) {
+              const bName = cachedUser.branch_name || storedBranch?.name || 'الفرع الأول';
+              await setActiveBranch(userBranchId, bName);
+            }
+
             setCurrentUser(cachedUser);
 
             // Silently sync latest user profile in background on app launch (once only, zero polling)
@@ -285,18 +209,18 @@ export default function AhdaApp() {
 
   if (isLoadingAuth) {
     return (
-      <SafeAreaProvider>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <StatusBar
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={colors.bg}
         />
-        <AuthLoadingShell colors={colors} isDarkMode={isDarkMode} />
+        <AuthLoadingSplash colors={colors} isDarkMode={isDarkMode} />
       </SafeAreaProvider>
     );
   }
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={colors.bg}

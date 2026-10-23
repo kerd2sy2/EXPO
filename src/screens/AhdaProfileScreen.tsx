@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,8 +18,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import LottieView from 'lottie-react-native';
 import { ThemeColors } from '../types/delegate';
 import { custodyService } from '../services/custodyService';
-import { saveCachedUser, formatImageUrl } from '../services/api';
+import { saveCachedUser, formatImageUrl, updateMyAvatar } from '../services/api';
 import { AhdaLogoutBottomSheet } from '../components/modals/AhdaLogoutBottomSheet';
+import { AhdaAvatarSuccessModal } from '../components/modals/AhdaAvatarSuccessModal';
 
 interface AhdaProfileScreenProps {
   currentUser: any;
@@ -54,17 +54,22 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
 
   // Avatar Edit & Upload State
   const [showAvatarActionModal, setShowAvatarActionModal] = useState(false);
+  const [showAvatarSuccessModal, setShowAvatarSuccessModal] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
-  // Load cached avatar on mount if present
+  // Load cached avatar on mount or sync from server user profile
   React.useEffect(() => {
     AsyncStorage.getItem('@aams_cached_avatar').then((saved) => {
       if (saved) {
         setLocalAvatarUri(saved);
+      } else if (currentUser?.avatar || currentUser?.google_avatar || currentUser?.personal_image) {
+        const serverAvatar = currentUser.avatar || currentUser.google_avatar || currentUser.personal_image;
+        setLocalAvatarUri(serverAvatar);
+        AsyncStorage.setItem('@aams_cached_avatar', serverAvatar).catch(() => {});
       }
     }).catch(() => {});
-  }, []);
+  }, [currentUser?.avatar, currentUser?.google_avatar, currentUser?.personal_image]);
 
   const userName = currentUser?.name || currentUser?.full_name || currentUser?.username || 'مسؤول العهدة';
   const userEmail = currentUser?.email || currentUser?.google_email || '—';
@@ -183,21 +188,19 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
           console.warn('Avatar upload to server failed, keeping local uri:', uploadErr);
         }
 
-        // Persist to user session
+        // Persist permanently to backend database + user session
+        await updateMyAvatar(finalAvatarUrl);
+
         const updatedUser = {
           ...currentUser,
           avatar: finalAvatarUrl,
           google_avatar: finalAvatarUrl,
           personal_image: finalAvatarUrl,
         };
-        await saveCachedUser(updatedUser);
-        try {
-          await AsyncStorage.setItem('@aams_cached_avatar', finalAvatarUrl);
-        } catch (_) {}
         if (onUpdateUser) {
           onUpdateUser(updatedUser);
         }
-        Alert.alert('تم بنجاح', 'تم تحديث صورة الملف الشخصي بنجاح.');
+        setShowAvatarSuccessModal(true);
       }
     } catch (err: any) {
       console.error('Error changing avatar:', err);
@@ -210,16 +213,13 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
   const handleRemoveAvatar = async () => {
     setShowAvatarActionModal(false);
     setLocalAvatarUri(null);
-    try {
-      await AsyncStorage.removeItem('@aams_cached_avatar');
-    } catch (_) {}
+    await updateMyAvatar('');
     const updatedUser = {
       ...currentUser,
       avatar: null,
       google_avatar: null,
       personal_image: null,
     };
-    await saveCachedUser(updatedUser);
     if (onUpdateUser) {
       onUpdateUser(updatedUser);
     }
@@ -239,7 +239,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
       : 'الوضع الفاتح';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top', 'left', 'right']}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* ── Sub-Page Header Row (Matching Delegate Screens Style) ── */}
       <View style={styles.subPageHeaderRow}>
         <TouchableOpacity style={styles.headerBackBtn} onPress={onBack} activeOpacity={0.7}>
@@ -720,7 +720,15 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
         onConfirm={onLogout}
         onClose={() => setShowLogoutModal(false)}
       />
-    </SafeAreaView>
+
+      {/* ── 6. Avatar Save Success Bottom Sheet Modal (with Zt7a58Tu7M Animation) ── */}
+      <AhdaAvatarSuccessModal
+        visible={showAvatarSuccessModal}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        onClose={() => setShowAvatarSuccessModal(false)}
+      />
+    </View>
   );
 };
 

@@ -35,6 +35,7 @@ import {
 import { AhdaBranchSelectorModal } from '../components/modals/AhdaBranchSelectorModal';
 import {
   exportCustodyDayToPdf,
+  prewarmCustodyPdf,
 } from '../services/custodyPdfService';
 import {
   formatImageUrl,
@@ -58,6 +59,7 @@ import { AhdaDayExpensesScreen } from './AhdaDayExpensesScreen';
 import { AhdaNetCustodyCard } from '../components/AhdaNetCustodyCard';
 import { AhdaCategoryGrid } from '../components/AhdaCategoryGrid';
 import { AhdaDayExpensesSummaryCard } from '../components/AhdaDayExpensesSummaryCard';
+import { AhdaPdfExportCard } from '../components/AhdaPdfExportCard';
 import { AhdaActionAlertModal, AhdaAlertConfig } from '../components/modals/AhdaActionAlertModal';
 import { AhdaAddExpenseModal } from '../components/modals/AhdaAddExpenseModal';
 import { AhdaEditExpenseModal } from '../components/modals/AhdaEditExpenseModal';
@@ -69,8 +71,8 @@ import { AhdaShakeExcelModal } from '../components/modals/AhdaShakeExcelModal';
 import { AhdaReportPreviewModal } from '../components/modals/AhdaReportPreviewModal';
 import { AhdaSharedImageCategoryModal } from '../components/modals/AhdaSharedImageCategoryModal';
 import { AhdaSearchBottomSheet } from '../components/modals/AhdaSearchBottomSheet';
+import { AhdaNoInvoicesAutoModal } from '../components/modals/AhdaNoInvoicesAutoModal';
 import { useShareIntentContext } from 'expo-share-intent';
-import { useDeviceShake } from '../hooks/useDeviceShake';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 import {
   AhdaNetCustodyCardSkeleton,
@@ -79,9 +81,8 @@ import {
 } from '../components/skeleton/AhdaHomeSkeleton';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const HOME_HEADER_HEIGHT = 64;
+const HOME_HEADER_HEIGHT = 72;
 const getDaysCacheKey = (branchId: string | null) => `aams_custody_days_cache_${branchId || 'default'}`;
-const SELECTED_DATE_CACHE_KEY = 'aams_custody_selected_date';
 const getLogsCacheKey = (branchId: string | null, date: string) =>
   `aams_custody_logs_cache_${branchId || 'default'}_${date}`;
 
@@ -130,7 +131,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   };
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
-  const [dateInitialized, setDateInitialized] = useState<boolean>(false);
+  const [dateInitialized, setDateInitialized] = useState<boolean>(true);
+  const searchReturnDateRef = useRef<string | null>(null);
   const [days, setDays] = useState<CustodyDayData[]>([]);
   const [dayLogs, setDayLogs] = useState<CustodyLogItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -139,9 +141,28 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   // Multi-branch state & permissions
   const [branches, setBranches] = useState<BranchItem[]>([]);
+  const initialBranchId = useMemo(() => {
+    return (
+      currentUser?.branch_id ||
+      currentUser?.admin?.branch_id ||
+      currentUser?.employee?.branch_id ||
+      currentUser?.user?.branch_id ||
+      getActiveBranchId() ||
+      null
+    );
+  }, [currentUser]);
+
+  const initialBranchName = useMemo(() => {
+    return (
+      currentUser?.branch_name ||
+      getActiveBranchName() ||
+      null
+    );
+  }, [currentUser]);
+
   const [activeBranch, setActiveBranchState] = useState<{ id: string | null; name: string | null }>({
-    id: null,
-    name: null,
+    id: initialBranchId,
+    name: initialBranchName,
   });
   const [showBranchModal, setShowBranchModal] = useState<boolean>(false);
   const [mustSelectBranch, setMustSelectBranch] = useState<boolean>(false);
@@ -245,6 +266,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [exportingExcel, setExportingExcel] = useState<boolean>(false);
   const [showShakeExcelModal, setShowShakeExcelModal] = useState<boolean>(false);
   const [showReportPreviewModal, setShowReportPreviewModal] = useState<boolean>(false);
+  const [showNoInvoicesNoticeModal, setShowNoInvoicesNoticeModal] = useState<boolean>(false);
 
   // Incoming Shared Image from Android Share Sheet
   const [sharedImagePending, setSharedImagePending] = useState<string | null>(null);
@@ -275,40 +297,77 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [pickerYear, setPickerYear] = useState<number>(new Date().getFullYear());
   const [pickerMonth, setPickerMonth] = useState<number>(new Date().getMonth() + 1);
 
-  // Shake detection with medium threshold (neither too weak nor too strong: 1.78g)
-  useDeviceShake(() => {
-    // Only open if no other primary modals are open
-    if (!showAddExpenseModal && !showAddCustodyModal && !editingExpense) {
-      setShowShakeExcelModal(true);
-    }
-  }, { threshold: 1.78, timeoutMs: 1200 });
+  // Collapsible Home Header Animation (Google Play Store / Delegate App Style)
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
+  const lastScrollY = useRef(0);
+  const isHeaderHidden = useRef(false);
+  const scrollDelta = useRef(0);
 
-  // 0. Restore persisted selected date on initial mount (keeps selected day fixed across app restarts)
   useEffect(() => {
-    let isMounted = true;
-    const restoreSavedDate = async () => {
-      try {
-        const savedDate = await AsyncStorage.getItem(SELECTED_DATE_CACHE_KEY);
-        if (savedDate && /^\d{4}-\d{2}-\d{2}$/.test(savedDate) && isMounted) {
-          setSelectedDate(savedDate);
-          const parts = savedDate.split('-');
-          if (parts.length === 3) {
-            setPickerYear(parseInt(parts[0], 10));
-            setPickerMonth(parseInt(parts[1], 10));
-          }
-        }
-      } catch (_) {
-      } finally {
-        if (isMounted) setDateInitialized(true);
-      }
-    };
-    restoreSavedDate();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    headerTranslateY.setValue(0);
+    isHeaderHidden.current = false;
+    lastScrollY.current = 0;
+    scrollDelta.current = 0;
+  }, [showProfile, showDayExpensesPage]);
 
-  // Handler to update and persist selected date across app restarts
+  const handleHomeScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentY = event.nativeEvent.contentOffset.y;
+    const diff = currentY - lastScrollY.current;
+    lastScrollY.current = currentY;
+
+    // At the very top (or pulling down): Always show header in its natural place
+    if (currentY <= 0) {
+      scrollDelta.current = 0;
+      if (isHeaderHidden.current) {
+        isHeaderHidden.current = false;
+        Animated.spring(headerTranslateY, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 220,
+          useNativeDriver: true,
+        }).start();
+      }
+      return;
+    }
+
+    // Accumulate directional scroll delta to capture both slow and fast scrolling
+    if (diff > 0) {
+      // Swiping up / scrolling down page
+      if (scrollDelta.current < 0) {
+        scrollDelta.current = 0;
+      }
+      scrollDelta.current += diff;
+
+      // When accumulated movement reaches 10px and past 30px from top: Hide Header
+      if (scrollDelta.current >= 10 && currentY > 30 && !isHeaderHidden.current) {
+        isHeaderHidden.current = true;
+        Animated.timing(headerTranslateY, {
+          toValue: -HOME_HEADER_HEIGHT,
+          duration: 180,
+          useNativeDriver: true,
+        }).start();
+      }
+    } else if (diff < 0) {
+      // Swiping down / scrolling up towards top
+      if (scrollDelta.current > 0) {
+        scrollDelta.current = 0;
+      }
+      scrollDelta.current += diff;
+
+      // When accumulated movement reaches -10px: Show Header
+      if (scrollDelta.current <= -10 && isHeaderHidden.current) {
+        isHeaderHidden.current = false;
+        Animated.spring(headerTranslateY, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 220,
+          useNativeDriver: true,
+        }).start();
+      }
+    }
+  }, [HOME_HEADER_HEIGHT, headerTranslateY]);
+
+  // Handler to update selected date
   const updateSelectedDate = useCallback((newDate: string) => {
     setSelectedDate(newDate);
     const parts = newDate.split('-');
@@ -316,43 +375,55 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       setPickerYear(parseInt(parts[0], 10));
       setPickerMonth(parseInt(parts[1], 10));
     }
-    AsyncStorage.setItem(SELECTED_DATE_CACHE_KEY, newDate).catch(() => {});
   }, []);
+
+  // Handler to close day expenses screen and restore current day if navigated from search
+  const handleCloseDayExpenses = useCallback(() => {
+    setShowDayExpensesPage(false);
+    setSelectedCategoryFilter(null);
+    setInitialExpenseForDetails(null);
+    if (searchReturnDateRef.current) {
+      const returnDate = searchReturnDateRef.current;
+      searchReturnDateRef.current = null;
+      updateSelectedDate(returnDate);
+    }
+  }, [updateSelectedDate]);
 
   // 0b. Initialize Branches & Active Branch (Strict scoping for multi-branch vs single-branch)
   useEffect(() => {
     let isMounted = true;
     const initBranches = async () => {
       try {
-        const fetched = await fetchBranches();
-        if (isMounted) {
-          setBranches(fetched);
-        }
-
-        const stored = await loadActiveBranch();
-
         const userBranchId =
           currentUser?.branch_id ||
           currentUser?.admin?.branch_id ||
           currentUser?.employee?.branch_id ||
           currentUser?.user?.branch_id;
 
+        const fetched = await fetchBranches();
+        if (isMounted) {
+          setBranches(fetched);
+        }
+
         // 1. If user has an assigned branch (Single branch user):
         if (userBranchId) {
           const matchingBranch = fetched.find((b) => b.id === userBranchId);
           const bName = matchingBranch?.name || currentUser?.branch_name || 'الفرع الأول';
-          await setActiveBranch(userBranchId, bName);
-          if (isMounted) {
-            setActiveBranchState({ id: userBranchId, name: bName });
-            setMustSelectBranch(false);
-            setShowBranchModal(false);
+          if (activeBranch.id !== userBranchId || activeBranch.name !== bName) {
+            await setActiveBranch(userBranchId, bName);
+            if (isMounted) {
+              setActiveBranchState({ id: userBranchId, name: bName });
+              setMustSelectBranch(false);
+              setShowBranchModal(false);
+            }
           }
           return;
         }
 
         // 2. For multi-branch users without a designated branch (Super Admins):
+        const stored = await loadActiveBranch();
         if (stored.id) {
-          if (isMounted) {
+          if (isMounted && activeBranch.id !== stored.id) {
             setActiveBranchState(stored);
             setMustSelectBranch(false);
           }
@@ -490,6 +561,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         setSharedImagePending(null);
         return true;
       }
+      if (showNoInvoicesNoticeModal) {
+        setShowNoInvoicesNoticeModal(false);
+        return true;
+      }
       if (showShakeExcelModal) {
         setShowShakeExcelModal(false);
         return true;
@@ -519,8 +594,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         return true;
       }
       if (showDayExpensesPage) {
-        setShowDayExpensesPage(false);
-        setSelectedCategoryFilter(null);
+        handleCloseDayExpenses();
         return true;
       }
       if (showProfile) {
@@ -539,6 +613,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     return () => backSubscription.remove();
   }, [
     sharedImagePending,
+    showNoInvoicesNoticeModal,
     showShakeExcelModal,
     previewImage,
     showDatePickerModal,
@@ -547,6 +622,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     showAddExpenseModal,
     showAddCustodyModal,
     showDayExpensesPage,
+    handleCloseDayExpenses,
     showProfile,
     showBranchModal,
     mustSelectBranch,
@@ -608,6 +684,18 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       .sort((a, b) => b.date.localeCompare(a.date));
     return previousDays[0]?.closing_balance ?? currentDay?.opening_balance ?? 0;
   }, [days, selectedDate, currentDay]);
+
+  // Quiet background pre-warming of the day's PDF so sharing/sending is instant (0.05s) with 0 server load
+  useEffect(() => {
+    if (!currentDay) return;
+    const timer = setTimeout(() => {
+      prewarmCustodyPdf(currentDay, {
+        user: currentUser,
+        dayLogs,
+      }).catch(() => {});
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [currentDay?.id, currentDay?.expenses?.length, currentDay?.closing_balance, selectedDate]);
 
   // Handle Day Navigation
   const changeDateByDays = (delta: number) => {
@@ -1020,52 +1108,57 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   return (
     <SafeAreaView
+      edges={showProfile || showDayExpensesPage ? ['left', 'right'] : ['top', 'bottom', 'left', 'right']}
       style={[styles.container, { backgroundColor: colors.bg }]}
-      edges={showProfile || showDayExpensesPage ? ['left', 'right'] : ['top', 'left', 'right']}
     >
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
+
       {showProfile ? (
-        <AhdaProfileScreen
-          currentUser={currentUser}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          onBack={() => setShowProfile(false)}
-          onLogout={onLogout}
-          onToggleTheme={onToggleTheme}
-          themePreference={themePreference}
-          onSelectThemePreference={onSelectThemePreference}
-          onUpdateUser={onUpdateUser}
-        />
+        <View style={{ flex: 1, marginTop: topInset }}>
+          <ModuleErrorBoundary moduleName="AhdaProfileScreen" onReset={() => setShowProfile(false)}>
+            <AhdaProfileScreen
+              currentUser={currentUser}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              onBack={() => setShowProfile(false)}
+              onLogout={onLogout}
+              onToggleTheme={onToggleTheme}
+              themePreference={themePreference}
+              onSelectThemePreference={onSelectThemePreference}
+              onUpdateUser={onUpdateUser}
+            />
+          </ModuleErrorBoundary>
+        </View>
       ) : showDayExpensesPage ? (
-        <AhdaDayExpensesScreen
-          currentDay={currentDay}
-          selectedDate={selectedDate}
-          categoryFilter={selectedCategoryFilter}
-          loading={loading}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          categories={CATEGORIES}
-          onBack={() => {
-            setShowDayExpensesPage(false);
-            setSelectedCategoryFilter(null);
-            setInitialExpenseForDetails(null);
-          }}
-          onOpenAddExpense={() => {
-            if (selectedCategoryFilter) {
-              setSelectedCategory(selectedCategoryFilter);
-            }
-            setShowAddExpenseModal(true);
-          }}
-          onEditExpense={handleOpenEditExpense}
-          onDeleteExpense={handleDeleteExpense}
-          onPreviewImage={(url) => setPreviewImage(url)}
-          onReorderExpenses={handleReorderExpenses}
-          initialExpenseDetails={initialExpenseForDetails}
-          onClearInitialExpenseDetails={() => setInitialExpenseForDetails(null)}
-        />
+        <View style={{ flex: 1, marginTop: topInset }}>
+          <ModuleErrorBoundary moduleName="AhdaDayExpensesScreen" onReset={handleCloseDayExpenses}>
+            <AhdaDayExpensesScreen
+              currentDay={currentDay}
+              selectedDate={selectedDate}
+              categoryFilter={selectedCategoryFilter}
+              loading={loading}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              categories={CATEGORIES}
+              onBack={handleCloseDayExpenses}
+              onOpenAddExpense={() => {
+                if (selectedCategoryFilter) {
+                  setSelectedCategory(selectedCategoryFilter);
+                }
+                setShowAddExpenseModal(true);
+              }}
+              onEditExpense={handleOpenEditExpense}
+              onDeleteExpense={handleDeleteExpense}
+              onPreviewImage={(url) => setPreviewImage(url)}
+              onReorderExpenses={handleReorderExpenses}
+              initialExpenseDetails={initialExpenseForDetails}
+              onClearInitialExpenseDetails={() => setInitialExpenseForDetails(null)}
+            />
+          </ModuleErrorBoundary>
+        </View>
       ) : (
         <>
-          {/* ── 1. Clean Fixed Header (Natively padded by SafeAreaView, zero lag, never in notification bar) ── */}
+          {/* ── 1. Clean Fixed Header (Natively padded by SafeAreaView, zero lag, never overlaps) ── */}
           <View style={styles.fixedHeaderWrap}>
             <AhdaHeader
               user={currentUser}
@@ -1080,22 +1173,21 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             />
           </View>
 
+          {/* ── Main Home Cards (Balanced Viewport, Pull-To-Refresh Supported) ── */}
           <ScrollView
-            contentContainerStyle={[
-              styles.scrollContent,
-              {
-                paddingTop: 8,
-                paddingBottom: 40,
-                flexGrow: 1,
-                justifyContent: 'flex-start',
-                gap: 16,
-              },
-            ]}
             showsVerticalScrollIndicator={false}
             bounces={true}
             alwaysBounceVertical={true}
             overScrollMode="always"
-            nestedScrollEnabled={true}
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingTop: 8,
+                paddingBottom: insets.bottom > 0 ? insets.bottom + 8 : 16,
+                flexGrow: 1,
+                justifyContent: 'space-evenly',
+              },
+            ]}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -1157,201 +1249,252 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     }}
                   />
                 </ModuleErrorBoundary>
+
+                {/* ── 5. PDF Export & Report Card (Dedicated Download Card with Haptic Tap) ── */}
+                <ModuleErrorBoundary moduleName="AhdaPdfExportCard">
+                  <AhdaPdfExportCard
+                    colors={colors}
+                    isDarkMode={isDarkMode}
+                    onPress={() => {
+                      const expensesCount = currentDay?.expenses?.length || 0;
+                      if (expensesCount === 0) {
+                        setShowNoInvoicesNoticeModal(true);
+                      } else {
+                        setShowShakeExcelModal(true);
+                      }
+                    }}
+                  />
+                </ModuleErrorBoundary>
               </>
             )}
           </ScrollView>
         </>
       )}
 
-      {/* ── 6. BOTTOM SHEET MODAL: Add Expense & Invoice (Isolated & Fault-Tolerant) ── */}
-      <ModuleErrorBoundary moduleName="AhdaAddExpenseModal">
-        <AhdaAddExpenseModal
-          visible={showAddExpenseModal}
+      {/* ── 6. BOTTOM SHEET MODAL: Add Expense & Invoice (Conditionally Mounted) ── */}
+      {showAddExpenseModal && (
+        <ModuleErrorBoundary moduleName="AhdaAddExpenseModal">
+          <AhdaAddExpenseModal
+            visible={showAddExpenseModal}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            categories={CATEGORIES}
+            selectedCategory={selectedCategory}
+            expenseAmount={expenseAmount}
+            setExpenseAmount={setExpenseAmount}
+            expenseRecipient={expenseRecipient}
+            setExpenseRecipient={setExpenseRecipient}
+            exportNumber={exportNumber}
+            setExportNumber={setExportNumber}
+            invoiceImageUri={invoiceImageUri}
+            setInvoiceImageUri={setInvoiceImageUri}
+            loading={addExpenseLoading}
+            onPickImage={handlePickImage}
+            onSave={handleSaveExpense}
+            onClose={() => setShowAddExpenseModal(false)}
+          />
+        </ModuleErrorBoundary>
+      )}
+
+      {/* ── 7. BOTTOM SHEET MODAL: Edit Expense (Conditionally Mounted) ── */}
+      {!!editingExpense && (
+        <ModuleErrorBoundary moduleName="AhdaEditExpenseModal">
+          <AhdaEditExpenseModal
+            visible={!!editingExpense}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            categories={CATEGORIES}
+            editCategory={editCategory}
+            setEditCategory={(newCat) => {
+              setEditCategory(newCat);
+              if ((newCat === 'internet_advance' || newCat === 'advance') && !editExportNumber.trim()) {
+                setEditExportNumber(calculateNextExportNumber(days));
+              }
+            }}
+            editAmount={editAmount}
+            setEditAmount={setEditAmount}
+            editRecipient={editRecipient}
+            setEditRecipient={setEditRecipient}
+            editExportNumber={editExportNumber}
+            setEditExportNumber={setEditExportNumber}
+            editImageUri={editImageUri}
+            setEditImageUri={setEditImageUri}
+            onPickImage={handlePickEditImage}
+            loading={editLoading}
+            onSave={handleSaveEditExpense}
+            onDelete={() => {
+              const item = editingExpense;
+              if (item) {
+                setEditingExpense(null);
+                handleDeleteExpense(item);
+              }
+            }}
+            onClose={() => setEditingExpense(null)}
+          />
+        </ModuleErrorBoundary>
+      )}
+
+      {/* ── 8. BOTTOM SHEET MODAL: Add Custody Amount (Conditionally Mounted) ── */}
+      {showAddCustodyModal && (
+        <ModuleErrorBoundary moduleName="AhdaAddCustodyModal">
+          <AhdaAddCustodyModal
+            visible={showAddCustodyModal}
+            colors={colors}
+            selectedDate={selectedDate}
+            custodyTotalAvailable={custodyTotalAvailable}
+            addCustodyAmount={addCustodyAmount}
+            setAddCustodyAmount={setAddCustodyAmount}
+            loading={addCustodyLoading}
+            onSave={handleSaveCustodyAmount}
+            onClose={() => setShowAddCustodyModal(false)}
+          />
+        </ModuleErrorBoundary>
+      )}
+
+      {/* ── 9. BOTTOM SHEET MODAL: Manage Custody Logs (Conditionally Mounted) ── */}
+      {showLogsSheet && (
+        <ModuleErrorBoundary moduleName="AhdaCustodyLogsModal">
+          <AhdaCustodyLogsModal
+            visible={showLogsSheet}
+            colors={colors}
+            logs={custodyAddedLogs}
+            onDeleteLog={handleDeleteCustodyEntry}
+            onClose={() => setShowLogsSheet(false)}
+          />
+        </ModuleErrorBoundary>
+      )}
+
+      {/* ── 10. BOTTOM SHEET MODAL: Date Picker (Conditionally Mounted) ── */}
+      {showDatePickerModal && (
+        <ModuleErrorBoundary moduleName="AhdaDatePickerModal">
+          <AhdaDatePickerModal
+            visible={showDatePickerModal}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            selectedDate={selectedDate}
+            pickerYear={pickerYear}
+            setPickerYear={setPickerYear}
+            pickerMonth={pickerMonth}
+            setPickerMonth={setPickerMonth}
+            days={days}
+            onSelectDate={(newDate) => {
+              updateSelectedDate(newDate);
+              setShowDatePickerModal(false);
+            }}
+            onClose={() => setShowDatePickerModal(false)}
+          />
+        </ModuleErrorBoundary>
+      )}
+
+      {/* ── 11. Fullscreen Image Viewer Modal (Conditionally Mounted) ── */}
+      {!!previewImage && (
+        <ModuleErrorBoundary moduleName="AhdaImageViewerModal">
+          <AhdaImageViewerModal
+            visible={!!previewImage}
+            imageUrl={previewImage}
+            onClose={() => setPreviewImage(null)}
+          />
+        </ModuleErrorBoundary>
+      )}
+
+      {/* ── 12. PDF / Report Export Bottom Sheet Modal (Conditionally Mounted) ── */}
+      {showShakeExcelModal && (
+        <ModuleErrorBoundary moduleName="AhdaShakeExcelModal">
+          <AhdaShakeExcelModal
+            visible={showShakeExcelModal}
+            selectedDate={selectedDate}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            loading={exportingExcel}
+            expensesCount={currentDay?.expenses?.length || 0}
+            onPreview={() => {
+              setShowShakeExcelModal(false);
+              setShowReportPreviewModal(true);
+            }}
+            onExportAndShare={async () => {
+              await handleExportPdf('share');
+              setShowShakeExcelModal(false);
+            }}
+            onAddExpense={() => {
+              setShowShakeExcelModal(false);
+              setShowAddExpenseModal(true);
+            }}
+            onClose={() => setShowShakeExcelModal(false)}
+          />
+        </ModuleErrorBoundary>
+      )}
+
+      {/* ── 12a. Auto-dismissing Empty Invoices Warning Modal (Lottie EbQYDZdEzt) ── */}
+      {showNoInvoicesNoticeModal && (
+        <AhdaNoInvoicesAutoModal
+          visible={showNoInvoicesNoticeModal}
           colors={colors}
           isDarkMode={isDarkMode}
-          categories={CATEGORIES}
-          selectedCategory={selectedCategory}
-          expenseAmount={expenseAmount}
-          setExpenseAmount={setExpenseAmount}
-          expenseRecipient={expenseRecipient}
-          setExpenseRecipient={setExpenseRecipient}
-          exportNumber={exportNumber}
-          setExportNumber={setExportNumber}
-          invoiceImageUri={invoiceImageUri}
-          setInvoiceImageUri={setInvoiceImageUri}
-          loading={addExpenseLoading}
-          onPickImage={handlePickImage}
-          onSave={handleSaveExpense}
-          onClose={() => setShowAddExpenseModal(false)}
+          onClose={() => setShowNoInvoicesNoticeModal(false)}
         />
-      </ModuleErrorBoundary>
+      )}
 
-      {/* ── 7. BOTTOM SHEET MODAL: Edit Expense (Isolated & Fault-Tolerant) ── */}
-      <ModuleErrorBoundary moduleName="AhdaEditExpenseModal">
-        <AhdaEditExpenseModal
-          visible={!!editingExpense}
+      {/* ── 12b. Fullscreen In-App Report Preview Modal (Conditionally Mounted) ── */}
+      {showReportPreviewModal && (
+        <ModuleErrorBoundary moduleName="AhdaReportPreviewModal">
+          <AhdaReportPreviewModal
+            visible={showReportPreviewModal}
+            currentDay={currentDay}
+            selectedDate={selectedDate}
+            currentUser={currentUser}
+            dayLogs={dayLogs}
+            effectiveOpeningBalance={effectiveOpeningBalance}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            loading={exportingExcel}
+            onClose={() => setShowReportPreviewModal(false)}
+            onExportAndShare={async () => {
+              await handleExportPdf('share');
+            }}
+            onPreviewImage={(url) => setPreviewImage(url)}
+          />
+        </ModuleErrorBoundary>
+      )}
+
+      {/* ── 13. Shared Image Category Selection Modal (Conditionally Mounted) ── */}
+      {!!sharedImagePending && (
+        <ModuleErrorBoundary moduleName="AhdaSharedImageCategoryModal">
+          <AhdaSharedImageCategoryModal
+            visible={!!sharedImagePending}
+            imageUri={sharedImagePending}
+            categories={CATEGORIES}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            onSelectLedger={() => {
+              const uri = sharedImagePending;
+              setSharedImagePending(null);
+              if (uri) {
+                handleSaveLedgerImage(uri);
+              }
+            }}
+            onSelectCategory={(catKey) => {
+              setSelectedCategory(catKey);
+              setInvoiceImageUri(sharedImagePending);
+              setSharedImagePending(null);
+              setShowAddExpenseModal(true);
+            }}
+            onClose={() => setSharedImagePending(null)}
+          />
+        </ModuleErrorBoundary>
+      )}
+
+      {/* ── 14. Animated Action Alert Modal with Lottie (Conditionally Mounted) ── */}
+      {!!alertConfig && (
+        <AhdaActionAlertModal
+          config={alertConfig}
           colors={colors}
           isDarkMode={isDarkMode}
-          categories={CATEGORIES}
-          editCategory={editCategory}
-          setEditCategory={(newCat) => {
-            setEditCategory(newCat);
-            if ((newCat === 'internet_advance' || newCat === 'advance') && !editExportNumber.trim()) {
-              setEditExportNumber(calculateNextExportNumber(days));
-            }
-          }}
-          editAmount={editAmount}
-          setEditAmount={setEditAmount}
-          editRecipient={editRecipient}
-          setEditRecipient={setEditRecipient}
-          editExportNumber={editExportNumber}
-          setEditExportNumber={setEditExportNumber}
-          editImageUri={editImageUri}
-          setEditImageUri={setEditImageUri}
-          onPickImage={handlePickEditImage}
-          loading={editLoading}
-          onSave={handleSaveEditExpense}
-          onDelete={() => {
-            const item = editingExpense;
-            if (item) {
-              setEditingExpense(null);
-              handleDeleteExpense(item);
-            }
-          }}
-          onClose={() => setEditingExpense(null)}
+          onClose={() => setAlertConfig(null)}
         />
-      </ModuleErrorBoundary>
+      )}
 
-      {/* ── 8. BOTTOM SHEET MODAL: Add Custody Amount (Isolated & Fault-Tolerant) ── */}
-      <ModuleErrorBoundary moduleName="AhdaAddCustodyModal">
-        <AhdaAddCustodyModal
-          visible={showAddCustodyModal}
-          colors={colors}
-          selectedDate={selectedDate}
-          custodyTotalAvailable={custodyTotalAvailable}
-          addCustodyAmount={addCustodyAmount}
-          setAddCustodyAmount={setAddCustodyAmount}
-          loading={addCustodyLoading}
-          onSave={handleSaveCustodyAmount}
-          onClose={() => setShowAddCustodyModal(false)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* ── 9. BOTTOM SHEET MODAL: Manage Custody Logs (Isolated & Fault-Tolerant) ── */}
-      <ModuleErrorBoundary moduleName="AhdaCustodyLogsModal">
-        <AhdaCustodyLogsModal
-          visible={showLogsSheet}
-          colors={colors}
-          logs={custodyAddedLogs}
-          onDeleteLog={handleDeleteCustodyEntry}
-          onClose={() => setShowLogsSheet(false)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* ── 10. BOTTOM SHEET MODAL: Date Picker (Isolated & Fault-Tolerant) ── */}
-      <ModuleErrorBoundary moduleName="AhdaDatePickerModal">
-        <AhdaDatePickerModal
-          visible={showDatePickerModal}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          selectedDate={selectedDate}
-          pickerYear={pickerYear}
-          setPickerYear={setPickerYear}
-          pickerMonth={pickerMonth}
-          setPickerMonth={setPickerMonth}
-          days={days}
-          onSelectDate={(newDate) => {
-            updateSelectedDate(newDate);
-            setShowDatePickerModal(false);
-          }}
-          onClose={() => setShowDatePickerModal(false)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* ── 11. Fullscreen Image Viewer Modal (Isolated & Fault-Tolerant) ── */}
-      <ModuleErrorBoundary moduleName="AhdaImageViewerModal">
-        <AhdaImageViewerModal
-          visible={!!previewImage}
-          imageUrl={previewImage}
-          onClose={() => setPreviewImage(null)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* ── 12. Shake to Export Excel Bottom Sheet Modal (Isolated & Fault-Tolerant) ── */}
-      <ModuleErrorBoundary moduleName="AhdaShakeExcelModal">
-        <AhdaShakeExcelModal
-          visible={showShakeExcelModal}
-          selectedDate={selectedDate}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          loading={exportingExcel}
-          onPreview={() => {
-            setShowShakeExcelModal(false);
-            setShowReportPreviewModal(true);
-          }}
-          onExportAndShare={async () => {
-            await handleExportPdf('share');
-            setShowShakeExcelModal(false);
-          }}
-          onClose={() => setShowShakeExcelModal(false)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* ── 12b. Fullscreen In-App Report Preview Modal (Exact Visual Replica Before Export) ── */}
-      <ModuleErrorBoundary moduleName="AhdaReportPreviewModal">
-        <AhdaReportPreviewModal
-          visible={showReportPreviewModal}
-          currentDay={currentDay}
-          selectedDate={selectedDate}
-          currentUser={currentUser}
-          dayLogs={dayLogs}
-          effectiveOpeningBalance={effectiveOpeningBalance}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          loading={exportingExcel}
-          onClose={() => setShowReportPreviewModal(false)}
-          onExportAndShare={async () => {
-            await handleExportPdf('share');
-          }}
-          onPreviewImage={(url) => setPreviewImage(url)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* ── 13. Shared Image Category Selection Modal (From Android Share Sheet) ── */}
-      <ModuleErrorBoundary moduleName="AhdaSharedImageCategoryModal">
-        <AhdaSharedImageCategoryModal
-          visible={!!sharedImagePending}
-          imageUri={sharedImagePending}
-          categories={CATEGORIES}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          onSelectLedger={() => {
-            const uri = sharedImagePending;
-            setSharedImagePending(null);
-            if (uri) {
-              handleSaveLedgerImage(uri);
-            }
-          }}
-          onSelectCategory={(catKey) => {
-            setSelectedCategory(catKey);
-            setInvoiceImageUri(sharedImagePending);
-            setSharedImagePending(null);
-            setShowAddExpenseModal(true);
-          }}
-          onClose={() => setSharedImagePending(null)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* ── 14. Animated Action Alert Modal with Lottie (Attention, Error, Success) ── */}
-      <AhdaActionAlertModal
-        config={alertConfig}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        onClose={() => setAlertConfig(null)}
-      />
-
-      {/* ── 15. Multi-Branch Selector Modal (Bottom Sheet - Only for multi-branch users) ── */}
-      {canSwitchBranch && (
+      {/* ── 15. Multi-Branch Selector Modal (Conditionally Mounted) ── */}
+      {canSwitchBranch && showBranchModal && (
         <AhdaBranchSelectorModal
           visible={showBranchModal}
           colors={colors}
@@ -1368,23 +1511,26 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         />
       )}
 
-      {/* ── 16. Search Bottom Sheet Modal (البحث المنبثق برقم الوارد) ── */}
-      <AhdaSearchBottomSheet
-        visible={showSearchModal}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        days={days}
-        categories={CATEGORIES}
-        onClose={() => setShowSearchModal(false)}
-        onSelectExpense={(exp, day) => {
-          if (day.date !== selectedDate) {
-            updateSelectedDate(day.date);
-          }
-          setSelectedCategoryFilter(exp.category);
-          setInitialExpenseForDetails(exp);
-          setShowDayExpensesPage(true);
-        }}
-      />
+      {/* ── 16. Search Bottom Sheet Modal (Conditionally Mounted) ── */}
+      {showSearchModal && (
+        <AhdaSearchBottomSheet
+          visible={showSearchModal}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          days={days}
+          categories={CATEGORIES}
+          onClose={() => setShowSearchModal(false)}
+          onSelectExpense={(exp, day) => {
+            if (day.date !== selectedDate) {
+              searchReturnDateRef.current = selectedDate;
+              updateSelectedDate(day.date);
+            }
+            setSelectedCategoryFilter(exp.category);
+            setInitialExpenseForDetails(exp);
+            setShowDayExpensesPage(true);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -1400,7 +1546,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 40,
   },
   keyboardModalWrapper: {
     flex: 1,

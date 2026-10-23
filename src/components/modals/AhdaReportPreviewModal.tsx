@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustodyDayData, CustodyLogItem } from '../../services/custodyService';
@@ -56,7 +57,7 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
   onPreviewImage,
 }) => {
   const insets = useSafeAreaInsets();
-  if (!visible || !currentDay) return null;
+  if (!visible) return null;
 
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? 38 : 20);
   const bottomInset = Math.max(insets.bottom, 12);
@@ -65,16 +66,16 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
   const cleanDateStr = toArabicDigits(selectedDate);
 
   // Financial calculations
-  const effectiveOpening = Number(effectiveOpeningBalance || currentDay.opening_balance || 0);
+  const effectiveOpening = Number(effectiveOpeningBalance || currentDay?.opening_balance || 0);
   const custodyAddedLogs = dayLogs.filter(
     (log) => log.action_type === 'ADD_CUSTODY' || log.action_type === 'add' || log.action_type === 'custody_added'
   );
   const logsAddedSum = custodyAddedLogs.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const addedAmount = Number(currentDay.added_amount || 0) > 0 ? Number(currentDay.added_amount) : logsAddedSum;
-  const totalExpenses = Number(currentDay.total_expenses || 0);
+  const addedAmount = Number(currentDay?.added_amount || 0) > 0 ? Number(currentDay?.added_amount) : logsAddedSum;
+  const totalExpenses = Number(currentDay?.total_expenses || 0);
   const closingBalance = Number(effectiveOpening + addedAmount - totalExpenses);
 
-  const expenses = currentDay.expenses || [];
+  const expenses = currentDay?.expenses || [];
 
   // Group expenses by category
   const groupedCategories = CATEGORIES.map((cat) => {
@@ -412,10 +413,26 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
 
             {/* Section 3: Invoices Grouped By Category */}
             {expenses.length === 0 ? (
-              <View style={styles.emptyExpensesBox}>
-                <Ionicons name="receipt-outline" size={38} color={colors.textSecondary} />
-                <Text style={[styles.emptyExpensesText, { color: colors.textSecondary }]}>
+              <View
+                style={[
+                  styles.emptyExpensesBox,
+                  {
+                    backgroundColor: isDarkMode ? '#1e293b' : '#fff7ed',
+                    borderColor: isDarkMode ? '#334155' : '#fed7aa',
+                  },
+                ]}
+              >
+                <LottieView
+                  source={require('../../../assets/Lottie/json/empty_invoices.json')}
+                  autoPlay
+                  loop
+                  style={{ width: 130, height: 130 }}
+                />
+                <Text style={[styles.emptyExpensesText, { color: isDarkMode ? '#fed7aa' : '#9a3412' }]}>
                   لا توجد فواتير مسجلة لهذا اليوم
+                </Text>
+                <Text style={[styles.emptyExpensesSub, { color: colors.textSecondary }]}>
+                  يحتوي التقرير المصدّر حالياً على كشف الأرصدة (رصيد البداية، العهد المضافة، ورصيد الإغلاق) فقط.
                 </Text>
               </View>
             ) : (
@@ -888,12 +905,24 @@ const styles = StyleSheet.create({
   emptyExpensesBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 14,
+    marginHorizontal: 12,
     gap: 8,
   },
   emptyExpensesText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  emptyExpensesSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   groupContainer: {
     marginTop: 14,
