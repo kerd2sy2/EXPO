@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -78,10 +79,18 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
               }
               const result = await ImagePicker.launchCameraAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                quality: 0.85,
+                quality: 0.88,
               });
               if (!result.canceled && result.assets[0]?.uri) {
-                onUpdateLedgerImage?.(result.assets[0].uri);
+                let finalUri = result.assets[0].uri;
+                try {
+                  const manip = await manipulateAsync(finalUri, [], {
+                    compress: 0.88,
+                    format: SaveFormat.JPEG,
+                  });
+                  if (manip.uri) finalUri = manip.uri;
+                } catch (_) {}
+                onUpdateLedgerImage?.(finalUri);
               }
             } catch (err: any) {
               Alert.alert('خطأ', err?.message || 'فشل فتح الكاميرا');
@@ -99,10 +108,18 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
               }
               const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                quality: 0.85,
+                quality: 0.88,
               });
               if (!result.canceled && result.assets[0]?.uri) {
-                onUpdateLedgerImage?.(result.assets[0].uri);
+                let finalUri = result.assets[0].uri;
+                try {
+                  const manip = await manipulateAsync(finalUri, [], {
+                    compress: 0.88,
+                    format: SaveFormat.JPEG,
+                  });
+                  if (manip.uri) finalUri = manip.uri;
+                } catch (_) {}
+                onUpdateLedgerImage?.(finalUri);
               }
             } catch (err: any) {
               Alert.alert('خطأ', err?.message || 'فشل فتح معرض الصور');

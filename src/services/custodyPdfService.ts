@@ -4,6 +4,7 @@ import { toQR } from 'toqr';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Asset } from 'expo-asset';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { CustodyDayData, CustodyExpenseItem, CustodyLogItem } from './custodyService';
 import { formatImageUrl } from './api';
 import { SAUDI_RIYAL_SYMBOL_PNG_BASE64 } from './saudiRiyalSymbolBase64';
@@ -94,7 +95,7 @@ export const evictImageCache = (url?: string): void => {
   } catch (_) {}
 };
 
-// Helper to download an image (with persistent disk cache and memory cache)
+// Helper to download an image (with persistent disk cache, memory cache, and automatic EXIF orientation normalization)
 const fetchImageBytes = async (
   url: string,
   forceFresh = false
@@ -113,12 +114,34 @@ const fetchImageBytes = async (
     const isPng = formatted.toLowerCase().endsWith('.png');
     const isJpg = !isPng;
 
-    // 2. Local file URI
-    if (formatted.startsWith('file://')) {
-      const b64 = await FileSystem.readAsStringAsync(formatted, {
+    // Helper to read & normalize EXIF orientation so image is upright (straight)
+    const readNormalizedBytes = async (localPath: string): Promise<Uint8Array> => {
+      try {
+        const manip = await manipulateAsync(
+          localPath,
+          [], // empty actions: native image decoder automatically rotates bitmap according to EXIF orientation tag
+          {
+            compress: 0.88,
+            format: isPng ? SaveFormat.PNG : SaveFormat.JPEG,
+            base64: true,
+          }
+        );
+        if (manip.base64) {
+          return base64ToUint8Array(manip.base64);
+        }
+      } catch (manipErr) {
+        console.warn('[PDF] Failed to normalize image orientation via manipulator:', manipErr);
+      }
+      const b64 = await FileSystem.readAsStringAsync(localPath, {
         encoding: FileSystem.EncodingType.Base64,
       });
-      const result = { bytes: base64ToUint8Array(b64), isJpg };
+      return base64ToUint8Array(b64);
+    };
+
+    // 2. Local file URI
+    if (formatted.startsWith('file://')) {
+      const bytes = await readNormalizedBytes(formatted);
+      const result = { bytes, isJpg };
       memoryImageCache.set(url, result);
       return result;
     }
@@ -128,10 +151,8 @@ const fetchImageBytes = async (
     if (!forceFresh) {
       const fileInfo = await FileSystem.getInfoAsync(diskPath);
       if (fileInfo.exists && fileInfo.size > 0) {
-        const b64 = await FileSystem.readAsStringAsync(diskPath, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        const result = { bytes: base64ToUint8Array(b64), isJpg };
+        const bytes = await readNormalizedBytes(diskPath);
+        const result = { bytes, isJpg };
         memoryImageCache.set(url, result);
         return result;
       }
@@ -146,10 +167,8 @@ const fetchImageBytes = async (
       return null;
     }
 
-    const b64 = await FileSystem.readAsStringAsync(diskPath, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    const result = { bytes: base64ToUint8Array(b64), isJpg };
+    const bytes = await readNormalizedBytes(diskPath);
+    const result = { bytes, isJpg };
     memoryImageCache.set(url, result);
     return result;
   } catch (err) {

@@ -25,6 +25,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { ThemeColors } from '../types/delegate';
 import {
   custodyService,
@@ -267,6 +268,22 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [showReportPreviewModal, setShowReportPreviewModal] = useState<boolean>(false);
   const [showNoInvoicesNoticeModal, setShowNoInvoicesNoticeModal] = useState<boolean>(false);
 
+  // Active Stored Daily Ledger Photo for selected date (prevents stale photo & cross-day leakage)
+  const [activeStoredLedger, setActiveStoredLedger] = useState<string | null>(null);
+
+  // Synchronize stored ledger photo strictly for the selected date
+  useEffect(() => {
+    let isMounted = true;
+    custodyService.getLedgerImage(selectedDate).then((img) => {
+      if (isMounted) {
+        setActiveStoredLedger(img || null);
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDate]);
+
   // Incoming Shared Image from Android Share Sheet
   const [sharedImagePending, setSharedImagePending] = useState<string | null>(null);
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
@@ -400,10 +417,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           }
         }
         const cachedLedger = await custodyService.getLedgerImage(selectedDate);
-        if (cachedLedger && isMounted) {
-          setDays((prev) =>
-            prev.map((d) => (d.date === selectedDate ? { ...d, ledger_image_url: cachedLedger } : d))
-          );
+        if (isMounted) {
+          setActiveStoredLedger(cachedLedger || null);
+          if (cachedLedger) {
+            setDays((prev) =>
+              prev.map((d) => (d.date === selectedDate ? { ...d, ledger_image_url: cachedLedger } : d))
+            );
+          }
         }
       } catch (_) {}
     };
@@ -448,6 +468,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               }
             }
           } catch (_) {}
+          const currentLedgerImg = (await custodyService.getLedgerImage(selectedDate)) || activeStoredLedger;
+          if (currentLedgerImg) {
+            finalDaysData = finalDaysData.map((d) =>
+              d.date === selectedDate ? { ...d, ledger_image_url: currentLedgerImg } : d
+            );
+            setActiveStoredLedger(currentLedgerImg);
+          }
           setDays(finalDaysData);
           AsyncStorage.setItem(getDaysCacheKey(bId || null), JSON.stringify(finalDaysData)).catch(() => {});
         }
@@ -1011,9 +1038,16 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
     try {
       setExportingExcel(true);
-      // Retrieve stored ledger image if currentDay is not synced yet
-      const storedLedger = await custodyService.getLedgerImage(selectedDate);
-      const activeLedgerUrl = currentDay.ledger_image_url || storedLedger || undefined;
+      // Retrieve stored ledger image (prioritize latest locally attached ledger for this exact date)
+      const storedLedger = (await custodyService.getLedgerImage(selectedDate)) || activeStoredLedger;
+      const activeLedgerUrl = storedLedger || currentDay.ledger_image_url || undefined;
+
+      // Invalidate PDF cache and evict image cache for this date so newly updated ledger and receipts are always rendered fresh
+      await invalidateCustodyPdfCache(selectedDate);
+      if (activeLedgerUrl) {
+        evictImageCache(activeLedgerUrl);
+      }
+
       const dayWithLedger: CustodyDayData = {
         ...currentDay,
         ledger_image_url: activeLedgerUrl,
@@ -1024,6 +1058,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         dayLogs,
         mode,
         ledgerImageUrl: activeLedgerUrl,
+        forceRegenerate: true,
       });
     } catch (err: any) {
       Alert.alert('خطأ في تصدير الـ PDF', err?.message || 'فشل إنشاء ومعاينة تقرير الـ PDF');
@@ -1035,13 +1070,29 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   // 7. Save Daily Ledger (Notebook) Photo (بدون مبلغ أو بيانات)
   const handleSaveLedgerImage = async (imageUri: string) => {
     try {
+      // Normalize image EXIF orientation so image is straight and upright
+      let cleanUri = imageUri;
+      try {
+        const manip = await manipulateAsync(imageUri, [], {
+          compress: 0.88,
+          format: SaveFormat.JPEG,
+        });
+        if (manip.uri) cleanUri = manip.uri;
+      } catch (manipErr) {
+        console.warn('Failed to pre-normalize ledger image:', manipErr);
+      }
+
       const targetDate = selectedDate;
-      const uploadedUrl = await custodyService.setLedgerImage(targetDate, imageUri);
+      const uploadedUrl = await custodyService.setLedgerImage(targetDate, cleanUri);
 
       // Invalidate PDF cache and evict image cache for target date so new photo is rendered in PDF immediately
       await invalidateCustodyPdfCache(targetDate);
       evictImageCache(uploadedUrl);
+      evictImageCache(cleanUri);
       evictImageCache(imageUri);
+
+      // Immediately keep active stored ledger in sync
+      setActiveStoredLedger(uploadedUrl);
 
       // Update state for current day
       setDays((prevDays) => {
@@ -1441,7 +1492,11 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         <ModuleErrorBoundary moduleName="AhdaReportPreviewModal">
           <AhdaReportPreviewModal
             visible={showReportPreviewModal}
-            currentDay={currentDay}
+            currentDay={
+              currentDay
+                ? { ...currentDay, ledger_image_url: activeStoredLedger || currentDay.ledger_image_url }
+                : null
+            }
             selectedDate={selectedDate}
             currentUser={currentUser}
             dayLogs={dayLogs}
