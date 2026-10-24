@@ -27,36 +27,7 @@ const AhdaDayExpensesSummaryCardComponent: React.FC<AhdaDayExpensesSummaryCardPr
 }) => {
   return (
     <View style={styles.rowWrapper}>
-      {/* 1. Main Invoices Card */}
-      <TouchableOpacity
-        style={styles.simpleInvoicesCard}
-        onPress={onPress}
-        activeOpacity={0.85}
-      >
-        <View style={styles.simpleInvoicesRight}>
-          <View style={styles.simpleInvoicesIconCircle}>
-            <Ionicons name="receipt-outline" size={20} color="#ffffff" />
-          </View>
-          <View style={{ alignItems: 'flex-start', justifyContent: 'center' }}>
-            <Text style={styles.simpleInvoicesTitle}>
-              فواتير ومصاريف اليوم بالكامل
-            </Text>
-            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4, marginTop: 2 }}>
-              <Text style={styles.simpleInvoicesSub}>
-                {toArabicDigits(currentDay?.expenses?.length || 0)} فواتير مسجلة • {formatArabicNumber(currentDay?.total_expenses ?? 0, 2)}
-              </Text>
-              <Image
-                source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-                style={{ width: 11, height: 11, tintColor: 'rgba(255, 255, 255, 0.85)' }}
-                resizeMode="contain"
-              />
-            </View>
-          </View>
-        </View>
-        <Ionicons name="chevron-back" size={17} color="rgba(255, 255, 255, 0.85)" />
-      </TouchableOpacity>
-
-      {/* 2. PDF Icon Button Beside Card: Tap -> Download / Share, Long-Press -> Preview */}
+      {/* 1. PDF Icon Button on the RIGHT (Tap -> Download/Share, Long-Press -> Preview) */}
       {(onPressPdf || onLongPressPdf) && (
         <TouchableOpacity
           style={[
@@ -103,6 +74,35 @@ const AhdaDayExpensesSummaryCardComponent: React.FC<AhdaDayExpensesSummaryCardPr
           </Text>
         </TouchableOpacity>
       )}
+
+      {/* 2. Main Invoices Card on the LEFT */}
+      <TouchableOpacity
+        style={styles.simpleInvoicesCard}
+        onPress={onPress}
+        activeOpacity={0.85}
+      >
+        <View style={styles.simpleInvoicesRight}>
+          <View style={styles.simpleInvoicesIconCircle}>
+            <Ionicons name="receipt-outline" size={20} color="#ffffff" />
+          </View>
+          <View style={{ alignItems: 'flex-start', justifyContent: 'center' }}>
+            <Text style={styles.simpleInvoicesTitle}>
+              فواتير ومصاريف اليوم بالكامل
+            </Text>
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <Text style={styles.simpleInvoicesSub}>
+                {toArabicDigits(currentDay?.expenses?.length || 0)} فواتير مسجلة • {formatArabicNumber(currentDay?.total_expenses ?? 0, 2)}
+              </Text>
+              <Image
+                source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
+                style={{ width: 11, height: 11, tintColor: 'rgba(255, 255, 255, 0.85)' }}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+        </View>
+        <Ionicons name="chevron-back" size={17} color="rgba(255, 255, 255, 0.85)" />
+      </TouchableOpacity>
     </View>
   );
 };

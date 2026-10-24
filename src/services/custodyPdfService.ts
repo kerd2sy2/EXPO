@@ -95,11 +95,14 @@ export const evictImageCache = (url?: string): void => {
 };
 
 // Helper to download an image (with persistent disk cache and memory cache)
-const fetchImageBytes = async (url: string): Promise<{ bytes: Uint8Array; isJpg: boolean } | null> => {
+const fetchImageBytes = async (
+  url: string,
+  forceFresh = false
+): Promise<{ bytes: Uint8Array; isJpg: boolean } | null> => {
   if (!url) return null;
 
-  // 1. Check in-memory cache first (0ms)
-  if (memoryImageCache.has(url)) {
+  // 1. Check in-memory cache first if not forced fresh (0ms)
+  if (!forceFresh && memoryImageCache.has(url)) {
     return memoryImageCache.get(url)!;
   }
 
@@ -120,17 +123,21 @@ const fetchImageBytes = async (url: string): Promise<{ bytes: Uint8Array; isJpg:
       return result;
     }
 
-    // 3. Persistent disk cache check (zero server downloads if already cached)
+    // 3. Persistent disk cache check (zero server downloads if already cached and not forceFresh)
     const diskPath = getCacheFilenameForUrl(formatted);
-    const fileInfo = await FileSystem.getInfoAsync(diskPath);
-
-    if (fileInfo.exists && fileInfo.size > 0) {
-      const b64 = await FileSystem.readAsStringAsync(diskPath, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      const result = { bytes: base64ToUint8Array(b64), isJpg };
-      memoryImageCache.set(url, result);
-      return result;
+    if (!forceFresh) {
+      const fileInfo = await FileSystem.getInfoAsync(diskPath);
+      if (fileInfo.exists && fileInfo.size > 0) {
+        const b64 = await FileSystem.readAsStringAsync(diskPath, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const result = { bytes: base64ToUint8Array(b64), isJpg };
+        memoryImageCache.set(url, result);
+        return result;
+      }
+    } else {
+      await FileSystem.deleteAsync(diskPath, { idempotent: true }).catch(() => {});
+      memoryImageCache.delete(url);
     }
 
     // 4. Download once from server and save persistently to disk
@@ -362,7 +369,8 @@ export const exportCustodyDayToPdf = async (
     if (e.image_url) allImageUrls.push(e.image_url);
   });
   if (allImageUrls.length > 0) {
-    await Promise.all(allImageUrls.map((u) => fetchImageBytes(u)));
+    const isForceFresh = !!options?.forceRegenerate;
+    await Promise.all(allImageUrls.map((u) => fetchImageBytes(u, isForceFresh)));
   }
 
   // 1. Create Document with fontkit OpenType engine
@@ -999,7 +1007,7 @@ export const exportCustodyDayToPdf = async (
   if (ledgerUrl) {
     let ledgerImgData: { bytes: Uint8Array; isJpg: boolean } | null = null;
     try {
-      ledgerImgData = await fetchImageBytes(ledgerUrl);
+      ledgerImgData = await fetchImageBytes(ledgerUrl, !!options?.forceRegenerate);
     } catch (_) {}
 
     if (ledgerImgData) {
@@ -1198,7 +1206,7 @@ export const exportCustodyDayToPdf = async (
 
         let imgData: { bytes: Uint8Array; isJpg: boolean } | null = null;
         if (exp.image_url) {
-          imgData = await fetchImageBytes(exp.image_url);
+          imgData = await fetchImageBytes(exp.image_url, !!options?.forceRegenerate);
         }
         const hasImage = !!imgData;
 
@@ -1554,12 +1562,14 @@ export const exportCustodyDayToPdf = async (
   });
 
   // 4. Share or Preview file via native share dialog
-  if (options?.mode === 'share') {
+  if (options?.mode === 'share' || options?.mode === 'preview') {
     const isAvailable = await Sharing.isAvailableAsync();
     if (isAvailable) {
       await Sharing.shareAsync(cachedPdfUri, {
         mimeType: 'application/pdf',
-        dialogTitle: `مشاركة تقرير العهدة (${cleanDateStr})`,
+        dialogTitle: options.mode === 'preview'
+          ? `معاينة تقرير العهدة (${cleanDateStr})`
+          : `مشاركة تقرير العهدة (${cleanDateStr})`,
         UTI: 'com.adobe.pdf',
       });
     }

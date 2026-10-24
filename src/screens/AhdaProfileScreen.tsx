@@ -253,7 +253,7 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* ── 1. Profile Header Card ── */}
+        {/* ── 1. Profile Header Card (Enhanced Avatar & Identity) ── */}
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.profileAvatarSection}>
             <TouchableOpacity
@@ -262,114 +262,202 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
               activeOpacity={0.85}
               disabled={uploadingAvatar}
             >
-              <View style={[styles.profileAvatar, { backgroundColor: '#ecfdf5', borderColor: '#047857' }]}>
-                {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={styles.profileAvatarImg} />
-                ) : (
-                  <Ionicons name="person" size={44} color="#047857" />
-                )}
-                {uploadingAvatar && (
-                  <View style={styles.avatarLoadingOverlay}>
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  </View>
-                )}
+              {/* Outer decorative ring */}
+              <View
+                style={[
+                  styles.profileAvatarRing,
+                  {
+                    borderColor: isDarkMode ? '#065f46' : '#a7f3d0',
+                    backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5',
+                  },
+                ]}
+              >
+                <View style={[styles.profileAvatar, { backgroundColor: isDarkMode ? '#022c22' : '#f0fdf4', borderColor: '#047857' }]}>
+                  {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.profileAvatarImg} />
+                  ) : (
+                    <Ionicons name="person" size={48} color="#047857" />
+                  )}
+                  {uploadingAvatar && (
+                    <View style={styles.avatarLoadingOverlay}>
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    </View>
+                  )}
+                </View>
               </View>
 
               {/* Edit Camera Badge */}
               <View style={styles.avatarEditBadge}>
-                <Ionicons name="camera" size={14} color="#ffffff" />
+                <Ionicons name="camera" size={13} color="#ffffff" />
               </View>
             </TouchableOpacity>
 
             <Text style={[styles.profileName, { color: colors.textPrimary }]}>{userName}</Text>
-          </View>
 
-          {/* Info Rows List */}
-          <View style={[styles.profileInfoList, { borderTopColor: colors.border }]}>
-            {/* National ID / Username */}
-            <View style={styles.infoRow}>
-              <View style={styles.infoLabelGroup}>
-                <Ionicons name="card-outline" size={15} color="#047857" />
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>كود المستخدم</Text>
+            {/* Role & Branch Badges */}
+            <View style={styles.profileBadgesRow}>
+              <View
+                style={[
+                  styles.roleBadge,
+                  {
+                    backgroundColor: isDarkMode ? 'rgba(6, 78, 59, 0.4)' : '#ecfdf5',
+                    borderColor: isDarkMode ? '#059669' : '#a7f3d0',
+                  },
+                ]}
+              >
+                <Ionicons name="shield-checkmark" size={13} color="#047857" />
+                <Text style={[styles.roleBadgeText, { color: isDarkMode ? '#6ee7b7' : '#047857' }]}>
+                  مسؤول العهدة المالية
+                </Text>
               </View>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{userCode}</Text>
-            </View>
 
-            {/* Email */}
-            <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-              <View style={styles.infoLabelGroup}>
-                <Ionicons name="mail-outline" size={15} color="#047857" />
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>البريد الإلكتروني</Text>
-              </View>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]} numberOfLines={1}>
-                {userEmail}
-              </Text>
+              {currentUser?.branch?.name && (
+                <View
+                  style={[
+                    styles.branchBadge,
+                    {
+                      backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
+                      borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                    },
+                  ]}
+                >
+                  <Ionicons name="business-outline" size={12} color={colors.textSecondary} />
+                  <Text style={[styles.branchBadgeText, { color: colors.textSecondary }]}>
+                    {currentUser.branch.name}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
 
-        {/* ── 2. Settings Card ── */}
+        {/* ── 2. Settings Card (Refined & Modern) ── */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.titleGroup}>
-              <Ionicons name="settings-outline" size={18} color="#047857" />
+              <View style={[styles.sectionIconBadge, { backgroundColor: isDarkMode ? 'rgba(6, 78, 59, 0.4)' : '#ecfdf5' }]}>
+                <Ionicons name="options-outline" size={16} color="#047857" />
+              </View>
               <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>إعدادات التطبيق والمظهر</Text>
             </View>
           </View>
 
-          {/* Theme Mode Selector (Bottom Sheet Modal) */}
+          {/* Theme Mode Selector */}
           <TouchableOpacity
-            style={[styles.settingRow, { borderBottomColor: colors.border }]}
+            style={[styles.settingRow, { borderBottomColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
             onPress={() => setShowThemeModal(true)}
             activeOpacity={0.7}
           >
             <View style={styles.settingRowRight}>
-              <Ionicons
-                name={isDarkMode ? 'moon-outline' : 'sunny-outline'}
-                size={20}
-                color={isDarkMode ? '#fbbf24' : '#047857'}
-              />
+              <View
+                style={[
+                  styles.settingIconBox,
+                  {
+                    backgroundColor: isDarkMode ? '#0f172a' : '#fef3c7',
+                    borderColor: isDarkMode ? '#334155' : '#fde68a',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={isDarkMode ? 'moon' : 'sunny'}
+                  size={19}
+                  color={isDarkMode ? '#38bdf8' : '#d97706'}
+                />
+              </View>
               <View style={{ alignItems: 'flex-start' }}>
                 <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>مظهر التطبيق</Text>
-                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                  {currentThemeLabel}
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                  تخصيص الوضع الفاتح أو الداكن
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
+
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+              <View
+                style={[
+                  styles.pillTag,
+                  {
+                    backgroundColor: isDarkMode ? '#1e293b' : '#ecfdf5',
+                    borderColor: isDarkMode ? '#334155' : '#a7f3d0',
+                  },
+                ]}
+              >
+                <Text style={[styles.pillTagText, { color: isDarkMode ? '#94a3b8' : '#047857' }]}>
+                  {currentThemeLabel}
+                </Text>
+              </View>
+              <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
+            </View>
           </TouchableOpacity>
 
           {/* Check for OTA Updates Row */}
           <TouchableOpacity
-            style={[styles.settingRow, { borderBottomColor: colors.border }]}
+            style={[styles.settingRow, { borderBottomWidth: 0 }]}
             onPress={handleCheckUpdates}
             activeOpacity={0.7}
           >
             <View style={styles.settingRowRight}>
-              <Ionicons name="cloud-download-outline" size={20} color="#047857" />
+              <View
+                style={[
+                  styles.settingIconBox,
+                  {
+                    backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5',
+                    borderColor: isDarkMode ? '#047857' : '#a7f3d0',
+                  },
+                ]}
+              >
+                <Ionicons name="cloud-download-outline" size={19} color="#047857" />
+              </View>
               <View style={{ alignItems: 'flex-start' }}>
                 <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>تحديث التطبيق السحابي</Text>
-                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
                   التحقق من وجود آخر المزايا والتحسينات
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
 
-          {/* Logout Row */}
-          <TouchableOpacity
-            style={[styles.settingRow, { borderBottomWidth: 0 }]}
-            onPress={confirmLogout}
-            activeOpacity={0.7}
-          >
-            <View style={styles.settingRowRight}>
-              <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-              <Text style={[styles.settingRowText, { color: '#ef4444' }]}>تسجيل الخروج من الحساب</Text>
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+              <View
+                style={[
+                  styles.pillTag,
+                  {
+                    backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
+                    borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                  },
+                ]}
+              >
+                <Text style={[styles.pillTagText, { color: colors.textSecondary }]}>v1.0.0</Text>
+              </View>
+              <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
             </View>
-            <Ionicons name="chevron-back" size={16} color="#ef4444" />
           </TouchableOpacity>
         </View>
+
+        {/* ── 3. Dedicated Standout Logout Card ── */}
+        <TouchableOpacity
+          style={[
+            styles.logoutCard,
+            {
+              backgroundColor: isDarkMode ? '#1f1414' : '#fef2f2',
+              borderColor: isDarkMode ? '#450a0a' : '#fecaca',
+            },
+          ]}
+          onPress={confirmLogout}
+          activeOpacity={0.82}
+        >
+          <View style={styles.logoutContentRow}>
+            <View style={[styles.logoutIconCircle, { backgroundColor: isDarkMode ? '#450a0a' : '#fee2e2' }]}>
+              <Ionicons name="log-out-outline" size={20} color="#dc2626" />
+            </View>
+            <View style={{ alignItems: 'flex-start', flex: 1 }}>
+              <Text style={styles.logoutTitle}>تسجيل الخروج من الحساب</Text>
+              <Text style={[styles.logoutSub, { color: isDarkMode ? '#f87171' : '#b91c1c' }]}>
+                الخروج الآمن وإنهاء الجلسة الحالية
+              </Text>
+            </View>
+            <Ionicons name="chevron-back" size={17} color="#dc2626" />
+          </View>
+        </TouchableOpacity>
 
         <Text style={[styles.footerText, { color: colors.textSecondary }]}>
           جميع الحقوق محفوظة © {new Date().getFullYear()} AAMS Logistics
@@ -789,13 +877,26 @@ const styles = StyleSheet.create({
   },
   avatarTouchable: {
     position: 'relative',
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  profileAvatarRing: {
+    width: 98,
+    height: 98,
+    borderRadius: 49,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#047857',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
   },
   profileAvatar: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    borderWidth: 2.5,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -816,8 +917,8 @@ const styles = StyleSheet.create({
   },
   avatarEditBadge: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
+    bottom: 2,
+    left: 2,
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -829,38 +930,47 @@ const styles = StyleSheet.create({
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 3,
   },
   profileName: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
     textAlign: 'center',
+    marginBottom: 4,
   },
-  profileInfoList: {
-    borderTopWidth: 1,
-    paddingTop: 12,
-    gap: 8,
-  },
-  infoRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f1f5f9',
-  },
-  infoLabelGroup: {
+  profileBadgesRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
+    flexWrap: 'wrap',
+    marginTop: 4,
   },
-  infoLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+  roleBadge: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
   },
-  infoValue: {
-    fontSize: 14,
+  roleBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  branchBadge: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  branchBadgeText: {
+    fontSize: 11.5,
     fontWeight: '700',
   },
   card: {
@@ -878,10 +988,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
     paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e2e8f0',
+  },
+  sectionIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   titleGroup: {
     flexDirection: 'row-reverse',
@@ -889,30 +1006,85 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '800',
   },
   settingRow: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 13,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   settingRowRight: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
+  },
+  settingIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   settingRowText: {
-    fontSize: 14,
+    fontSize: 13.5,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+  pillTag: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  pillTagText: {
+    fontSize: 11.5,
     fontWeight: '700',
+  },
+  logoutCard: {
+    borderRadius: 20,
+    borderWidth: 1.2,
+    padding: 14,
+    marginBottom: 16,
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  logoutContentRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+  },
+  logoutIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoutTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#dc2626',
+    textAlign: 'right',
+    marginBottom: 2,
+  },
+  logoutSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'right',
   },
   footerText: {
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 4,
     marginBottom: 16,
   },
   // Modal Styles
