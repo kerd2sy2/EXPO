@@ -1238,13 +1238,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     colors={colors}
                     isDarkMode={isDarkMode}
                     onSelectCategory={(catKey) => {
+                      setSelectedCategory(catKey);
+                      setShowAddExpenseModal(true);
+                    }}
+                    onLongPressCategory={(catKey) => {
                       setInitialExpenseForDetails(null);
                       setSelectedCategoryFilter(catKey);
                       setShowDayExpensesPage(true);
-                    }}
-                    onLongPressCategory={(catKey) => {
-                      setSelectedCategory(catKey);
-                      setShowAddExpenseModal(true);
                     }}
                   />
                 </ModuleErrorBoundary>

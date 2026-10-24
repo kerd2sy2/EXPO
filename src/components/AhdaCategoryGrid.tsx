@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { ThemeColors } from '../types/delegate';
 import { CustodyDayData } from '../services/custodyService';
 import { formatArabicNumber } from '../utils/formatters';
@@ -37,6 +38,9 @@ const AhdaCategoryGridComponent: React.FC<AhdaCategoryGridProps> = ({
           <Ionicons name="pie-chart-outline" size={17} color="#047857" />
           <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>تفصيل المصاريف حسب الأقسام</Text>
         </View>
+        <Text style={{ fontSize: 10, color: colors.textSecondary, fontWeight: '600' }}>
+          مطوّل لعرض الفواتير
+        </Text>
       </View>
 
       <View style={styles.categoryGrid}>
@@ -60,7 +64,12 @@ const AhdaCategoryGridComponent: React.FC<AhdaCategoryGridProps> = ({
                 },
               ]}
               onPress={() => onSelectCategory(cat.key)}
-              onLongPress={() => onLongPressCategory(cat.key)}
+              onLongPress={() => {
+                try {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                } catch (_) {}
+                onLongPressCategory(cat.key);
+              }}
               activeOpacity={0.75}
             >
               <View style={styles.categoryCardTop}>
