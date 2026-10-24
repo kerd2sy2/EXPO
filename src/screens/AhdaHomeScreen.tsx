@@ -35,7 +35,6 @@ import {
 import { AhdaBranchSelectorModal } from '../components/modals/AhdaBranchSelectorModal';
 import {
   exportCustodyDayToPdf,
-  prewarmCustodyPdf,
   invalidateCustodyPdfCache,
   evictImageCache,
 } from '../services/custodyPdfService';
@@ -300,75 +299,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [pickerYear, setPickerYear] = useState<number>(new Date().getFullYear());
   const [pickerMonth, setPickerMonth] = useState<number>(new Date().getMonth() + 1);
 
-  // Collapsible Home Header Animation (Google Play Store / Delegate App Style)
-  const headerTranslateY = useRef(new Animated.Value(0)).current;
-  const lastScrollY = useRef(0);
-  const isHeaderHidden = useRef(false);
-  const scrollDelta = useRef(0);
-
-  useEffect(() => {
-    headerTranslateY.setValue(0);
-    isHeaderHidden.current = false;
-    lastScrollY.current = 0;
-    scrollDelta.current = 0;
-  }, [showProfile, showDayExpensesPage]);
-
-  const handleHomeScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentY = event.nativeEvent.contentOffset.y;
-    const diff = currentY - lastScrollY.current;
-    lastScrollY.current = currentY;
-
-    // At the very top (or pulling down): Always show header in its natural place
-    if (currentY <= 0) {
-      scrollDelta.current = 0;
-      if (isHeaderHidden.current) {
-        isHeaderHidden.current = false;
-        Animated.spring(headerTranslateY, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 220,
-          useNativeDriver: true,
-        }).start();
-      }
-      return;
-    }
-
-    // Accumulate directional scroll delta to capture both slow and fast scrolling
-    if (diff > 0) {
-      // Swiping up / scrolling down page
-      if (scrollDelta.current < 0) {
-        scrollDelta.current = 0;
-      }
-      scrollDelta.current += diff;
-
-      // When accumulated movement reaches 10px and past 30px from top: Hide Header
-      if (scrollDelta.current >= 10 && currentY > 30 && !isHeaderHidden.current) {
-        isHeaderHidden.current = true;
-        Animated.timing(headerTranslateY, {
-          toValue: -HOME_HEADER_HEIGHT,
-          duration: 180,
-          useNativeDriver: true,
-        }).start();
-      }
-    } else if (diff < 0) {
-      // Swiping down / scrolling up towards top
-      if (scrollDelta.current > 0) {
-        scrollDelta.current = 0;
-      }
-      scrollDelta.current += diff;
-
-      // When accumulated movement reaches -10px: Show Header
-      if (scrollDelta.current <= -10 && isHeaderHidden.current) {
-        isHeaderHidden.current = false;
-        Animated.spring(headerTranslateY, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 220,
-          useNativeDriver: true,
-        }).start();
-      }
-    }
-  }, [HOME_HEADER_HEIGHT, headerTranslateY]);
 
   // Handler to update selected date
   const updateSelectedDate = useCallback((newDate: string) => {
@@ -688,17 +618,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     return previousDays[0]?.closing_balance ?? currentDay?.opening_balance ?? 0;
   }, [days, selectedDate, currentDay]);
 
-  // Quiet background pre-warming of the day's PDF so sharing/sending is instant (0.05s) with 0 server load
-  useEffect(() => {
-    if (!currentDay) return;
-    const timer = setTimeout(() => {
-      prewarmCustodyPdf(currentDay, {
-        user: currentUser,
-        dayLogs,
-      }).catch(() => {});
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, [currentDay?.id, currentDay?.expenses?.length, currentDay?.closing_balance, selectedDate]);
 
   // Handle Day Navigation
   const changeDateByDays = (delta: number) => {

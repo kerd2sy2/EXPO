@@ -10,7 +10,7 @@ interface AhdaPdfExportCardProps {
   onPress: () => void;
 }
 
-export const AhdaPdfExportCard: React.FC<AhdaPdfExportCardProps> = ({
+const AhdaPdfExportCardComponent: React.FC<AhdaPdfExportCardProps> = ({
   colors,
   isDarkMode,
   onPress,
@@ -68,6 +68,8 @@ export const AhdaPdfExportCard: React.FC<AhdaPdfExportCardProps> = ({
     </TouchableOpacity>
   );
 };
+
+export const AhdaPdfExportCard = React.memo(AhdaPdfExportCardComponent);
 
 const styles = StyleSheet.create({
   cardContainer: {

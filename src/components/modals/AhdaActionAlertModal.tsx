@@ -47,26 +47,34 @@ export const AhdaActionAlertModal: React.FC<AhdaActionAlertModalProps> = ({
       Animated.parallel([
         Animated.timing(backdropAnim, {
           toValue: 1,
-          duration: 200,
+          duration: 160,
           useNativeDriver: true,
         }),
         Animated.spring(sheetTranslateY, {
           toValue: 0,
-          bounciness: 4,
-          speed: 13,
+          bounciness: 3,
+          speed: 16,
           useNativeDriver: true,
         }),
       ]).start();
+
+      // For success alerts: auto-dismiss after 850ms (less than 1s) with no button required
+      if (config.type === 'success') {
+        const timer = setTimeout(() => {
+          handlePrimary();
+        }, 850);
+        return () => clearTimeout(timer);
+      }
     } else {
       Animated.parallel([
         Animated.timing(backdropAnim, {
           toValue: 0,
-          duration: 180,
+          duration: 150,
           useNativeDriver: true,
         }),
         Animated.timing(sheetTranslateY, {
           toValue: SCREEN_HEIGHT,
-          duration: 200,
+          duration: 160,
           useNativeDriver: true,
         }),
       ]).start();
@@ -151,6 +159,7 @@ export const AhdaActionAlertModal: React.FC<AhdaActionAlertModalProps> = ({
             backgroundColor: colors.card,
             borderColor: colors.border,
             transform: [{ translateY: sheetTranslateY }],
+            paddingBottom: config.type === 'success' ? (Platform.OS === 'ios' ? 24 : 18) : (Platform.OS === 'ios' ? 36 : 24),
           },
         ]}
       >
@@ -176,32 +185,42 @@ export const AhdaActionAlertModal: React.FC<AhdaActionAlertModalProps> = ({
         </Text>
 
         {/* Message */}
-        <Text style={[styles.message, { color: colors.textSecondary }]}>
+        <Text
+          style={[
+            styles.message,
+            {
+              color: colors.textSecondary,
+              marginBottom: config.type === 'success' ? 10 : 20,
+            },
+          ]}
+        >
           {config.message}
         </Text>
 
-        {/* Action Buttons */}
-        <View style={styles.buttonsContainer}>
-          {hasSecondary && (
-            <TouchableOpacity
-              style={[styles.secondaryBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border }]}
-              onPress={handleSecondary}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
-                {secondaryLabel}
-              </Text>
-            </TouchableOpacity>
-          )}
+        {/* Action Buttons: Hidden completely for success alerts per user request */}
+        {config.type !== 'success' && (
+          <View style={styles.buttonsContainer}>
+            {hasSecondary && (
+              <TouchableOpacity
+                style={[styles.secondaryBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border }]}
+                onPress={handleSecondary}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
+                  {secondaryLabel}
+                </Text>
+              </TouchableOpacity>
+            )}
 
-          <TouchableOpacity
-            style={[styles.primaryBtn, { backgroundColor: primaryBtnColor }]}
-            onPress={handlePrimary}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryBtnText}>{primaryLabel}</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[styles.primaryBtn, { backgroundColor: primaryBtnColor }]}
+              onPress={handlePrimary}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryBtnText}>{primaryLabel}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </Animated.View>
     </Animated.View>
   );

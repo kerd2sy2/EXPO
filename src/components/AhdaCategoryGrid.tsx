@@ -22,7 +22,7 @@ interface AhdaCategoryGridProps {
   onLongPressCategory: (categoryKey: string) => void;
 }
 
-export const AhdaCategoryGrid: React.FC<AhdaCategoryGridProps> = ({
+const AhdaCategoryGridComponent: React.FC<AhdaCategoryGridProps> = ({
   categories,
   currentDay,
   colors,
@@ -96,6 +96,8 @@ export const AhdaCategoryGrid: React.FC<AhdaCategoryGridProps> = ({
     </View>
   );
 };
+
+export const AhdaCategoryGrid = React.memo(AhdaCategoryGridComponent);
 
 const styles = StyleSheet.create({
   container: {

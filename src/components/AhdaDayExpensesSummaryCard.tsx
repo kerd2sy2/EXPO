@@ -9,7 +9,7 @@ interface AhdaDayExpensesSummaryCardProps {
   onPress: () => void;
 }
 
-export const AhdaDayExpensesSummaryCard: React.FC<AhdaDayExpensesSummaryCardProps> = ({
+const AhdaDayExpensesSummaryCardComponent: React.FC<AhdaDayExpensesSummaryCardProps> = ({
   currentDay,
   onPress,
 }) => {
@@ -43,6 +43,8 @@ export const AhdaDayExpensesSummaryCard: React.FC<AhdaDayExpensesSummaryCardProp
     </TouchableOpacity>
   );
 };
+
+export const AhdaDayExpensesSummaryCard = React.memo(AhdaDayExpensesSummaryCardComponent);
 
 const styles = StyleSheet.create({
   simpleInvoicesOrangeCard: {

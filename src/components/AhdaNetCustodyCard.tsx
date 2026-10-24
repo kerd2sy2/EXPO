@@ -15,7 +15,7 @@ interface AhdaNetCustodyCardProps {
   onPressManageLogs: () => void;
 }
 
-export const AhdaNetCustodyCard: React.FC<AhdaNetCustodyCardProps> = ({
+const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
   currentDay,
   effectiveOpeningBalance,
   custodyAddedLogs,
@@ -150,6 +150,8 @@ export const AhdaNetCustodyCard: React.FC<AhdaNetCustodyCardProps> = ({
     </TouchableOpacity>
   );
 };
+
+export const AhdaNetCustodyCard = React.memo(AhdaNetCustodyCardComponent);
 
 const styles = StyleSheet.create({
   targetCardContainer: {
