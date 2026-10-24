@@ -60,7 +60,6 @@ import { AhdaDayExpensesScreen } from './AhdaDayExpensesScreen';
 import { AhdaNetCustodyCard } from '../components/AhdaNetCustodyCard';
 import { AhdaCategoryGrid } from '../components/AhdaCategoryGrid';
 import { AhdaDayExpensesSummaryCard } from '../components/AhdaDayExpensesSummaryCard';
-import { AhdaPdfExportCard } from '../components/AhdaPdfExportCard';
 import { AhdaActionAlertModal, AhdaAlertConfig } from '../components/modals/AhdaActionAlertModal';
 import { AhdaAddExpenseModal } from '../components/modals/AhdaAddExpenseModal';
 import { AhdaEditExpenseModal } from '../components/modals/AhdaEditExpenseModal';
@@ -68,7 +67,6 @@ import { AhdaAddCustodyModal } from '../components/modals/AhdaAddCustodyModal';
 import { AhdaCustodyLogsModal } from '../components/modals/AhdaCustodyLogsModal';
 import { AhdaDatePickerModal } from '../components/modals/AhdaDatePickerModal';
 import { AhdaImageViewerModal } from '../components/modals/AhdaImageViewerModal';
-import { AhdaShakeExcelModal } from '../components/modals/AhdaShakeExcelModal';
 import { AhdaReportPreviewModal } from '../components/modals/AhdaReportPreviewModal';
 import { AhdaSharedImageCategoryModal } from '../components/modals/AhdaSharedImageCategoryModal';
 import { AhdaSearchBottomSheet } from '../components/modals/AhdaSearchBottomSheet';
@@ -266,7 +264,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   // Preview Image & Report Modal
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [exportingExcel, setExportingExcel] = useState<boolean>(false);
-  const [showShakeExcelModal, setShowShakeExcelModal] = useState<boolean>(false);
   const [showReportPreviewModal, setShowReportPreviewModal] = useState<boolean>(false);
   const [showNoInvoicesNoticeModal, setShowNoInvoicesNoticeModal] = useState<boolean>(false);
 
@@ -283,7 +280,6 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         setShowDatePickerModal(false);
         setShowLogsSheet(false);
         setShowAddCustodyModal(false);
-        setShowShakeExcelModal(false);
         setShowReportPreviewModal(false);
         setEditingExpense(null);
         setPreviewImage(null);
@@ -498,8 +494,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         setShowNoInvoicesNoticeModal(false);
         return true;
       }
-      if (showShakeExcelModal) {
-        setShowShakeExcelModal(false);
+      if (showReportPreviewModal) {
+        setShowReportPreviewModal(false);
         return true;
       }
       if (previewImage) {
@@ -547,7 +543,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   }, [
     sharedImagePending,
     showNoInvoicesNoticeModal,
-    showShakeExcelModal,
+    showReportPreviewModal,
     previewImage,
     showDatePickerModal,
     showLogsSheet,
@@ -1249,29 +1245,32 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                   />
                 </ModuleErrorBoundary>
 
-                {/* ── 4. Simple Invoices Summary Card (Isolated & Fault-Tolerant) ── */}
+                {/* ── 4. Simple Invoices Summary Card with Embedded PDF Button ── */}
                 <ModuleErrorBoundary moduleName="AhdaDayExpensesSummaryCard">
                   <AhdaDayExpensesSummaryCard
                     currentDay={currentDay}
+                    colors={colors}
+                    isDarkMode={isDarkMode}
+                    loadingPdf={exportingExcel}
                     onPress={() => {
                       setInitialExpenseForDetails(null);
                       setSelectedCategoryFilter(null);
                       setShowDayExpensesPage(true);
                     }}
-                  />
-                </ModuleErrorBoundary>
-
-                {/* ── 5. PDF Export & Report Card (Dedicated Download Card with Haptic Tap) ── */}
-                <ModuleErrorBoundary moduleName="AhdaPdfExportCard">
-                  <AhdaPdfExportCard
-                    colors={colors}
-                    isDarkMode={isDarkMode}
-                    onPress={() => {
+                    onPressPdf={async () => {
                       const expensesCount = currentDay?.expenses?.length || 0;
                       if (expensesCount === 0) {
                         setShowNoInvoicesNoticeModal(true);
                       } else {
-                        setShowShakeExcelModal(true);
+                        await handleExportPdf('share');
+                      }
+                    }}
+                    onLongPressPdf={() => {
+                      const expensesCount = currentDay?.expenses?.length || 0;
+                      if (expensesCount === 0) {
+                        setShowNoInvoicesNoticeModal(true);
+                      } else {
+                        setShowReportPreviewModal(true);
                       }
                     }}
                   />
@@ -1411,32 +1410,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         </ModuleErrorBoundary>
       )}
 
-      {/* ── 12. PDF / Report Export Bottom Sheet Modal (Conditionally Mounted) ── */}
-      {showShakeExcelModal && (
-        <ModuleErrorBoundary moduleName="AhdaShakeExcelModal">
-          <AhdaShakeExcelModal
-            visible={showShakeExcelModal}
-            selectedDate={selectedDate}
-            colors={colors}
-            isDarkMode={isDarkMode}
-            loading={exportingExcel}
-            expensesCount={currentDay?.expenses?.length || 0}
-            onPreview={() => {
-              setShowShakeExcelModal(false);
-              setShowReportPreviewModal(true);
-            }}
-            onExportAndShare={async () => {
-              await handleExportPdf('share');
-              setShowShakeExcelModal(false);
-            }}
-            onAddExpense={() => {
-              setShowShakeExcelModal(false);
-              setShowAddExpenseModal(true);
-            }}
-            onClose={() => setShowShakeExcelModal(false)}
-          />
-        </ModuleErrorBoundary>
-      )}
+
 
       {/* ── 12a. Auto-dismissing Empty Invoices Warning Modal (Lottie EbQYDZdEzt) ── */}
       {showNoInvoicesNoticeModal && (
