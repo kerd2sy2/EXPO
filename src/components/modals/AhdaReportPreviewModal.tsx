@@ -9,7 +9,9 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  Alert,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -31,6 +33,7 @@ interface AhdaReportPreviewModalProps {
   onClose: () => void;
   onExportAndShare: () => void;
   onPreviewImage: (url: string) => void;
+  onUpdateLedgerImage?: (imageUri: string) => void;
 }
 
 const CATEGORIES = [
@@ -55,8 +58,62 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
   onClose,
   onExportAndShare,
   onPreviewImage,
+  onUpdateLedgerImage,
 }) => {
   const insets = useSafeAreaInsets();
+
+  const handlePickLedgerImage = () => {
+    Alert.alert(
+      'صورة الدفتر اليومي',
+      'اختر طريقة إرفاق أو استبدال صورة الدفتر اليومي للعهدة:',
+      [
+        {
+          text: 'التقاط صورة بالكاميرا',
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestCameraPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert('إذن مطلوب', 'يرجى السماح للتطبيق بالوصول للكاميرا');
+                return;
+              }
+              const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                quality: 0.85,
+              });
+              if (!result.canceled && result.assets[0]?.uri) {
+                onUpdateLedgerImage?.(result.assets[0].uri);
+              }
+            } catch (err: any) {
+              Alert.alert('خطأ', err?.message || 'فشل فتح الكاميرا');
+            }
+          },
+        },
+        {
+          text: 'اختيار من معرض الصور',
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert('إذن مطلوب', 'يرجى السماح للتطبيق بالوصول للصور');
+                return;
+              }
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                quality: 0.85,
+              });
+              if (!result.canceled && result.assets[0]?.uri) {
+                onUpdateLedgerImage?.(result.assets[0].uri);
+              }
+            } catch (err: any) {
+              Alert.alert('خطأ', err?.message || 'فشل فتح معرض الصور');
+            }
+          },
+        },
+        { text: 'إلغاء', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
+  };
   if (!visible) return null;
 
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? 38 : 20);
@@ -357,13 +414,33 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
             </View>
 
             {/* ── Daily Ledger Section ── */}
-            {currentDay.ledger_image_url ? (
+            {currentDay?.ledger_image_url ? (
               <View style={{ marginTop: 22, paddingHorizontal: 12 }}>
-                <View style={styles.sectionHeaderRow}>
-                  <View style={styles.sectionIndicator} />
-                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                    صورة الدفتر
-                  </Text>
+                <View style={styles.sectionHeaderRowBetween}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+                    <View style={styles.sectionIndicator} />
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                      صورة الدفتر
+                    </Text>
+                  </View>
+                  {onUpdateLedgerImage && (
+                    <TouchableOpacity
+                      style={[
+                        styles.changeLedgerBtn,
+                        {
+                          backgroundColor: isDarkMode ? '#334155' : '#f1f5f9',
+                          borderColor: isDarkMode ? '#475569' : '#cbd5e1',
+                        },
+                      ]}
+                      onPress={handlePickLedgerImage}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="camera-reverse-outline" size={14} color="#059669" />
+                      <Text style={[styles.changeLedgerBtnText, { color: colors.textPrimary }]}>
+                        استبدال الصورة
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {(() => {
@@ -408,6 +485,34 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
                     </View>
                   );
                 })()}
+              </View>
+            ) : onUpdateLedgerImage ? (
+              <View style={{ marginTop: 22, paddingHorizontal: 12 }}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.sectionIndicator} />
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                    صورة الدفتر
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.emptyLedgerBox,
+                    {
+                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                      borderColor: isDarkMode ? '#334155' : '#cbd5e1',
+                    },
+                  ]}
+                  activeOpacity={0.75}
+                  onPress={handlePickLedgerImage}
+                >
+                  <Ionicons name="camera-outline" size={28} color="#059669" />
+                  <Text style={[styles.emptyLedgerText, { color: colors.textPrimary }]}>
+                    إرفاق صورة الدفتر اليومي
+                  </Text>
+                  <Text style={[styles.emptyLedgerSub, { color: colors.textSecondary }]}>
+                    ستظهر الصورة في الصفحة الأولى لتقرير الـ PDF
+                  </Text>
+                </TouchableOpacity>
               </View>
             ) : null}
 
@@ -813,6 +918,46 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 14,
     marginBottom: 10,
+  },
+  sectionHeaderRowBetween: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    marginBottom: 10,
+  },
+  changeLedgerBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  changeLedgerBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  emptyLedgerBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 22,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    gap: 4,
+  },
+  emptyLedgerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  emptyLedgerSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
   },
   sectionIndicator: {
     width: 4,

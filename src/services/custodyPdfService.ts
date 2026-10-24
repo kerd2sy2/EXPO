@@ -75,6 +75,25 @@ const getCacheFilenameForUrl = (url: string): string => {
   return `${FileSystem.cacheDirectory}inv_cache_${Math.abs(hash)}.${ext}`;
 };
 
+/**
+ * Evicts an image URL or local URI from both memory cache and disk cache.
+ */
+export const evictImageCache = (url?: string): void => {
+  if (!url) {
+    memoryImageCache.clear();
+    return;
+  }
+  memoryImageCache.delete(url);
+  try {
+    const formatted = formatImageUrl(url);
+    if (formatted) {
+      memoryImageCache.delete(formatted);
+      const diskPath = getCacheFilenameForUrl(formatted);
+      FileSystem.deleteAsync(diskPath, { idempotent: true }).catch(() => {});
+    }
+  } catch (_) {}
+};
+
 // Helper to download an image (with persistent disk cache and memory cache)
 const fetchImageBytes = async (url: string): Promise<{ bytes: Uint8Array; isJpg: boolean } | null> => {
   if (!url) return null;
@@ -199,15 +218,44 @@ const getRiyalBytes = async (): Promise<Uint8Array | null> => {
   }
 };
 
+// Invalidate cached PDF files for a specific date or all dates
+export async function invalidateCustodyPdfCache(dateStr?: string): Promise<void> {
+  try {
+    if (!FileSystem.documentDirectory) return;
+    const cleanDate = dateStr ? String(dateStr).replace(/[^0-9-]/g, '_') : '';
+    const files = await FileSystem.readDirectoryAsync(FileSystem.documentDirectory);
+    for (const f of files) {
+      if (f.startsWith('custody_report_') && f.endsWith('.pdf')) {
+        if (!cleanDate || f.includes(cleanDate)) {
+          await FileSystem.deleteAsync(`${FileSystem.documentDirectory}${f}`, { idempotent: true }).catch(() => {});
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[PDF] Failed to invalidate PDF cache:', err);
+  }
+}
+
 // Generates unique deterministic PDF cache path for a given day data state
-export function getCustodyPdfCacheUri(day: CustodyDayData): string {
+export function getCustodyPdfCacheUri(day: CustodyDayData, customLedgerUrl?: string): string {
   const dateStr = String(day.date || '').replace(/[^0-9-]/g, '_');
   const count = (day.expenses || []).length;
   const total = Math.round(Number(day.total_expenses || 0) * 100);
   const added = Math.round(Number(day.added_amount || 0) * 100);
   const openBal = Math.round(Number(day.opening_balance || 0) * 100);
-  const ledger = day.ledger_image_url ? '1' : '0';
-  return `${FileSystem.documentDirectory}custody_report_${dateStr}_c${count}_t${total}_a${added}_o${openBal}_l${ledger}.pdf`;
+
+  const activeLedgerUrl = customLedgerUrl || day.ledger_image_url || '';
+  let ledgerSig = '0';
+  if (activeLedgerUrl) {
+    let hash = 0;
+    for (let i = 0; i < activeLedgerUrl.length; i++) {
+      hash = (hash << 5) - hash + activeLedgerUrl.charCodeAt(i);
+      hash |= 0;
+    }
+    ledgerSig = Math.abs(hash).toString(36);
+  }
+
+  return `${FileSystem.documentDirectory}custody_report_${dateStr}_c${count}_t${total}_a${added}_o${openBal}_l${ledgerSig}.pdf`;
 }
 
 // ── Arabic Eastern Numerals & BiDi Fontkit Helpers ──
@@ -281,7 +329,8 @@ export const exportCustodyDayToPdf = async (
   options?: ExportPdfOptions
 ): Promise<string> => {
   const cleanDateStr = String(day.date || '').trim();
-  const cachedPdfUri = getCustodyPdfCacheUri(day);
+  const activeLedgerUrl = options?.ledgerImageUrl || day.ledger_image_url;
+  const cachedPdfUri = getCustodyPdfCacheUri(day, activeLedgerUrl);
 
   // 0. Instant Cache Return: If already generated for this exact state, share immediately (0ms)
   if (!options?.forceRegenerate) {
@@ -301,12 +350,14 @@ export const exportCustodyDayToPdf = async (
         return cachedPdfUri;
       }
     } catch (_) {}
+  } else {
+    // Force regeneration: purge old cached file
+    await FileSystem.deleteAsync(cachedPdfUri, { idempotent: true }).catch(() => {});
   }
 
   // Pre-load all invoice images in PARALLEL (prevents sequential network blocking)
   const allImageUrls: string[] = [];
-  if (options?.ledgerImageUrl) allImageUrls.push(options.ledgerImageUrl);
-  if (day.ledger_image_url) allImageUrls.push(day.ledger_image_url);
+  if (activeLedgerUrl) allImageUrls.push(activeLedgerUrl);
   (day.expenses || []).forEach((e) => {
     if (e.image_url) allImageUrls.push(e.image_url);
   });
@@ -944,7 +995,7 @@ export const exportCustodyDayToPdf = async (
   // ════════════════════════════════════════════════════════════
   // ── DAILY LEDGER PHOTO (صورة الدفتر اليومي - كبيرة وتأخذ الصفحة الأولى) ──
   // ════════════════════════════════════════════════════════════
-  const ledgerUrl = day.ledger_image_url || options?.ledgerImageUrl;
+  const ledgerUrl = options?.ledgerImageUrl || day.ledger_image_url;
   if (ledgerUrl) {
     let ledgerImgData: { bytes: Uint8Array; isJpg: boolean } | null = null;
     try {
@@ -1003,17 +1054,27 @@ export const exportCustodyDayToPdf = async (
       });
 
       try {
-        const embeddedImg = ledgerImgData.isJpg
-          ? await pdfDoc.embedJpg(ledgerImgData.bytes)
-          : await pdfDoc.embedPng(ledgerImgData.bytes);
+        let embeddedImg: PDFImage | null = null;
+        try {
+          embeddedImg = ledgerImgData.isJpg
+            ? await pdfDoc.embedJpg(ledgerImgData.bytes)
+            : await pdfDoc.embedPng(ledgerImgData.bytes);
+        } catch {
+          // Fallback retry: swap JPG / PNG decoding in case header mismatch
+          embeddedImg = ledgerImgData.isJpg
+            ? await pdfDoc.embedPng(ledgerImgData.bytes)
+            : await pdfDoc.embedJpg(ledgerImgData.bytes);
+        }
 
-        const imgDim = embeddedImg.scaleToFit(CARD_IMG_W - 8, CARD_IMG_H - 8);
-        currentPage.drawImage(embeddedImg, {
-          x: imgBoxX + (CARD_IMG_W - imgDim.width) / 2,
-          y: imgBoxY + (CARD_IMG_H - imgDim.height) / 2,
-          width: imgDim.width,
-          height: imgDim.height,
-        });
+        if (embeddedImg) {
+          const imgDim = embeddedImg.scaleToFit(CARD_IMG_W - 8, CARD_IMG_H - 8);
+          currentPage.drawImage(embeddedImg, {
+            x: imgBoxX + (CARD_IMG_W - imgDim.width) / 2,
+            y: imgBoxY + (CARD_IMG_H - imgDim.height) / 2,
+            width: imgDim.width,
+            height: imgDim.height,
+          });
+        }
       } catch (embedErr) {
         console.warn('[PDF] Failed to embed ledger image:', embedErr);
       }

@@ -36,6 +36,8 @@ import { AhdaBranchSelectorModal } from '../components/modals/AhdaBranchSelector
 import {
   exportCustodyDayToPdf,
   prewarmCustodyPdf,
+  invalidateCustodyPdfCache,
+  evictImageCache,
 } from '../services/custodyPdfService';
 import {
   formatImageUrl,
@@ -1083,10 +1085,19 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
     try {
       setExportingExcel(true);
-      await exportCustodyDayToPdf(currentDay, {
+      // Retrieve stored ledger image if currentDay is not synced yet
+      const storedLedger = await custodyService.getLedgerImage(selectedDate);
+      const activeLedgerUrl = currentDay.ledger_image_url || storedLedger || undefined;
+      const dayWithLedger: CustodyDayData = {
+        ...currentDay,
+        ledger_image_url: activeLedgerUrl,
+      };
+
+      await exportCustodyDayToPdf(dayWithLedger, {
         user: currentUser,
         dayLogs,
         mode,
+        ledgerImageUrl: activeLedgerUrl,
       });
     } catch (err: any) {
       Alert.alert('خطأ في تصدير الـ PDF', err?.message || 'فشل إنشاء ومعاينة تقرير الـ PDF');
@@ -1101,10 +1112,75 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       const targetDate = selectedDate;
       const uploadedUrl = await custodyService.setLedgerImage(targetDate, imageUri);
 
+      // Invalidate PDF cache and evict image cache for target date so new photo is rendered in PDF immediately
+      await invalidateCustodyPdfCache(targetDate);
+      evictImageCache(uploadedUrl);
+      evictImageCache(imageUri);
+
       // Update state for current day
-      setDays((prevDays) =>
-        prevDays.map((d) => (d.date === targetDate ? { ...d, ledger_image_url: uploadedUrl } : d))
-      );
+      setDays((prevDays) => {
+        const exists = prevDays.some((d) => d.date === targetDate);
+        if (exists) {
+          return prevDays.map((d) => (d.date === targetDate ? { ...d, ledger_image_url: uploadedUrl } : d));
+        } else {
+          const newDay: CustodyDayData = {
+            id: `temp_${Date.now()}`,
+            date: targetDate,
+            opening_balance: effectiveOpeningBalance,
+            added_amount: 0,
+            custody_value: effectiveOpeningBalance,
+            total_expenses: 0,
+            closing_balance: effectiveOpeningBalance,
+            expenses: [],
+            ledger_image_url: uploadedUrl,
+            totals: {
+              fuel: 0,
+              internet_advance: 0,
+              advance: 0,
+              license: 0,
+              spare_parts: 0,
+              other: 0,
+            },
+            created_at: new Date().toISOString(),
+          };
+          return [newDay, ...prevDays];
+        }
+      });
+
+      // Update cached days in AsyncStorage
+      const bId = activeBranch.id || getActiveBranchId() || null;
+      AsyncStorage.getItem(getDaysCacheKey(bId)).then((cachedStr) => {
+        if (cachedStr) {
+          try {
+            const parsed: CustodyDayData[] = JSON.parse(cachedStr);
+            const exists = parsed.some((d) => d.date === targetDate);
+            const fallbackDay: CustodyDayData = {
+              id: `temp_${Date.now()}`,
+              date: targetDate,
+              opening_balance: effectiveOpeningBalance,
+              added_amount: 0,
+              custody_value: effectiveOpeningBalance,
+              total_expenses: 0,
+              closing_balance: effectiveOpeningBalance,
+              expenses: [],
+              ledger_image_url: uploadedUrl,
+              totals: {
+                fuel: 0,
+                internet_advance: 0,
+                advance: 0,
+                license: 0,
+                spare_parts: 0,
+                other: 0,
+              },
+              created_at: new Date().toISOString(),
+            };
+            const updated = exists
+              ? parsed.map((d) => (d.date === targetDate ? { ...d, ledger_image_url: uploadedUrl } : d))
+              : [fallbackDay, ...parsed];
+            AsyncStorage.setItem(getDaysCacheKey(bId), JSON.stringify(updated)).catch(() => {});
+          } catch (_) {}
+        }
+      }).catch(() => {});
 
       setAlertConfig({
         type: 'success',
@@ -1471,6 +1547,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               await handleExportPdf('share');
             }}
             onPreviewImage={(url) => setPreviewImage(url)}
+            onUpdateLedgerImage={handleSaveLedgerImage}
           />
         </ModuleErrorBoundary>
       )}
