@@ -20,11 +20,31 @@ interface AhdaNetCustodyCardProps {
   custodyAddedLogs: CustodyLogItem[];
   colors: ThemeColors;
   isDarkMode: boolean;
+  selectedDate?: string;
   onPressCard: () => void;
   onPressManageLogs: () => void;
   onSwipePrevDay?: () => void;
   onSwipeNextDay?: () => void;
 }
+
+const ARABIC_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+const ARABIC_MONTHS = [
+  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+];
+
+const formatSimpleDate = (dateStr?: string | null): string => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length === 3 && !parts.some(isNaN)) {
+    const [y, m, d] = parts;
+    const dateObj = new Date(y, m - 1, d);
+    const dayName = ARABIC_DAYS[dateObj.getDay()] || '';
+    const monthName = ARABIC_MONTHS[m - 1] || '';
+    return `${dayName}، ${toArabicDigits(d)} ${monthName} ${toArabicDigits(y)}`;
+  }
+  return toArabicDigits(dateStr);
+};
 
 const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
   currentDay,
@@ -32,11 +52,13 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
   custodyAddedLogs,
   colors,
   isDarkMode,
+  selectedDate,
   onPressCard,
   onPressManageLogs,
   onSwipePrevDay,
   onSwipeNextDay,
 }) => {
+  const activeDate = selectedDate || currentDay?.date;
   const custodyTotalAvailable = effectiveOpeningBalance + (currentDay?.added_amount ?? 0);
   const spentPct = custodyTotalAvailable > 0
     ? Math.min(100, Math.round(((currentDay?.total_expenses ?? 0) / custodyTotalAvailable) * 100))
@@ -67,19 +89,7 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
       onPanResponderRelease: (_, gestureState) => {
         const SWIPE_THRESHOLD = 45;
         if (gestureState.dx > SWIPE_THRESHOLD) {
-          // Swiped right -> Previous day (اليوم اللى قبله)
-          try {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          } catch (_) {}
-          Animated.spring(panX, {
-            toValue: 0,
-            useNativeDriver: true,
-            bounciness: 6,
-            speed: 16,
-          }).start();
-          callbacksRef.current.onSwipePrevDay?.();
-        } else if (gestureState.dx < -SWIPE_THRESHOLD) {
-          // Swiped left -> Next day (اليوم اللى بعده)
+          // Swiped right -> Next day (اليوم التالي / بعده)
           try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           } catch (_) {}
@@ -90,6 +100,18 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
             speed: 16,
           }).start();
           callbacksRef.current.onSwipeNextDay?.();
+        } else if (gestureState.dx < -SWIPE_THRESHOLD) {
+          // Swiped left -> Previous day (اليوم السابق / قبله)
+          try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          } catch (_) {}
+          Animated.spring(panX, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 6,
+            speed: 16,
+          }).start();
+          callbacksRef.current.onSwipePrevDay?.();
         } else {
           Animated.spring(panX, {
             toValue: 0,
@@ -132,12 +154,11 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
               <Text style={[styles.targetCardTitle, { color: colors.textPrimary }]}>
                 صافي العهدة المتبقي
               </Text>
-              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 3, marginTop: 2 }}>
-                <Ionicons name="swap-horizontal" size={11} color={colors.textSecondary} />
-                <Text style={[styles.targetCardHint, { color: colors.textSecondary }]}>
-                  اسحب للتنقل بين الأيام
+              {!!activeDate && (
+                <Text style={[styles.targetCardDate, { color: colors.textSecondary }]}>
+                  {formatSimpleDate(activeDate)}
                 </Text>
-              </View>
+              )}
             </View>
           </View>
 
@@ -283,6 +304,12 @@ const styles = StyleSheet.create({
   targetCardTitle: {
     fontSize: 14,
     fontWeight: '800',
+  },
+  targetCardDate: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+    textAlign: 'right',
   },
   targetCardHint: {
     fontSize: 10,

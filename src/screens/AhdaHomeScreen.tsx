@@ -1232,6 +1232,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     custodyAddedLogs={custodyAddedLogs}
                     colors={colors}
                     isDarkMode={isDarkMode}
+                    selectedDate={selectedDate}
                     onPressCard={() => setShowAddCustodyModal(true)}
                     onPressManageLogs={() => setShowLogsSheet(true)}
                     onSwipePrevDay={() => changeDateByDays(-1)}
