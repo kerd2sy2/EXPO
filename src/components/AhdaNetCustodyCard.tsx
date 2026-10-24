@@ -1,6 +1,15 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  PanResponder,
+  Animated,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { ThemeColors } from '../types/delegate';
 import { CustodyDayData, CustodyLogItem } from '../services/custodyService';
 import { toArabicDigits, formatArabicNumber } from '../utils/formatters';
@@ -13,6 +22,8 @@ interface AhdaNetCustodyCardProps {
   isDarkMode: boolean;
   onPressCard: () => void;
   onPressManageLogs: () => void;
+  onSwipePrevDay?: () => void;
+  onSwipeNextDay?: () => void;
 }
 
 const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
@@ -23,30 +34,112 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
   isDarkMode,
   onPressCard,
   onPressManageLogs,
+  onSwipePrevDay,
+  onSwipeNextDay,
 }) => {
   const custodyTotalAvailable = effectiveOpeningBalance + (currentDay?.added_amount ?? 0);
   const spentPct = custodyTotalAvailable > 0
     ? Math.min(100, Math.round(((currentDay?.total_expenses ?? 0) / custodyTotalAvailable) * 100))
     : 0;
 
+  const panX = useRef(new Animated.Value(0)).current;
+  const callbacksRef = useRef({ onSwipePrevDay, onSwipeNextDay });
+  useEffect(() => {
+    callbacksRef.current = { onSwipePrevDay, onSwipeNextDay };
+  });
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return (
+          Math.abs(gestureState.dx) > 15 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5
+        );
+      },
+      onPanResponderGrant: () => {
+        panX.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const clampedX = Math.max(-80, Math.min(80, gestureState.dx * 0.45));
+        panX.setValue(clampedX);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const SWIPE_THRESHOLD = 45;
+        if (gestureState.dx > SWIPE_THRESHOLD) {
+          // Swiped right -> Previous day (اليوم اللى قبله)
+          try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          } catch (_) {}
+          Animated.spring(panX, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 6,
+            speed: 16,
+          }).start();
+          callbacksRef.current.onSwipePrevDay?.();
+        } else if (gestureState.dx < -SWIPE_THRESHOLD) {
+          // Swiped left -> Next day (اليوم اللى بعده)
+          try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          } catch (_) {}
+          Animated.spring(panX, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 6,
+            speed: 16,
+          }).start();
+          callbacksRef.current.onSwipeNextDay?.();
+        } else {
+          Animated.spring(panX, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 6,
+            speed: 16,
+          }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(panX, {
+          toValue: 0,
+          useNativeDriver: true,
+          bounciness: 6,
+          speed: 16,
+        }).start();
+      },
+    })
+  ).current;
+
   return (
-    <TouchableOpacity
-      style={[styles.targetCardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
-      onPress={onPressCard}
-      activeOpacity={0.9}
+    <Animated.View
+      style={{
+        transform: [{ translateX: panX }],
+      }}
+      {...panResponder.panHandlers}
     >
-      {/* Header: Title + Net Balance */}
-      <View style={styles.targetCardHeader}>
-        <View style={styles.targetTitleGroup}>
-          <View style={styles.walletIconCircle}>
-            <Ionicons name="wallet-outline" size={18} color="#047857" />
+      <TouchableOpacity
+        style={[styles.targetCardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
+        onPress={onPressCard}
+        activeOpacity={0.9}
+      >
+        {/* Header: Title + Net Balance */}
+        <View style={styles.targetCardHeader}>
+          <View style={styles.targetTitleGroup}>
+            <View style={styles.walletIconCircle}>
+              <Ionicons name="wallet-outline" size={18} color="#047857" />
+            </View>
+            <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+              <Text style={[styles.targetCardTitle, { color: colors.textPrimary }]}>
+                صافي العهدة المتبقي
+              </Text>
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                <Ionicons name="swap-horizontal" size={11} color={colors.textSecondary} />
+                <Text style={[styles.targetCardHint, { color: colors.textSecondary }]}>
+                  اسحب للتنقل بين الأيام
+                </Text>
+              </View>
+            </View>
           </View>
-          <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-            <Text style={[styles.targetCardTitle, { color: colors.textPrimary }]}>
-              صافي العهدة المتبقي
-            </Text>
-          </View>
-        </View>
 
         <View style={{ alignItems: 'flex-start' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -148,6 +241,7 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
         </View>
       </View>
     </TouchableOpacity>
+    </Animated.View>
   );
 };
 

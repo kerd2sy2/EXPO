@@ -615,14 +615,25 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   }, [days, selectedDate, currentDay]);
 
 
-  // Handle Day Navigation
+  // Handle Day Navigation (Timezone-safe YYYY-MM-DD calculation)
   const changeDateByDays = (delta: number) => {
-    const current = new Date(selectedDate);
-    current.setDate(current.getDate() + delta);
-    const year = current.getFullYear();
-    const month = String(current.getMonth() + 1).padStart(2, '0');
-    const day = String(current.getDate()).padStart(2, '0');
-    updateSelectedDate(`${year}-${month}-${day}`);
+    const parts = (selectedDate || '').split('-').map(Number);
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      const [y, m, d] = parts;
+      const dateObj = new Date(y, m - 1, d);
+      dateObj.setDate(dateObj.getDate() + delta);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      updateSelectedDate(`${year}-${month}-${day}`);
+    } else {
+      const current = new Date(selectedDate);
+      current.setDate(current.getDate() + delta);
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      const day = String(current.getDate()).padStart(2, '0');
+      updateSelectedDate(`${year}-${month}-${day}`);
+    }
   };
 
   // 1. Add Custody Amount
@@ -1223,6 +1234,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     isDarkMode={isDarkMode}
                     onPressCard={() => setShowAddCustodyModal(true)}
                     onPressManageLogs={() => setShowLogsSheet(true)}
+                    onSwipePrevDay={() => changeDateByDays(-1)}
+                    onSwipeNextDay={() => changeDateByDays(1)}
                   />
                 </ModuleErrorBoundary>
 
