@@ -45,6 +45,7 @@ export interface AddExpensePayload {
   recipient_name: string;
   export_number?: string;
   image_url?: string;
+  date?: string;
 }
 
 export interface CustodyLogItem {

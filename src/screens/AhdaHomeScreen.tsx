@@ -220,6 +220,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [editRecipient, setEditRecipient] = useState<string>('');
   const [editExportNumber, setEditExportNumber] = useState<string>('');
   const [editImageUri, setEditImageUri] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState<string>('');
   const [editLoading, setEditLoading] = useState<boolean>(false);
 
   // Main Screen Search Bottom Sheet (مديولا البحث المنبثقة من الأسفل برقم الوارد)
@@ -905,6 +906,14 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           : '')
     );
     setEditImageUri(item.image_url ? formatImageUrl(item.image_url) : null);
+    const parentDay = days.find(
+      (d) => d.id === item.custody_day_id || d.expenses?.some((e) => e.id === item.id)
+    );
+    const initialExpenseDate =
+      parentDay?.date ||
+      selectedDate ||
+      (item.created_at ? item.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setEditDate(initialExpenseDate);
   };
 
   // 4b-2. Pick or Capture Image for Edit Expense
@@ -979,6 +988,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
       const isAdvance = editCategory === 'internet_advance' || editCategory === 'advance';
       const finalExportNumber = (isAdvance || editExportNumber.trim()) ? editExportNumber.trim() : '';
+      const finalDate = editDate.trim() || selectedDate;
 
       await custodyService.updateExpense(editingExpense.id, {
         category: editCategory,
@@ -986,6 +996,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         recipient_name: editRecipient.trim() || '—',
         export_number: finalExportNumber,
         image_url: finalImageUrl,
+        date: finalDate,
       });
 
       if (finalExportNumber) {
@@ -995,11 +1006,16 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       setEditingExpense(null);
       setEditExportNumber('');
       setEditImageUri(null);
+      setEditDate('');
+
+      if (finalDate && finalDate !== selectedDate) {
+        updateSelectedDate(finalDate);
+      }
       await loadCustodyData();
       setAlertConfig({
         type: 'success',
         title: 'تم تعديل الفاتورة',
-        message: 'تم تحديث بيانات الفاتورة وإعادة احتساب الرصيد بنجاح.',
+        message: 'تم تحديث بيانات وتاريخ الفاتورة وإعادة احتساب الرصيد بنجاح.',
       });
     } catch (err: any) {
       setAlertConfig({
@@ -1315,6 +1331,9 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             setEditAmount={setEditAmount}
             editRecipient={editRecipient}
             setEditRecipient={setEditRecipient}
+            editDate={editDate}
+            setEditDate={setEditDate}
+            days={days}
             editExportNumber={editExportNumber}
             setEditExportNumber={setEditExportNumber}
             editImageUri={editImageUri}
