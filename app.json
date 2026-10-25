@@ -2,7 +2,7 @@
   "expo": {
     "name": "أبرار | إشراف",
     "slug": "aams-eshraf",
-    "owner": "1eff2027ef",
+    "owner": "4e4773f0c1",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -112,7 +112,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/dc877b7f-fdf2-47f8-a984-3f38095d5244",
+      "url": "https://u.expo.dev/6a773c7d-b3bb-4930-be5b-f451d6868bcd",
       "enabled": true,
       "fallbackToCacheTimeout": 2000,
       "checkAutomatically": "ON_LOAD"
@@ -129,7 +129,7 @@
         "bn": "আবরার | তত্ত্বাবধান"
       },
       "eas": {
-        "projectId": "dc877b7f-fdf2-47f8-a984-3f38095d5244"
+        "projectId": "6a773c7d-b3bb-4930-be5b-f451d6868bcd"
       }
     }
   }
