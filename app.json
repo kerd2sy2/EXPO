@@ -37,7 +37,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 16,
+      "versionCode": 18,
       "intentFilters": [
         {
           "action": "SEND",
@@ -71,20 +71,36 @@
       "expo-router",
       "expo-share-intent",
       [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "CustodyWidget",
+              "label": "عهدة - الرصيد اليومي",
+              "description": "عرض صافي رصيد العهدة والمصروفات اليومية لجميع الفروع",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "previewImage": "./assets/widget_preview.png"
+            }
+          ]
+        }
+      ],
+      [
         "expo-widgets",
         {
-          "enableAndroid": true,
+          "enableAndroid": false,
           "widgets": [
             {
               "name": "CustodyWidget",
               "displayName": "عهدة - الرصيد اليومي",
               "description": "عرض صافي رصيد العهدة والمصروفات اليومية لجميع الفروع",
               "ios": {
-                "supportedFamilies": ["systemSmall", "systemMedium"]
-              },
-              "android": {
-                "targetCellWidth": 4,
-                "targetCellHeight": 2
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
               }
             }
           ]
