@@ -686,14 +686,23 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   // Synchronize Home Screen Custody Widget across Android & iOS
   useEffect(() => {
     if (!dateInitialized) return;
-    const isToday = selectedDate === getTodayStr();
+    const todayStr = getTodayStr();
+    let dateLabel = 'اليوم';
+    if (selectedDate === todayStr) {
+      dateLabel = 'اليوم';
+    } else {
+      const tom = new Date();
+      tom.setDate(tom.getDate() + 1);
+      const tomStr = `${tom.getFullYear()}-${String(tom.getMonth() + 1).padStart(2, '0')}-${String(tom.getDate()).padStart(2, '0')}`;
+      dateLabel = selectedDate === tomStr ? 'غداً' : 'أمس';
+    }
     syncCustodyWidget({
       currentDay,
       effectiveOpeningBalance,
       activeBranch: { id: activeBranch.id || 'default', name: activeBranch.name || 'الفرع الأول' },
       allBranches: branches,
       allDays: days,
-      dateLabel: isToday ? 'اليوم' : 'أمس',
+      dateLabel,
     });
   }, [
     currentDay,
