@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "أبرار | مناديب",
+    "name": "مناديب",
     "slug": "aams-manadeeb",
     "owner": "4e4773f0c1",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "aams-manadeeb",
@@ -40,13 +40,13 @@
         "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff",
+        "backgroundColor": "#fa5103",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 14
+      "versionCode": 17
     },
     "web": {
       "output": "static",
@@ -123,7 +123,7 @@
     "extra": {
       "router": {},
       "appNames": {
-        "ar": "أبرار | مناديب",
+        "ar": "مناديب",
         "en": "AAMS | Delegates",
         "ur": "ابرار | مندوبین",
         "bn": "আবরার | প্রতিনিধি"

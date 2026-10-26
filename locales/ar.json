@@ -1,9 +1,9 @@
 {
   "ios": {
-    "CFBundleDisplayName": "أبرار | مناديب",
-    "CFBundleName": "أبرار | مناديب"
+    "CFBundleDisplayName": "مناديب",
+    "CFBundleName": "مناديب"
   },
   "android": {
-    "app_name": "أبرار | مناديب"
+    "app_name": "مناديب"
   }
 }

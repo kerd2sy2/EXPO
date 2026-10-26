@@ -236,7 +236,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               />
               <View style={[styles.brandTextCol, { alignItems: 'flex-start' }]}>
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
-                  أبرار المناديب
+                  مناديب
                 </Text>
                 <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#fb923c' : '#ea580c' }]}>
                   AAMS | DELEGATES
