@@ -37,7 +37,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 15,
+      "versionCode": 16,
       "intentFilters": [
         {
           "action": "SEND",
@@ -70,6 +70,26 @@
     "plugins": [
       "expo-router",
       "expo-share-intent",
+      [
+        "expo-widgets",
+        {
+          "enableAndroid": true,
+          "widgets": [
+            {
+              "name": "CustodyWidget",
+              "displayName": "عهدة - الرصيد اليومي",
+              "description": "عرض صافي رصيد العهدة والمصروفات اليومية لجميع الفروع",
+              "ios": {
+                "supportedFamilies": ["systemSmall", "systemMedium"]
+              },
+              "android": {
+                "targetCellWidth": 4,
+                "targetCellHeight": 2
+              }
+            }
+          ]
+        }
+      ],
       [
         "expo-camera",
         {

@@ -3,6 +3,7 @@
   "compilerOptions": {
     "strict": false,
     "noImplicitAny": false,
+    "skipLibCheck": true,
     "paths": {
       "@/*": ["./src/*"],
       "@/assets/*": ["./assets/*"]

@@ -60,6 +60,7 @@ import { AhdaHeader } from '../components/AhdaHeader';
 import { AhdaProfileScreen } from './AhdaProfileScreen';
 import { AhdaDayExpensesScreen } from './AhdaDayExpensesScreen';
 import { AhdaNetCustodyCard } from '../components/AhdaNetCustodyCard';
+import { syncCustodyWidget } from '../widgets/CustodyWidgetSync';
 import { AhdaCategoryGrid } from '../components/AhdaCategoryGrid';
 import { AhdaDayExpensesSummaryCard } from '../components/AhdaDayExpensesSummaryCard';
 import { AhdaActionAlertModal, AhdaAlertConfig } from '../components/modals/AhdaActionAlertModal';
@@ -524,6 +525,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     loadCustodyData(days.length > 0);
   }, [selectedDate, dateInitialized, activeBranch.id]);
 
+
+
   // Handle hardware Back button: return to previous view/modal instead of closing the entire app
   useEffect(() => {
     const onBackPress = () => {
@@ -679,6 +682,28 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       updateSelectedDate(`${year}-${month}-${day}`);
     }
   };
+
+  // Synchronize Home Screen Custody Widget across Android & iOS
+  useEffect(() => {
+    if (!dateInitialized) return;
+    const isToday = selectedDate === getTodayStr();
+    syncCustodyWidget({
+      currentDay,
+      effectiveOpeningBalance,
+      activeBranch: { id: activeBranch.id || 'default', name: activeBranch.name || 'الفرع الأول' },
+      allBranches: branches,
+      allDays: days,
+      dateLabel: isToday ? 'اليوم' : 'أمس',
+    });
+  }, [
+    currentDay,
+    effectiveOpeningBalance,
+    activeBranch,
+    branches,
+    days,
+    selectedDate,
+    dateInitialized,
+  ]);
 
   // 1. Add Custody Amount
   const handleSaveCustodyAmount = async () => {
