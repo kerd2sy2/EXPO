@@ -1,9 +1,9 @@
 {
   "ios": {
-    "CFBundleDisplayName": "أبرار | عهدة",
-    "CFBundleName": "أبرار | عهدة"
+    "CFBundleDisplayName": "عهدة",
+    "CFBundleName": "عهدة"
   },
   "android": {
-    "app_name": "أبرار | عهدة"
+    "app_name": "عهدة"
   }
 }

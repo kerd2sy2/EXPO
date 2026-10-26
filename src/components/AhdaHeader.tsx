@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ export interface AhdaHeaderProps {
   canSwitchBranch?: boolean;
   onPressProfile: () => void;
   onPressDatePicker?: () => void;
+  onResetToToday?: () => void;
   onPressBranchSelector?: () => void;
   onPressSearch?: () => void;
 }
@@ -39,11 +40,49 @@ const AhdaHeaderComponent: React.FC<AhdaHeaderProps> = ({
   canSwitchBranch = false,
   onPressProfile,
   onPressDatePicker,
+  onResetToToday,
   onPressBranchSelector,
   onPressSearch,
 }) => {
   const [cachedAvatar, setCachedAvatar] = useState<string | null>(null);
   const [imgError, setImgError] = useState<boolean>(false);
+
+  const lastTapRef = useRef<number>(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleCalendarPress = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_WINDOW = 280;
+
+    if (now - lastTapRef.current < DOUBLE_TAP_WINDOW) {
+      // Double tap: cancel single tap timer and jump to today
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      lastTapRef.current = 0;
+      onResetToToday?.();
+    } else {
+      // First tap: start timer for single tap
+      lastTapRef.current = now;
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+      }
+      singleTapTimerRef.current = setTimeout(() => {
+        singleTapTimerRef.current = null;
+        lastTapRef.current = 0;
+        onPressDatePicker?.();
+      }, DOUBLE_TAP_WINDOW);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -153,7 +192,7 @@ const AhdaHeaderComponent: React.FC<AhdaHeaderProps> = ({
         {onPressDatePicker && (
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={onPressDatePicker}
+            onPress={handleCalendarPress}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >

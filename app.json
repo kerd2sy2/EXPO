@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "أبرار | عهدة",
+    "name": "عهدة",
     "slug": "ahda",
     "owner": "4e4773f0c1",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "aams-ahda",
@@ -31,13 +31,13 @@
         "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff",
+        "backgroundColor": "#00fa91",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 14,
+      "versionCode": 15,
       "intentFilters": [
         {
           "action": "SEND",
@@ -117,7 +117,7 @@
         "projectId": "bd05cce0-4566-4c1e-a09b-cef372ced967"
       },
       "appNames": {
-        "ar": "أبرار | عهدة",
+        "ar": "عهدة",
         "en": "AAMS | Custody",
         "ur": "ابرار | تحویل",
         "bn": "আবরার | হেফাজত"

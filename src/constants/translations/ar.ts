@@ -1,5 +1,5 @@
 export const ar = {
-  appName: 'أبرار | عهدة',
+  appName: 'عهدة',
   appSubtitle: 'بوابة العهدة والمصروفات',
   loginTitle: 'تسجيل الدخول',
   loginSubtitle: 'أدخل رقم الهوية الوطنية لتسجيل الدخول ومباشرة دوامك',

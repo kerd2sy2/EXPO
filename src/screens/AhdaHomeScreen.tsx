@@ -26,6 +26,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import * as Haptics from 'expo-haptics';
 import { ThemeColors } from '../types/delegate';
 import {
   custodyService,
@@ -241,12 +242,39 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     setShowBranchModal(true);
   }, []);
 
+  // Date Navigator Modal (Calendar Month Bottom sheet)
+  const [showDatePickerModal, setShowDatePickerModal] = useState<boolean>(false);
+  const [pickerYear, setPickerYear] = useState<number>(new Date().getFullYear());
+  const [pickerMonth, setPickerMonth] = useState<number>(new Date().getMonth() + 1);
+
+  // Handler to update selected date
+  const updateSelectedDate = useCallback((newDate: string) => {
+    setSelectedDate(newDate);
+    const parts = newDate.split('-');
+    if (parts.length === 3) {
+      setPickerYear(parseInt(parts[0], 10));
+      setPickerMonth(parseInt(parts[1], 10));
+    }
+  }, []);
+
   const handlePressDatePicker = useCallback(() => {
     const parts = selectedDate.split('-');
     setPickerYear(parseInt(parts[0], 10) || new Date().getFullYear());
     setPickerMonth(parseInt(parts[1], 10) || (new Date().getMonth() + 1));
     setShowDatePickerModal(true);
   }, [selectedDate]);
+
+  const handleResetToToday = useCallback(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${y}-${m}-${d}`;
+    updateSelectedDate(todayStr);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (_) {}
+  }, [updateSelectedDate]);
 
   // Auto-generate outgoing sequence number (1/أ, 2/أ, 3/أ...) for internet & personal advance
   useEffect(() => {
@@ -307,21 +335,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     }
   }, [hasShareIntent, shareIntent, resetShareIntent]);
 
-  // Date Navigator Modal (Calendar Month Bottom sheet)
-  const [showDatePickerModal, setShowDatePickerModal] = useState<boolean>(false);
-  const [pickerYear, setPickerYear] = useState<number>(new Date().getFullYear());
-  const [pickerMonth, setPickerMonth] = useState<number>(new Date().getMonth() + 1);
 
-
-  // Handler to update selected date
-  const updateSelectedDate = useCallback((newDate: string) => {
-    setSelectedDate(newDate);
-    const parts = newDate.split('-');
-    if (parts.length === 3) {
-      setPickerYear(parseInt(parts[0], 10));
-      setPickerMonth(parseInt(parts[1], 10));
-    }
-  }, []);
 
   // Handler to close day expenses screen and restore current day if navigated from search
   const handleCloseDayExpenses = useCallback(() => {
@@ -644,6 +658,9 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   // Handle Day Navigation (Timezone-safe YYYY-MM-DD calculation)
   const changeDateByDays = (delta: number) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (_) {}
     const parts = (selectedDate || '').split('-').map(Number);
     if (parts.length === 3 && !parts.some(isNaN)) {
       const [y, m, d] = parts;
@@ -1239,6 +1256,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               onPressSearch={handlePressSearch}
               onPressBranchSelector={handlePressBranchSelector}
               onPressDatePicker={handlePressDatePicker}
+              onResetToToday={handleResetToToday}
             />
           </View>
 
@@ -1288,6 +1306,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     onPressManageLogs={() => setShowLogsSheet(true)}
                     onSwipePrevDay={() => changeDateByDays(-1)}
                     onSwipeNextDay={() => changeDateByDays(1)}
+                    onPressDatePicker={handlePressDatePicker}
+                    onResetToToday={handleResetToToday}
                   />
                 </ModuleErrorBoundary>
 

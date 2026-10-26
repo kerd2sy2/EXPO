@@ -25,6 +25,8 @@ interface AhdaNetCustodyCardProps {
   onPressManageLogs: () => void;
   onSwipePrevDay?: () => void;
   onSwipeNextDay?: () => void;
+  onPressDatePicker?: () => void;
+  onResetToToday?: () => void;
 }
 
 const ARABIC_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -32,6 +34,46 @@ const ARABIC_MONTHS = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
   'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
 ];
+
+interface DateRelativeInfo {
+  label: 'اليوم' | 'أمس' | 'القادم' | null;
+  type: 'today' | 'yesterday' | 'future' | 'past';
+}
+
+const getRelativeDateInfo = (dateStr?: string | null): DateRelativeInfo => {
+  if (!dateStr) return { label: null, type: 'past' };
+
+  const today = new Date();
+  const todayY = today.getFullYear();
+  const todayM = today.getMonth() + 1;
+  const todayD = today.getDate();
+  const todayStr = `${todayY}-${String(todayM).padStart(2, '0')}-${String(todayD).padStart(2, '0')}`;
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yestY = yesterday.getFullYear();
+  const yestM = yesterday.getMonth() + 1;
+  const yestD = yesterday.getDate();
+  const yesterdayStr = `${yestY}-${String(yestM).padStart(2, '0')}-${String(yestD).padStart(2, '0')}`;
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomY = tomorrow.getFullYear();
+  const tomM = tomorrow.getMonth() + 1;
+  const tomD = tomorrow.getDate();
+  const tomorrowStr = `${tomY}-${String(tomM).padStart(2, '0')}-${String(tomD).padStart(2, '0')}`;
+
+  if (dateStr === todayStr) {
+    return { label: 'اليوم', type: 'today' };
+  }
+  if (dateStr === yesterdayStr) {
+    return { label: 'أمس', type: 'yesterday' };
+  }
+  if (dateStr === tomorrowStr || dateStr > todayStr) {
+    return { label: 'القادم', type: 'future' };
+  }
+  return { label: null, type: 'past' };
+};
 
 const formatSimpleDate = (dateStr?: string | null): string => {
   if (!dateStr) return '';
@@ -57,8 +99,11 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
   onPressManageLogs,
   onSwipePrevDay,
   onSwipeNextDay,
+  onPressDatePicker,
+  onResetToToday,
 }) => {
   const activeDate = selectedDate || currentDay?.date;
+  const relativeInfo = getRelativeDateInfo(activeDate);
   const custodyTotalAvailable = effectiveOpeningBalance + (currentDay?.added_amount ?? 0);
   const spentPct = custodyTotalAvailable > 0
     ? Math.min(100, Math.round(((currentDay?.total_expenses ?? 0) / custodyTotalAvailable) * 100))
@@ -69,6 +114,41 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
   useEffect(() => {
     callbacksRef.current = { onSwipePrevDay, onSwipeNextDay };
   });
+
+  const lastDateTapRef = useRef<number>(0);
+  const dateTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (dateTapTimerRef.current) {
+        clearTimeout(dateTapTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleDateTouch = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_WINDOW = 280;
+
+    if (now - lastDateTapRef.current < DOUBLE_TAP_WINDOW) {
+      if (dateTapTimerRef.current) {
+        clearTimeout(dateTapTimerRef.current);
+        dateTapTimerRef.current = null;
+      }
+      lastDateTapRef.current = 0;
+      onResetToToday?.();
+    } else {
+      lastDateTapRef.current = now;
+      if (dateTapTimerRef.current) {
+        clearTimeout(dateTapTimerRef.current);
+      }
+      dateTapTimerRef.current = setTimeout(() => {
+        dateTapTimerRef.current = null;
+        lastDateTapRef.current = 0;
+        onPressDatePicker?.();
+      }, DOUBLE_TAP_WINDOW);
+    }
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -89,9 +169,9 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
       onPanResponderRelease: (_, gestureState) => {
         const SWIPE_THRESHOLD = 45;
         if (gestureState.dx > SWIPE_THRESHOLD) {
-          // Swiped right -> Next day (اليوم التالي / بعده)
+          // Swiped right -> Next day (اليوم التالي / بعده) with subtle haptic vibration
           try {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           } catch (_) {}
           Animated.spring(panX, {
             toValue: 0,
@@ -101,9 +181,9 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
           }).start();
           callbacksRef.current.onSwipeNextDay?.();
         } else if (gestureState.dx < -SWIPE_THRESHOLD) {
-          // Swiped left -> Previous day (اليوم السابق / قبله)
+          // Swiped left -> Previous day (اليوم السابق / قبله) with subtle haptic vibration
           try {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           } catch (_) {}
           Animated.spring(panX, {
             toValue: 0,
@@ -155,9 +235,45 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
                 صافي العهدة المتبقي
               </Text>
               {!!activeDate && (
-                <Text style={[styles.targetCardDate, { color: colors.textSecondary }]}>
-                  {formatSimpleDate(activeDate)}
-                </Text>
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleDateTouch();
+                  }}
+                  activeOpacity={0.7}
+                  style={styles.dateRowContainer}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="calendar-outline" size={13} color="#047857" />
+                  <Text style={[styles.targetCardDate, { color: colors.textSecondary }]}>
+                    {formatSimpleDate(activeDate)}
+                  </Text>
+                  {!!relativeInfo.label && (
+                    <View
+                      style={[
+                        styles.relativeBadge,
+                        relativeInfo.type === 'today'
+                          ? styles.relativeBadgeToday
+                          : relativeInfo.type === 'yesterday'
+                          ? styles.relativeBadgeYesterday
+                          : styles.relativeBadgeFuture,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.relativeBadgeText,
+                          relativeInfo.type === 'today'
+                            ? styles.relativeTextToday
+                            : relativeInfo.type === 'yesterday'
+                            ? styles.relativeTextYesterday
+                            : styles.relativeTextFuture,
+                        ]}
+                      >
+                        {relativeInfo.label}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
               )}
             </View>
           </View>
@@ -372,5 +488,42 @@ const styles = StyleSheet.create({
     color: '#047857',
     textDecorationLine: 'underline',
     marginTop: 2,
+  },
+  dateRowContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  relativeBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  relativeBadgeToday: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+  },
+  relativeBadgeYesterday: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+  },
+  relativeBadgeFuture: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  relativeBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  relativeTextToday: {
+    color: '#047857',
+  },
+  relativeTextYesterday: {
+    color: '#b45309',
+  },
+  relativeTextFuture: {
+    color: '#1d4ed8',
   },
 });

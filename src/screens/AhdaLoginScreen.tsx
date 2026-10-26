@@ -152,7 +152,7 @@ export const AhdaLoginScreen: React.FC<AhdaLoginScreenProps> = ({
               />
               <View style={[styles.brandTextCol, { alignItems: 'flex-start' }]}>
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
-                  أبرار العهدة
+                  عهدة
                 </Text>
                 <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#34d399' : '#059669' }]}>
                   AAMS | CUSTODY
