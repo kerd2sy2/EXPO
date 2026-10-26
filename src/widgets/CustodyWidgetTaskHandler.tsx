@@ -130,8 +130,12 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
             netBalance: day.netBalance,
             expenses: day.expenses,
             openingBalance: day.openingBalance,
+            yesterdayBalance: day.yesterdayBalance ?? day.openingBalance,
+            addedAmount: day.addedAmount ?? 0,
             netBalanceFormatted: day.netBalanceFormatted,
             expensesFormatted: day.expensesFormatted,
+            yesterdayBalanceFormatted: day.yesterdayBalanceFormatted,
+            addedAmountFormatted: day.addedAmountFormatted,
             progressRatio: day.progressRatio,
           };
           await saveWidgetData(data);
@@ -151,8 +155,12 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
             netBalance: day.netBalance,
             expenses: day.expenses,
             openingBalance: day.openingBalance,
+            yesterdayBalance: day.yesterdayBalance ?? day.openingBalance,
+            addedAmount: day.addedAmount ?? 0,
             netBalanceFormatted: day.netBalanceFormatted,
             expensesFormatted: day.expensesFormatted,
+            yesterdayBalanceFormatted: day.yesterdayBalanceFormatted,
+            addedAmountFormatted: day.addedAmountFormatted,
             progressRatio: day.progressRatio,
           };
           await saveWidgetData(data);

@@ -107,6 +107,7 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
       }
     }
 
+    const addedAmount = currentDay?.added_amount ?? 0;
     const activeRatio = totalAvail > 0 ? Math.min(1, Math.max(0, totalExp / totalAvail)) : 0;
 
     // 2. Build multi-branch items list
@@ -126,8 +127,12 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
             netBalance: closingBal,
             expenses: totalExp,
             openingBalance: effectiveOpeningBalance,
+            yesterdayBalance: effectiveOpeningBalance,
+            addedAmount: addedAmount,
             netBalanceFormatted: formatArabicNumber(closingBal, 2),
             expensesFormatted: formatArabicNumber(totalExp, 2),
+            yesterdayBalanceFormatted: formatArabicNumber(effectiveOpeningBalance, 2),
+            addedAmountFormatted: formatArabicNumber(addedAmount, 2),
             progressRatio: activeRatio,
           });
         } else {
@@ -146,8 +151,12 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
             netBalance: bClose,
             expenses: bExp,
             openingBalance: bDay?.opening_balance ?? 0,
+            yesterdayBalance: bDay?.opening_balance ?? 0,
+            addedAmount: bDay?.added_amount ?? 0,
             netBalanceFormatted: formatArabicNumber(bClose, 2),
             expensesFormatted: formatArabicNumber(bExp, 2),
+            yesterdayBalanceFormatted: formatArabicNumber(bDay?.opening_balance ?? 0, 2),
+            addedAmountFormatted: formatArabicNumber(bDay?.added_amount ?? 0, 2),
             progressRatio: bRatio,
           });
         }
@@ -159,8 +168,12 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
         netBalance: closingBal,
         expenses: totalExp,
         openingBalance: effectiveOpeningBalance,
+        yesterdayBalance: effectiveOpeningBalance,
+        addedAmount: addedAmount,
         netBalanceFormatted: formatArabicNumber(closingBal, 2),
         expensesFormatted: formatArabicNumber(totalExp, 2),
+        yesterdayBalanceFormatted: formatArabicNumber(effectiveOpeningBalance, 2),
+        addedAmountFormatted: formatArabicNumber(addedAmount, 2),
         progressRatio: activeRatio,
       });
     }
@@ -213,8 +226,12 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
           netBalance: dBal,
           expenses: dExp,
           openingBalance: d.opening_balance ?? 0,
+          yesterdayBalance: d.opening_balance ?? 0,
+          addedAmount: d.added_amount ?? 0,
           netBalanceFormatted: formatArabicNumber(dBal, 2),
           expensesFormatted: formatArabicNumber(dExp, 2),
+          yesterdayBalanceFormatted: formatArabicNumber(d.opening_balance ?? 0, 2),
+          addedAmountFormatted: formatArabicNumber(d.added_amount ?? 0, 2),
           progressRatio: dRatio,
         });
       }
@@ -227,8 +244,12 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
         netBalance: closingBal,
         expenses: totalExp,
         openingBalance: effectiveOpeningBalance,
+        yesterdayBalance: effectiveOpeningBalance,
+        addedAmount: addedAmount,
         netBalanceFormatted: formatArabicNumber(closingBal, 2),
         expensesFormatted: formatArabicNumber(totalExp, 2),
+        yesterdayBalanceFormatted: formatArabicNumber(effectiveOpeningBalance, 2),
+        addedAmountFormatted: formatArabicNumber(addedAmount, 2),
         progressRatio: activeRatio,
       });
     }
@@ -252,8 +273,12 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
       netBalance: selectedDayItem.netBalance ?? closingBal,
       expenses: selectedDayItem.expenses ?? totalExp,
       openingBalance: selectedDayItem.openingBalance ?? effectiveOpeningBalance,
+      yesterdayBalance: selectedDayItem.yesterdayBalance ?? effectiveOpeningBalance,
+      addedAmount: selectedDayItem.addedAmount ?? addedAmount,
       netBalanceFormatted: selectedDayItem.netBalanceFormatted || formatArabicNumber(closingBal, 2),
       expensesFormatted: selectedDayItem.expensesFormatted || formatArabicNumber(totalExp, 2),
+      yesterdayBalanceFormatted: selectedDayItem.yesterdayBalanceFormatted || formatArabicNumber(effectiveOpeningBalance, 2),
+      addedAmountFormatted: selectedDayItem.addedAmountFormatted || formatArabicNumber(addedAmount, 2),
       progressRatio: selectedDayItem.progressRatio ?? activeRatio,
       totalBranches: branchItems.length,
       hasSymbolImage: !!symbolPath,
