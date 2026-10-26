@@ -48,8 +48,8 @@ async function ensureRiyalSymbolAsset(): Promise<string | null> {
 export interface SyncWidgetParams {
   currentDay: CustodyDayData | null;
   effectiveOpeningBalance: number;
-  activeBranch: { id: string; name: string };
-  allBranches?: Array<{ id: string; name: string }>;
+  activeBranch: { id: string | null; name: string };
+  allBranches?: { id: string; name: string }[];
   allDays?: CustodyDayData[];
   dateLabel?: string;
 }
@@ -75,21 +75,51 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
     // 1. Calculate active branch metrics
     const totalAvail = effectiveOpeningBalance + (currentDay?.added_amount ?? 0);
     const totalExp = currentDay?.total_expenses ?? 0;
-    const closingBal =
+    let closingBal =
       currentDay?.closing_balance !== undefined &&
       currentDay?.closing_balance !== null &&
       currentDay.closing_balance !== 0
         ? currentDay.closing_balance
         : totalAvail - totalExp;
 
+    // Fallback: If closing balance is 0 and currentDay has no custody added, check previous days
+    if (
+      closingBal === 0 &&
+      (!currentDay || (currentDay.closing_balance === 0 && (currentDay.added_amount ?? 0) === 0))
+    ) {
+      if (allDays && allDays.length > 0) {
+        const sorted = [...allDays].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        const lastWithBal = sorted.find(
+          (d) =>
+            (d.closing_balance !== undefined && d.closing_balance !== 0) ||
+            (d.opening_balance !== undefined && d.opening_balance !== 0)
+        );
+        if (lastWithBal) {
+          const avail = (lastWithBal.opening_balance ?? 0) + (lastWithBal.added_amount ?? 0);
+          const exp = lastWithBal.total_expenses ?? 0;
+          closingBal =
+            lastWithBal.closing_balance !== undefined &&
+            lastWithBal.closing_balance !== null &&
+            lastWithBal.closing_balance !== 0
+              ? lastWithBal.closing_balance
+              : avail - exp;
+        }
+      }
+    }
+
     const activeRatio = totalAvail > 0 ? Math.min(1, Math.max(0, totalExp / totalAvail)) : 0;
 
     // 2. Build multi-branch items list
     const branchItems: BranchCustodyItem[] = [];
+    const activeBranchIdStr = String(activeBranch?.id || '').trim();
 
     if (allBranches.length > 0) {
       for (const b of allBranches) {
-        if (b.id === activeBranch.id) {
+        const isCurrentActive =
+          (activeBranchIdStr && String(b.id || '').trim() === activeBranchIdStr) ||
+          b.id === activeBranch.id;
+
+        if (isCurrentActive) {
           branchItems.push({
             branchId: b.id,
             branchName: b.name,
@@ -101,7 +131,7 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
             progressRatio: activeRatio,
           });
         } else {
-          const bDay = allDays.find((d: any) => d.branch_id === b.id);
+          const bDay = allDays.find((d: any) => String(d.branch_id || '').trim() === String(b.id || '').trim());
           const bAvail = (bDay?.opening_balance ?? 0) + (bDay?.added_amount ?? 0);
           const bExp = bDay?.total_expenses ?? 0;
           const bClose =
@@ -137,7 +167,7 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
 
     const activeIdx = Math.max(
       0,
-      branchItems.findIndex((b) => b.branchId === activeBranch.id)
+      branchItems.findIndex((b) => String(b.branchId || '').trim() === activeBranchIdStr)
     );
 
     const activeItem = branchItems[activeIdx] || branchItems[0];
@@ -151,13 +181,13 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
       dateLabel,
       date: dateLabel,
       lastUpdated: timeStr,
-      branchName: activeItem.branchName,
-      netBalance: activeItem.netBalance,
-      expenses: activeItem.expenses,
-      openingBalance: activeItem.openingBalance,
-      netBalanceFormatted: activeItem.netBalanceFormatted,
-      expensesFormatted: activeItem.expensesFormatted,
-      progressRatio: activeItem.progressRatio,
+      branchName: activeItem?.branchName || activeBranch?.name || 'الفرع الأول',
+      netBalance: activeItem?.netBalance ?? closingBal,
+      expenses: activeItem?.expenses ?? totalExp,
+      openingBalance: activeItem?.openingBalance ?? effectiveOpeningBalance,
+      netBalanceFormatted: activeItem?.netBalanceFormatted || formatArabicNumber(closingBal, 2),
+      expensesFormatted: activeItem?.expensesFormatted || formatArabicNumber(totalExp, 2),
+      progressRatio: activeItem?.progressRatio ?? activeRatio,
       totalBranches: branchItems.length,
       hasSymbolImage: !!symbolPath,
       symbolImagePath: symbolPath || undefined,

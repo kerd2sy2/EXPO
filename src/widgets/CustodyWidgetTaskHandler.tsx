@@ -12,12 +12,73 @@ async function getStoredWidgetData(): Promise<CustodyWidgetProps> {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
-        return parsed as CustodyWidgetProps;
+        const netBal = parsed.netBalance ?? parsed.branches?.[0]?.netBalance;
+        if (netBal !== undefined && netBal !== 0) {
+          return parsed as CustodyWidgetProps;
+        }
       }
     }
   } catch (err) {
     console.warn('[CustodyWidget] Failed to read cached widget data:', err);
   }
+
+  // Fallback: If @custody_widget_data is missing or 0, attempt to restore from app days cache
+  try {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const daysCacheKeys = allKeys.filter((k) => k.startsWith('aams_custody_days_cache_'));
+    for (const key of daysCacheKeys) {
+      const daysRaw = await AsyncStorage.getItem(key);
+      if (daysRaw) {
+        const daysList = JSON.parse(daysRaw);
+        if (Array.isArray(daysList) && daysList.length > 0) {
+          const sorted = [...daysList].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+          const dayWithBal =
+            sorted.find(
+              (d) =>
+                (d.closing_balance !== undefined && d.closing_balance !== 0) ||
+                (d.opening_balance !== undefined && d.opening_balance !== 0)
+            ) || sorted[0];
+
+          if (dayWithBal) {
+            const avail = (dayWithBal.opening_balance ?? 0) + (dayWithBal.added_amount ?? 0);
+            const exp = dayWithBal.total_expenses ?? 0;
+            const bal =
+              dayWithBal.closing_balance !== undefined &&
+              dayWithBal.closing_balance !== null &&
+              dayWithBal.closing_balance !== 0
+                ? dayWithBal.closing_balance
+                : avail - exp;
+
+            const branchName = dayWithBal.branch_name || 'الفرع الأول';
+            const bId = dayWithBal.branch_id || 'default';
+
+            return {
+              ...DEFAULT_CUSTODY_WIDGET_PROPS,
+              branchName,
+              netBalance: bal,
+              expenses: exp,
+              openingBalance: dayWithBal.opening_balance ?? 0,
+              netBalanceFormatted: bal.toLocaleString(),
+              expensesFormatted: exp.toLocaleString(),
+              branches: [
+                {
+                  branchId: bId,
+                  branchName,
+                  netBalance: bal,
+                  expenses: exp,
+                  openingBalance: dayWithBal.opening_balance ?? 0,
+                  netBalanceFormatted: bal.toLocaleString(),
+                  expensesFormatted: exp.toLocaleString(),
+                  progressRatio: avail > 0 ? Math.min(1, exp / avail) : 0,
+                },
+              ],
+            };
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
   return DEFAULT_CUSTODY_WIDGET_PROPS;
 }
 
@@ -33,7 +94,8 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
   const { widgetAction, clickAction } = props;
 
   let data = await getStoredWidgetData();
-  const branches = data.branches && data.branches.length > 0 ? data.branches : DEFAULT_CUSTODY_WIDGET_PROPS.branches;
+  const branches =
+    data.branches && data.branches.length > 0 ? data.branches : DEFAULT_CUSTODY_WIDGET_PROPS.branches;
   let activeIdx = data.activeBranchIndex ?? 0;
 
   switch (widgetAction) {
