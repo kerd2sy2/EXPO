@@ -175,13 +175,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gridContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
     gap: 10,
+    marginBottom: 16,
   },
   categoryCard: {
-    width: (SCREEN_WIDTH - 42) / 2,
+    width: '48.3%',
     flexDirection: 'row-reverse',
     alignItems: 'center',
     paddingVertical: 12,
