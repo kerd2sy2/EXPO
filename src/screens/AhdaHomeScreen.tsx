@@ -99,6 +99,7 @@ interface AhdaHomeScreenProps {
   themePreference?: 'system' | 'light' | 'dark';
   onSelectThemePreference?: (pref: 'system' | 'light' | 'dark') => void;
   onUpdateUser?: (updated: any) => void;
+  initialAction?: string;
 }
 
 // Categories ordered according to user priority:
@@ -121,6 +122,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   themePreference,
   onSelectThemePreference,
   onUpdateUser,
+  initialAction,
 }) => {
   const insets = useSafeAreaInsets();
   const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? 24 : 0);
@@ -212,6 +214,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [showQuickCategoryModal, setShowQuickCategoryModal] = useState<boolean>(false);
 
   useEffect(() => {
+    if (initialAction === 'add_expense') {
+      setShowQuickCategoryModal(true);
+    }
+
     const handleUrl = (url: string | null) => {
       if (!url) return;
       if (url.includes('add_expense') || url.includes('action=add_expense')) {
@@ -228,7 +234,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     return () => {
       sub.remove();
     };
-  }, []);
+  }, [initialAction]);
 
   // Add Expense State
   const [showAddExpenseModal, setShowAddExpenseModal] = useState<boolean>(false);

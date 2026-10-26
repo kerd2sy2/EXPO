@@ -13,6 +13,7 @@ import {
 import { SafeAreaProvider, useSafeAreaInsets, initialWindowMetrics } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams } from 'expo-router';
 
 // Theme & Types
 import { ThemeColors } from '../types/delegate';
@@ -89,6 +90,7 @@ const AuthLoadingSplash: React.FC<{ colors: ThemeColors; isDarkMode: boolean }> 
 };
 
 export default function AhdaApp() {
+  const params = useLocalSearchParams();
   const systemColorScheme = useColorScheme();
   const [themePreference, setThemePreference] = useState<'system' | 'light' | 'dark'>('light');
   const [token, setTokenState] = useState<string | null>(null);
@@ -241,6 +243,7 @@ export default function AhdaApp() {
           themePreference={themePreference}
           onSelectThemePreference={handleSelectThemePreference}
           onUpdateUser={(updated) => setCurrentUser(updated)}
+          initialAction={params.action as string}
         />
       )}
     </SafeAreaProvider>
