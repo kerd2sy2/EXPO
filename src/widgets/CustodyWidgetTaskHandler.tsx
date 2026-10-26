@@ -116,6 +116,48 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         data = { ...data, activeBranchIndex: activeIdx };
         await saveWidgetData(data);
         props.renderWidget(<CustodyAndroidWidget {...data} activeBranchIndex={activeIdx} />);
+      } else if (clickAction === 'SWITCH_DAY_PREV') {
+        const days = data.daysList && data.daysList.length > 0 ? data.daysList : [];
+        if (days.length > 1) {
+          const currentDayIdx = data.activeDayIndex ?? 0;
+          const nextDayIdx = Math.min(currentDayIdx + 1, days.length - 1);
+          const day = days[nextDayIdx];
+          data = {
+            ...data,
+            activeDayIndex: nextDayIdx,
+            dateLabel: day.dateLabel,
+            date: day.dateLabel,
+            netBalance: day.netBalance,
+            expenses: day.expenses,
+            openingBalance: day.openingBalance,
+            netBalanceFormatted: day.netBalanceFormatted,
+            expensesFormatted: day.expensesFormatted,
+            progressRatio: day.progressRatio,
+          };
+          await saveWidgetData(data);
+          props.renderWidget(<CustodyAndroidWidget {...data} activeBranchIndex={activeIdx} />);
+        }
+      } else if (clickAction === 'SWITCH_DAY_NEXT') {
+        const days = data.daysList && data.daysList.length > 0 ? data.daysList : [];
+        if (days.length > 1) {
+          const currentDayIdx = data.activeDayIndex ?? 0;
+          const nextDayIdx = Math.max(currentDayIdx - 1, 0);
+          const day = days[nextDayIdx];
+          data = {
+            ...data,
+            activeDayIndex: nextDayIdx,
+            dateLabel: day.dateLabel,
+            date: day.dateLabel,
+            netBalance: day.netBalance,
+            expenses: day.expenses,
+            openingBalance: day.openingBalance,
+            netBalanceFormatted: day.netBalanceFormatted,
+            expensesFormatted: day.expensesFormatted,
+            progressRatio: day.progressRatio,
+          };
+          await saveWidgetData(data);
+          props.renderWidget(<CustodyAndroidWidget {...data} activeBranchIndex={activeIdx} />);
+        }
       }
       break;
 

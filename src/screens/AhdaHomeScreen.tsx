@@ -72,6 +72,8 @@ import { AhdaDatePickerModal } from '../components/modals/AhdaDatePickerModal';
 import { AhdaImageViewerModal } from '../components/modals/AhdaImageViewerModal';
 import { AhdaReportPreviewModal } from '../components/modals/AhdaReportPreviewModal';
 import { AhdaSharedImageCategoryModal } from '../components/modals/AhdaSharedImageCategoryModal';
+import { AhdaQuickCategoryModal } from '../components/modals/AhdaQuickCategoryModal';
+import * as Linking from 'expo-linking';
 import { AhdaSearchBottomSheet } from '../components/modals/AhdaSearchBottomSheet';
 import { AhdaNoInvoicesAutoModal } from '../components/modals/AhdaNoInvoicesAutoModal';
 import { useShareIntentContext } from 'expo-share-intent';
@@ -205,6 +207,28 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [showDayExpensesPage, setShowDayExpensesPage] = useState<boolean>(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
   const [alertConfig, setAlertConfig] = useState<AhdaAlertConfig | null>(null);
+
+  // Quick Category Picker State (Triggered from Widget "+ إضافة مصروف" deep link)
+  const [showQuickCategoryModal, setShowQuickCategoryModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleUrl = (url: string | null) => {
+      if (!url) return;
+      if (url.includes('add_expense') || url.includes('action=add_expense')) {
+        setShowQuickCategoryModal(true);
+      }
+    };
+
+    Linking.getInitialURL().then(handleUrl).catch(() => {});
+
+    const sub = Linking.addEventListener('url', (event) => {
+      handleUrl(event.url);
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, []);
 
   // Add Expense State
   const [showAddExpenseModal, setShowAddExpenseModal] = useState<boolean>(false);
@@ -1603,6 +1627,22 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             onClose={() => setSharedImagePending(null)}
           />
         </ModuleErrorBoundary>
+      )}
+
+      {/* ── Quick Category Selection Modal (Triggered by Widget "+ إضافة مصروف" deep link) ── */}
+      {showQuickCategoryModal && (
+        <AhdaQuickCategoryModal
+          visible={showQuickCategoryModal}
+          categories={CATEGORIES}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          onSelectCategory={(catKey) => {
+            setSelectedCategory(catKey);
+            setShowQuickCategoryModal(false);
+            setShowAddExpenseModal(true);
+          }}
+          onClose={() => setShowQuickCategoryModal(false)}
+        />
       )}
 
       {/* ── 14. Animated Action Alert Modal with Lottie (Conditionally Mounted) ── */}

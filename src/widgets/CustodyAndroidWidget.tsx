@@ -12,22 +12,31 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
   const activeIdx = Math.min(Math.max(0, props.activeBranchIndex ?? 0), branches.length - 1);
   const activeBranch = branches[activeIdx] || branches[0];
 
+  const daysList = props.daysList && props.daysList.length > 0 ? props.daysList : [];
+  const hasMultipleDays = daysList.length > 1;
+  const dayIdx = Math.min(Math.max(0, props.activeDayIndex ?? 0), Math.max(0, daysList.length - 1));
+  const activeDay = daysList[dayIdx];
+
   const netBalanceVal =
-    typeof activeBranch?.netBalance === 'number'
+    typeof activeDay?.netBalance === 'number'
+      ? activeDay.netBalance
+      : typeof activeBranch?.netBalance === 'number'
       ? activeBranch.netBalance
       : typeof props.netBalance === 'number'
       ? props.netBalance
       : 0;
 
   const expensesVal =
-    typeof activeBranch?.expenses === 'number'
+    typeof activeDay?.expenses === 'number'
+      ? activeDay.expenses
+      : typeof activeBranch?.expenses === 'number'
       ? activeBranch.expenses
       : typeof props.expenses === 'number'
       ? props.expenses
       : 0;
 
   const openingBalance =
-    activeBranch?.openingBalance ?? props.openingBalance ?? (netBalanceVal + expensesVal);
+    activeDay?.openingBalance ?? activeBranch?.openingBalance ?? props.openingBalance ?? (netBalanceVal + expensesVal);
   const total =
     openingBalance > 0
       ? openingBalance
@@ -35,18 +44,22 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
       ? netBalanceVal + expensesVal
       : 1;
   const ratio = Math.max(0, Math.min(1, expensesVal / total));
-  const percent = Math.round(ratio * 100);
+  const percent =
+    activeDay?.progressRatio !== undefined
+      ? Math.round(activeDay.progressRatio * 100)
+      : Math.round(ratio * 100);
 
   // Flex ratio for progress bar (clamped to integers between 1 and 99)
   const flexSpent = Math.max(1, Math.min(99, percent));
   const flexRemaining = 100 - flexSpent;
 
   const netBalanceText =
+    activeDay?.netBalanceFormatted ||
     activeBranch?.netBalanceFormatted ||
     props.netBalanceFormatted ||
     netBalanceVal.toLocaleString();
 
-  const dateTitle = props.date || props.dateLabel || 'اليوم';
+  const dateTitle = activeDay?.dateLabel || props.date || props.dateLabel || 'اليوم';
   const hasMultipleBranches = branches.length > 1;
 
   return (
@@ -56,19 +69,15 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
         width: 'match_parent',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: 12,
-        borderRadius: 22,
+        padding: 13,
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: '#1f2937',
-        backgroundGradient: {
-          from: '#111827',
-          to: '#0b0f19',
-          orientation: 'TOP_BOTTOM',
-        },
+        borderColor: '#e2e8f0',
+        backgroundColor: '#ffffff',
       }}
       clickAction="OPEN_APP"
     >
-      {/* 1. Header: App badge + Branch Display */}
+      {/* 1. Header: Date / Day Switcher Capsule + Branch Display */}
       <FlexWidget
         style={{
           width: 'match_parent',
@@ -77,33 +86,68 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           alignItems: 'center',
         }}
       >
-        {/* App Title Badge */}
+        {/* Day Switcher Capsule (Allows switching between today, yesterday, previous days) */}
         <FlexWidget
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: '#1f2937',
-            paddingHorizontal: 8,
+            backgroundColor: '#f1f5f9',
+            paddingHorizontal: hasMultipleDays ? 5 : 8,
             paddingVertical: 3,
-            borderRadius: 8,
+            borderRadius: 9,
+            borderWidth: 1,
+            borderColor: '#e2e8f0',
           }}
         >
+          {hasMultipleDays && (
+            <FlexWidget
+              style={{ paddingHorizontal: 5, paddingVertical: 1 }}
+              clickAction="SWITCH_DAY_NEXT"
+            >
+              <TextWidget
+                text="›"
+                style={{
+                  color: '#059669',
+                  fontSize: 16,
+                  fontWeight: 'bold',
+                }}
+              />
+            </FlexWidget>
+          )}
+
           <TextWidget
             text="عهدة"
             style={{
-              color: '#10b981',
-              fontSize: 12,
+              color: '#059669',
+              fontSize: 11,
               fontWeight: 'bold',
             }}
           />
           <TextWidget
             text={` • ${dateTitle}`}
             style={{
-              color: '#e2e8f0',
-              fontSize: 10,
-              marginLeft: 4,
+              color: '#334155',
+              fontSize: 11,
+              fontWeight: 'bold',
+              marginLeft: 3,
             }}
           />
+
+          {hasMultipleDays && (
+            <FlexWidget
+              style={{ paddingHorizontal: 5, paddingVertical: 1 }}
+              clickAction="SWITCH_DAY_PREV"
+            >
+              <TextWidget
+                text="‹"
+                style={{
+                  color: '#059669',
+                  fontSize: 16,
+                  fontWeight: 'bold',
+                }}
+              />
+            </FlexWidget>
+          )}
         </FlexWidget>
 
         {/* Branch Capsule (Shows switcher arrows ONLY if user has permission for multiple branches) */}
@@ -111,23 +155,23 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: '#1f2937',
-            borderRadius: 8,
+            backgroundColor: '#f1f5f9',
+            borderRadius: 9,
             borderWidth: 1,
-            borderColor: '#374151',
+            borderColor: '#e2e8f0',
             paddingHorizontal: hasMultipleBranches ? 4 : 8,
-            paddingVertical: 2.5,
+            paddingVertical: 3,
           }}
         >
           {hasMultipleBranches && (
             <FlexWidget
-              style={{ paddingHorizontal: 5, paddingVertical: 2 }}
+              style={{ paddingHorizontal: 5, paddingVertical: 1 }}
               clickAction="SWITCH_BRANCH_PREV"
             >
               <TextWidget
                 text="‹"
                 style={{
-                  color: '#38bdf8',
+                  color: '#0284c7',
                   fontSize: 15,
                   fontWeight: 'bold',
                 }}
@@ -139,7 +183,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           <TextWidget
             text={activeBranch.branchName || 'الفرع الأول'}
             style={{
-              color: '#f8fafc',
+              color: '#0f172a',
               fontSize: 11,
               fontWeight: 'bold',
               marginHorizontal: 3,
@@ -148,13 +192,13 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
 
           {hasMultipleBranches && (
             <FlexWidget
-              style={{ paddingHorizontal: 5, paddingVertical: 2 }}
+              style={{ paddingHorizontal: 5, paddingVertical: 1 }}
               clickAction="SWITCH_BRANCH_NEXT"
             >
               <TextWidget
                 text="›"
                 style={{
-                  color: '#38bdf8',
+                  color: '#0284c7',
                   fontSize: 15,
                   fontWeight: 'bold',
                 }}
@@ -167,7 +211,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
             <TextWidget
               text={`(${activeIdx + 1}/${branches.length})`}
               style={{
-                color: '#94a3b8',
+                color: '#64748b',
                 fontSize: 9,
                 marginLeft: 2,
               }}
@@ -191,20 +235,21 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           <TextWidget
             text="صافي رصيد العهدة"
             style={{
-              color: '#94a3b8',
+              color: '#64748b',
               fontSize: 11,
+              fontWeight: 'bold',
             }}
           />
           <FlexWidget
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              marginTop: 2,
+              marginTop: 3,
             }}
           >
-            {/* White Saudi Riyal Symbol Image for perfect dark background contrast */}
+            {/* Crisp dark Saudi Riyal Symbol Image for light card surface */}
             <ImageWidget
-              image={require('../../assets/Saudi_Riyal_Symbol_white.png')}
+              image={require('../../assets/Saudi_Riyal_Symbol.png')}
               imageWidth={20}
               imageHeight={20}
               style={{ marginRight: 6 }}
@@ -212,7 +257,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
             <TextWidget
               text={netBalanceText}
               style={{
-                color: '#ffffff',
+                color: '#0f172a',
                 fontSize: 22,
                 fontWeight: 'bold',
               }}
@@ -220,7 +265,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
             <TextWidget
               text=" ر.س"
               style={{
-                color: '#10b981',
+                color: '#059669',
                 fontSize: 12,
                 fontWeight: 'bold',
                 marginLeft: 3,
@@ -236,34 +281,27 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
             alignItems: 'flex-end',
           }}
         >
-          <FlexWidget style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TextWidget
-              text="المصروفات: "
-              style={{
-                color: '#94a3b8',
-                fontSize: 10,
-              }}
-            />
-            <TextWidget
-              text={`${expensesVal.toLocaleString()} ر.س`}
-              style={{
-                color: '#f87171',
-                fontSize: 11,
-                fontWeight: 'bold',
-              }}
-            />
-          </FlexWidget>
+          {/* Expenses label & value combined to guarantee RTL Arabic word order */}
+          <TextWidget
+            text={`المصروفات: ${expensesVal.toLocaleString()} ر.س`}
+            style={{
+              color: '#dc2626',
+              fontSize: 11,
+              fontWeight: 'bold',
+            }}
+          />
 
-          {/* Quick Action Button - Click opens app directly */}
+          {/* Quick Action Button - Opens app and brings up categories sheet */}
           <FlexWidget
             style={{
               marginTop: 5,
               backgroundColor: '#059669',
-              paddingHorizontal: 9,
-              paddingVertical: 4,
+              paddingHorizontal: 10,
+              paddingVertical: 5,
               borderRadius: 8,
             }}
-            clickAction="OPEN_APP"
+            clickAction="OPEN_URI"
+            clickActionData={{ uri: 'aams-ahda://home?action=add_expense' }}
           >
             <TextWidget
               text="+ إضافة مصروف"
@@ -289,9 +327,9 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
         <FlexWidget
           style={{
             width: 'match_parent',
-            height: 4,
-            backgroundColor: '#1e293b',
-            borderRadius: 2,
+            height: 5,
+            backgroundColor: '#f1f5f9',
+            borderRadius: 3,
             flexDirection: 'row',
             overflow: 'hidden',
           }}
@@ -300,7 +338,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           <FlexWidget
             style={{
               flex: flexSpent,
-              height: 4,
+              height: 5,
               backgroundColor: '#10b981',
             }}
           />
@@ -308,8 +346,8 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           <FlexWidget
             style={{
               flex: flexRemaining,
-              height: 4,
-              backgroundColor: '#1e293b',
+              height: 5,
+              backgroundColor: '#f1f5f9',
             }}
           />
         </FlexWidget>
@@ -327,14 +365,15 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           <TextWidget
             text={`نسبة الصرف: ${percent}%`}
             style={{
-              color: '#94a3b8',
+              color: '#64748b',
               fontSize: 9,
+              fontWeight: 'bold',
             }}
           />
           <TextWidget
             text={`آخر تحديث: ${props.lastUpdated || 'الآن'}`}
             style={{
-              color: '#64748b',
+              color: '#94a3b8',
               fontSize: 9,
             }}
           />

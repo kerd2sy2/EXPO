@@ -9,9 +9,22 @@ export interface BranchCustodyItem {
   progressRatio: number;
 }
 
+export interface DayCustodyItem {
+  date: string;
+  dateLabel: string;
+  netBalance: number;
+  expenses: number;
+  openingBalance: number;
+  netBalanceFormatted: string;
+  expensesFormatted: string;
+  progressRatio: number;
+}
+
 export interface CustodyWidgetProps {
   branches: BranchCustodyItem[];
   activeBranchIndex: number;
+  daysList?: DayCustodyItem[];
+  activeDayIndex?: number;
   dateLabel: string;
   date?: string;
   lastUpdated?: string;

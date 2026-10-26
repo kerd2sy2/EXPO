@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { widgetsDirectory } from 'expo-widgets';
 import CustodyWidget from './CustodyWidget';
-import { BranchCustodyItem, CustodyWidgetProps } from './CustodyWidgetProps';
+import { BranchCustodyItem, CustodyWidgetProps, DayCustodyItem } from './CustodyWidgetProps';
 import { formatArabicNumber } from '../utils/formatters';
 import { CustodyDayData } from '../services/custodyService';
 import { CustodyAndroidWidget } from './CustodyAndroidWidget';
@@ -174,20 +174,87 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
 
     const now = new Date();
     const timeStr = `${now.getHours()}:${now.getMinutes() < 10 ? '0' : ''}${now.getMinutes()}`;
+    const todayDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const yestDate = new Date(now);
+    yestDate.setDate(yestDate.getDate() - 1);
+    const yestDateStr = `${yestDate.getFullYear()}-${String(yestDate.getMonth() + 1).padStart(2, '0')}-${String(yestDate.getDate()).padStart(2, '0')}`;
+
+    // 3. Build days list for day-switching in widget
+    const branchDays = (allDays || [])
+      .filter((d: any) => !d.branch_id || !activeBranch?.id || String(d.branch_id).trim() === String(activeBranch.id).trim())
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    const daysList: DayCustodyItem[] = [];
+    if (branchDays.length > 0) {
+      for (const d of branchDays.slice(0, 10)) {
+        const dAvail = (d.opening_balance ?? 0) + (d.added_amount ?? 0);
+        const dExp = d.total_expenses ?? 0;
+        const dBal =
+          d.closing_balance !== undefined && d.closing_balance !== null && d.closing_balance !== 0
+            ? d.closing_balance
+            : dAvail - dExp;
+        const dRatio = dAvail > 0 ? Math.min(1, Math.max(0, dExp / dAvail)) : 0;
+
+        let dLbl = d.date || '';
+        if (d.date === todayDateStr) {
+          dLbl = 'اليوم';
+        } else if (d.date === yestDateStr) {
+          dLbl = 'أمس';
+        } else if (d.date) {
+          const parts = d.date.split('-');
+          if (parts.length === 3) {
+            dLbl = `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;
+          }
+        }
+
+        daysList.push({
+          date: d.date || '',
+          dateLabel: dLbl,
+          netBalance: dBal,
+          expenses: dExp,
+          openingBalance: d.opening_balance ?? 0,
+          netBalanceFormatted: formatArabicNumber(dBal, 2),
+          expensesFormatted: formatArabicNumber(dExp, 2),
+          progressRatio: dRatio,
+        });
+      }
+    }
+
+    if (daysList.length === 0) {
+      daysList.push({
+        date: todayDateStr,
+        dateLabel: dateLabel || 'اليوم',
+        netBalance: closingBal,
+        expenses: totalExp,
+        openingBalance: effectiveOpeningBalance,
+        netBalanceFormatted: formatArabicNumber(closingBal, 2),
+        expensesFormatted: formatArabicNumber(totalExp, 2),
+        progressRatio: activeRatio,
+      });
+    }
+
+    // Find if the current dateLabel matches any day in daysList
+    const initialDayIdx = Math.max(
+      0,
+      daysList.findIndex((d) => d.dateLabel === dateLabel || (dateLabel === 'اليوم' && d.date === todayDateStr))
+    );
+    const selectedDayItem = daysList[initialDayIdx] || daysList[0];
 
     const snapshotProps: CustodyWidgetProps = {
       branches: branchItems,
       activeBranchIndex: activeIdx,
-      dateLabel,
-      date: dateLabel,
+      daysList,
+      activeDayIndex: initialDayIdx,
+      dateLabel: selectedDayItem.dateLabel,
+      date: selectedDayItem.dateLabel,
       lastUpdated: timeStr,
       branchName: activeItem?.branchName || activeBranch?.name || 'الفرع الأول',
-      netBalance: activeItem?.netBalance ?? closingBal,
-      expenses: activeItem?.expenses ?? totalExp,
-      openingBalance: activeItem?.openingBalance ?? effectiveOpeningBalance,
-      netBalanceFormatted: activeItem?.netBalanceFormatted || formatArabicNumber(closingBal, 2),
-      expensesFormatted: activeItem?.expensesFormatted || formatArabicNumber(totalExp, 2),
-      progressRatio: activeItem?.progressRatio ?? activeRatio,
+      netBalance: selectedDayItem.netBalance ?? closingBal,
+      expenses: selectedDayItem.expenses ?? totalExp,
+      openingBalance: selectedDayItem.openingBalance ?? effectiveOpeningBalance,
+      netBalanceFormatted: selectedDayItem.netBalanceFormatted || formatArabicNumber(closingBal, 2),
+      expensesFormatted: selectedDayItem.expensesFormatted || formatArabicNumber(totalExp, 2),
+      progressRatio: selectedDayItem.progressRatio ?? activeRatio,
       totalBranches: branchItems.length,
       hasSymbolImage: !!symbolPath,
       symbolImagePath: symbolPath || undefined,
