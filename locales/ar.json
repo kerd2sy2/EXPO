@@ -1,9 +1,9 @@
 {
   "ios": {
-    "CFBundleDisplayName": "أبرار | إشراف",
-    "CFBundleName": "أبرار | إشراف"
+    "CFBundleDisplayName": "إشراف",
+    "CFBundleName": "إشراف"
   },
   "android": {
-    "app_name": "أبرار | إشراف"
+    "app_name": "إشراف"
   }
 }

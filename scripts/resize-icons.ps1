@@ -6,8 +6,9 @@ function Resize-IconWithPadding {
         [string]$destPath,
         [int]$canvasWidth = 1024,
         [int]$canvasHeight = 1024,
-        [float]$scale = 0.62, # Scale of logo inside canvas (62% so it has 19% padding on each side)
-        [System.Drawing.Color]$bgColor = [System.Drawing.Color]::Transparent
+        [float]$scale = 0.64,
+        [System.Drawing.Color]$bgColor = [System.Drawing.Color]::Transparent,
+        [bool]$makeWhite = $false
     )
 
     $srcImg = [System.Drawing.Image]::FromFile($sourcePath)
@@ -42,12 +43,23 @@ function Resize-IconWithPadding {
     }
 
     $destRect = New-Object System.Drawing.Rectangle $destX, $destY, $targetWidth, $targetHeight
-    $graphics.DrawImage($srcImg, $destRect)
+
+    if ($makeWhite) {
+        $ia = New-Object System.Drawing.Imaging.ImageAttributes
+        $cm = New-Object System.Drawing.Imaging.ColorMatrix
+        $cm.Matrix00 = 0; $cm.Matrix11 = 0; $cm.Matrix22 = 0
+        $cm.Matrix33 = 1
+        $cm.Matrix40 = 1; $cm.Matrix41 = 1; $cm.Matrix42 = 1
+        $ia.SetColorMatrix($cm)
+        $graphics.DrawImage($srcImg, $destRect, 0, 0, $srcImg.Width, $srcImg.Height, [System.Drawing.GraphicsUnit]::Pixel, $ia)
+        $ia.Dispose()
+    } else {
+        $graphics.DrawImage($srcImg, $destRect)
+    }
 
     $srcImg.Dispose()
     $graphics.Dispose()
 
-    # Save to temp then overwrite
     $tempPath = $destPath + ".tmp.png"
     $bitmap.Save($tempPath, [System.Drawing.Imaging.ImageFormat]::Png)
     $bitmap.Dispose()
@@ -56,25 +68,27 @@ function Resize-IconWithPadding {
     Write-Host "Processed: $destPath ($canvasWidth x $canvasHeight with scale $scale)"
 }
 
-$baseDir = "C:\Users\Dell\Downloads\New folder\front-end\assets\images"
+$baseDir = (Resolve-Path "$PSScriptRoot\..\assets\images").Path
 $logoPath = "$baseDir\logo.png"
 if (-not (Test-Path $logoPath)) {
     $logoPath = "$baseDir\icon.png"
 }
 
-# 1. Main Icon (1024x1024, white background or transparent, scale 0.62)
-Resize-IconWithPadding -sourcePath $logoPath -destPath "$baseDir\icon.png" -canvasWidth 1024 -canvasHeight 1024 -scale 0.60 -bgColor ([System.Drawing.Color]::White)
+$appColor = [System.Drawing.ColorTranslator]::FromHtml("#037efa")
 
-# 2. Android Foreground Icon (1024x1024, transparent background, scale 0.55 for safe circular cutouts)
-Resize-IconWithPadding -sourcePath $logoPath -destPath "$baseDir\android-icon-foreground.png" -canvasWidth 1024 -canvasHeight 1024 -scale 0.55
+# 1. Main Icon (1024x1024, app color background, white logo scale 0.64)
+Resize-IconWithPadding -sourcePath $logoPath -destPath "$baseDir\icon.png" -canvasWidth 1024 -canvasHeight 1024 -scale 0.64 -bgColor $appColor -makeWhite $true
+
+# 2. Android Foreground Icon (1024x1024, transparent background, white logo scale 0.56)
+Resize-IconWithPadding -sourcePath $logoPath -destPath "$baseDir\android-icon-foreground.png" -canvasWidth 1024 -canvasHeight 1024 -scale 0.56 -makeWhite $true
 
 # 3. Android Monochrome Icon
-Resize-IconWithPadding -sourcePath $logoPath -destPath "$baseDir\android-icon-monochrome.png" -canvasWidth 1024 -canvasHeight 1024 -scale 0.55
+Resize-IconWithPadding -sourcePath $logoPath -destPath "$baseDir\android-icon-monochrome.png" -canvasWidth 1024 -canvasHeight 1024 -scale 0.56 -makeWhite $true
 
 # 4. Splash Icon
 Resize-IconWithPadding -sourcePath $logoPath -destPath "$baseDir\splash-icon.png" -canvasWidth 1024 -canvasHeight 1024 -scale 0.50
 
 # 5. Favicon
-Resize-IconWithPadding -sourcePath $logoPath -destPath "$baseDir\favicon.png" -canvasWidth 192 -canvasHeight 192 -scale 0.60 -bgColor ([System.Drawing.Color]::White)
+Resize-IconWithPadding -sourcePath $logoPath -destPath "$baseDir\favicon.png" -canvasWidth 192 -canvasHeight 192 -scale 0.64 -bgColor $appColor -makeWhite $true
 
-Write-Host "All icons resized successfully with elegant padding!"
+Write-Host "All icons resized successfully with app color background and white logo!"
