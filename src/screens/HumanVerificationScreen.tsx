@@ -41,11 +41,17 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
   const [verified, setVerified] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Mutable refs to prevent stale closures and block multi-triggers / freeze
+  const isProcessingRef = useRef(false);
+  const isVerifiedRef = useRef(false);
+  const isMountedRef = useRef(true);
+
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const lottieRef = useRef<any>(null);
 
   useEffect(() => {
+    isMountedRef.current = true;
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 350,
@@ -55,16 +61,24 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
     if (lottieRef.current) {
       lottieRef.current.play?.();
     }
+
+    return () => {
+      isMountedRef.current = false;
+      slideAnim.stopAnimation();
+    };
   }, []);
 
   const handleSlideComplete = async () => {
-    if (verifying || verified) return;
+    if (isProcessingRef.current || isVerifiedRef.current) return;
+    isProcessingRef.current = true;
+    isVerifiedRef.current = true;
 
     setVerified(true);
     setVerifying(true);
     setErrorMessage(null);
 
-    // Lock slider at the end
+    // Stop any in-flight animations and lock slider at the end
+    slideAnim.stopAnimation();
     Animated.timing(slideAnim, {
       toValue: MAX_SLIDE,
       duration: 120,
@@ -77,42 +91,65 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
     } catch (err: any) {
       console.error('Verification/Login error on screen:', err);
       const msg = err?.message || 'فشل تسجيل الدخول، يرجى التأكد من صحة البيانات';
-      setErrorMessage(msg);
-      setVerified(false);
-      setVerifying(false);
-      // Reset slider so user can retry
+      if (isMountedRef.current) {
+        setErrorMessage(msg);
+      }
+      // Reset slider smoothly and unlock only after animation completes
+      slideAnim.stopAnimation();
       Animated.spring(slideAnim, {
         toValue: 0,
-        friction: 6,
+        friction: 7,
         tension: 40,
         useNativeDriver: false,
-      }).start();
+      }).start(() => {
+        isProcessingRef.current = false;
+        isVerifiedRef.current = false;
+        if (isMountedRef.current) {
+          setVerified(false);
+          setVerifying(false);
+        }
+      });
     }
   };
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !verifying && !verified,
+      onStartShouldSetPanResponder: () => !isProcessingRef.current && !isVerifiedRef.current,
       onMoveShouldSetPanResponder: (_, gesture) => {
-        return !verifying && !verified && Math.abs(gesture.dx) > 5;
+        return !isProcessingRef.current && !isVerifiedRef.current && Math.abs(gesture.dx) > 4;
+      },
+      onPanResponderGrant: () => {
+        slideAnim.stopAnimation();
       },
       onPanResponderMove: (_, gesture) => {
-        if (verifying || verified) return;
+        if (isProcessingRef.current || isVerifiedRef.current) return;
         const clampedX = Math.max(0, Math.min(gesture.dx, MAX_SLIDE));
         slideAnim.setValue(clampedX);
       },
       onPanResponderRelease: (_, gesture) => {
-        if (verifying || verified) return;
+        if (isProcessingRef.current || isVerifiedRef.current) return;
         if (gesture.dx >= MAX_SLIDE * 0.75) {
           handleSlideComplete();
         } else {
+          slideAnim.stopAnimation();
           Animated.spring(slideAnim, {
             toValue: 0,
-            friction: 6,
+            friction: 7,
             tension: 40,
             useNativeDriver: false,
           }).start();
         }
+      },
+      onPanResponderTerminationRequest: () => !isProcessingRef.current,
+      onPanResponderTerminate: () => {
+        if (isProcessingRef.current || isVerifiedRef.current) return;
+        slideAnim.stopAnimation();
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          friction: 7,
+          tension: 40,
+          useNativeDriver: false,
+        }).start();
       },
     })
   ).current;
@@ -165,6 +202,7 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
           {/* Slider Verification Track */}
           <View style={styles.sliderSection}>
             <View
+              pointerEvents={verifying || verified ? 'none' : 'auto'}
               style={[
                 styles.track,
                 {
@@ -216,7 +254,8 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
 
               {/* Draggable Knob */}
               <Animated.View
-                {...panResponder.panHandlers}
+                {...(verifying || verified ? {} : panResponder.panHandlers)}
+                pointerEvents={verifying || verified ? 'none' : 'auto'}
                 style={[
                   styles.knob,
                   {

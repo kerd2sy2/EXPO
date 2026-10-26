@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "أبرار | إدارة",
+    "name": "إدارة",
     "slug": "aams-edara",
     "owner": "4e4773f0c1",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "aams-edara",
@@ -16,13 +16,13 @@
     },
     "ios": {
       "icon": "./assets/images/icon.png",
-      "bundleIdentifier": "com.aams.app",
+      "bundleIdentifier": "com.aams.edara",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true
       }
     },
     "android": {
-      "package": "com.aams.app",
+      "package": "com.aams.edara",
       "googleServicesFile": "./google-services.json",
       "allowBackup": false,
       "permissions": [
@@ -40,13 +40,13 @@
         "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff",
+        "backgroundColor": "#8603fa",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 11
+      "versionCode": 15
     },
     "web": {
       "output": "static",
@@ -123,7 +123,7 @@
     "extra": {
       "router": {},
       "appNames": {
-        "ar": "أبرار | إدارة",
+        "ar": "إدارة",
         "en": "AAMS | Management",
         "ur": "ابرار | انتظامیہ",
         "bn": "আবরার | প্রশাসন"

@@ -1,5 +1,5 @@
 export const ar = {
-  appName: 'أبرار | إدارة',
+  appName: 'إدارة',
   appSubtitle: 'بوابة الإدارة المركزية',
   loginTitle: 'تسجيل الدخول',
   loginSubtitle: 'أدخل رقم الهاتف وكلمة المرور لتسجيل الدخول ومباشرة دوامك',

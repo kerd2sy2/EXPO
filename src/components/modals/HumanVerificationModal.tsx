@@ -42,8 +42,12 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
 
   // Reset state on open
   useEffect(() => {
+    isMountedRef.current = true;
     if (visible) {
+      isProcessingRef.current = false;
+      isVerifiedRef.current = false;
       setVerified(false);
+      slideAnim.stopAnimation();
       slideAnim.setValue(0);
       Animated.parallel([
         Animated.spring(scaleAnim, {
@@ -63,47 +67,81 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
         lottieRef.current.play?.();
       }
     } else {
+      slideAnim.stopAnimation();
       slideAnim.setValue(0);
+      isProcessingRef.current = false;
+      isVerifiedRef.current = false;
       setVerified(false);
     }
+    return () => {
+      isMountedRef.current = false;
+      slideAnim.stopAnimation();
+    };
   }, [visible]);
 
+  // Mutable refs to prevent stale closures and block multi-triggers / freeze
+  const isProcessingRef = useRef(false);
+  const isVerifiedRef = useRef(false);
+  const isMountedRef = useRef(true);
+
   const handleSuccess = () => {
+    if (isProcessingRef.current || isVerifiedRef.current) return;
+    isProcessingRef.current = true;
+    isVerifiedRef.current = true;
+
     setVerified(true);
+    slideAnim.stopAnimation();
     Animated.timing(slideAnim, {
       toValue: MAX_SLIDE,
       duration: 120,
       useNativeDriver: false,
     }).start(() => {
       setTimeout(() => {
-        onSuccess();
+        if (isMountedRef.current) {
+          onSuccess();
+        }
       }, 350);
     });
   };
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !verified,
+      onStartShouldSetPanResponder: () => !isProcessingRef.current && !isVerifiedRef.current,
       onMoveShouldSetPanResponder: (_, gesture) => {
-        return !verified && Math.abs(gesture.dx) > 5;
+        return !isProcessingRef.current && !isVerifiedRef.current && Math.abs(gesture.dx) > 4;
+      },
+      onPanResponderGrant: () => {
+        slideAnim.stopAnimation();
       },
       onPanResponderMove: (_, gesture) => {
-        if (verified) return;
+        if (isProcessingRef.current || isVerifiedRef.current) return;
         const clampedX = Math.max(0, Math.min(gesture.dx, MAX_SLIDE));
         slideAnim.setValue(clampedX);
       },
       onPanResponderRelease: (_, gesture) => {
-        if (verified) return;
+        if (isProcessingRef.current || isVerifiedRef.current) return;
         if (gesture.dx >= MAX_SLIDE * 0.8) {
           handleSuccess();
         } else {
+          slideAnim.stopAnimation();
           Animated.spring(slideAnim, {
             toValue: 0,
-            friction: 6,
+            friction: 7,
             tension: 40,
             useNativeDriver: false,
           }).start();
         }
+      },
+      onPanResponderTerminationRequest: () => !isProcessingRef.current,
+      onPanResponderTerminate: () => {
+        if (isProcessingRef.current || isVerifiedRef.current) return;
+        slideAnim.stopAnimation();
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          friction: 7,
+          tension: 40,
+          useNativeDriver: false,
+        }).start();
       },
     })
   ).current;
@@ -168,6 +206,7 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
 
           {/* Slide to Verify Track */}
           <View
+            pointerEvents={verified ? 'none' : 'auto'}
             style={[
               styles.track,
               {
@@ -214,7 +253,8 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
 
             {/* Draggable Knob */}
             <Animated.View
-              {...panResponder.panHandlers}
+              {...(verified ? {} : panResponder.panHandlers)}
+              pointerEvents={verified ? 'none' : 'auto'}
               style={[
                 styles.knob,
                 {

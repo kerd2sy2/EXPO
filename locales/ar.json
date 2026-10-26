@@ -1,9 +1,9 @@
 {
   "ios": {
-    "CFBundleDisplayName": "أبرار | إدارة",
-    "CFBundleName": "أبرار | إدارة"
+    "CFBundleDisplayName": "إدارة",
+    "CFBundleName": "إدارة"
   },
   "android": {
-    "app_name": "أبرار | إدارة"
+    "app_name": "إدارة"
   }
 }
