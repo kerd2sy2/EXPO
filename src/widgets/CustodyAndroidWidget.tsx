@@ -47,6 +47,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
     netBalanceVal.toLocaleString();
 
   const dateTitle = props.date || props.dateLabel || 'اليوم';
+  const hasMultipleBranches = branches.length > 1;
 
   return (
     <FlexWidget
@@ -56,18 +57,18 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
         flexDirection: 'column',
         justifyContent: 'space-between',
         padding: 12,
-        borderRadius: 24,
+        borderRadius: 22,
         borderWidth: 1,
-        borderColor: '#1e382b',
+        borderColor: '#1f2937',
         backgroundGradient: {
-          from: '#0f1917',
-          to: '#070e0c',
+          from: '#111827',
+          to: '#0b0f19',
           orientation: 'TOP_BOTTOM',
         },
       }}
       clickAction="OPEN_APP"
     >
-      {/* 1. Header: App badge + Branch Switcher */}
+      {/* 1. Header: App badge + Branch Display */}
       <FlexWidget
         style={{
           width: 'match_parent',
@@ -81,7 +82,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: '#162721',
+            backgroundColor: '#1f2937',
             paddingHorizontal: 8,
             paddingVertical: 3,
             borderRadius: 8,
@@ -98,69 +99,71 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           <TextWidget
             text={` • ${dateTitle}`}
             style={{
-              color: '#a7f3d0',
+              color: '#e2e8f0',
               fontSize: 10,
               marginLeft: 4,
             }}
           />
         </FlexWidget>
 
-        {/* Branch Switcher */}
+        {/* Branch Capsule (Shows switcher arrows ONLY if user has permission for multiple branches) */}
         <FlexWidget
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: '#13211c',
+            backgroundColor: '#1f2937',
             borderRadius: 8,
             borderWidth: 1,
-            borderColor: '#22382f',
-            paddingHorizontal: 4,
-            paddingVertical: 2,
+            borderColor: '#374151',
+            paddingHorizontal: hasMultipleBranches ? 4 : 8,
+            paddingVertical: 2.5,
           }}
         >
-          {/* Previous Branch Arrow */}
-          <FlexWidget
-            style={{ paddingHorizontal: 6, paddingVertical: 2 }}
-            clickAction="SWITCH_BRANCH_PREV"
-          >
-            <TextWidget
-              text="‹"
-              style={{
-                color: '#10b981',
-                fontSize: 16,
-                fontWeight: 'bold',
-              }}
-            />
-          </FlexWidget>
+          {hasMultipleBranches && (
+            <FlexWidget
+              style={{ paddingHorizontal: 5, paddingVertical: 2 }}
+              clickAction="SWITCH_BRANCH_PREV"
+            >
+              <TextWidget
+                text="‹"
+                style={{
+                  color: '#38bdf8',
+                  fontSize: 15,
+                  fontWeight: 'bold',
+                }}
+              />
+            </FlexWidget>
+          )}
 
           {/* Current Branch Name */}
           <TextWidget
             text={activeBranch.branchName || 'الفرع الأول'}
             style={{
-              color: '#ffffff',
+              color: '#f8fafc',
               fontSize: 11,
               fontWeight: 'bold',
-              marginHorizontal: 2,
+              marginHorizontal: 3,
             }}
           />
 
-          {/* Next Branch Arrow */}
-          <FlexWidget
-            style={{ paddingHorizontal: 6, paddingVertical: 2 }}
-            clickAction="SWITCH_BRANCH_NEXT"
-          >
-            <TextWidget
-              text="›"
-              style={{
-                color: '#10b981',
-                fontSize: 16,
-                fontWeight: 'bold',
-              }}
-            />
-          </FlexWidget>
+          {hasMultipleBranches && (
+            <FlexWidget
+              style={{ paddingHorizontal: 5, paddingVertical: 2 }}
+              clickAction="SWITCH_BRANCH_NEXT"
+            >
+              <TextWidget
+                text="›"
+                style={{
+                  color: '#38bdf8',
+                  fontSize: 15,
+                  fontWeight: 'bold',
+                }}
+              />
+            </FlexWidget>
+          )}
 
-          {/* Counter (e.g. 1/2) */}
-          {branches.length > 1 && (
+          {/* Counter if multi-branch */}
+          {hasMultipleBranches && (
             <TextWidget
               text={`(${activeIdx + 1}/${branches.length})`}
               style={{
@@ -199,9 +202,9 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
               marginTop: 2,
             }}
           >
-            {/* Official Saudi Riyal Symbol Image */}
+            {/* White Saudi Riyal Symbol Image for perfect dark background contrast */}
             <ImageWidget
-              image={require('../../assets/Saudi_Riyal_Symbol.png')}
+              image={require('../../assets/Saudi_Riyal_Symbol_white.png')}
               imageWidth={20}
               imageHeight={20}
               style={{ marginRight: 6 }}
@@ -212,6 +215,15 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
                 color: '#ffffff',
                 fontSize: 22,
                 fontWeight: 'bold',
+              }}
+            />
+            <TextWidget
+              text=" ر.س"
+              style={{
+                color: '#10b981',
+                fontSize: 12,
+                fontWeight: 'bold',
+                marginLeft: 3,
               }}
             />
           </FlexWidget>
@@ -246,7 +258,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           <FlexWidget
             style={{
               marginTop: 5,
-              backgroundColor: '#047857',
+              backgroundColor: '#059669',
               paddingHorizontal: 9,
               paddingVertical: 4,
               borderRadius: 8,

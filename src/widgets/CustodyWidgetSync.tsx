@@ -113,7 +113,7 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
     const branchItems: BranchCustodyItem[] = [];
     const activeBranchIdStr = String(activeBranch?.id || '').trim();
 
-    if (allBranches.length > 0) {
+    if (allBranches.length > 1) {
       for (const b of allBranches) {
         const isCurrentActive =
           (activeBranchIdStr && String(b.id || '').trim() === activeBranchIdStr) ||

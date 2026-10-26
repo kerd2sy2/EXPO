@@ -696,11 +696,20 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       const tomStr = `${tom.getFullYear()}-${String(tom.getMonth() + 1).padStart(2, '0')}-${String(tom.getDate()).padStart(2, '0')}`;
       dateLabel = selectedDate === tomStr ? 'غداً' : 'أمس';
     }
+    const userBranchId =
+      currentUser?.branch_id ||
+      currentUser?.admin?.branch_id ||
+      currentUser?.employee?.branch_id ||
+      currentUser?.user?.branch_id;
+    const currentBranchObj = {
+      id: activeBranch.id || userBranchId || 'default',
+      name: activeBranch.name || 'الفرع الأول',
+    };
     syncCustodyWidget({
       currentDay,
       effectiveOpeningBalance,
-      activeBranch: { id: activeBranch.id || 'default', name: activeBranch.name || 'الفرع الأول' },
-      allBranches: branches,
+      activeBranch: currentBranchObj,
+      allBranches: canSwitchBranch && branches.length > 1 ? branches : [currentBranchObj],
       allDays: days,
       dateLabel,
     });
@@ -709,6 +718,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     effectiveOpeningBalance,
     activeBranch,
     branches,
+    canSwitchBranch,
     days,
     selectedDate,
     dateInitialized,
