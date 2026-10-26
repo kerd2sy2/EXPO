@@ -36,7 +36,7 @@ const ARABIC_MONTHS = [
 ];
 
 interface DateRelativeInfo {
-  label: 'اليوم' | 'أمس' | 'القادم' | null;
+  label: 'اليوم' | 'أمس' | 'غداً' | 'قادم' | null;
   type: 'today' | 'yesterday' | 'future' | 'past';
 }
 
@@ -69,8 +69,11 @@ const getRelativeDateInfo = (dateStr?: string | null): DateRelativeInfo => {
   if (dateStr === yesterdayStr) {
     return { label: 'أمس', type: 'yesterday' };
   }
-  if (dateStr === tomorrowStr || dateStr > todayStr) {
-    return { label: 'القادم', type: 'future' };
+  if (dateStr === tomorrowStr) {
+    return { label: 'غداً', type: 'future' };
+  }
+  if (dateStr > todayStr) {
+    return { label: 'قادم', type: 'future' };
   }
   return { label: null, type: 'past' };
 };
@@ -249,29 +252,41 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
                     {formatSimpleDate(activeDate)}
                   </Text>
                   {!!relativeInfo.label && (
-                    <View
-                      style={[
-                        styles.relativeBadge,
-                        relativeInfo.type === 'today'
-                          ? styles.relativeBadgeToday
-                          : relativeInfo.type === 'yesterday'
-                          ? styles.relativeBadgeYesterday
-                          : styles.relativeBadgeFuture,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.relativeBadgeText,
-                          relativeInfo.type === 'today'
-                            ? styles.relativeTextToday
-                            : relativeInfo.type === 'yesterday'
-                            ? styles.relativeTextYesterday
-                            : styles.relativeTextFuture,
-                        ]}
-                      >
-                        {relativeInfo.label}
+                    <>
+                      <Text style={[styles.dateDotSeparator, { color: colors.textSecondary }]}>
+                        •
                       </Text>
-                    </View>
+                      <View style={styles.relativeLabelContainer}>
+                        <View
+                          style={[
+                            styles.relativeStatusDot,
+                            {
+                              backgroundColor:
+                                relativeInfo.type === 'today'
+                                  ? isDarkMode ? '#34d399' : '#047857'
+                                  : relativeInfo.type === 'yesterday'
+                                  ? isDarkMode ? '#fbbf24' : '#b45309'
+                                  : isDarkMode ? '#60a5fa' : '#1d4ed8',
+                            },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.relativeLabelText,
+                            {
+                              color:
+                                relativeInfo.type === 'today'
+                                  ? isDarkMode ? '#34d399' : '#047857'
+                                  : relativeInfo.type === 'yesterday'
+                                  ? isDarkMode ? '#fbbf24' : '#b45309'
+                                  : isDarkMode ? '#60a5fa' : '#1d4ed8',
+                            },
+                          ]}
+                        >
+                          {relativeInfo.label}
+                        </Text>
+                      </View>
+                    </>
                   )}
                 </TouchableOpacity>
               )}
@@ -492,38 +507,27 @@ const styles = StyleSheet.create({
   dateRowContainer: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
+    gap: 5,
+    marginTop: 3,
   },
-  relativeBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-    borderWidth: 1,
+  dateDotSeparator: {
+    fontSize: 11,
+    fontWeight: '700',
+    opacity: 0.45,
+    marginHorizontal: 1,
   },
-  relativeBadgeToday: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0',
+  relativeLabelContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 4,
   },
-  relativeBadgeYesterday: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#fde68a',
+  relativeStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  relativeBadgeFuture: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
-  },
-  relativeBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  relativeTextToday: {
-    color: '#047857',
-  },
-  relativeTextYesterday: {
-    color: '#b45309',
-  },
-  relativeTextFuture: {
-    color: '#1d4ed8',
+  relativeLabelText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

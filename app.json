@@ -37,7 +37,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 20,
+      "versionCode": 22,
       "intentFilters": [
         {
           "action": "SEND",
@@ -81,8 +81,7 @@
               "minWidth": "250dp",
               "minHeight": "110dp",
               "targetCellWidth": 4,
-              "targetCellHeight": 2,
-              "previewImage": "./assets/widget_preview.png"
+              "targetCellHeight": 2
             }
           ]
         }
