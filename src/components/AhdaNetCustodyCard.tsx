@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import LottieView from 'lottie-react-native';
 import { ThemeColors } from '../types/delegate';
 import { CustodyDayData, CustodyLogItem } from '../services/custodyService';
 import { toArabicDigits, formatArabicNumber } from '../utils/formatters';
@@ -230,8 +231,13 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
         {/* Header: Title + Net Balance */}
         <View style={styles.targetCardHeader}>
           <View style={styles.targetTitleGroup}>
-            <View style={styles.walletIconCircle}>
-              <Ionicons name="wallet-outline" size={18} color="#047857" />
+            <View style={{ width: 34, height: 34, justifyContent: 'center', alignItems: 'center' }}>
+              <LottieView
+                source={require('../../assets/Lottie/lottie/LqUUJPnzBe.lottie')}
+                autoPlay
+                loop
+                style={{ width: 34, height: 34 }}
+              />
             </View>
             <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
               <Text style={[styles.targetCardTitle, { color: colors.textPrimary }]}>
