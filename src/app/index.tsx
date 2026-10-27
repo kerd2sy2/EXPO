@@ -428,7 +428,17 @@ export default function DelegateApp() {
         }
       }
     });
-    return () => sub.remove();
+
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active' && !isTakingPhotoRef.current && employee?.id) {
+        checkSession(true);
+      }
+    }, 15000);
+
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
   }, [employee?.id]);
 
 
@@ -625,6 +635,28 @@ export default function DelegateApp() {
         }
 
         if (user.id) {
+          const anyUser = user as any;
+          const perms = Array.isArray(anyUser.permissions) ? anyUser.permissions : [];
+          const hasManadeebAccess =
+            anyUser.app_permissions?.manadeeb === true ||
+            perms.includes('*') ||
+            perms.includes('apps.manadeeb') ||
+            perms.includes('app.manadeeb') ||
+            perms.length === 0;
+
+          if (!hasManadeebAccess || anyUser.app_permissions?.manadeeb === false) {
+            await setAuthToken(null);
+            await saveCachedUser(null);
+            setEmployee(null);
+            setAlertConfig({
+              type: 'warning',
+              title: 'تنبيه الصلاحيات',
+              message: 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.',
+              primaryButtonText: 'حسناً',
+            });
+            return;
+          }
+
           const merged: EmployeeProfile = {
             ...(cached || {}),
             ...user,
@@ -650,8 +682,20 @@ export default function DelegateApp() {
           fetchHistory(merged.id);
           fetchViolations(merged.id);
         }
-      }).catch((err) => {
+      }).catch(async (err) => {
         console.log('Background session refresh notice:', err);
+        const errMsg = String(err?.message || '');
+        if (errMsg.includes('403') || errMsg.includes('غير مصرح')) {
+          await setAuthToken(null);
+          await saveCachedUser(null);
+          setEmployee(null);
+          setAlertConfig({
+            type: 'warning',
+            title: 'تنبيه الصلاحيات',
+            message: 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.',
+            primaryButtonText: 'حسناً',
+          });
+        }
       });
 
     } catch (err) {
