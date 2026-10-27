@@ -164,6 +164,7 @@ export const setAuthToken = async (
         secureStorage.removeItem(TOKEN_KEY),
         secureStorage.removeItem(REFRESH_TOKEN_KEY),
         AsyncStorage.removeItem(USER_KEY),
+        AsyncStorage.removeItem('@aams_cached_avatar'),
       ]);
     }
   } catch (e) {
@@ -430,11 +431,6 @@ export const updateMyAvatar = async (avatarUrl: string): Promise<boolean> => {
       google_avatar: cleanAvatar || null,
     };
     await saveCachedUser(updated);
-    if (cleanAvatar) {
-      await AsyncStorage.setItem('@aams_cached_avatar', cleanAvatar);
-    } else {
-      await AsyncStorage.removeItem('@aams_cached_avatar');
-    }
 
     // 5. Background re-fetch fresh profile from server
     fetchCurrentUserProfile().catch(() => {});

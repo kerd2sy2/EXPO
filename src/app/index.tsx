@@ -121,11 +121,10 @@ export default function AhdaApp() {
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const [stored, cachedUser, savedPref, cachedAvatar, storedBranch] = await Promise.all([
+        const [stored, cachedUser, savedPref, storedBranch] = await Promise.all([
           loadStoredToken(),
           getCachedUser(),
           AsyncStorage.getItem('@ahda_theme_preference'),
-          AsyncStorage.getItem('@aams_cached_avatar'),
           loadActiveBranch(),
         ]);
 
@@ -136,10 +135,6 @@ export default function AhdaApp() {
         if (stored) {
           setTokenState(stored);
           if (cachedUser) {
-            if (cachedAvatar && !cachedUser.avatar && !cachedUser.google_avatar && !cachedUser.personal_image) {
-              cachedUser.avatar = cachedAvatar;
-            }
-
             const userBranchId =
               cachedUser.branch_id ||
               cachedUser.admin?.branch_id ||
@@ -156,10 +151,6 @@ export default function AhdaApp() {
             fetchCurrentUserProfile()
               .then(async (fresh) => {
                 if (fresh) {
-                  const savedAvatar = await AsyncStorage.getItem('@aams_cached_avatar').catch(() => null);
-                  if (savedAvatar && !fresh.avatar && !fresh.google_avatar && !fresh.personal_image) {
-                    fresh.avatar = savedAvatar;
-                  }
                   setCurrentUser(fresh);
                 }
               })
@@ -193,10 +184,7 @@ export default function AhdaApp() {
     if (activeToken) {
       setTokenState(activeToken);
     }
-    const cachedAvatar = await AsyncStorage.getItem('@aams_cached_avatar').catch(() => null);
-    if (cachedAvatar && !user.avatar && !user.google_avatar && !user.personal_image) {
-      user.avatar = cachedAvatar;
-    }
+    await AsyncStorage.removeItem('@aams_cached_avatar').catch(() => {});
     setCurrentUser(user);
   }, []);
 
@@ -204,6 +192,7 @@ export default function AhdaApp() {
   const handleLogout = useCallback(async () => {
     try {
       await setAuthToken(null);
+      await AsyncStorage.removeItem('@aams_cached_avatar').catch(() => {});
     } catch (_) {}
     setTokenState(null);
     setCurrentUser(null);

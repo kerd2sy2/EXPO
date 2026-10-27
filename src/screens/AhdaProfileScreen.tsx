@@ -58,17 +58,14 @@ export const AhdaProfileScreen: React.FC<AhdaProfileScreenProps> = ({
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
-  // Load cached avatar on mount or sync from server user profile
+  // Sync avatar from server user profile
   React.useEffect(() => {
-    AsyncStorage.getItem('@aams_cached_avatar').then((saved) => {
-      if (saved) {
-        setLocalAvatarUri(saved);
-      } else if (currentUser?.avatar || currentUser?.google_avatar || currentUser?.personal_image) {
-        const serverAvatar = currentUser.avatar || currentUser.google_avatar || currentUser.personal_image;
-        setLocalAvatarUri(serverAvatar);
-        AsyncStorage.setItem('@aams_cached_avatar', serverAvatar).catch(() => {});
-      }
-    }).catch(() => {});
+    const serverAvatar =
+      currentUser?.avatar ||
+      currentUser?.google_avatar ||
+      currentUser?.personal_image ||
+      null;
+    setLocalAvatarUri(serverAvatar);
   }, [currentUser?.avatar, currentUser?.google_avatar, currentUser?.personal_image]);
 
   const userName = currentUser?.name || currentUser?.full_name || currentUser?.username || 'مسؤول العهدة';

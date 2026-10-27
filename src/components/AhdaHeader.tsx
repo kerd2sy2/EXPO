@@ -44,7 +44,6 @@ const AhdaHeaderComponent: React.FC<AhdaHeaderProps> = ({
   onPressBranchSelector,
   onPressSearch,
 }) => {
-  const [cachedAvatar, setCachedAvatar] = useState<string | null>(null);
   const [imgError, setImgError] = useState<boolean>(false);
 
   const lastTapRef = useRef<number>(0);
@@ -84,22 +83,7 @@ const AhdaHeaderComponent: React.FC<AhdaHeaderProps> = ({
     }
   };
 
-  useEffect(() => {
-    let isMounted = true;
-    AsyncStorage.getItem('@aams_cached_avatar')
-      .then((saved) => {
-        if (saved && isMounted) {
-          setCachedAvatar(saved);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
-
   const rawAvatar =
-    cachedAvatar ||
     user?.avatar ||
     user?.google_avatar ||
     user?.personal_image ||
