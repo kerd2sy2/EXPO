@@ -235,10 +235,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               />
               <View style={[styles.brandTextCol, { alignItems: 'flex-start' }]}>
                 <Text style={[styles.brandMainTitle, { color: isDarkMode ? '#ffffff' : '#090a0f' }]}>
-                  إدارة
+                  أبرار | إدارة
                 </Text>
                 <Text style={[styles.brandSubTitle, { color: isDarkMode ? '#c084fc' : '#7c3aed' }]}>
-                  AAMS | MANAGEMENT
+                  ABRAR | MANAGEMENT
                 </Text>
               </View>
             </TouchableOpacity>
