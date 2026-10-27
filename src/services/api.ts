@@ -205,6 +205,30 @@ export const triggerSessionExpired = () => {
   });
 };
 
+type PermissionDeniedListener = (message?: string) => void;
+const permissionDeniedListeners = new Set<PermissionDeniedListener>();
+
+export const onPermissionDenied = (listener: PermissionDeniedListener) => {
+  permissionDeniedListeners.add(listener);
+  return () => {
+    permissionDeniedListeners.delete(listener);
+  };
+};
+
+let lastPermissionDeniedTrigger = 0;
+export const triggerPermissionDenied = (message?: string) => {
+  const now = Date.now();
+  if (now - lastPermissionDeniedTrigger < 4000) return; // debounce 4s
+  lastPermissionDeniedTrigger = now;
+  permissionDeniedListeners.forEach((cb) => {
+    try {
+      cb(message);
+    } catch (e) {
+      console.error('Error in permissionDenied listener:', e);
+    }
+  });
+};
+
 /**
  * Centrally refresh the auth token using the stored refresh_token.
  * Uses a promise lock to ensure concurrent requests share the same refresh call.
@@ -679,6 +703,9 @@ export async function apiRequest<T = any>(
 
       if (!response.ok) {
         const errorMsg = data?.error || data?.message || `خطأ في الخادم (${response.status})`;
+        if (response.status === 403) {
+          triggerPermissionDenied(errorMsg);
+        }
         // Log to diagnostics if severe
         if (response.status >= 500 || response.status === 401) {
           logDebugError('API_NETWORK', `[API ${response.status}] ${endpoint}: ${errorMsg}`, undefined, {

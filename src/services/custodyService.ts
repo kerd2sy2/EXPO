@@ -279,9 +279,19 @@ export const hasCustodyPermission = (user: any): boolean => {
     return true;
   }
 
-  const role = String(user.role || '').toUpperCase();
+  const role = String(user.role || user.job_role || user.role_name || '').toUpperCase();
   if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || user.is_super_admin) {
     return true;
+  }
+
+  // Check explicit app_permissions if provided
+  if (user.app_permissions) {
+    if (user.app_permissions.ohda === true || user.app_permissions['apps.ohda'] === true) {
+      return true;
+    }
+    if (user.app_permissions.ohda === false || user.app_permissions['apps.ohda'] === false) {
+      return false;
+    }
   }
 
   // Check permissions array or string
@@ -292,7 +302,7 @@ export const hasCustodyPermission = (user: any): boolean => {
     try {
       perms = JSON.parse(user.permissions);
     } catch {
-      perms = [user.permissions];
+      perms = user.permissions.split(',').map((s: string) => s.trim()).filter(Boolean);
     }
   }
 
@@ -310,4 +320,54 @@ export const hasCustodyPermission = (user: any): boolean => {
   }
 
   return false;
+};
+
+/**
+ * Checks if a user has permission to add custody amounts (إضافة عهدة).
+ */
+export const hasAddCustodyPermission = (user: any): boolean => {
+  if (!user) return false;
+  const role = String(user.role || user.job_role || user.role_name || '').toUpperCase();
+  if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || user.is_super_admin) {
+    return true;
+  }
+
+  let perms: string[] = [];
+  if (Array.isArray(user.permissions)) {
+    perms = user.permissions;
+  } else if (typeof user.permissions === 'string') {
+    try {
+      perms = JSON.parse(user.permissions);
+    } catch {
+      perms = user.permissions.split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+  }
+
+  const allowedPermissions = ['*', 'custody.create', 'custody.manage', 'custody'];
+  return allowedPermissions.some((perm) => perms.includes(perm));
+};
+
+/**
+ * Checks if a user has permission to delete custody amounts or invoices (حذف عهدة / فواتير).
+ */
+export const hasDeleteCustodyPermission = (user: any): boolean => {
+  if (!user) return false;
+  const role = String(user.role || user.job_role || user.role_name || '').toUpperCase();
+  if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || user.is_super_admin) {
+    return true;
+  }
+
+  let perms: string[] = [];
+  if (Array.isArray(user.permissions)) {
+    perms = user.permissions;
+  } else if (typeof user.permissions === 'string') {
+    try {
+      perms = JSON.parse(user.permissions);
+    } catch {
+      perms = user.permissions.split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+  }
+
+  const allowedPermissions = ['*', 'custody.delete', 'custody.manage', 'custody'];
+  return allowedPermissions.some((perm) => perms.includes(perm));
 };

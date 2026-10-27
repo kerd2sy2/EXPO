@@ -33,6 +33,8 @@ import {
   CustodyDayData,
   CustodyExpenseItem,
   CustodyLogItem,
+  hasAddCustodyPermission,
+  hasDeleteCustodyPermission,
 } from '../services/custodyService';
 import { AhdaBranchSelectorModal } from '../components/modals/AhdaBranchSelectorModal';
 import {
@@ -211,6 +213,14 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'SUPERADMIN';
 
     return isSuperAdmin || hasAllBranchesPermission;
+  }, [currentUser]);
+
+  const canAddCustody = useMemo(() => {
+    return hasAddCustodyPermission(currentUser);
+  }, [currentUser]);
+
+  const canDeleteCustody = useMemo(() => {
+    return hasDeleteCustodyPermission(currentUser);
   }, [currentUser]);
 
 
@@ -786,6 +796,15 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   // 1. Add Custody Amount
   const handleSaveCustodyAmount = async () => {
+    if (!canAddCustody) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'غير مصرح',
+        message: 'ليس لديك صلاحية لإضافة أو تعديل مبلغ العهدة.',
+      });
+      return;
+    }
+
     const val = parseFloat(addCustodyAmount);
     if (isNaN(val) || val <= 0) {
       setAlertConfig({
@@ -832,6 +851,15 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   // 2. Delete / Undo an added custody amount from logs
   const handleDeleteCustodyEntry = (log: CustodyLogItem) => {
+    if (!canDeleteCustody) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'غير مصرح',
+        message: 'ليس لديك صلاحية لحذف مبالغ العهدة.',
+      });
+      return;
+    }
+
     setAlertConfig({
       type: 'confirm',
       title: 'تأكيد حذف مبلغ العهدة',
@@ -1106,6 +1134,15 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   // 5. Delete Expense (Animated Confirm Modal)
   const handleDeleteExpense = (item: CustodyExpenseItem) => {
+    if (!canDeleteCustody) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'غير مصرح',
+        message: 'ليس لديك صلاحية لحذف الفواتير.',
+      });
+      return;
+    }
+
     setAlertConfig({
       type: 'confirm',
       title: 'هل تريد الحذف نهائياً؟',
@@ -1408,7 +1445,17 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     colors={colors}
                     isDarkMode={isDarkMode}
                     selectedDate={selectedDate}
-                    onPressCard={() => setShowAddCustodyModal(true)}
+                    onPressCard={() => {
+                      if (!canAddCustody) {
+                        setAlertConfig({
+                          type: 'warning',
+                          title: 'غير مصرح',
+                          message: 'ليس لديك صلاحية لإضافة أو تعديل مبلغ العهدة.',
+                        });
+                        return;
+                      }
+                      setShowAddCustodyModal(true);
+                    }}
                     onPressManageLogs={() => setShowLogsSheet(true)}
                     onSwipePrevDay={() => changeDateByDays(-1)}
                     onSwipeNextDay={() => changeDateByDays(1)}

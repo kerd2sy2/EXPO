@@ -28,9 +28,11 @@ import {
   saveCachedUser,
   fetchCurrentUserProfile,
   onSessionExpired,
+  onPermissionDenied,
   loadActiveBranch,
   setActiveBranch,
 } from '../services/api';
+import { hasCustodyPermission } from '../services/custodyService';
 
 // Screens
 import { AhdaLoginScreen } from '../screens/AhdaLoginScreen';
@@ -136,6 +138,12 @@ export default function AhdaApp() {
         if (stored) {
           setTokenState(stored);
           if (cachedUser) {
+            if (!hasCustodyPermission(cachedUser)) {
+              await handleLogout();
+              Alert.alert('تنبيه الصلاحيات', 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.');
+              return;
+            }
+
             const userBranchId =
               cachedUser.branch_id ||
               cachedUser.admin?.branch_id ||
@@ -148,10 +156,15 @@ export default function AhdaApp() {
 
             setCurrentUser(cachedUser);
 
-            // Silently sync latest user profile in background on app launch (once only, zero polling)
+            // Silently sync latest user profile in background on app launch
             fetchCurrentUserProfile()
               .then(async (fresh) => {
                 if (fresh) {
+                  if (!hasCustodyPermission(fresh)) {
+                    await handleLogout();
+                    Alert.alert('تنبيه الصلاحيات', 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.');
+                    return;
+                  }
                   setCurrentUser(fresh);
                 }
               })
@@ -177,21 +190,36 @@ export default function AhdaApp() {
       await handleLogout();
       Alert.alert('انتهت الجلسة', 'يرجى تسجيل الدخول مجدداً للمتابعة.');
     });
+
+    // Register permission denied callback (e.g. app permission revoked while app is open)
+    onPermissionDenied(async (msg) => {
+      await handleLogout();
+      Alert.alert('تنبيه الصلاحيات', msg || 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.');
+    });
   }, []);
 
   // Real-time permission sync without logout:
-  // Automatically re-syncs profile when app becomes active (foreground) or every 30s
+  // Automatically re-syncs profile when app becomes active (foreground) or every 15s
   useEffect(() => {
     if (!token) return;
 
-    const syncProfile = () => {
-      fetchCurrentUserProfile()
-        .then((fresh) => {
-          if (fresh) {
-            setCurrentUser(fresh);
+    const syncProfile = async () => {
+      try {
+        const fresh = await fetchCurrentUserProfile();
+        if (fresh) {
+          if (!hasCustodyPermission(fresh)) {
+            await handleLogout();
+            Alert.alert('تنبيه الصلاحيات', 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.');
+            return;
           }
-        })
-        .catch(() => {});
+          setCurrentUser(fresh);
+        }
+      } catch (err: any) {
+        if (err?.message?.includes('403') || err?.message?.includes('غير مصرح')) {
+          await handleLogout();
+          Alert.alert('تنبيه الصلاحيات', 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.');
+        }
+      }
     };
 
     const sub = AppState.addEventListener('change', (state) => {
@@ -204,7 +232,7 @@ export default function AhdaApp() {
       if (AppState.currentState === 'active') {
         syncProfile();
       }
-    }, 30000);
+    }, 15000);
 
     return () => {
       sub.remove();
