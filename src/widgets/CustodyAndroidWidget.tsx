@@ -55,6 +55,10 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
   const ratio = Math.max(0, Math.min(1, expensesVal / total));
   const percent = Math.round(ratio * 100);
 
+  // Flex ratio for progress bar (clamped to integers between 1 and 99)
+  const flexSpent = Math.max(1, Math.min(99, percent));
+  const flexRemaining = 100 - flexSpent;
+
   const netBalanceText =
     activeBranch?.netBalanceFormatted ||
     props.netBalanceFormatted ||
@@ -176,16 +180,16 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           marginBottom: 4,
         }}
       >
-        {/* كرت باقي أمس */}
+        {/* كرت إجمالي المصاريف */}
         <FlexWidget
           style={{
             flex: 1,
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#f8fafc',
+            backgroundColor: '#fef2f2',
             borderWidth: 1,
-            borderColor: '#e2e8f0',
+            borderColor: '#fecaca',
             borderRadius: 12,
             paddingVertical: 8,
             paddingHorizontal: 4,
@@ -193,18 +197,18 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           }}
         >
           <TextWidget
-            text="باقي أمس"
+            text="إجمالي المصاريف"
             style={{
-              color: '#64748b',
+              color: '#dc2626',
               fontSize: 11,
               fontWeight: 'bold',
               marginBottom: 3,
             }}
           />
           <TextWidget
-            text={yesterdayBalanceText}
+            text={expensesText}
             style={{
-              color: '#1e293b',
+              color: '#b91c1c',
               fontSize: 13,
               fontWeight: 'bold',
             }}
@@ -246,16 +250,16 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           />
         </FlexWidget>
 
-        {/* كرت إجمالي المصاريف */}
+        {/* كرت باقي أمس */}
         <FlexWidget
           style={{
             flex: 1,
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#fef2f2',
+            backgroundColor: '#f8fafc',
             borderWidth: 1,
-            borderColor: '#fecaca',
+            borderColor: '#e2e8f0',
             borderRadius: 12,
             paddingVertical: 8,
             paddingHorizontal: 4,
@@ -263,18 +267,18 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           }}
         >
           <TextWidget
-            text="إجمالي المصاريف"
+            text="باقي أمس"
             style={{
-              color: '#dc2626',
+              color: '#64748b',
               fontSize: 11,
               fontWeight: 'bold',
               marginBottom: 3,
             }}
           />
           <TextWidget
-            text={expensesText}
+            text={yesterdayBalanceText}
             style={{
-              color: '#b91c1c',
+              color: '#1e293b',
               fontSize: 13,
               fontWeight: 'bold',
             }}
@@ -282,7 +286,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
         </FlexWidget>
       </FlexWidget>
 
-      {/* 3. FOOTER: شريط نسبة الصرف ووقت التحديث */}
+      {/* 3. FOOTER: آخر تحديث في الشمال + شريط النسبة ونسبة الصرف في اليمين */}
       <FlexWidget
         style={{
           width: 'match_parent',
@@ -292,14 +296,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           marginTop: 2,
         }}
       >
-        <TextWidget
-          text={`نسبة الصرف: ${percent}%`}
-          style={{
-            color: '#64748b',
-            fontSize: 10,
-            fontWeight: 'bold',
-          }}
-        />
+        {/* آخر تحديث ناحية الشمال */}
         <TextWidget
           text={`آخر تحديث: ${props.lastUpdated || 'الآن'}`}
           style={{
@@ -308,6 +305,51 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
             fontWeight: 'bold',
           }}
         />
+
+        {/* نسبة الصرف مع شريط النسبة ناحية اليمين */}
+        <FlexWidget
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}
+        >
+          {/* شريط نسبة الصرف الملون */}
+          <FlexWidget
+            style={{
+              width: 50,
+              height: 5,
+              backgroundColor: '#e2e8f0',
+              borderRadius: 3,
+              flexDirection: 'row',
+              overflow: 'hidden',
+              marginRight: 6,
+            }}
+          >
+            <FlexWidget
+              style={{
+                flex: flexSpent,
+                height: 5,
+                backgroundColor: percent > 90 ? '#ef4444' : percent > 70 ? '#f59e0b' : '#10b981',
+              }}
+            />
+            <FlexWidget
+              style={{
+                flex: flexRemaining,
+                height: 5,
+                backgroundColor: '#e2e8f0',
+              }}
+            />
+          </FlexWidget>
+
+          <TextWidget
+            text={`نسبة الصرف: ${percent}%`}
+            style={{
+              color: '#64748b',
+              fontSize: 10,
+              fontWeight: 'bold',
+            }}
+          />
+        </FlexWidget>
       </FlexWidget>
     </FlexWidget>
   );
