@@ -86,11 +86,42 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
     }).start();
 
     try {
-      // Execute the actual login request while staying on this screen
-      await onVerify();
+      // Execute the actual login request with a 20s timeout safeguard
+      await Promise.race([
+        onVerify(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('انتهت مهلة الاتصال بالخادم، يرجى المحاولة مجدداً')), 20000)
+        ),
+      ]);
+
+      // Defensive fallback: If onVerify resolved without error but screen did not transition within 1.5s,
+      // reset slider so UI never remains permanently frozen
+      setTimeout(() => {
+        if (isMountedRef.current && isProcessingRef.current) {
+          isProcessingRef.current = false;
+          isVerifiedRef.current = false;
+          setVerified(false);
+          setVerifying(false);
+          slideAnim.stopAnimation();
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            friction: 7,
+            tension: 40,
+            useNativeDriver: false,
+          }).start();
+        }
+      }, 1500);
     } catch (err: any) {
       console.error('Verification/Login error on screen:', err);
-      const msg = err?.message || 'فشل تسجيل الدخول، يرجى التأكد من صحة البيانات';
+      let msg = err?.message || 'فشل تسجيل الدخول، يرجى التأكد من صحة البيانات';
+      if (
+        msg.includes('صلاحية') ||
+        msg.includes('مخصص') ||
+        msg.toLowerCase().includes('permission') ||
+        msg.toLowerCase().includes('access')
+      ) {
+        msg = 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة';
+      }
       if (isMountedRef.current) {
         setErrorMessage(msg);
       }
