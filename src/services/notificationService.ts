@@ -181,30 +181,37 @@ export const notificationService = {
         return null;
       }
 
-      // Prefer Expo Push Token for full category action buttons & rich notifications
-      let pushToken = '';
+      // 1. On Android (Google Play / standalone build), fetch native FCM device token for direct backend FCM V1 delivery
+      let fcmToken = '';
+      if (Platform.OS === 'android') {
+        try {
+          const deviceData = await Notifications.getDevicePushTokenAsync();
+          if (deviceData?.data) {
+            fcmToken = typeof deviceData.data === 'string' ? deviceData.data : (deviceData.data as any).token || '';
+            console.log('[NotificationService] Native FCM Token retrieved successfully');
+          }
+        } catch (devErr) {
+          console.log('[NotificationService] Native FCM Token notice:', devErr);
+        }
+      }
+
+      // 2. Also obtain Expo Push Token for fallback / rich notifications
+      let expoToken = '';
       try {
         const tokenData = await Notifications.getExpoPushTokenAsync({
           projectId: '352e8773-7aaa-4a12-b906-01fe05420113',
         });
         if (tokenData?.data) {
-          pushToken = tokenData.data;
+          expoToken = tokenData.data;
+          console.log('[NotificationService] Expo Push Token retrieved successfully');
         }
       } catch (tokenErr) {
         console.log('[NotificationService] Expo Push token notice:', tokenErr);
       }
 
-      // Fallback to Native FCM device token if Expo Push Token is not available
-      if (!pushToken && Platform.OS === 'android') {
-        try {
-          const deviceData = await Notifications.getDevicePushTokenAsync();
-          if (deviceData?.data) {
-            pushToken = typeof deviceData.data === 'string' ? deviceData.data : (deviceData.data as any).token || '';
-          }
-        } catch (devErr) {
-          console.log('[NotificationService] Android native FCM device token notice:', devErr);
-        }
-      }
+      // Combine available tokens (comma-separated if both exist, preferring native FCM on Android)
+      const validTokens = [fcmToken, expoToken].filter((t) => typeof t === 'string' && t.trim() !== '');
+      const pushToken = validTokens.join(',');
 
       // Register push token with backend
       if (employeeId) {

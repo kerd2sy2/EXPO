@@ -24,6 +24,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Types & Constants
@@ -420,26 +421,32 @@ export default function DelegateApp() {
   }, []);
 
   // Silently re-sync session and data when app returns from background / unlocked
+  const lastBackgroundCheckRef = useRef<number>(0);
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        if (!isTakingPhotoRef.current) {
+        const now = Date.now();
+        // Debounce foreground check to at least 15 seconds to prevent spamming
+        if (!isTakingPhotoRef.current && employee?.id && (now - lastBackgroundCheckRef.current > 15000)) {
+          lastBackgroundCheckRef.current = now;
           checkSession(true);
         }
       }
     });
 
+    // Gentle heartbeat (every 60s) only if active session exists to prevent UI re-render thrashing
     const timer = setInterval(() => {
-      if (AppState.currentState === 'active' && !isTakingPhotoRef.current && employee?.id) {
-        checkSession(true);
+      if (AppState.currentState === 'active' && !isTakingPhotoRef.current && employee?.id && activeSession) {
+        fetchActiveSession(employee.id).catch(() => {});
       }
-    }, 2500);
+    }, 60000);
 
     return () => {
       sub.remove();
       clearInterval(timer);
     };
-  }, [employee?.id]);
+  }, [employee?.id, Boolean(activeSession)]);
 
 
 
@@ -611,10 +618,14 @@ export default function DelegateApp() {
           // Immediately hide loading spinner only after activeSession and employee are primed!
           setLoading(false);
 
-          // Fetch shift session, history, and violations in background
+          // Fetch active shift session in background
           fetchActiveSession(cached.id);
-          fetchHistory(cached.id);
-          fetchViolations(cached.id);
+
+          // Only fetch full history and violations on explicit/initial load, not during silent background checks
+          if (!isSilentBackground) {
+            fetchHistory(cached.id);
+            fetchViolations(cached.id);
+          }
         }
       }
 
@@ -1049,23 +1060,29 @@ export default function DelegateApp() {
 
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
-        quality: 0.3,
-        base64: true,
+        quality: 0.6,
+        base64: false,
         cameraType: (ImagePicker.CameraType?.back ?? 'back') as ImagePicker.CameraType,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        const base64Uri = asset.base64
-          ? `data:image/jpeg;base64,${asset.base64}`
-          : asset.uri;
+        const rawAsset = result.assets[0];
+        // Resize and compress to standard dimensions (max width 900px, quality 0.5) to prevent OOM
+        const manipulated = await ImageManipulator.manipulateAsync(
+          rawAsset.uri,
+          [{ resize: { width: 900 } }],
+          { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        const base64Uri = manipulated.base64
+          ? `data:image/jpeg;base64,${manipulated.base64}`
+          : manipulated.uri;
 
         if (type === 'start') {
           startKmImageRef.current = base64Uri;
-          setStartKmImage(asset.uri);
+          setStartKmImage(manipulated.uri);
         } else {
           endKmImageRef.current = base64Uri;
-          setEndKmImage(asset.uri);
+          setEndKmImage(manipulated.uri);
         }
       }
     } catch (err) {
@@ -1110,6 +1127,9 @@ export default function DelegateApp() {
       const currentMonth = getCurrentMonthInfo(lang);
       setSelectedHistoryMonthKey(currentMonth.key);
       setSelectedHistoryMonthLabel(currentMonth.label);
+      if (employee?.id) {
+        fetchHistory(employee.id).catch(() => {});
+      }
     }
     mainScrollRef.current?.scrollTo({ y: 0, animated: false });
     setCurrentTab(tab);

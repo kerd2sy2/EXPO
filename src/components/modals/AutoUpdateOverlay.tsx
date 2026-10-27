@@ -66,13 +66,9 @@ export const AutoUpdateOverlay: React.FC = () => {
     };
 
     const sub = AppState.addEventListener('change', handleAppStateChange);
-    const interval = setInterval(() => {
-      performUpdateCheck();
-    }, 60000);
 
     return () => {
       sub.remove();
-      clearInterval(interval);
     };
   }, []);
 

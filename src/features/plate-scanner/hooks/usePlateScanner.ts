@@ -155,18 +155,18 @@ export const usePlateScanner = ({
       isFinishedRef.current = false;
       resultCardAnim.setValue(0);
 
-      // Minimum animation playback timer (1.2s)
+      // Fast animation playback timer (300ms for instant opening)
       const minTimer = setTimeout(() => {
         isMinTimeElapsedRef.current = true;
         tryDismissIntroSplash();
-      }, 1200);
+      }, 300);
 
-      // Safety timeout: if camera hardware takes longer or doesn't fire, force dismiss splash after 2.5s
+      // Safety timeout: ensure camera viewfinder is interactive in at most 700ms
       const safetyTimer = setTimeout(() => {
         isCameraReadyRef.current = true;
         isMinTimeElapsedRef.current = true;
         tryDismissIntroSplash();
-      }, 2500);
+      }, 700);
 
       const laser = Animated.loop(
         Animated.sequence([
@@ -264,17 +264,22 @@ export const usePlateScanner = ({
     try {
       if (CameraViewComponent && !cameraFailed && cameraRef.current) {
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.85,
-          base64: true,
-          skipProcessing: false,
+          quality: 0.6,
+          skipProcessing: true,
           shutterSound: false,
         });
 
         if (photo && photo.uri) {
-          const b64 = photo.base64 ? `data:image/jpeg;base64,${photo.base64}` : photo.uri;
-          const detected = await executeAiScan(photo.uri, b64);
+          // Efficient client-side optimization to avoid memory spikes and GC freezes
+          const manipulated = await ImageManipulator.manipulateAsync(
+            photo.uri,
+            [{ resize: { width: 900 } }],
+            { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+          const b64 = manipulated.base64 ? `data:image/jpeg;base64,${manipulated.base64}` : photo.uri;
+          const detected = await executeAiScan(manipulated.uri, b64);
           if (detected && detected.digits && detected.digits.length >= 2) {
-            showResultPopup(detected, photo.uri, b64);
+            showResultPopup(detected, manipulated.uri, b64);
           } else {
             triggerErrorSheet(
               "لم نتمكن من قراءة أرقام اللوحة بوضوح، يرجى تقريب الكاميرا والتأكد من إضاءة اللوحة وإعادة المحاولة."
@@ -289,17 +294,22 @@ export const usePlateScanner = ({
       if (status === 'granted') {
         const result = await ImagePicker.launchCameraAsync({
           allowsEditing: false,
-          quality: 0.85,
-          base64: true,
+          quality: 0.6,
+          base64: false,
           cameraType: (ImagePicker.CameraType?.back ?? 'back') as ImagePicker.CameraType,
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
-          const asset = result.assets[0];
-          const b64 = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-          const detected = await executeAiScan(asset.uri, b64);
+          const rawAsset = result.assets[0];
+          const manipulated = await ImageManipulator.manipulateAsync(
+            rawAsset.uri,
+            [{ resize: { width: 900 } }],
+            { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+          const b64 = manipulated.base64 ? `data:image/jpeg;base64,${manipulated.base64}` : manipulated.uri;
+          const detected = await executeAiScan(manipulated.uri, b64);
           if (detected && detected.digits && detected.digits.length >= 2) {
-            showResultPopup(detected, asset.uri, b64);
+            showResultPopup(detected, manipulated.uri, b64);
           } else {
             triggerErrorSheet(
               "لم نتمكن من قراءة أرقام اللوحة بوضوح، يرجى تقريب الكاميرا وإعادة المحاولة."

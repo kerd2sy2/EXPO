@@ -526,12 +526,18 @@ export const callPlateRecognizerApi = async (base64Data: string): Promise<PlateR
     formData.append('upload', cleanB64);
     formData.append('regions', 'sa');
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
     const response = await fetch('https://api.platerecognizer.com/v1/plate-reader/', {
       method: 'POST',
       headers: {
         'Authorization': 'Token c5f4ab21abb4f96f54001a308483511df1b23a75',
       },
       body: formData,
+      signal: controller.signal,
+    }).finally(() => {
+      clearTimeout(timeoutId);
     });
 
     if (response.ok) {
