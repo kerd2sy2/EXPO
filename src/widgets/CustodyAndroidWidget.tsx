@@ -286,36 +286,23 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
         </FlexWidget>
       </FlexWidget>
 
-      {/* 3. FOOTER: آخر تحديث في الشمال + شريط النسبة الممتد في الوسط + نسبة الصرف في اليمين */}
+      {/* 3. FOOTER: شريط نسبة الصرف بكامل العرض من أول نسبة الصرف إلى آخر آخر تحديث */}
       <FlexWidget
         style={{
           width: 'match_parent',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: 2,
+          flexDirection: 'column',
+          marginTop: 4,
         }}
       >
-        {/* آخر تحديث ناحية الشمال */}
-        <TextWidget
-          text={`آخر تحديث: ${props.lastUpdated || 'الآن'}`}
-          style={{
-            color: '#94a3b8',
-            fontSize: 10,
-            fontWeight: 'bold',
-          }}
-        />
-
-        {/* شريط النسبة الممتد حتى قبل آخر تحديث */}
+        {/* شريط النسبة الممتد بعرض الويدجيت بالكامل */}
         <FlexWidget
           style={{
-            flex: 1,
+            width: 'match_parent',
             height: 6,
             backgroundColor: '#e2e8f0',
             borderRadius: 3,
             flexDirection: 'row',
             overflow: 'hidden',
-            marginHorizontal: 8,
           }}
         >
           <FlexWidget
@@ -334,15 +321,36 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           />
         </FlexWidget>
 
-        {/* نسبة الصرف ناحية اليمين */}
-        <TextWidget
-          text={`نسبة الصرف: ${percent}%`}
+        {/* سطر النصوص: آخر تحديث في الشمال ونسبة الصرف في اليمين */}
+        <FlexWidget
           style={{
-            color: '#64748b',
-            fontSize: 10,
-            fontWeight: 'bold',
+            width: 'match_parent',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: 4,
           }}
-        />
+        >
+          {/* آخر تحديث ناحية الشمال */}
+          <TextWidget
+            text={`آخر تحديث: ${props.lastUpdated || 'الآن'}`}
+            style={{
+              color: '#94a3b8',
+              fontSize: 10,
+              fontWeight: 'bold',
+            }}
+          />
+
+          {/* نسبة الصرف ناحية اليمين */}
+          <TextWidget
+            text={`نسبة الصرف: ${percent}%`}
+            style={{
+              color: '#64748b',
+              fontSize: 10,
+              fontWeight: 'bold',
+            }}
+          />
+        </FlexWidget>
       </FlexWidget>
     </FlexWidget>
   );
