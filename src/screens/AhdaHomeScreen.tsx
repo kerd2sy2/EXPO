@@ -1525,8 +1525,14 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     colors={colors}
                     isDarkMode={isDarkMode}
                     selectedDate={selectedDate}
-                    onPressCard={() => {
-                      if (!canAddCustody) {
+                    onPressCard={async () => {
+                      // Silently refresh permissions on tap so state is 100% current
+                      const fresh = await fetchCurrentUserProfile();
+                      if (fresh && onUpdateUser) {
+                        onUpdateUser(fresh);
+                      }
+                      const hasAdd = hasAddCustodyPermission(fresh || currentUser);
+                      if (!hasAdd) {
                         setAlertConfig({
                           type: 'warning',
                           title: 'غير مصرح',

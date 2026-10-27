@@ -192,10 +192,11 @@ export default function AhdaApp() {
       Alert.alert('انتهت الجلسة', 'يرجى تسجيل الدخول مجدداً للمتابعة.');
     });
 
-    // Register permission denied callback (e.g. app permission revoked while app is open)
-    onPermissionDenied(async (msg) => {
-      await handleLogout();
-      Alert.alert('تنبيه الصلاحيات', msg || 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.');
+    // Register permission denied callback: silently refresh profile to reflect live permissions without logging out
+    onPermissionDenied(async () => {
+      fetchCurrentUserProfile().then((fresh) => {
+        if (fresh) setCurrentUser(fresh);
+      }).catch(() => {});
     });
   }, []);
 
@@ -234,7 +235,7 @@ export default function AhdaApp() {
       if (AppState.currentState === 'active') {
         syncProfile();
       }
-    }, 4000);
+    }, 2500);
 
     return () => {
       unsubRefresh();

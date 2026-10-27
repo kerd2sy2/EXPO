@@ -280,7 +280,7 @@ export const hasCustodyPermission = (user: any): boolean => {
   }
 
   const role = String(user.role || user.job_role || user.role_name || '').toUpperCase();
-  if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || user.is_super_admin) {
+  if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || role === 'OWNER' || role === 'GENERAL_MANAGER' || user.is_super_admin) {
     return true;
   }
 
@@ -288,9 +288,6 @@ export const hasCustodyPermission = (user: any): boolean => {
   if (user.app_permissions) {
     if (user.app_permissions.ohda === true || user.app_permissions['apps.ohda'] === true) {
       return true;
-    }
-    if (user.app_permissions.ohda === false || user.app_permissions['apps.ohda'] === false) {
-      return false;
     }
   }
 
@@ -306,15 +303,27 @@ export const hasCustodyPermission = (user: any): boolean => {
     }
   }
 
-  // Strictly require apps.ohda, app.ohda, or wildcard *
   const allowedPermissions = [
     '*',
     'apps.ohda',
     'app.ohda',
+    'custody',
+    'custody.view',
+    'custody.add',
+    'custody.create',
+    'custody.manage',
+    'custody.delete',
   ];
 
   for (const perm of allowedPermissions) {
     if (perms.includes(perm)) {
+      return true;
+    }
+  }
+
+  // Unconfigured account fallback
+  if (!user.permissions_configured) {
+    if (role === 'ADMIN' || role === 'ACCOUNTANT' || role === 'CUSTODY' || role === 'SUPERVISOR') {
       return true;
     }
   }
@@ -328,7 +337,7 @@ export const hasCustodyPermission = (user: any): boolean => {
 export const hasAddCustodyPermission = (user: any): boolean => {
   if (!user) return false;
   const role = String(user.role || user.job_role || user.role_name || '').toUpperCase();
-  if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || user.is_super_admin) {
+  if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || role === 'OWNER' || role === 'GENERAL_MANAGER' || user.is_super_admin) {
     return true;
   }
 
@@ -343,8 +352,19 @@ export const hasAddCustodyPermission = (user: any): boolean => {
     }
   }
 
-  const allowedPermissions = ['*', 'custody.create', 'custody.manage', 'custody'];
-  return allowedPermissions.some((perm) => perms.includes(perm));
+  const allowedPermissions = ['*', 'custody.add', 'custody.create', 'custody.manage', 'custody'];
+  const hasConfiguredPerm = allowedPermissions.some((perm) => perms.includes(perm));
+
+  if (user.permissions_configured) {
+    return hasConfiguredPerm;
+  }
+
+  // Fallback for legacy unconfigured account
+  if (role === 'ADMIN' || role === 'ACCOUNTANT' || role === 'CUSTODY') {
+    return true;
+  }
+
+  return hasConfiguredPerm;
 };
 
 /**
@@ -353,7 +373,7 @@ export const hasAddCustodyPermission = (user: any): boolean => {
 export const hasDeleteCustodyPermission = (user: any): boolean => {
   if (!user) return false;
   const role = String(user.role || user.job_role || user.role_name || '').toUpperCase();
-  if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || user.is_super_admin) {
+  if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || role === 'OWNER' || role === 'GENERAL_MANAGER' || user.is_super_admin) {
     return true;
   }
 
@@ -369,5 +389,16 @@ export const hasDeleteCustodyPermission = (user: any): boolean => {
   }
 
   const allowedPermissions = ['*', 'custody.delete', 'custody.manage', 'custody'];
-  return allowedPermissions.some((perm) => perms.includes(perm));
+  const hasConfiguredPerm = allowedPermissions.some((perm) => perms.includes(perm));
+
+  if (user.permissions_configured) {
+    return hasConfiguredPerm;
+  }
+
+  // Fallback for legacy unconfigured account
+  if (role === 'ADMIN' || role === 'ACCOUNTANT') {
+    return true;
+  }
+
+  return hasConfiguredPerm;
 };

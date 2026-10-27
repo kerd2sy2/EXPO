@@ -374,7 +374,12 @@ export const getCachedUser = async (): Promise<any | null> => {
  */
 export const fetchCurrentUserProfile = async (): Promise<any | null> => {
   try {
-    const res = await apiRequest<any>('/me');
+    const res = await apiRequest<any>(`/me?_t=${Date.now()}`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    });
     if (res) {
       const user = res.user || res;
       const avatarVal =
