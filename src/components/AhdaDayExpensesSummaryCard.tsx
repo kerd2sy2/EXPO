@@ -33,8 +33,6 @@ const AhdaDayExpensesSummaryCardComponent: React.FC<AhdaDayExpensesSummaryCardPr
           style={[
             styles.pdfBtn,
             {
-              backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-              borderColor: isDarkMode ? '#334155' : '#e2e8f0',
               opacity: loadingPdf ? 0.7 : 1,
             },
           ]}
@@ -52,23 +50,13 @@ const AhdaDayExpensesSummaryCardComponent: React.FC<AhdaDayExpensesSummaryCardPr
             onLongPressPdf?.();
           }}
           delayLongPress={350}
-          activeOpacity={0.78}
+          activeOpacity={0.8}
         >
-          <View
-            style={[
-              styles.pdfIconCircle,
-              {
-                backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2',
-                borderColor: isDarkMode ? '#7f1d1d' : '#fecaca',
-              },
-            ]}
-          >
-            {loadingPdf ? (
-              <ActivityIndicator size="small" color="#dc2626" />
-            ) : (
-              <Ionicons name="document-text" size={20} color="#dc2626" />
-            )}
-          </View>
+          {loadingPdf ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <Ionicons name="document-text-outline" size={23} color="#ffffff" />
+          )}
         </TouchableOpacity>
       )}
 
@@ -157,22 +145,14 @@ const styles = StyleSheet.create({
   },
   pdfBtn: {
     width: 50,
+    backgroundColor: '#047857',
     borderRadius: 16,
-    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  pdfIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    shadowColor: '#047857',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 3,
   },
 });

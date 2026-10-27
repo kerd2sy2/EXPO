@@ -210,11 +210,7 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
         const dRatio = dAvail > 0 ? Math.min(1, Math.max(0, dExp / dAvail)) : 0;
 
         let dLbl = d.date || '';
-        if (d.date === todayDateStr) {
-          dLbl = 'اليوم';
-        } else if (d.date === yestDateStr) {
-          dLbl = 'أمس';
-        } else if (d.date) {
+        if (d.date) {
           const parts = d.date.split('-');
           if (parts.length === 3) {
             dLbl = `${parseInt(parts[2], 10)}/${parseInt(parts[1], 10)}`;

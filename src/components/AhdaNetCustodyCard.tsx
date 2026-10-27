@@ -106,7 +106,6 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
   onResetToToday,
 }) => {
   const activeDate = selectedDate || currentDay?.date;
-  const relativeInfo = getRelativeDateInfo(activeDate);
   const custodyTotalAvailable = effectiveOpeningBalance + (currentDay?.added_amount ?? 0);
   const spentPct = custodyTotalAvailable > 0
     ? Math.min(100, Math.round(((currentDay?.total_expenses ?? 0) / custodyTotalAvailable) * 100))
@@ -251,43 +250,6 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
                   <Text style={[styles.targetCardDate, { color: colors.textSecondary }]}>
                     {formatSimpleDate(activeDate)}
                   </Text>
-                  {!!relativeInfo.label && (
-                    <>
-                      <Text style={[styles.dateDotSeparator, { color: colors.textSecondary }]}>
-                        •
-                      </Text>
-                      <View style={styles.relativeLabelContainer}>
-                        <View
-                          style={[
-                            styles.relativeStatusDot,
-                            {
-                              backgroundColor:
-                                relativeInfo.type === 'today'
-                                  ? isDarkMode ? '#34d399' : '#047857'
-                                  : relativeInfo.type === 'yesterday'
-                                  ? isDarkMode ? '#fbbf24' : '#b45309'
-                                  : isDarkMode ? '#60a5fa' : '#1d4ed8',
-                            },
-                          ]}
-                        />
-                        <Text
-                          style={[
-                            styles.relativeLabelText,
-                            {
-                              color:
-                                relativeInfo.type === 'today'
-                                  ? isDarkMode ? '#34d399' : '#047857'
-                                  : relativeInfo.type === 'yesterday'
-                                  ? isDarkMode ? '#fbbf24' : '#b45309'
-                                  : isDarkMode ? '#60a5fa' : '#1d4ed8',
-                            },
-                          ]}
-                        >
-                          {relativeInfo.label}
-                        </Text>
-                      </View>
-                    </>
-                  )}
                 </TouchableOpacity>
               )}
             </View>

@@ -137,7 +137,7 @@ const ExpenseCardComponent: React.FC<ExpenseCardProps> = ({
           </View>
         </View>
 
-        {/* Middle: Statement / Description & Author & Export Number */}
+        {/* Middle: Statement / Description & Export Number */}
         <View style={styles.invoiceCardMiddle}>
           <View style={styles.invoiceRecipientRow}>
             <Ionicons name="document-text-outline" size={13} color="#047857" />
@@ -145,14 +145,6 @@ const ExpenseCardComponent: React.FC<ExpenseCardProps> = ({
               البيان: {item.recipient_name || '—'}
             </Text>
           </View>
-          {resolvedAuthor ? (
-            <View style={styles.invoiceAuthorRow}>
-              <Ionicons name="person-outline" size={13} color="#047857" />
-              <Text style={[styles.invoiceAuthorText, { color: colors.textSecondary }]} numberOfLines={1}>
-                الكاتب: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{resolvedAuthor}</Text>
-              </Text>
-            </View>
-          ) : null}
           {item.export_number ? (
             <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 5, marginTop: 4 }}>
               <Ionicons name="barcode-outline" size={13} color="#0284c7" />
@@ -199,6 +191,16 @@ const ExpenseCardComponent: React.FC<ExpenseCardProps> = ({
             </View>
           )}
         </View>
+
+        {/* Very Bottom: Author */}
+        {resolvedAuthor ? (
+          <View style={styles.invoiceCardFooter}>
+            <Ionicons name="person-outline" size={12} color={colors.textSecondary} />
+            <Text style={[styles.invoiceAuthorText, { color: colors.textSecondary }]} numberOfLines={1}>
+              الكاتب: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{resolvedAuthor}</Text>
+            </Text>
+          </View>
+        ) : null}
       </TouchableOpacity>
     </View>
   );
@@ -287,16 +289,18 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
   },
-  invoiceAuthorRow: {
+  invoiceCardFooter: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 4,
+    gap: 4,
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(150, 150, 150, 0.08)',
   },
   invoiceAuthorText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    flex: 1,
     textAlign: 'right',
   },
   invoiceCardBottom: {
