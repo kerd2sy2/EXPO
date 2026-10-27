@@ -44,19 +44,25 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
       ? props.addedAmount
       : 0;
 
-  const openingBalance =
-    activeBranch?.openingBalance ?? props.openingBalance ?? (netBalanceVal + expensesVal);
-  const total =
-    openingBalance > 0
-      ? openingBalance
-      : netBalanceVal + expensesVal > 0
-      ? netBalanceVal + expensesVal
-      : 1;
-  const ratio = Math.max(0, Math.min(1, expensesVal / total));
-  const percent = Math.round(ratio * 100);
+  // Compute accurate total available and spending ratio matching the main app
+  const totalAvailable = yesterdayBalanceVal + addedAmountVal;
+  const fallbackTotal = netBalanceVal + expensesVal;
+  const effectiveTotal =
+    totalAvailable > 0 ? totalAvailable : fallbackTotal > 0 ? fallbackTotal : 0;
 
-  // Flex ratio for progress bar (clamped to integers between 1 and 99)
-  const flexSpent = Math.max(1, Math.min(99, percent));
+  const ratio =
+    typeof activeBranch?.progressRatio === 'number' && activeBranch.progressRatio >= 0
+      ? activeBranch.progressRatio
+      : typeof props.progressRatio === 'number' && props.progressRatio >= 0
+      ? props.progressRatio
+      : effectiveTotal > 0
+      ? Math.max(0, Math.min(1, expensesVal / effectiveTotal))
+      : 0;
+
+  const percent = Math.min(100, Math.max(0, Math.round(ratio * 100)));
+
+  // Flex ratio for progress bar (clamped to integers between 0 and 100)
+  const flexSpent = Math.max(0, Math.min(100, percent));
   const flexRemaining = 100 - flexSpent;
 
   const netBalanceText =
@@ -305,20 +311,24 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
             overflow: 'hidden',
           }}
         >
-          <FlexWidget
-            style={{
-              flex: flexRemaining,
-              height: 6,
-              backgroundColor: '#e2e8f0',
-            }}
-          />
-          <FlexWidget
-            style={{
-              flex: flexSpent,
-              height: 6,
-              backgroundColor: percent > 90 ? '#ef4444' : percent > 70 ? '#f59e0b' : '#10b981',
-            }}
-          />
+          {flexRemaining > 0 && (
+            <FlexWidget
+              style={{
+                flex: flexRemaining,
+                height: 6,
+                backgroundColor: '#e2e8f0',
+              }}
+            />
+          )}
+          {flexSpent > 0 && (
+            <FlexWidget
+              style={{
+                flex: flexSpent,
+                height: 6,
+                backgroundColor: percent > 90 ? '#ef4444' : percent > 70 ? '#f59e0b' : '#10b981',
+              }}
+            />
+          )}
         </FlexWidget>
 
         {/* سطر النصوص: آخر تحديث في الشمال ونسبة الصرف في اليمين */}

@@ -108,7 +108,8 @@ export async function syncCustodyWidget(params: SyncWidgetParams): Promise<void>
     }
 
     const addedAmount = currentDay?.added_amount ?? 0;
-    const activeRatio = totalAvail > 0 ? Math.min(1, Math.max(0, totalExp / totalAvail)) : 0;
+    const effectiveAvail = totalAvail > 0 ? totalAvail : closingBal + totalExp;
+    const activeRatio = effectiveAvail > 0 ? Math.min(1, Math.max(0, totalExp / effectiveAvail)) : 0;
 
     // 2. Build multi-branch items list
     const branchItems: BranchCustodyItem[] = [];
