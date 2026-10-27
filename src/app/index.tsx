@@ -527,7 +527,7 @@ export default function DelegateApp() {
       if (AppState.currentState === 'active' && !isTakingPhotoRef.current && employee?.id) {
         checkSession(true);
       }
-    }, 15000);
+    }, 2500);
 
     return () => {
       sub.remove();
@@ -719,10 +719,15 @@ export default function DelegateApp() {
           const userPerms = Array.isArray(anyUser.permissions) ? anyUser.permissions : [];
           const hasEshrafAccess =
             userRole === 'SUPER_ADMIN' ||
+            userRole === 'OWNER' ||
+            userRole === 'GENERAL_MANAGER' ||
             anyUser.app_permissions?.eshraf === true ||
             userPerms.includes('*') ||
             userPerms.includes('apps.eshraf') ||
-            userPerms.includes('app.eshraf');
+            userPerms.includes('app.eshraf') ||
+            userPerms.includes('work.view') ||
+            userPerms.includes('work.start') ||
+            (!anyUser.permissions_configured && (userRole === 'SUPERVISOR' || userRole === 'ADMIN'));
 
           if (!hasEshrafAccess) {
             await setAuthToken(null);

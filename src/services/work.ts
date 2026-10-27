@@ -131,7 +131,13 @@ export const workApi = {
       if (!token) {
         return null;
       }
-      const meResp = await apiRequest('/me', { timeoutMs: 8000 });
+      const meResp = await apiRequest(`/me?_t=${Date.now()}`, {
+        timeoutMs: 8000,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
+      });
       if (meResp && (meResp.id || (meResp as any).user?.id)) {
         const u = ((meResp as any).user || meResp) as any;
         const isAdm = Boolean(
@@ -152,7 +158,7 @@ export const workApi = {
             phone: u.phone || cached?.phone || '',
             branch_id: u.branch_id || cached?.branch_id || '',
             branch_name: u.branch_name || cached?.branch_name || '',
-            permissions: u.permissions || cached?.permissions || [],
+            permissions: Array.isArray(u.permissions) ? u.permissions : cached?.permissions || [],
             app_permissions: u.app_permissions || cached?.app_permissions,
             is_admin: true,
           };
