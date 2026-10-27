@@ -186,8 +186,19 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     if (userBranchId) {
       return false;
     }
-    const role = (currentUser.role || '').toUpperCase();
-    const permissions: string[] = Array.isArray(currentUser.permissions) ? currentUser.permissions : [];
+    const role = (currentUser.role || currentUser.job_role || currentUser.role_name || '').toUpperCase();
+    let permissions: string[] = [];
+    if (Array.isArray(currentUser.permissions)) {
+      permissions = currentUser.permissions;
+    } else if (typeof currentUser.permissions === 'string' && currentUser.permissions.trim() !== '') {
+      try {
+        const parsed = JSON.parse(currentUser.permissions);
+        if (Array.isArray(parsed)) permissions = parsed;
+        else permissions = [currentUser.permissions];
+      } catch {
+        permissions = currentUser.permissions.split(',').map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
 
     const hasAllBranchesPermission =
       permissions.includes('all_branches') ||

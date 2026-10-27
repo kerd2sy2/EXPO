@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets, initialWindowMetrics } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -177,6 +178,39 @@ export default function AhdaApp() {
       Alert.alert('انتهت الجلسة', 'يرجى تسجيل الدخول مجدداً للمتابعة.');
     });
   }, []);
+
+  // Real-time permission sync without logout:
+  // Automatically re-syncs profile when app becomes active (foreground) or every 30s
+  useEffect(() => {
+    if (!token) return;
+
+    const syncProfile = () => {
+      fetchCurrentUserProfile()
+        .then((fresh) => {
+          if (fresh) {
+            setCurrentUser(fresh);
+          }
+        })
+        .catch(() => {});
+    };
+
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        syncProfile();
+      }
+    });
+
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        syncProfile();
+      }
+    }, 30000);
+
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
+  }, [token]);
 
   // Handle successful login
   const handleLoginSuccess = useCallback(async (user: any) => {

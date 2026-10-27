@@ -338,14 +338,38 @@ export const fetchCurrentUserProfile = async (): Promise<any | null> => {
         user.google_avatar ||
         null;
 
+      let parsedPerms: string[] = [];
+      const rawPerms = res.permissions || user.permissions;
+      if (Array.isArray(rawPerms)) {
+        parsedPerms = rawPerms;
+      } else if (typeof rawPerms === 'string' && rawPerms.trim() !== '') {
+        try {
+          const parsed = JSON.parse(rawPerms);
+          if (Array.isArray(parsed)) parsedPerms = parsed;
+          else parsedPerms = [rawPerms];
+        } catch {
+          parsedPerms = rawPerms.split(',').map((s: string) => s.trim()).filter(Boolean);
+        }
+      }
+
+      const effectiveRole =
+        res.role ||
+        user.role ||
+        res.job_role ||
+        user.job_role ||
+        res.role_name ||
+        user.role_name ||
+        'DRIVER';
+
       const targetUser = {
         ...(typeof user === 'object' ? user : {}),
         id: res.id || user.id,
         name: res.name || user.name,
         email: res.email || user.email,
         username: res.username || user.username,
-        role: res.role || user.role,
-        permissions: res.permissions || user.permissions,
+        role: effectiveRole,
+        job_role: effectiveRole,
+        permissions: parsedPerms,
         branch_id: res.branch_id !== undefined ? res.branch_id : user.branch_id,
         branch_name: res.branch_name !== undefined ? res.branch_name : user.branch_name,
         personal_image: avatarVal,
