@@ -136,8 +136,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     return `${year}-${month}-${day}`;
   };
 
+  const STORAGE_SELECTED_DATE_KEY = '@custody_last_selected_date';
+
   const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
-  const [dateInitialized, setDateInitialized] = useState<boolean>(true);
+  const [dateInitialized, setDateInitialized] = useState<boolean>(false);
   const searchReturnDateRef = useRef<string | null>(null);
   const [days, setDays] = useState<CustodyDayData[]>([]);
   const [dayLogs, setDayLogs] = useState<CustodyLogItem[]>([]);
@@ -278,9 +280,34 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   const [pickerYear, setPickerYear] = useState<number>(new Date().getFullYear());
   const [pickerMonth, setPickerMonth] = useState<number>(new Date().getMonth() + 1);
 
-  // Handler to update selected date
+  // 0a. Restore last selected date from storage on startup so app reopens to the same day
+  useEffect(() => {
+    let isMounted = true;
+    AsyncStorage.getItem(STORAGE_SELECTED_DATE_KEY)
+      .then((savedDate) => {
+        if (!isMounted) return;
+        if (savedDate && /^\d{4}-\d{2}-\d{2}$/.test(savedDate)) {
+          setSelectedDate(savedDate);
+          const parts = savedDate.split('-');
+          if (parts.length === 3) {
+            setPickerYear(parseInt(parts[0], 10));
+            setPickerMonth(parseInt(parts[1], 10));
+          }
+        }
+        setDateInitialized(true);
+      })
+      .catch(() => {
+        if (isMounted) setDateInitialized(true);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Handler to update selected date and persist across app restarts
   const updateSelectedDate = useCallback((newDate: string) => {
     setSelectedDate(newDate);
+    AsyncStorage.setItem(STORAGE_SELECTED_DATE_KEY, newDate).catch(() => {});
     const parts = newDate.split('-');
     if (parts.length === 3) {
       setPickerYear(parseInt(parts[0], 10));

@@ -66,12 +66,9 @@ const AhdaDayExpensesSummaryCardComponent: React.FC<AhdaDayExpensesSummaryCardPr
             {loadingPdf ? (
               <ActivityIndicator size="small" color="#dc2626" />
             ) : (
-              <Ionicons name="document-text" size={18} color="#dc2626" />
+              <Ionicons name="document-text" size={20} color="#dc2626" />
             )}
           </View>
-          <Text style={[styles.pdfBtnText, { color: isDarkMode ? '#f87171' : '#dc2626' }]}>
-            {loadingPdf ? '...' : 'PDF'}
-          </Text>
         </TouchableOpacity>
       )}
 
@@ -159,12 +156,11 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   pdfBtn: {
-    width: 62,
+    width: 50,
     borderRadius: 16,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -172,17 +168,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   pdfIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 2,
-  },
-  pdfBtnText: {
-    fontSize: 10.5,
-    fontWeight: '900',
-    letterSpacing: 0.4,
   },
 });
