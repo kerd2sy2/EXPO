@@ -805,14 +805,16 @@ export default function DelegateApp() {
   const handleLogin = async (rawPhone?: string, rawPass?: string) => {
     const inputVal = (rawPhone || '').trim();
     if (!inputVal) {
-      setLoginError(t.phoneRequired || (lang === 'ar' ? 'يرجى إدخال رقم الهاتف' : 'Phone number is required'));
-      return;
+      const msg = t.phoneRequired || (lang === 'ar' ? 'يرجى إدخال رقم الهاتف' : 'Phone number is required');
+      setLoginError(msg);
+      throw new Error(msg);
     }
 
     const password = (rawPass || '').trim();
     if (!password) {
-      setLoginError(t.passwordRequired || (lang === 'ar' ? 'يرجى إدخال كلمة المرور' : 'Password is required'));
-      return;
+      const msg = t.passwordRequired || (lang === 'ar' ? 'يرجى إدخال كلمة المرور' : 'Password is required');
+      setLoginError(msg);
+      throw new Error(msg);
     }
 
     setSubmitting(true);
@@ -824,11 +826,12 @@ export default function DelegateApp() {
         Boolean(res && res.admin && (res.admin.role === 'ADMIN' || res.admin.role === 'SUPER_ADMIN' || res.admin.role === 'SUPERVISOR'));
 
       if (isActualAdmin) {
-        setLoginError(lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.');
+        const errorMsg = lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.';
+        setLoginError(errorMsg);
         await setAuthToken(null);
         await saveCachedUser(null);
         setEmployee(null);
-        return;
+        throw new Error(errorMsg);
       } else if (res && (res.employee || res.is_employee || (res as any).id)) {
         const emp = (res.employee || res) as EmployeeProfile;
         setEmployee(emp);
@@ -868,11 +871,23 @@ export default function DelegateApp() {
         fetchActiveSession(emp.id).catch(() => {});
         fetchHistory(emp.id).catch(() => {});
       } else {
-        setLoginError(t.passwordHint || 'بيانات الدخول غير صحيحة');
+        const errorMsg = t.passwordHint || (lang === 'ar' ? 'بيانات الدخول غير صحيحة، يرجى التأكد من كلمة المرور' : 'Invalid login credentials');
+        setLoginError(errorMsg);
+        throw new Error(errorMsg);
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setLoginError(err?.message || 'تعذر تسجيل الدخول، تأكد من صحة البيانات');
+      let errorMsg = err?.message || (lang === 'ar' ? 'تعذر تسجيل الدخول، تأكد من صحة البيانات' : 'Failed to log in');
+      if (
+        errorMsg.includes('صلاحية') ||
+        errorMsg.includes('مخصص') ||
+        errorMsg.toLowerCase().includes('permission') ||
+        errorMsg.toLowerCase().includes('access')
+      ) {
+        errorMsg = lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.';
+      }
+      setLoginError(errorMsg);
+      throw new Error(errorMsg);
     } finally {
       setSubmitting(false);
     }
@@ -889,11 +904,12 @@ export default function DelegateApp() {
       Boolean(loginResp && loginResp.admin && (loginResp.admin.role === 'ADMIN' || loginResp.admin.role === 'SUPER_ADMIN' || loginResp.admin.role === 'SUPERVISOR'));
 
     if (isActualAdmin) {
-      setLoginError(lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.');
+      const errorMsg = lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.';
+      setLoginError(errorMsg);
       await setAuthToken(null);
       await saveCachedUser(null);
       setEmployee(null);
-      return;
+      throw new Error(errorMsg);
     }
 
     let emp = loginResp?.employee || (loginResp?.id ? loginResp : null);

@@ -202,14 +202,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   if (screenStep === 'verify' && pendingCredentials) {
     return (
-      <HumanVerificationScreen
-        colors={colors}
-        isDarkMode={isDarkMode}
-        appName="المناديب"
-        isRTL={isRTL}
-        onVerify={() => onLogin(pendingCredentials.phone, pendingCredentials.pass)}
-        onBack={() => setScreenStep('form')}
-      />
+      <View style={{ flex: 1 }}>
+        <HumanVerificationScreen
+          colors={colors}
+          isDarkMode={isDarkMode}
+          appName="المناديب"
+          isRTL={isRTL}
+          onVerify={() => onLogin(pendingCredentials.phone, pendingCredentials.pass)}
+          onBack={() => setScreenStep('form')}
+        />
+        <ActionAlertBottomSheet
+          config={alertConfig}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          onClose={() => setAlertConfig(null)}
+        />
+      </View>
     );
   }
 
