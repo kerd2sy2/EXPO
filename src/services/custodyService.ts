@@ -332,7 +332,7 @@ export const hasCustodyPermission = (user: any): boolean => {
 };
 
 /**
- * Checks if a user has permission to add custody amounts (إضافة عهدة).
+ * Checks if a user has permission to add custody amounts (إضافة عهدة وتغذية الرصيد).
  */
 export const hasAddCustodyPermission = (user: any): boolean => {
   if (!user) return false;
@@ -352,7 +352,12 @@ export const hasAddCustodyPermission = (user: any): boolean => {
     }
   }
 
-  const allowedPermissions = ['*', 'custody.add', 'custody.create', 'custody.manage', 'custody'];
+  // Only allow wildcard if '*' is the sole permission configured
+  if (perms.length === 1 && perms[0] === '*') {
+    return true;
+  }
+
+  const allowedPermissions = ['custody.add', 'custody.create', 'custody.manage'];
   const hasConfiguredPerm = allowedPermissions.some((perm) => perms.includes(perm));
 
   if (user.permissions_configured) {
@@ -361,6 +366,47 @@ export const hasAddCustodyPermission = (user: any): boolean => {
 
   // Fallback for legacy unconfigured account
   if (role === 'ADMIN' || role === 'ACCOUNTANT' || role === 'CUSTODY') {
+    return true;
+  }
+
+  return hasConfiguredPerm;
+};
+
+/**
+ * Checks if a user has permission to add expenses / spend custody (تسجيل وصرف المصروفات).
+ */
+export const hasAddExpensePermission = (user: any): boolean => {
+  if (!user) return false;
+  const role = String(user.role || user.job_role || user.role_name || '').toUpperCase();
+  if (role === 'SUPER_ADMIN' || role === 'SUPERADMIN' || role === 'OWNER' || role === 'GENERAL_MANAGER' || user.is_super_admin) {
+    return true;
+  }
+
+  let perms: string[] = [];
+  if (Array.isArray(user.permissions)) {
+    perms = user.permissions;
+  } else if (typeof user.permissions === 'string') {
+    try {
+      perms = JSON.parse(user.permissions);
+    } catch {
+      perms = user.permissions.split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+  }
+
+  // Only allow wildcard if '*' is the sole permission configured
+  if (perms.length === 1 && perms[0] === '*') {
+    return true;
+  }
+
+  const allowedPermissions = ['custody.expense', 'custody.manage'];
+  const hasConfiguredPerm = allowedPermissions.some((perm) => perms.includes(perm));
+
+  if (user.permissions_configured) {
+    return hasConfiguredPerm;
+  }
+
+  // Fallback for legacy unconfigured account
+  if (role === 'ADMIN' || role === 'ACCOUNTANT' || role === 'CUSTODY' || role === 'SUPERVISOR') {
     return true;
   }
 
@@ -388,7 +434,12 @@ export const hasDeleteCustodyPermission = (user: any): boolean => {
     }
   }
 
-  const allowedPermissions = ['*', 'custody.delete', 'custody.manage', 'custody'];
+  // Only allow wildcard if '*' is the sole permission configured
+  if (perms.length === 1 && perms[0] === '*') {
+    return true;
+  }
+
+  const allowedPermissions = ['custody.delete', 'custody.manage'];
   const hasConfiguredPerm = allowedPermissions.some((perm) => perms.includes(perm));
 
   if (user.permissions_configured) {

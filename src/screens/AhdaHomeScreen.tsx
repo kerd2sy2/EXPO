@@ -34,6 +34,7 @@ import {
   CustodyExpenseItem,
   CustodyLogItem,
   hasAddCustodyPermission,
+  hasAddExpensePermission,
   hasDeleteCustodyPermission,
 } from '../services/custodyService';
 import { AhdaBranchSelectorModal } from '../components/modals/AhdaBranchSelectorModal';
@@ -217,6 +218,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   const canAddCustody = useMemo(() => {
     return hasAddCustodyPermission(currentUser);
+  }, [currentUser]);
+
+  const canAddExpense = useMemo(() => {
+    return hasAddExpensePermission(currentUser);
   }, [currentUser]);
 
   const canDeleteCustody = useMemo(() => {
@@ -955,6 +960,15 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   // 4. Add Expense & Invoice
   const handleSaveExpense = async () => {
+    if (!canAddExpense) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'غير مصرح',
+        message: 'ليس لديك صلاحية لتسجيل المصروفات (الصرف).',
+      });
+      return;
+    }
+
     const amt = parseFloat(expenseAmount);
     if (isNaN(amt) || amt <= 0) {
       setAlertConfig({
@@ -1450,7 +1464,20 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               dayLogs={dayLogs}
               currentUser={currentUser}
               onBack={handleCloseDayExpenses}
-              onOpenAddExpense={() => {
+              onOpenAddExpense={async () => {
+                const fresh = await fetchCurrentUserProfile();
+                if (fresh && onUpdateUser) {
+                  onUpdateUser(fresh);
+                }
+                const hasExpense = hasAddExpensePermission(fresh || currentUser);
+                if (!hasExpense) {
+                  setAlertConfig({
+                    type: 'warning',
+                    title: 'غير مصرح',
+                    message: 'ليس لديك صلاحية لتسجيل المصروفات (الصرف).',
+                  });
+                  return;
+                }
                 if (selectedCategoryFilter) {
                   setSelectedCategory(selectedCategoryFilter);
                 }
@@ -1557,7 +1584,20 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                     currentDay={currentDay}
                     colors={colors}
                     isDarkMode={isDarkMode}
-                    onSelectCategory={(catKey) => {
+                    onSelectCategory={async (catKey) => {
+                      const fresh = await fetchCurrentUserProfile();
+                      if (fresh && onUpdateUser) {
+                        onUpdateUser(fresh);
+                      }
+                      const hasExpense = hasAddExpensePermission(fresh || currentUser);
+                      if (!hasExpense) {
+                        setAlertConfig({
+                          type: 'warning',
+                          title: 'غير مصرح',
+                          message: 'ليس لديك صلاحية لتسجيل المصروفات (الصرف).',
+                        });
+                        return;
+                      }
                       setSelectedCategory(catKey);
                       setShowAddExpenseModal(true);
                     }}
@@ -1789,7 +1829,20 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
                 handleSaveLedgerImage(uri);
               }
             }}
-            onSelectCategory={(catKey) => {
+            onSelectCategory={async (catKey) => {
+              const fresh = await fetchCurrentUserProfile();
+              if (fresh && onUpdateUser) {
+                onUpdateUser(fresh);
+              }
+              const hasExpense = hasAddExpensePermission(fresh || currentUser);
+              if (!hasExpense) {
+                setAlertConfig({
+                  type: 'warning',
+                  title: 'غير مصرح',
+                  message: 'ليس لديك صلاحية لتسجيل المصروفات (الصرف).',
+                });
+                return;
+              }
               setSelectedCategory(catKey);
               setInvoiceImageUri(sharedImagePending);
               setSharedImagePending(null);
@@ -1807,7 +1860,20 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
           categories={CATEGORIES}
           colors={colors}
           isDarkMode={isDarkMode}
-          onSelectCategory={(catKey) => {
+          onSelectCategory={async (catKey) => {
+            const fresh = await fetchCurrentUserProfile();
+            if (fresh && onUpdateUser) {
+              onUpdateUser(fresh);
+            }
+            const hasExpense = hasAddExpensePermission(fresh || currentUser);
+            if (!hasExpense) {
+              setAlertConfig({
+                type: 'warning',
+                title: 'غير مصرح',
+                message: 'ليس لديك صلاحية لتسجيل المصروفات (الصرف).',
+              });
+              return;
+            }
             setSelectedCategory(catKey);
             setShowQuickCategoryModal(false);
             setShowAddExpenseModal(true);
