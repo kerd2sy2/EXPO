@@ -62,7 +62,7 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
                 إدارة فاتورة {catObj.label}
               </Text>
               <Text style={[styles.actionSheetSub, { color: colors.textSecondary }]}>
-                المستلم: {expense.recipient_name || 'بدون بيان'} • {formatArabicNumber(expense.amount, 2)} ر.س
+                البيان: {expense.recipient_name || 'بدون بيان'} • {formatArabicNumber(expense.amount, 2)} ر.س
               </Text>
             </View>
           </View>

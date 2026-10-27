@@ -11,6 +11,9 @@ export interface CustodyExpenseItem {
   recipient_name: string;
   export_number?: string;
   image_url?: string;
+  created_by_id?: string;
+  created_by_name?: string;
+  created_by_username?: string;
   created_at: string;
 }
 

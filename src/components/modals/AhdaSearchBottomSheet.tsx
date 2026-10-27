@@ -187,7 +187,7 @@ export const AhdaSearchBottomSheet: React.FC<AhdaSearchBottomSheetProps> = ({
               البحث في فواتير الوارد
             </Text>
             <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
-              ابحث برقم الوارد، اسم المستلم، أو الفئة
+              ابحث برقم الوارد، البيان، أو الفئة
             </Text>
           </View>
 
@@ -210,7 +210,7 @@ export const AhdaSearchBottomSheet: React.FC<AhdaSearchBottomSheetProps> = ({
             <TextInput
               ref={inputRef}
               style={[styles.textInput, { color: colors.textPrimary }]}
-              placeholder="بحث برقم الوارد (مثال: 1/أ) أو اسم المستلم..."
+              placeholder="بحث برقم الوارد (مثال: 1/أ) أو البيان..."
               placeholderTextColor="#94a3b8"
               value={query}
               onChangeText={setQuery}
@@ -261,7 +261,7 @@ export const AhdaSearchBottomSheet: React.FC<AhdaSearchBottomSheetProps> = ({
                   البحث السريع في الوارد
                 </Text>
                 <Text style={[styles.hintSub, { color: colors.textSecondary }]}>
-                  اكتب رقم الوارد مثل (1/أ أو 2) أو اسم المستلم للعثور على الفاتورة فوراً.
+                  اكتب رقم الوارد مثل (1/أ أو 2) أو البيان للعثور على الفاتورة فوراً.
                 </Text>
               </View>
             ) : searchResults.length === 0 ? (

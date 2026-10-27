@@ -12,7 +12,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { ThemeColors } from '../../types/delegate';
 import { CustodyExpenseItem } from '../../services/custodyService';
 import { formatImageUrl } from '../../services/api';
-import { toArabicDigits, formatArabicNumber } from '../../utils/formatters';
+import { toArabicDigits, formatArabicNumber, getFirstTwoNames } from '../../utils/formatters';
 
 interface ExpenseDetailsModalProps {
   visible: boolean;
@@ -21,6 +21,7 @@ interface ExpenseDetailsModalProps {
   categories: Array<{ key: string; label: string; icon: string; color: string; bg: string }>;
   colors: ThemeColors;
   isDarkMode: boolean;
+  authorName?: string;
   onClose: () => void;
   onPreviewImage: (url: string) => void;
 }
@@ -32,10 +33,15 @@ export const ExpenseDetailsModal: React.FC<ExpenseDetailsModalProps> = ({
   categories,
   colors,
   isDarkMode,
+  authorName,
   onClose,
   onPreviewImage,
 }) => {
   if (!expense || !visible) return null;
+
+  const resolvedAuthor =
+    authorName ||
+    getFirstTwoNames(expense.created_by_name || expense.created_by_username);
 
   const catObj = categories.find((c) => c.key === expense.category) || categories[categories.length - 1];
   const detailsImg = formatImageUrl(expense.image_url);
@@ -110,18 +116,36 @@ export const ExpenseDetailsModal: React.FC<ExpenseDetailsModalProps> = ({
             </View>
           </View>
 
-          {/* Recipient / Description Row */}
+          {/* Statement / Description Row */}
           <View
             style={[
               styles.detailsInfoRow,
               { borderColor: colors.border, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' },
             ]}
           >
-            <Text style={[styles.detailsInfoLabel, { color: colors.textSecondary }]}>المستلم / البيان:</Text>
+            <Text style={[styles.detailsInfoLabel, { color: colors.textSecondary }]}>البيان:</Text>
             <Text style={[styles.detailsInfoValue, { color: colors.textPrimary }]} numberOfLines={3}>
               {expense.recipient_name || '—'}
             </Text>
           </View>
+
+          {/* Author Row if present */}
+          {resolvedAuthor ? (
+            <View
+              style={[
+                styles.detailsInfoRow,
+                { borderColor: colors.border, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', marginTop: 8 },
+              ]}
+            >
+              <Text style={[styles.detailsInfoLabel, { color: colors.textSecondary }]}>الكاتب:</Text>
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="person-outline" size={15} color="#047857" />
+                <Text style={[styles.detailsInfoValue, { color: colors.textPrimary, fontWeight: '700' }]}>
+                  {resolvedAuthor}
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           {/* Incoming Number Row if present */}
           {expense.export_number ? (

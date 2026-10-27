@@ -48,7 +48,7 @@ export const exportCustodyDayToExcel = async (day: CustodyDayData): Promise<void
       { key: 'colB', width: 18 }, // الوقت
       { key: 'colC', width: 24 }, // التصنيف
       { key: 'colD', width: 20 }, // المبلغ
-      { key: 'colE', width: 32 }, // المستلم / البيان
+      { key: 'colE', width: 32 }, // البيان
       { key: 'colF', width: 30 }, // صورة الفاتورة (مضمنة)
     ];
 
@@ -200,7 +200,7 @@ export const exportCustodyDayToExcel = async (day: CustodyDayData): Promise<void
       'وقت السند',
       'القسم / التصنيف',
       'المبلغ المصروف',
-      'المستلم / البيان',
+      'البيان',
       'صورة الفاتورة المعتمدة',
     ]);
     tableCols.height = 26;

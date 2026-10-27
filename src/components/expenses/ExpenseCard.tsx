@@ -5,7 +5,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { ThemeColors } from '../../types/delegate';
 import { CustodyExpenseItem } from '../../services/custodyService';
 import { formatImageUrl } from '../../services/api';
-import { toArabicDigits, formatArabicNumber } from '../../utils/formatters';
+import { toArabicDigits, formatArabicNumber, getFirstTwoNames } from '../../utils/formatters';
 
 export interface ExpenseCardProps {
   item: CustodyExpenseItem;
@@ -15,6 +15,7 @@ export interface ExpenseCardProps {
   fullImg: string | null;
   timeStr: string;
   dateStr: string;
+  authorName?: string;
   isReorderMode: boolean;
   colors: ThemeColors;
   isDarkMode: boolean;
@@ -32,6 +33,7 @@ const ExpenseCardComponent: React.FC<ExpenseCardProps> = ({
   fullImg,
   timeStr,
   dateStr,
+  authorName,
   isReorderMode,
   colors,
   isDarkMode,
@@ -40,6 +42,10 @@ const ExpenseCardComponent: React.FC<ExpenseCardProps> = ({
   onPreviewImage,
   onOpenReorderModal,
 }) => {
+  const resolvedAuthor =
+    authorName ||
+    getFirstTwoNames(item.created_by_name || item.created_by_username);
+
   return (
     <View
       style={[
@@ -131,14 +137,22 @@ const ExpenseCardComponent: React.FC<ExpenseCardProps> = ({
           </View>
         </View>
 
-        {/* Middle: Recipient & Note */}
+        {/* Middle: Statement / Description & Author & Export Number */}
         <View style={styles.invoiceCardMiddle}>
           <View style={styles.invoiceRecipientRow}>
-            <Ionicons name="person-outline" size={13} color="#047857" />
+            <Ionicons name="document-text-outline" size={13} color="#047857" />
             <Text style={[styles.invoiceRecipientText, { color: colors.textPrimary }]} numberOfLines={2}>
-              المستلم / البيان: {item.recipient_name || '—'}
+              البيان: {item.recipient_name || '—'}
             </Text>
           </View>
+          {resolvedAuthor ? (
+            <View style={styles.invoiceAuthorRow}>
+              <Ionicons name="person-outline" size={13} color="#047857" />
+              <Text style={[styles.invoiceAuthorText, { color: colors.textSecondary }]} numberOfLines={1}>
+                الكاتب: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{resolvedAuthor}</Text>
+              </Text>
+            </View>
+          ) : null}
           {item.export_number ? (
             <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 5, marginTop: 4 }}>
               <Ionicons name="barcode-outline" size={13} color="#0284c7" />
@@ -269,6 +283,18 @@ const styles = StyleSheet.create({
   },
   invoiceRecipientText: {
     fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
+  },
+  invoiceAuthorRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+  },
+  invoiceAuthorText: {
+    fontSize: 12,
     fontWeight: '600',
     flex: 1,
     textAlign: 'right',

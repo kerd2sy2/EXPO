@@ -142,9 +142,9 @@ export const AhdaAddExpenseModal: React.FC<AhdaAddExpenseModalProps> = ({
                 </View>
               )}
 
-              {/* Recipient / Details */}
+              {/* Statement / Details */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>المستلم / البيان التفصيلي</Text>
+                <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>البيان التفصيلي</Text>
                 <TextInput
                   style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
                   placeholder="مثال: بنزين دباب #412 أو سلفة فلان"

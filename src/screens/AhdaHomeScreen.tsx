@@ -1327,6 +1327,8 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               colors={colors}
               isDarkMode={isDarkMode}
               categories={CATEGORIES}
+              dayLogs={dayLogs}
+              currentUser={currentUser}
               onBack={handleCloseDayExpenses}
               onOpenAddExpense={() => {
                 if (selectedCategoryFilter) {

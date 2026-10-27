@@ -596,12 +596,12 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                 />
               </View>
 
-              {/* Recipient */}
+              {/* Statement */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>المستلم / البيان التفصيلي</Text>
+                <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>البيان التفصيلي</Text>
                 <TextInput
                   style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
-                  placeholder="اسم المستلم أو البيان"
+                  placeholder="البيان التفصيلي للفاتورة"
                   placeholderTextColor="#94a3b8"
                   value={editRecipient}
                   onChangeText={setEditRecipient}

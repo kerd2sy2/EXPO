@@ -15,8 +15,9 @@ import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeColors } from '../types/delegate';
-import { CustodyDayData, CustodyExpenseItem } from '../services/custodyService';
+import { CustodyDayData, CustodyExpenseItem, CustodyLogItem } from '../services/custodyService';
 import { formatImageUrl } from '../services/api';
+import { getFirstTwoNames } from '../utils/formatters';
 import { AhdaInvoicesSkeleton } from '../components/skeleton/AhdaInvoicesSkeleton';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 import { ExpenseCard } from '../components/expenses/ExpenseCard';
@@ -36,6 +37,8 @@ interface AhdaDayExpensesScreenProps {
   colors: ThemeColors;
   isDarkMode: boolean;
   categories: Array<{ key: string; label: string; icon: string; color: string; bg: string }>;
+  dayLogs?: CustodyLogItem[];
+  currentUser?: any;
   onBack: () => void;
   onOpenAddExpense: () => void;
   onEditExpense: (item: CustodyExpenseItem) => void;
@@ -54,6 +57,8 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
   colors,
   isDarkMode,
   categories,
+  dayLogs = [],
+  currentUser,
   onBack,
   onOpenAddExpense,
   onEditExpense,
@@ -195,6 +200,26 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
     }
   }, [reorderTarget, orderNumberInput, filteredExpenses.length, handleCommitReorder]);
 
+  const detailsAuthorName = useMemo(() => {
+    if (!selectedExpenseForDetails) return '';
+    const item = selectedExpenseForDetails;
+    const rawAuthor =
+      item.created_by_name ||
+      item.created_by_username ||
+      dayLogs?.find(
+        (l) =>
+          l.action_type === 'ADD_EXPENSE' &&
+          ((l.id && item.id && l.id === item.id) ||
+            (Math.abs(l.amount - item.amount) < 0.001 &&
+              (l.recipient_name === item.recipient_name || !item.recipient_name || !l.recipient_name)))
+      )?.admin_name ||
+      currentUser?.name ||
+      currentUser?.full_name ||
+      currentUser?.username ||
+      '';
+    return getFirstTwoNames(rawAuthor);
+  }, [selectedExpenseForDetails, dayLogs, currentUser]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* ── Sub-Page Header Row ── */}
@@ -271,6 +296,23 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                   ? dateObj.toLocaleDateString('ar-SA', { month: 'numeric', day: 'numeric' })
                   : selectedDate;
 
+                const rawAuthor =
+                  item.created_by_name ||
+                  item.created_by_username ||
+                  dayLogs?.find(
+                    (l) =>
+                      l.action_type === 'ADD_EXPENSE' &&
+                      ((l.id && item.id && l.id === item.id) ||
+                        (Math.abs(l.amount - item.amount) < 0.001 &&
+                          (l.recipient_name === item.recipient_name || !item.recipient_name || !l.recipient_name)))
+                  )?.admin_name ||
+                  currentUser?.name ||
+                  currentUser?.full_name ||
+                  currentUser?.username ||
+                  '';
+
+                const authorName = getFirstTwoNames(rawAuthor);
+
                 return (
                   <ExpenseCard
                     key={item.id || idx}
@@ -281,6 +323,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
                     fullImg={fullImg}
                     timeStr={timeStr}
                     dateStr={dateStr}
+                    authorName={authorName}
                     isReorderMode={isReorderMode}
                     colors={colors}
                     isDarkMode={isDarkMode}
@@ -305,6 +348,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
           categories={categories}
           colors={colors}
           isDarkMode={isDarkMode}
+          authorName={detailsAuthorName}
           onClose={() => setSelectedExpenseForDetails(null)}
           onPreviewImage={onPreviewImage}
         />

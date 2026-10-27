@@ -71,3 +71,33 @@ export function formatArabicDateTime(dateStr: string | Date | null | undefined):
 
   return `${datePart} ${timePart}`;
 }
+
+/**
+ * Extracts only the first and second names from a full name,
+ * with intelligent support for compound Arabic names (e.g. عبد الله, أبو بكر).
+ */
+export function getFirstTwoNames(fullName: string | null | undefined): string {
+  if (!fullName) return '';
+  const clean = fullName.trim().replace(/\s+/g, ' ');
+  if (!clean) return '';
+
+  const parts = clean.split(' ').filter(Boolean);
+  if (parts.length <= 2) return clean;
+
+  const prefixes = ['عبد', 'أبو', 'ابو', 'أم', 'ام', 'ابن', 'بن', 'آل'];
+
+  let count = 0;
+  const result: string[] = [];
+
+  for (let i = 0; i < parts.length && count < 2; i++) {
+    result.push(parts[i]);
+    if (prefixes.includes(parts[i]) && i + 1 < parts.length) {
+      i++;
+      result.push(parts[i]);
+    }
+    count++;
+  }
+
+  return result.join(' ');
+}
+
