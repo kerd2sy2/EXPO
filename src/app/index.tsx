@@ -433,7 +433,7 @@ export default function DelegateApp() {
       if (AppState.currentState === 'active' && !isTakingPhotoRef.current && employee?.id) {
         checkSession(true);
       }
-    }, 15000);
+    }, 2500);
 
     return () => {
       sub.remove();

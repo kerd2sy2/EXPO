@@ -114,7 +114,13 @@ export const workApi = {
       if (!token) {
         return null;
       }
-      const meResp = await apiRequest('/me', { timeoutMs: 8000 });
+      const meResp = await apiRequest(`/me?_t=${Date.now()}`, {
+        timeoutMs: 8000,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
+      });
       if (meResp && meResp.id) {
         let fullEmployee: EmployeeProfile;
         try {
