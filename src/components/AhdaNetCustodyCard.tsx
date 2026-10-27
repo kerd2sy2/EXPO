@@ -313,9 +313,9 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
         </View>
       </View>
 
-      {/* Progress bar showing spent vs available */}
+      {/* Progress bar showing spent vs available (from right to left) */}
       <View style={styles.targetProgressContainer}>
-        <View style={[styles.progressBarTrack, { backgroundColor: isDarkMode ? '#1f2433' : '#f1f5f9' }]}>
+        <View style={[styles.progressBarTrack, { backgroundColor: isDarkMode ? '#1f2433' : '#f1f5f9', flexDirection: 'row-reverse' }]}>
           <View
             style={[
               styles.progressBarFill,
@@ -464,6 +464,7 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: 4,
     overflow: 'hidden',
+    flexDirection: 'row-reverse',
   },
   progressBarFill: {
     height: '100%',
