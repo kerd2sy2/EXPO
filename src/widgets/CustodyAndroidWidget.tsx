@@ -286,7 +286,7 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
         </FlexWidget>
       </FlexWidget>
 
-      {/* 3. FOOTER: آخر تحديث في الشمال + شريط النسبة ونسبة الصرف في اليمين */}
+      {/* 3. FOOTER: آخر تحديث في الشمال + شريط النسبة الممتد في الوسط + نسبة الصرف في اليمين */}
       <FlexWidget
         style={{
           width: 'match_parent',
@@ -306,50 +306,43 @@ export function CustodyAndroidWidget(props: CustodyWidgetProps = DEFAULT_CUSTODY
           }}
         />
 
-        {/* نسبة الصرف مع شريط النسبة ناحية اليمين */}
+        {/* شريط النسبة الممتد حتى قبل آخر تحديث */}
         <FlexWidget
           style={{
+            flex: 1,
+            height: 6,
+            backgroundColor: '#e2e8f0',
+            borderRadius: 3,
             flexDirection: 'row',
-            alignItems: 'center',
+            overflow: 'hidden',
+            marginHorizontal: 8,
           }}
         >
-          {/* شريط نسبة الصرف الملون */}
           <FlexWidget
             style={{
-              width: 50,
-              height: 5,
+              flex: flexRemaining,
+              height: 6,
               backgroundColor: '#e2e8f0',
-              borderRadius: 3,
-              flexDirection: 'row',
-              overflow: 'hidden',
-              marginRight: 6,
             }}
-          >
-            <FlexWidget
-              style={{
-                flex: flexSpent,
-                height: 5,
-                backgroundColor: percent > 90 ? '#ef4444' : percent > 70 ? '#f59e0b' : '#10b981',
-              }}
-            />
-            <FlexWidget
-              style={{
-                flex: flexRemaining,
-                height: 5,
-                backgroundColor: '#e2e8f0',
-              }}
-            />
-          </FlexWidget>
-
-          <TextWidget
-            text={`نسبة الصرف: ${percent}%`}
+          />
+          <FlexWidget
             style={{
-              color: '#64748b',
-              fontSize: 10,
-              fontWeight: 'bold',
+              flex: flexSpent,
+              height: 6,
+              backgroundColor: percent > 90 ? '#ef4444' : percent > 70 ? '#f59e0b' : '#10b981',
             }}
           />
         </FlexWidget>
+
+        {/* نسبة الصرف ناحية اليمين */}
+        <TextWidget
+          text={`نسبة الصرف: ${percent}%`}
+          style={{
+            color: '#64748b',
+            fontSize: 10,
+            fontWeight: 'bold',
+          }}
+        />
       </FlexWidget>
     </FlexWidget>
   );
