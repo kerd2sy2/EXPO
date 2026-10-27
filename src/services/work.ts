@@ -282,7 +282,8 @@ export const workApi = {
       if (Array.isArray(data)) return data;
       if (Array.isArray(data?.data)) return data.data;
       return [];
-    } catch {
+    } catch (err) {
+      console.log('Error fetching shift history (getMySessions):', err);
       return [];
     }
   },
