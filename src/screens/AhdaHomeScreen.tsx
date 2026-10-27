@@ -839,11 +839,29 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         message: `تمت إضافة مبلغ ${formatArabicNumber(val, 2)} ريال إلى عهدة يوم ${toArabicDigits(selectedDate)} بنجاح.`,
       });
     } catch (err: any) {
+      setShowAddCustodyModal(false);
+      const isPermissionErr =
+        err?.message?.includes('صلاحية') ||
+        err?.message?.includes('غير مصرح') ||
+        err?.message?.includes('403');
+
       setAlertConfig({
-        type: 'error',
-        title: 'فشل التحديث',
-        message: err?.message || 'حدث خطأ أثناء إضافة مبلغ العهدة.',
+        type: isPermissionErr ? 'warning' : 'error',
+        title: isPermissionErr ? 'غير مصرح' : 'فشل التحديث',
+        message: isPermissionErr
+          ? 'ليس لديك صلاحية لإضافة أو تعديل مبلغ العهدة.'
+          : (err?.message || 'حدث خطأ أثناء إضافة مبلغ العهدة.'),
       });
+
+      if (isPermissionErr) {
+        fetchCurrentUserProfile()
+          .then((fresh) => {
+            if (fresh && onUpdateUser) {
+              onUpdateUser(fresh);
+            }
+          })
+          .catch(() => {});
+      }
     } finally {
       setAddCustodyLoading(false);
     }
@@ -876,11 +894,26 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             message: 'تم حذف مبلغ العهدة وإعادة احتساب الرصيد بنجاح.',
           });
         } catch (err: any) {
+          const isPermissionErr =
+            err?.message?.includes('صلاحية') ||
+            err?.message?.includes('غير مصرح') ||
+            err?.message?.includes('403');
           setAlertConfig({
-            type: 'error',
-            title: 'فشل الحذف',
-            message: err?.message || 'تعذر حذف مبلغ العهدة من السيرفر.',
+            type: isPermissionErr ? 'warning' : 'error',
+            title: isPermissionErr ? 'غير مصرح' : 'فشل الحذف',
+            message: isPermissionErr
+              ? 'ليس لديك صلاحية لحذف مبالغ العهدة.'
+              : (err?.message || 'تعذر حذف مبلغ العهدة من السيرفر.'),
           });
+          if (isPermissionErr) {
+            fetchCurrentUserProfile()
+              .then((fresh) => {
+                if (fresh && onUpdateUser) {
+                  onUpdateUser(fresh);
+                }
+              })
+              .catch(() => {});
+          }
         }
       },
     });
@@ -987,11 +1020,27 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         message: 'تم إدراج الفاتورة في جدول العهدة وخصمها من الرصيد المتاح بنجاح.',
       });
     } catch (err: any) {
+      setShowAddExpenseModal(false);
+      const isPermissionErr =
+        err?.message?.includes('صلاحية') ||
+        err?.message?.includes('غير مصرح') ||
+        err?.message?.includes('403');
       setAlertConfig({
-        type: 'error',
-        title: 'فشل حفظ الفاتورة',
-        message: err?.message || 'حدث خطأ أثناء الاتصال بالسيرفر لحفظ الفاتورة.',
+        type: isPermissionErr ? 'warning' : 'error',
+        title: isPermissionErr ? 'غير مصرح' : 'فشل حفظ الفاتورة',
+        message: isPermissionErr
+          ? 'ليس لديك صلاحية لإضافة الفواتير والمصاريف.'
+          : (err?.message || 'حدث خطأ أثناء الاتصال بالسيرفر لحفظ الفاتورة.'),
       });
+      if (isPermissionErr) {
+        fetchCurrentUserProfile()
+          .then((fresh) => {
+            if (fresh && onUpdateUser) {
+              onUpdateUser(fresh);
+            }
+          })
+          .catch(() => {});
+      }
     } finally {
       setAddExpenseLoading(false);
     }
@@ -1122,11 +1171,27 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         message: 'تم تحديث بيانات وتاريخ الفاتورة وإعادة احتساب الرصيد بنجاح.',
       });
     } catch (err: any) {
+      setEditingExpense(null);
+      const isPermissionErr =
+        err?.message?.includes('صلاحية') ||
+        err?.message?.includes('غير مصرح') ||
+        err?.message?.includes('403');
       setAlertConfig({
-        type: 'error',
-        title: 'فشل التعديل',
-        message: err?.message || 'حدث خطأ أثناء تعديل بيانات الفاتورة.',
+        type: isPermissionErr ? 'warning' : 'error',
+        title: isPermissionErr ? 'غير مصرح' : 'فشل التعديل',
+        message: isPermissionErr
+          ? 'ليس لديك صلاحية لتعديل الفواتير والمصاريف.'
+          : (err?.message || 'حدث خطأ أثناء تعديل بيانات الفاتورة.'),
       });
+      if (isPermissionErr) {
+        fetchCurrentUserProfile()
+          .then((fresh) => {
+            if (fresh && onUpdateUser) {
+              onUpdateUser(fresh);
+            }
+          })
+          .catch(() => {});
+      }
     } finally {
       setEditLoading(false);
     }
@@ -1159,11 +1224,26 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
             message: 'تم حذف الفاتورة واستعادة المبلغ إلى رصيد العهدة.',
           });
         } catch (err: any) {
+          const isPermissionErr =
+            err?.message?.includes('صلاحية') ||
+            err?.message?.includes('غير مصرح') ||
+            err?.message?.includes('403');
           setAlertConfig({
-            type: 'error',
-            title: 'فشل الحذف',
-            message: err?.message || 'تعذر حذف الفاتورة من السيرفر.',
+            type: isPermissionErr ? 'warning' : 'error',
+            title: isPermissionErr ? 'غير مصرح' : 'فشل الحذف',
+            message: isPermissionErr
+              ? 'ليس لديك صلاحية لحذف الفواتير.'
+              : (err?.message || 'تعذر حذف الفاتورة من السيرفر.'),
           });
+          if (isPermissionErr) {
+            fetchCurrentUserProfile()
+              .then((fresh) => {
+                if (fresh && onUpdateUser) {
+                  onUpdateUser(fresh);
+                }
+              })
+              .catch(() => {});
+          }
         }
       },
     });

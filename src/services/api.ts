@@ -229,6 +229,30 @@ export const triggerPermissionDenied = (message?: string) => {
   });
 };
 
+type ProfileRefreshListener = () => void;
+const profileRefreshListeners = new Set<ProfileRefreshListener>();
+
+export const onProfileRefreshNeeded = (listener: ProfileRefreshListener) => {
+  profileRefreshListeners.add(listener);
+  return () => {
+    profileRefreshListeners.delete(listener);
+  };
+};
+
+let lastProfileRefreshTrigger = 0;
+export const triggerProfileRefresh = () => {
+  const now = Date.now();
+  if (now - lastProfileRefreshTrigger < 1500) return; // debounce 1.5s
+  lastProfileRefreshTrigger = now;
+  profileRefreshListeners.forEach((cb) => {
+    try {
+      cb();
+    } catch (e) {
+      console.error('Error in profileRefresh listener:', e);
+    }
+  });
+};
+
 /**
  * Centrally refresh the auth token using the stored refresh_token.
  * Uses a promise lock to ensure concurrent requests share the same refresh call.
@@ -394,6 +418,11 @@ export const fetchCurrentUserProfile = async (): Promise<any | null> => {
         role: effectiveRole,
         job_role: effectiveRole,
         permissions: parsedPerms,
+        app_permissions: res.app_permissions || user.app_permissions || null,
+        permissions_configured:
+          res.permissions_configured !== undefined
+            ? res.permissions_configured
+            : user.permissions_configured,
         branch_id: res.branch_id !== undefined ? res.branch_id : user.branch_id,
         branch_name: res.branch_name !== undefined ? res.branch_name : user.branch_name,
         personal_image: avatarVal,
@@ -401,7 +430,16 @@ export const fetchCurrentUserProfile = async (): Promise<any | null> => {
       };
 
       const existing = await getCachedUser();
-      const mergedUser = { ...(existing || {}), ...targetUser };
+      const mergedUser = {
+        ...(existing || {}),
+        ...targetUser,
+        permissions: parsedPerms,
+        app_permissions: res.app_permissions || user.app_permissions || null,
+        permissions_configured:
+          res.permissions_configured !== undefined
+            ? res.permissions_configured
+            : user.permissions_configured,
+      };
       await saveCachedUser(mergedUser);
       return mergedUser;
     }
@@ -704,7 +742,8 @@ export async function apiRequest<T = any>(
       if (!response.ok) {
         const errorMsg = data?.error || data?.message || `خطأ في الخادم (${response.status})`;
         if (response.status === 403) {
-          triggerPermissionDenied(errorMsg);
+          // Do NOT log out user! Silently trigger profile refresh so state reflects server permissions immediately
+          triggerProfileRefresh();
         }
         // Log to diagnostics if severe
         if (response.status >= 500 || response.status === 401) {

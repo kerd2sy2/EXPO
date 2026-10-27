@@ -29,6 +29,7 @@ import {
   fetchCurrentUserProfile,
   onSessionExpired,
   onPermissionDenied,
+  onProfileRefreshNeeded,
   loadActiveBranch,
   setActiveBranch,
 } from '../services/api';
@@ -199,7 +200,7 @@ export default function AhdaApp() {
   }, []);
 
   // Real-time permission sync without logout:
-  // Automatically re-syncs profile when app becomes active (foreground) or every 15s
+  // Automatically re-syncs profile every 4s while app is active or immediately when triggered by actions
   useEffect(() => {
     if (!token) return;
 
@@ -215,12 +216,13 @@ export default function AhdaApp() {
           setCurrentUser(fresh);
         }
       } catch (err: any) {
-        if (err?.message?.includes('403') || err?.message?.includes('غير مصرح')) {
-          await handleLogout();
-          Alert.alert('تنبيه الصلاحيات', 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.');
-        }
+        // Silently ignore temporary fetch issues - do NOT force logout
       }
     };
+
+    const unsubRefresh = onProfileRefreshNeeded(() => {
+      syncProfile();
+    });
 
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
@@ -232,9 +234,10 @@ export default function AhdaApp() {
       if (AppState.currentState === 'active') {
         syncProfile();
       }
-    }, 15000);
+    }, 4000);
 
     return () => {
+      unsubRefresh();
       sub.remove();
       clearInterval(timer);
     };
