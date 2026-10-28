@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
@@ -41,22 +40,12 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
   const titleText =
     t?.oilChangeAlertTitle ||
     (lang === 'ar'
-      ? 'حافظ على الدباب وغيّر الزيت'
+      ? 'حافظ على الدباب وغير الزيت'
       : lang === 'ur'
-      ? 'موٹر سائیکل کی حفاظت اور آئل تبدیلی'
+      ? 'موٹر سائیکل کی حفاظت کریں اور تیل تبدیل کریں'
       : lang === 'bn'
-      ? 'বাইকের যত্ন ও ইঞ্জিন অয়েল পরিবর্তন'
-      : 'Protect your bike and change the oil');
-
-  const subtitleText =
-    t?.oilChangeAlertMessage ||
-    (lang === 'ar'
-      ? 'راجع المشرف لتغيير الزيت'
-      : lang === 'ur'
-      ? 'تیل تبدیل کروانے کے لیے سپروائزر سے ملیں'
-      : lang === 'bn'
-      ? 'তেল পরিবর্তনের জন্য সুপারভাইজারের কাছে যান'
-      : 'Return to supervisor to change oil');
+      ? 'বাইকের যত্ন নিন এবং তেল পরিবর্তন করুন'
+      : 'Protect your motorcycle and change the oil');
 
   const buttonText =
     t?.oilChangeAlertBtn ||
@@ -70,8 +59,18 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Lottie Animation directly in the page without card */}
+      {/* Prominent Lottie Animation with subtle ambient glow */}
       <View style={styles.animationWrapper}>
+        <View
+          style={[
+            styles.glowBackdrop,
+            {
+              backgroundColor: isDarkMode
+                ? 'rgba(249, 115, 22, 0.12)'
+                : 'rgba(249, 115, 22, 0.08)',
+            },
+          ]}
+        />
         <LottieView
           source={require('../../assets/Lottie/LCKboLMu6C.lottie')}
           autoPlay
@@ -81,7 +80,7 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
         />
       </View>
 
-      {/* Title: strictly on one line */}
+      {/* Main Single Title */}
       <Text
         numberOfLines={1}
         adjustsFontSizeToFit
@@ -93,20 +92,6 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
         ]}
       >
         {titleText}
-      </Text>
-
-      {/* Paragraph: strictly on one line */}
-      <Text
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        style={[
-          styles.subtitle,
-          {
-            color: isDarkMode ? '#94a3b8' : '#64748b',
-          },
-        ]}
-      >
-        {subtitleText}
       </Text>
 
       {/* Action Button: "تم" */}
@@ -138,35 +123,34 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   animationWrapper: {
-    width: 230,
-    height: 230,
+    width: 280,
+    height: 280,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
   },
+  glowBackdrop: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+  },
   lottieAnim: {
-    width: 220,
-    height: 220,
+    width: 260,
+    height: 260,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '900',
     textAlign: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    letterSpacing: -0.3,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 36,
+    marginBottom: 32,
     paddingHorizontal: 16,
+    letterSpacing: -0.3,
   },
   doneButton: {
     width: '100%',
     maxWidth: 320,
-    height: 52,
+    height: 54,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',

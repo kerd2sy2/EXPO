@@ -95,10 +95,9 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
     });
   };
 
-  const displayTitle = title || (isRTL ? 'تغيير زيت الدباب مطلوب' : 'Oil Change Required');
-  const displayMessage =
-    message || (isRTL ? 'الدباب يحتاج الى تغير زيت ارجع لى المشرف لصرف زيت للدباب' : 'Motorcycle requires an oil change. Please return to supervisor to dispense oil.');
-  const displayBtnText = buttonText || (isRTL ? 'فهمت، سأراجع المشرف' : 'Understood, will contact supervisor');
+  const displayTitle = title || (isRTL ? 'حافظ على الدباب وغير الزيت' : 'Protect your motorcycle and change the oil');
+  const displayMessage = message || '';
+  const displayBtnText = buttonText || (isRTL ? 'تم' : 'Done');
 
   return (
     <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>
@@ -158,10 +157,12 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
           {displayTitle}
         </Text>
 
-        {/* Subtitle */}
-        <Text style={[styles.subtitle, { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: 'center' }]}>
-          {displayMessage}
-        </Text>
+        {/* Subtitle (only if provided) */}
+        {Boolean(displayMessage) && (
+          <Text style={[styles.subtitle, { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: 'center' }]}>
+            {displayMessage}
+          </Text>
+        )}
 
         {/* Primary Action Button: "تم" */}
         <TouchableOpacity
