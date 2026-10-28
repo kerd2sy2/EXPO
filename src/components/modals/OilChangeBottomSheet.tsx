@@ -95,9 +95,9 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
     });
   };
 
-  const displayTitle = title || (isRTL ? 'حافظ على الدباب وغير الزيت' : 'Protect your motorcycle and change the oil');
+  const displayTitle = title || '';
   const displayMessage = message || '';
-  const displayBtnText = buttonText || (isRTL ? 'تم' : 'Done');
+  const displayBtnText = buttonText || (isRTL ? 'الرجوع إلى الرئيسية' : 'Return to Home');
 
   return (
     <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>
@@ -133,29 +133,24 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
           <Ionicons name="close" size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
         </TouchableOpacity>
 
-        {/* Lottie Animation */}
+        {/* Lottie Animation (no background) */}
         <View style={styles.lottieContainer}>
-          <View
-            style={[
-              styles.lottieGlowCircle,
-              { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.15)' : 'rgba(249, 115, 22, 0.08)' },
-            ]}
-          >
-            <LottieView
-              ref={lottieRef}
-              source={require('../../../assets/Lottie/LCKboLMu6C.lottie')}
-              autoPlay
-              loop
-              style={styles.lottieAnim}
-              resizeMode="contain"
-            />
-          </View>
+          <LottieView
+            ref={lottieRef}
+            source={require('../../../assets/Lottie/LCKboLMu6C.lottie')}
+            autoPlay
+            loop
+            style={styles.lottieAnim}
+            resizeMode="contain"
+          />
         </View>
 
-        {/* Title */}
-        <Text style={[styles.title, { color: isDarkMode ? '#f8fafc' : '#0f172a', textAlign: 'center' }]}>
-          {displayTitle}
-        </Text>
+        {/* Title (only if provided) */}
+        {Boolean(displayTitle) && (
+          <Text style={[styles.title, { color: isDarkMode ? '#f8fafc' : '#0f172a', textAlign: 'center' }]}>
+            {displayTitle}
+          </Text>
+        )}
 
         {/* Subtitle (only if provided) */}
         {Boolean(displayMessage) && (
@@ -164,13 +159,13 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
           </Text>
         )}
 
-        {/* Primary Action Button: "تم" */}
+        {/* Primary Action Button: "الرجوع إلى الرئيسية" */}
         <TouchableOpacity
           style={[styles.primaryBtn, { backgroundColor: colors?.primary || '#f97316' }]}
           onPress={handleDismiss}
           activeOpacity={0.85}
         >
-          <Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" style={{ marginHorizontal: 6 }} />
+          <Ionicons name="home-outline" size={20} color="#ffffff" style={{ marginHorizontal: 8 }} />
           <Text style={styles.primaryBtnText}>{displayBtnText}</Text>
         </TouchableOpacity>
       </Animated.View>

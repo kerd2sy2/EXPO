@@ -26,51 +26,29 @@ export interface OilChangeScreenProps {
 
 export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
   colors,
-  isDarkMode = false,
-  isRTL = true,
   lang = 'ar',
   t,
   onBackToHome,
 }) => {
-  const handleDonePress = () => {
+  const handleBackToHomePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     onBackToHome();
   };
 
-  const titleText =
-    t?.oilChangeAlertTitle ||
-    (lang === 'ar'
-      ? 'حافظ على الدباب وغير الزيت'
-      : lang === 'ur'
-      ? 'موٹر سائیکل کی حفاظت کریں اور تیل تبدیل کریں'
-      : lang === 'bn'
-      ? 'বাইকের যত্ন নিন এবং তেল পরিবর্তন করুন'
-      : 'Protect your motorcycle and change the oil');
-
   const buttonText =
     t?.oilChangeAlertBtn ||
     (lang === 'ar'
-      ? 'تم'
+      ? 'الرجوع إلى الرئيسية'
       : lang === 'ur'
-      ? 'مکمل'
+      ? 'مین اسکرین پر واپس جائیں'
       : lang === 'bn'
-      ? 'সম্পন্ন'
-      : 'Done');
+      ? 'হোমে ফিরে যান'
+      : 'Return to Home');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Prominent Lottie Animation with subtle ambient glow */}
+      {/* Pure Lottie Animation directly on page background (no backdrop) */}
       <View style={styles.animationWrapper}>
-        <View
-          style={[
-            styles.glowBackdrop,
-            {
-              backgroundColor: isDarkMode
-                ? 'rgba(249, 115, 22, 0.12)'
-                : 'rgba(249, 115, 22, 0.08)',
-            },
-          ]}
-        />
         <LottieView
           source={require('../../assets/Lottie/LCKboLMu6C.lottie')}
           autoPlay
@@ -80,33 +58,19 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
         />
       </View>
 
-      {/* Main Single Title */}
-      <Text
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        style={[
-          styles.title,
-          {
-            color: isDarkMode ? '#f8fafc' : '#0f172a',
-          },
-        ]}
-      >
-        {titleText}
-      </Text>
-
-      {/* Action Button: "تم" */}
+      {/* Action Button: "الرجوع إلى الرئيسية" */}
       <TouchableOpacity
-        style={[styles.doneButton, { backgroundColor: colors.primary || '#f97316' }]}
-        onPress={handleDonePress}
+        style={[styles.homeButton, { backgroundColor: colors.primary || '#f97316' }]}
+        onPress={handleBackToHomePress}
         activeOpacity={0.85}
       >
         <Ionicons
-          name="checkmark-circle-outline"
-          size={22}
+          name="home-outline"
+          size={20}
           color="#ffffff"
-          style={{ marginHorizontal: 6 }}
+          style={{ marginHorizontal: 8 }}
         />
-        <Text style={styles.doneButtonText}>{buttonText}</Text>
+        <Text style={styles.homeButtonText}>{buttonText}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -123,34 +87,20 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   animationWrapper: {
-    width: 280,
-    height: 280,
+    width: 270,
+    height: 270,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
-  },
-  glowBackdrop: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+    marginBottom: 36,
   },
   lottieAnim: {
-    width: 260,
-    height: 260,
+    width: 270,
+    height: 270,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: 32,
-    paddingHorizontal: 16,
-    letterSpacing: -0.3,
-  },
-  doneButton: {
+  homeButton: {
     width: '100%',
     maxWidth: 320,
-    height: 54,
+    height: 52,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -161,10 +111,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-  doneButtonText: {
+  homeButtonText: {
     color: '#ffffff',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
 });

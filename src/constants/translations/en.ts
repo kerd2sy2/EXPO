@@ -259,8 +259,8 @@ export const en: Record<TranslationKeys, string> = {
   retryNowBtn: 'Try Again Now',
 
   // Oil Change Alert
-  oilChangeAlertTitle: 'Protect your motorcycle',
+  oilChangeAlertTitle: '',
   oilChangeAlertMessage: '',
-  oilChangeAlertBtn: 'Done',
+  oilChangeAlertBtn: 'Return to Home',
   oilChangeScreenTitle: 'Oil Change',
 };
