@@ -43,6 +43,7 @@ import { translations } from '../constants/translations';
 import { workApi } from '../services/work';
 import {
   API_BASE_URL,
+  apiRequest,
   setAuthToken,
   getStoredToken,
   loadStoredToken,
@@ -166,6 +167,7 @@ export default function DelegateApp() {
     activeBikeRegistrationImage,
     setActiveBikeRegistrationImage,
     needsOilChange,
+    setNeedsOilChange,
     isTakingPhotoRef,
     resetStartInputs,
     endKm,
@@ -1026,6 +1028,13 @@ export default function DelegateApp() {
       secondaryButtonText: isRTL ? 'إلغاء' : 'Cancel',
       onPrimaryPress: async () => {
         try {
+          if (employee?.id) {
+            await apiRequest(`/employees/me/push-token?employee_id=${employee.id}`, {
+              method: 'POST',
+              body: JSON.stringify({ push_token: '' }),
+              timeoutMs: 3000,
+            }).catch(() => {});
+          }
           await setAuthToken(null);
           await saveCachedUser(null);
         } catch (e) {
@@ -1142,6 +1151,7 @@ export default function DelegateApp() {
 
     try {
       const res = await workApi.getLastKM(employee.id, bikeToCheck);
+      setNeedsOilChange(Boolean(res?.needs_oil_change));
       if (res?.needs_oil_change) {
         setAlertConfig({
           type: 'warning',
@@ -1212,6 +1222,9 @@ export default function DelegateApp() {
           setStartKm(String(res.last_end_km));
           setAutoKmFetched(true);
         }
+
+        // Always update needsOilChange state so warning badge disappears if oil was changed
+        setNeedsOilChange(Boolean(res?.needs_oil_change));
 
         if (res?.needs_oil_change) {
           // Bike needs oil change: navigate to dedicated oil change page
