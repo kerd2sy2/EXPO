@@ -4,8 +4,8 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
 import { ThemeColors, Language } from '../types/delegate';
@@ -47,8 +47,8 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Pure Lottie Animation directly on page background (no backdrop) */}
-      <View style={styles.animationWrapper}>
+      {/* Centered Lottie Animation with no background */}
+      <View style={styles.centerSection}>
         <LottieView
           source={require('../../assets/Lottie/LCKboLMu6C.lottie')}
           autoPlay
@@ -58,20 +58,16 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
         />
       </View>
 
-      {/* Action Button: "الرجوع إلى الرئيسية" */}
-      <TouchableOpacity
-        style={[styles.homeButton, { backgroundColor: colors.primary || '#f97316' }]}
-        onPress={handleBackToHomePress}
-        activeOpacity={0.85}
-      >
-        <Ionicons
-          name="home-outline"
-          size={20}
-          color="#ffffff"
-          style={{ marginHorizontal: 8 }}
-        />
-        <Text style={styles.homeButtonText}>{buttonText}</Text>
-      </TouchableOpacity>
+      {/* Button at the very bottom, without home icon */}
+      <View style={styles.bottomSection}>
+        <TouchableOpacity
+          style={[styles.homeButton, { backgroundColor: colors.primary || '#f97316' }]}
+          onPress={handleBackToHomePress}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.homeButtonText}>{buttonText}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -79,30 +75,35 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    minHeight: 520,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
     width: '100%',
+    minHeight: 560,
   },
-  animationWrapper: {
-    width: 270,
-    height: 270,
+  centerSection: {
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 36,
+    paddingVertical: 20,
   },
   lottieAnim: {
     width: 270,
     height: 270,
   },
+  bottomSection: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 16,
+  },
   homeButton: {
     width: '100%',
-    maxWidth: 320,
-    height: 52,
+    maxWidth: 340,
+    height: 54,
     borderRadius: 16,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#f97316',
@@ -113,8 +114,9 @@ const styles = StyleSheet.create({
   },
   homeButtonText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     letterSpacing: 0.2,
+    textAlign: 'center',
   },
 });

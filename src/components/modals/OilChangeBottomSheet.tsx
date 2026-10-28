@@ -165,7 +165,6 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
           onPress={handleDismiss}
           activeOpacity={0.85}
         >
-          <Ionicons name="home-outline" size={20} color="#ffffff" style={{ marginHorizontal: 8 }} />
           <Text style={styles.primaryBtnText}>{displayBtnText}</Text>
         </TouchableOpacity>
       </Animated.View>
