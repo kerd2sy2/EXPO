@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  Dimensions,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
@@ -25,6 +26,8 @@ export interface OilChangeScreenProps {
   onBackToHome: () => void;
 }
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
   colors,
   isDarkMode = false,
@@ -35,7 +38,7 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
 }) => {
   // Smooth entrance transition
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateYAnim = useRef(new Animated.Value(16)).current;
+  const translateYAnim = useRef(new Animated.Value(14)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -61,14 +64,13 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
 
   const titleText =
     t?.oilChangeAlertTitle ||
-    t?.oilChangeAlertBtn ||
     (lang === 'ar'
-      ? 'غير زيت الان'
+      ? 'حافظ على الدباب وغير زيت'
       : lang === 'ur'
-      ? 'ابھی تیل تبدیل کریں'
+      ? 'موٹر سائیکل کی حفاظت کریں اور تیل تبدیل کریں'
       : lang === 'bn'
-      ? 'এখনই তেল পরিবর্তন করুন'
-      : 'Change oil now');
+      ? 'বাইকের যত্ন নিন এবং তেল পরিবর্তন করুন'
+      : 'Protect your motorcycle and change the oil');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -81,24 +83,8 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
           },
         ]}
       >
-        {/* Animation Container: Lottie is visibly BIGGER than the circular background */}
-        <View style={styles.badgeWrapper}>
-          {/* Circular Background (smaller than the animation) */}
-          <View
-            style={[
-              styles.circleBackground,
-              {
-                backgroundColor: isDarkMode
-                  ? 'rgba(249, 115, 22, 0.12)'
-                  : '#fff7ed',
-                borderColor: isDarkMode
-                  ? 'rgba(249, 115, 22, 0.25)'
-                  : 'rgba(249, 115, 22, 0.18)',
-              },
-            ]}
-          />
-
-          {/* Lottie Animation: Oversized relative to circle */}
+        {/* Full-width Lottie Animation: oil flows in from the very start of the screen without any background */}
+        <View style={styles.animationWrapper}>
           <LottieView
             source={require('../../assets/Lottie/LCKboLMu6C.lottie')}
             autoPlay
@@ -108,7 +94,7 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
           />
         </View>
 
-        {/* Title Text: Non-bold, without box, muted/faded color */}
+        {/* Title Text: 'حافظ على الدباب وغير زيت' - Non-bold, without box, muted/faded */}
         <TouchableOpacity
           onPress={handleActionPress}
           activeOpacity={0.7}
@@ -135,8 +121,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingVertical: 24,
     minHeight: 520,
     width: '100%',
   },
@@ -145,29 +130,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeWrapper: {
-    width: 270,
-    height: 270,
+  animationWrapper: {
+    width: SCREEN_WIDTH,
+    height: Math.min(SCREEN_WIDTH * 0.95, 380),
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
   },
-  circleBackground: {
-    position: 'absolute',
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    borderWidth: 1.5,
-  },
   lottieAnim: {
-    width: 260,
-    height: 260,
+    width: SCREEN_WIDTH,
+    height: Math.min(SCREEN_WIDTH * 0.95, 380),
   },
   textContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   mutedTitle: {
     fontSize: 18,

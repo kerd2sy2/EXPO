@@ -95,9 +95,9 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
     });
   };
 
-  const displayTitle = title || (isRTL ? 'غير زيت الان' : 'Change oil now');
+  const displayTitle = title || (isRTL ? 'حافظ على الدباب وغير زيت' : 'Protect your motorcycle and change the oil');
   const displayMessage = message || '';
-  const displayBtnText = buttonText || (isRTL ? 'غير زيت الان' : 'Change oil now');
+  const displayBtnText = buttonText || (isRTL ? 'حافظ على الدباب وغير زيت' : 'Protect your motorcycle and change the oil');
 
   return (
     <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>
