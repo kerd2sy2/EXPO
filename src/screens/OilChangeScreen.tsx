@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Animated,
   Easing,
-  Platform,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
@@ -34,27 +33,20 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
   t,
   onBackToHome,
 }) => {
-  // Smooth entrance transition animation
+  // Smooth entrance transition
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateYAnim = useRef(new Animated.Value(20)).current;
-  const scaleAnim = useRef(new Animated.Value(0.94)).current;
+  const translateYAnim = useRef(new Animated.Value(16)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 400,
+        duration: 350,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.spring(translateYAnim, {
         toValue: 0,
-        bounciness: 5,
-        speed: 12,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
         bounciness: 4,
         speed: 12,
         useNativeDriver: true,
@@ -63,13 +55,13 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
   }, []);
 
   const handleActionPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onBackToHome();
   };
 
-  const buttonText =
-    t?.oilChangeAlertBtn ||
+  const titleText =
     t?.oilChangeAlertTitle ||
+    t?.oilChangeAlertBtn ||
     (lang === 'ar'
       ? 'غير زيت الان'
       : lang === 'ur'
@@ -85,24 +77,28 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
           styles.contentWrap,
           {
             opacity: fadeAnim,
-            transform: [{ translateY: translateYAnim }, { scale: scaleAnim }],
+            transform: [{ translateY: translateYAnim }],
           },
         ]}
       >
-        {/* Circular Background for Animation */}
-        <View
-          style={[
-            styles.circleContainer,
-            {
-              backgroundColor: isDarkMode
-                ? 'rgba(249, 115, 22, 0.12)'
-                : '#fff7ed',
-              borderColor: isDarkMode
-                ? 'rgba(249, 115, 22, 0.3)'
-                : 'rgba(249, 115, 22, 0.25)',
-            },
-          ]}
-        >
+        {/* Animation Container: Lottie is visibly BIGGER than the circular background */}
+        <View style={styles.badgeWrapper}>
+          {/* Circular Background (smaller than the animation) */}
+          <View
+            style={[
+              styles.circleBackground,
+              {
+                backgroundColor: isDarkMode
+                  ? 'rgba(249, 115, 22, 0.12)'
+                  : '#fff7ed',
+                borderColor: isDarkMode
+                  ? 'rgba(249, 115, 22, 0.25)'
+                  : 'rgba(249, 115, 22, 0.18)',
+              },
+            ]}
+          />
+
+          {/* Lottie Animation: Oversized relative to circle */}
           <LottieView
             source={require('../../assets/Lottie/LCKboLMu6C.lottie')}
             autoPlay
@@ -112,13 +108,22 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
           />
         </View>
 
-        {/* Action Button directly under the animation: "غير زيت الان" */}
+        {/* Title Text: Non-bold, without box, muted/faded color */}
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: colors.primary || '#f97316' }]}
           onPress={handleActionPress}
-          activeOpacity={0.85}
+          activeOpacity={0.7}
+          style={styles.textContainer}
         >
-          <Text style={styles.actionButtonText}>{buttonText}</Text>
+          <Text
+            style={[
+              styles.mutedTitle,
+              {
+                color: isDarkMode ? '#94a3b8' : '#64748b',
+              },
+            ]}
+          >
+            {titleText}
+          </Text>
         </TouchableOpacity>
       </Animated.View>
     </View>
@@ -140,42 +145,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circleContainer: {
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    borderWidth: 1.5,
+  badgeWrapper: {
+    width: 270,
+    height: 270,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
-    shadowColor: '#f97316',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: Platform.OS === 'ios' ? 0.16 : 0.25,
-    shadowRadius: 18,
-    elevation: 8,
+    marginBottom: 20,
+  },
+  circleBackground: {
+    position: 'absolute',
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    borderWidth: 1.5,
   },
   lottieAnim: {
-    width: 200,
-    height: 200,
+    width: 260,
+    height: 260,
   },
-  actionButton: {
-    width: '100%',
-    maxWidth: 280,
-    height: 52,
-    borderRadius: 16,
+  textContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#f97316',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
   },
-  actionButtonText: {
-    color: '#ffffff',
+  mutedTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0.3,
+    fontWeight: '500',
+    letterSpacing: 0.2,
     textAlign: 'center',
+    opacity: 0.9,
   },
 });
