@@ -259,8 +259,8 @@ export const ur: Record<TranslationKeys, string> = {
   retryNowBtn: 'ابھی دوبارہ کوشش کریں',
 
   // Oil Change Alert
-  oilChangeAlertTitle: 'تیل تبدیل کرنا ضروری ہے',
-  oilChangeAlertMessage: 'موٹر سائیکل کو تیل تبدیل کرنے کی ضرورت ہے، آئل کے لیے سپروائزر سے رجوع کریں',
-  oilChangeAlertBtn: 'سمجھ گیا، میں نگران سے رجوع کروں گا',
-  oilChangeScreenTitle: 'تیل کی تبدیلی کا صفحہ',
+  oilChangeAlertTitle: 'موٹر سائیکل کی حفاظت کریں اور تیل تبدیل کریں',
+  oilChangeAlertMessage: 'نگران (سپروائزر) کے پاس جائیں اور تیل تبدیل کروائیں',
+  oilChangeAlertBtn: 'مکمل',
+  oilChangeScreenTitle: 'تیل کی تبدیلی',
 };

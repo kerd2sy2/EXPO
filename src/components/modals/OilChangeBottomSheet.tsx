@@ -139,7 +139,7 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
           <View
             style={[
               styles.lottieGlowCircle,
-              { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.15)' : 'rgba(249, 115, 22, 0.1)' },
+              { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.15)' : 'rgba(249, 115, 22, 0.08)' },
             ]}
           >
             <LottieView
@@ -153,39 +153,19 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
           </View>
         </View>
 
-        {/* Badge for Motorcycle Plate */}
-        {motorcycleNumber ? (
-          <View style={[styles.bikeBadge, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed', borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.4)' : '#fdba74' }]}>
-            <Ionicons name="bicycle" size={16} color="#f97316" />
-            <Text style={[styles.bikeBadgeText, { color: isDarkMode ? '#fb923c' : '#c2410c' }]}>
-              {isRTL ? `دباب رقم: ${motorcycleNumber}` : `Bike: ${motorcycleNumber}`}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Alert Title */}
+        {/* Title */}
         <Text style={[styles.title, { color: isDarkMode ? '#f8fafc' : '#0f172a', textAlign: 'center' }]}>
           {displayTitle}
         </Text>
 
-        {/* Alert Message */}
-        <View style={[styles.messageBox, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2', borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.25)' : '#fecaca' }]}>
-          <Ionicons name="alert-circle" size={20} color="#ef4444" style={styles.alertIcon} />
-          <Text style={[styles.message, { color: isDarkMode ? '#fca5a5' : '#b91c1c', textAlign: 'center' }]}>
-            {displayMessage}
-          </Text>
-        </View>
-
-        {/* Additional guidance hint */}
-        <Text style={[styles.subHint, { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: 'center' }]}>
-          {isRTL
-            ? 'تجاوز موعد تغيير الزيت قد يعرض المحرك للتلف وتوقف الدباب عن العمل أثناء التوصيل.'
-            : 'Exceeding the oil change interval may damage the engine and affect delivery operations.'}
+        {/* Subtitle */}
+        <Text style={[styles.subtitle, { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: 'center' }]}>
+          {displayMessage}
         </Text>
 
-        {/* Primary Action Button */}
+        {/* Primary Action Button: "تم" */}
         <TouchableOpacity
-          style={[styles.primaryBtn, { backgroundColor: '#f97316' }]}
+          style={[styles.primaryBtn, { backgroundColor: colors?.primary || '#f97316' }]}
           onPress={handleDismiss}
           activeOpacity={0.85}
         >
@@ -275,10 +255,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   title: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: '800',
-    marginBottom: 10,
-    letterSpacing: 0.2,
+    marginBottom: 8,
+    letterSpacing: -0.2,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 22,
+    marginBottom: 24,
+    paddingHorizontal: 12,
   },
   messageBox: {
     flexDirection: 'row',

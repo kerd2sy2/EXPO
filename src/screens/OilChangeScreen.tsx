@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
+  Dimensions,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,86 +20,79 @@ export interface OilChangeScreenProps {
   isDarkMode?: boolean;
   isRTL?: boolean;
   lang?: Language;
-  t: any;
-  onRecheck: () => Promise<boolean | void>;
-  onScanAnother: () => void;
+  t?: any;
+  onRecheck?: () => Promise<boolean | void>;
+  onScanAnother?: () => void;
   onBackToHome: () => void;
 }
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
-  motorcycleNumber,
-  distanceSinceOil,
   colors,
   isDarkMode = false,
   isRTL = true,
   lang = 'ar',
   t,
-  onRecheck,
-  onScanAnother,
   onBackToHome,
 }) => {
-  const [isRechecking, setIsRechecking] = useState(false);
-
-  const handleRecheckPress = async () => {
-    if (isRechecking) return;
-    setIsRechecking(true);
+  const handleDonePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    try {
-      await onRecheck();
-    } finally {
-      setIsRechecking(false);
-    }
+    onBackToHome();
   };
 
-  const alertMessage =
-    lang === 'ar'
-      ? 'الدباب يحتاج الى تغير زيت ارجع لى المشرف لصرف زيت للدباب'
+  const titleText =
+    t?.oilChangeAlertTitle ||
+    (lang === 'ar'
+      ? 'حافظ على الدباب وقم بتغيير الزيت'
       : lang === 'ur'
-      ? 'موٹر سائیکل کو تیل تبدیل کرنے کی ضرورت ہے، آئل کے لیے سپروائزر سے رجوع کریں'
+      ? 'موٹر سائیکل کی حفاظت کریں اور تیل تبدیل کریں'
       : lang === 'bn'
-      ? 'বাইকে তেল পরিবর্তন প্রয়োজন, তেল পাওয়ার জন্য সুপারভাইজারের সাথে যোগাযোগ করুন'
-      : 'Motorcycle requires an oil change. Please return to supervisor to dispense oil.';
+      ? 'বাইক সুরক্ষিত রাখুন এবং ইঞ্জিন অয়েল পরিবর্তন করুন'
+      : 'Maintain your motorcycle and change the oil');
 
-  const screenTitle =
-    lang === 'ar'
-      ? 'تغيير زيت الدباب مطلوب'
+  const subtitleText =
+    t?.oilChangeAlertMessage ||
+    (lang === 'ar'
+      ? 'ارجع إلى المشرف وغير زيت'
       : lang === 'ur'
-      ? 'تیل کی تبدیلی ضروری ہے'
+      ? 'نگران (سپروائزر) کے پاس جائیں اور تیل تبدیل کروائیں'
       : lang === 'bn'
-      ? 'তেল পরিবর্তন প্রয়োজন'
-      : 'Oil Change Required';
+      ? 'সুপারভাইজারের কাছে গিয়ে তেল পরিবর্তন করুন'
+      : 'Please return to your supervisor to change the oil');
 
-  const subDescription =
-    lang === 'ar'
-      ? 'تم إيقاف بدء الدوام مؤقتاً لحماية محرك الدباب من التلف. يرجى التوجه لمشرف الفرع لصرف وتغيير الزيت ثم إعادة الفحص.'
+  const buttonText =
+    t?.oilChangeAlertBtn ||
+    (lang === 'ar'
+      ? 'تم'
       : lang === 'ur'
-      ? 'انجن کی حفاظت کے لیے شفٹ شروع کرنا عارضی طور پر روک دیا گیا ہے۔ برائے مہربانی سپروائزر سے تیل تبدیل کروا کر دوبارہ چیک کریں۔'
+      ? 'مکمل'
       : lang === 'bn'
-      ? 'ইঞ্জিনের সুরক্ষার জন্য শিফট শুরু সাময়িকভাবে বন্ধ রয়েছে। তেল পরিবর্তন করে আবার যাচাই করুন।'
-      : 'Shift start is paused to protect the engine. Please contact the supervisor to dispense oil and then recheck.';
-
-  const intervalNotice =
-    lang === 'ar'
-      ? 'معلومة: يتم تغيير الزيت كل 950 كم للمحافظة على محرك الدباب'
-      : lang === 'ur'
-      ? 'معلومات: موٹر سائیکل کا انجن محفوظ رکھنے کے لیے ہر 950 کلومیٹر پر تیل تبدیل ہوتا ہے'
-      : lang === 'bn'
-      ? 'তথ্য: ইঞ্জিন সুরক্ষার জন্য প্রতি ৯৫০ কিমিতে তেল পরিবর্তন করা হয়'
-      : 'Note: Oil change is required every 950 km to maintain motorcycle engine health';
+      ? 'সম্পন্ন'
+      : 'Done');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Top Banner & Lottie Animation */}
       <View
         style={[
-          styles.lottieCard,
+          styles.card,
           {
-            backgroundColor: isDarkMode ? '#171f30' : '#ffffff',
-            borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.25)' : '#fed7aa',
+            backgroundColor: isDarkMode ? '#131b2e' : '#ffffff',
+            borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.25)' : 'rgba(249, 115, 22, 0.15)',
           },
         ]}
       >
-        <View style={styles.glowAura}>
+        {/* Lottie Animation with Ambient Glow */}
+        <View
+          style={[
+            styles.glowAura,
+            {
+              backgroundColor: isDarkMode
+                ? 'rgba(249, 115, 22, 0.12)'
+                : 'rgba(249, 115, 22, 0.08)',
+            },
+          ]}
+        >
           <LottieView
             source={require('../../assets/Lottie/LCKboLMu6C.lottie')}
             autoPlay
@@ -109,212 +102,46 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
           />
         </View>
 
-        {motorcycleNumber ? (
-          <View
-            style={[
-              styles.bikeTag,
-              {
-                backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed',
-                borderColor: isDarkMode ? 'rgba(249, 115, 22, 0.4)' : '#fdba74',
-              },
-            ]}
-          >
-            <Ionicons name="bicycle" size={16} color="#f97316" />
-            <Text style={[styles.bikeTagText, { color: isDarkMode ? '#fb923c' : '#c2410c' }]}>
-              {lang === 'ar'
-                ? `دباب رقم: ${motorcycleNumber}`
-                : `Bike: ${motorcycleNumber}`}
-            </Text>
-          </View>
-        ) : null}
-
-        <Text style={[styles.title, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
-          {screenTitle}
-        </Text>
-
-        {/* Main User Requested Alert Box */}
-        <View
-          style={[
-            styles.alertBox,
-            {
-              backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
-              borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.35)' : '#fecaca',
-            },
-          ]}
-        >
-          <Ionicons name="alert-circle" size={24} color="#ef4444" style={{ marginTop: 2 }} />
+        {/* Text Paragraph */}
+        <View style={styles.textContainer}>
           <Text
             style={[
-              styles.alertText,
+              styles.title,
               {
-                color: isDarkMode ? '#fca5a5' : '#b91c1c',
-                textAlign: isRTL ? 'right' : 'left',
+                color: isDarkMode ? '#f8fafc' : '#0f172a',
+                textAlign: 'center',
               },
             ]}
           >
-            {alertMessage}
+            {titleText}
+          </Text>
+
+          <Text
+            style={[
+              styles.subtitle,
+              {
+                color: isDarkMode ? '#94a3b8' : '#475569',
+                textAlign: 'center',
+              },
+            ]}
+          >
+            {subtitleText}
           </Text>
         </View>
 
-        <Text
-          style={[
-            styles.subDesc,
-            { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: 'center' },
-          ]}
-        >
-          {subDescription}
-        </Text>
-      </View>
-
-      {/* Oil & Distance Metric Card */}
-      <View
-        style={[
-          styles.infoCard,
-          {
-            backgroundColor: isDarkMode ? '#171f30' : '#ffffff',
-            borderColor: isDarkMode ? '#334155' : '#e2e8f0',
-          },
-        ]}
-      >
-        <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={styles.metricIconWrap}>
-            <Ionicons name="speedometer-outline" size={20} color="#f97316" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.metricLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: isRTL ? 'right' : 'left' }]}>
-              {lang === 'ar' ? 'المعيار المعتمد لتغيير الزيت' : 'Oil Change Interval'}
-            </Text>
-            <Text style={[styles.metricValue, { color: isDarkMode ? '#f8fafc' : '#0f172a', textAlign: isRTL ? 'right' : 'left' }]}>
-              {lang === 'ar' ? 'كل 950 كم' : 'Every 950 KM'}
-            </Text>
-          </View>
-        </View>
-
-        {distanceSinceOil !== undefined && distanceSinceOil > 0 ? (
-          <View
-            style={[
-              styles.infoRow,
-              styles.infoRowBorder,
-              {
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-                borderColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-              },
-            ]}
-          >
-            <View style={styles.metricIconWrap}>
-              <Ionicons name="trail-sign-outline" size={20} color="#3b82f6" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.metricLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: isRTL ? 'right' : 'left' }]}>
-                {lang === 'ar' ? 'آخر قراءة عداد مسجلة' : 'Last Recorded Odometer'}
-              </Text>
-              <Text style={[styles.metricValue, { color: isDarkMode ? '#f8fafc' : '#0f172a', textAlign: isRTL ? 'right' : 'left' }]}>
-                {`${distanceSinceOil} كم`}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-
-        {/* Interval hint badge */}
-        <View
-          style={[
-            styles.hintBadge,
-            {
-              backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-              borderColor: isDarkMode ? '#334155' : '#e2e8f0',
-              flexDirection: isRTL ? 'row-reverse' : 'row',
-            },
-          ]}
-        >
-          <Ionicons name="information-circle-outline" size={16} color="#0ea5e9" />
-          <Text
-            style={[
-              styles.hintBadgeText,
-              { color: isDarkMode ? '#38bdf8' : '#0284c7', textAlign: isRTL ? 'right' : 'left' },
-            ]}
-          >
-            {intervalNotice}
-          </Text>
-        </View>
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.actionsContainer}>
-        {/* Re-check Oil Button */}
+        {/* Action Button: "تم" */}
         <TouchableOpacity
-          style={[styles.actionBtn, styles.primaryBtn, { backgroundColor: '#f97316' }]}
-          onPress={handleRecheckPress}
-          disabled={isRechecking}
+          style={[styles.doneButton, { backgroundColor: colors.primary || '#f97316' }]}
+          onPress={handleDonePress}
           activeOpacity={0.85}
         >
-          {isRechecking ? (
-            <ActivityIndicator color="#ffffff" size="small" />
-          ) : (
-            <>
-              <Ionicons
-                name="refresh"
-                size={20}
-                color="#ffffff"
-                style={{ marginHorizontal: 6 }}
-              />
-              <Text style={styles.primaryBtnText}>
-                {lang === 'ar'
-                  ? 'إعادة الفحص والتحقق'
-                  : lang === 'ur'
-                  ? 'دوبارہ تصدیق کریں'
-                  : lang === 'bn'
-                  ? 'পুনরায় পরীক্ষা করুন'
-                  : 'Re-check Oil Status'}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        {/* Scan Another Bike Button */}
-        <TouchableOpacity
-          style={[
-            styles.actionBtn,
-            styles.secondaryBtn,
-            {
-              backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-              borderColor: isDarkMode ? '#334155' : '#cbd5e1',
-            },
-          ]}
-          onPress={onScanAnother}
-          activeOpacity={0.75}
-        >
           <Ionicons
-            name="camera-outline"
-            size={19}
-            color={colors.textPrimary}
+            name="checkmark-circle-outline"
+            size={22}
+            color="#ffffff"
             style={{ marginHorizontal: 6 }}
           />
-          <Text style={[styles.secondaryBtnText, { color: colors.textPrimary }]}>
-            {lang === 'ar'
-              ? 'تصوير لوحة دباب آخر'
-              : lang === 'ur'
-              ? 'دوسری موٹر سائیکل اسکین کریں'
-              : lang === 'bn'
-              ? 'অন্য বাইক স্ক্যান করুন'
-              : 'Scan Another Bike Plate'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Return to Home */}
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.tertiaryBtn]}
-          onPress={onBackToHome}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="home-outline"
-            size={18}
-            color={isDarkMode ? '#94a3b8' : '#64748b'}
-            style={{ marginHorizontal: 6 }}
-          />
-          <Text style={[styles.tertiaryBtnText, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
-            {lang === 'ar' ? 'الرجوع إلى الرئيسية' : 'Return to Home'}
-          </Text>
+          <Text style={styles.doneButtonText}>{buttonText}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -324,162 +151,73 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 28,
-  },
-  lottieCard: {
-    borderRadius: 24,
-    borderWidth: 1.5,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
-    shadowColor: '#f97316',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    minHeight: 520,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: Platform.OS === 'ios' ? 0.12 : 0.25,
+    shadowRadius: 18,
+    elevation: 8,
   },
   glowAura: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 20,
   },
   lottieAnim: {
-    width: 130,
-    height: 130,
+    width: 180,
+    height: 180,
   },
-  bikeTag: {
-    flexDirection: 'row',
+  textContainer: {
+    width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginBottom: 10,
-    gap: 6,
-  },
-  bikeTagText: {
-    fontSize: 14,
-    fontWeight: '700',
+    marginBottom: 28,
+    paddingHorizontal: 8,
   },
   title: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '800',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  alertBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    width: '100%',
+    lineHeight: 30,
     marginBottom: 10,
-    gap: 10,
+    letterSpacing: -0.2,
   },
-  alertText: {
-    fontSize: 15,
-    fontWeight: '800',
-    lineHeight: 22,
-    flexShrink: 1,
-  },
-  subDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    paddingHorizontal: 8,
-    marginTop: 4,
-  },
-  infoCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 16,
-  },
-  infoRow: {
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
-  },
-  infoRowBorder: {
-    borderTopWidth: 1,
-    marginTop: 6,
-    paddingTop: 10,
-  },
-  metricIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(249, 115, 22, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricLabel: {
-    fontSize: 12,
+  subtitle: {
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 2,
+    lineHeight: 24,
   },
-  metricValue: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  hintBadge: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 8,
-  },
-  hintBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
-    flexShrink: 1,
-  },
-  actionsContainer: {
-    gap: 10,
-    marginTop: 4,
-  },
-  actionBtn: {
-    height: 50,
-    borderRadius: 14,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  doneButton: {
     width: '100%',
-  },
-  primaryBtn: {
+    height: 52,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#f97316',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 6,
   },
-  primaryBtnText: {
+  doneButtonText: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  secondaryBtn: {
-    borderWidth: 1.5,
-  },
-  secondaryBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  tertiaryBtn: {
-    backgroundColor: 'transparent',
-    height: 42,
-  },
-  tertiaryBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 });

@@ -257,10 +257,10 @@ export const ar = {
   retryNowBtn: 'إعادة المحاولة الآن',
 
   // Oil Change Alert
-  oilChangeAlertTitle: 'تغيير زيت الدباب مطلوب',
-  oilChangeAlertMessage: 'الدباب يحتاج الى تغير زيت ارجع لى المشرف لصرف زيت للدباب',
-  oilChangeAlertBtn: 'فهمت، سأراجع المشرف',
-  oilChangeScreenTitle: 'صفحة تغيير الزيت',
+  oilChangeAlertTitle: 'حافظ على الدباب وقم بتغيير الزيت',
+  oilChangeAlertMessage: 'ارجع إلى المشرف وغير زيت',
+  oilChangeAlertBtn: 'تم',
+  oilChangeScreenTitle: 'تغيير زيت الدباب',
 };
 
 export type TranslationKeys = keyof typeof ar;
