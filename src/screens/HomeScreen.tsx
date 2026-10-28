@@ -12,11 +12,13 @@ import { DelegateViolation } from '../services/api';
 import { formatBikePlateForDisplay } from '../utils/plateUtils';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 import { HomeShiftQuickCard } from '../features/shift/components/HomeShiftQuickCard';
+import { HomeScreenSkeleton } from '../components/skeletons/HomeScreenSkeleton';
 
 interface HomeScreenProps {
   employee: EmployeeProfile;
   activeSession: WorkSession | null;
   isSessionSyncing?: boolean;
+  isHomeLoading?: boolean;
   historySessions: WorkSession[];
   totalApprovedOrdersCount: number;
   pendingOrdersCount?: number;
@@ -42,6 +44,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   employee,
   activeSession,
   isSessionSyncing = false,
+  isHomeLoading = false,
   historySessions,
   totalApprovedOrdersCount,
   pendingOrdersCount = 0,
@@ -107,6 +110,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
     return uniqueDays.size;
   }, [historySessions, activeSession]);
+
+  if (isHomeLoading || isSessionSyncing) {
+    return (
+      <HomeScreenSkeleton
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+      />
+    );
+  }
 
   return (
     <View style={styles.tabContainer}>

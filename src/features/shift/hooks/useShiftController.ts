@@ -343,7 +343,10 @@ export function useShiftController({
           savedStartKm
         );
         setActiveSession(confirmedSession);
-        setIsSessionSyncing(false);
+        setIsSessionSyncing(true);
+        setTimeout(() => {
+          setIsSessionSyncing(false);
+        }, 450);
 
         // 2. Clean start shift inputs
         setStartKm('');

@@ -59,6 +59,7 @@ import { OilChangeScreen } from '../screens/OilChangeScreen';
 import { AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import { DelegateModalsPortal } from '../components/modals/DelegateModalsPortal';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
+import { HomeScreenSkeleton } from '../components/skeletons/HomeScreenSkeleton';
 
 // Modular Feature Hooks & Micro-Modules
 import { useSessionTimer } from '../hooks/useSessionTimer';
@@ -559,12 +560,19 @@ export default function DelegateApp() {
     null;
   const empPhotoUrl = formatImageUrl(rawEmpPhoto);
 
-  // Loading Screen
+  // Loading Screen -> Full Home Skeleton (Header + Target + KPIs + Quick Cards)
   if (loading) {
     return (
-      <View style={[styles.loadingScreen, { backgroundColor: colors.bg }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
+        <HomeScreenSkeleton
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          includeHeader
+          topInset={topInset}
+        />
+      </SafeAreaView>
     );
   }
 
@@ -743,6 +751,7 @@ export default function DelegateApp() {
                   employee={employee}
                   activeSession={activeSession}
                   isSessionSyncing={isSessionSyncing}
+                  isHomeLoading={isSessionSyncing || (loadingHistory && historySessions.length === 0 && !activeSession)}
                   historySessions={historySessions}
                   totalApprovedOrdersCount={totalApprovedOrdersCount}
                   pendingOrdersCount={totalPendingOrdersCount}

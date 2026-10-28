@@ -146,16 +146,22 @@ export function useAuthSession({
           if (cached.id) {
             setEmployee(cached);
 
-            // Restore cached active shift immediately on first frame
+            // Restore cached active shift into state immediately
             if (
               cachedActive &&
               (!cachedActive.employee_id || cachedActive.employee_id === cached.id)
             ) {
               setActiveSession(cachedActive);
-              setIsSessionSyncing(false);
-            } else if (!isSilentBackground) {
-              // No cached active session yet: show Skeleton until fetchActiveSession resolves
+            }
+
+            if (!isSilentBackground) {
+              // Keep full Home Screen Skeleton visible during initial server verification
               setIsSessionSyncing(true);
+              if (cachedActive) {
+                setTimeout(() => {
+                  setIsSessionSyncing(false);
+                }, 1200);
+              }
             }
 
             if (rawHistory) {
@@ -448,10 +454,11 @@ export function useAuthSession({
         const cachedSession = await shiftSessionService.getCachedActiveSession(emp.id);
         if (cachedSession) {
           setActiveSession(cachedSession);
-          setIsSessionSyncing(false);
-        } else {
-          setIsSessionSyncing(true);
+          setTimeout(() => {
+            setIsSessionSyncing(false);
+          }, 1200);
         }
+        setIsSessionSyncing(true);
 
         setEmployee(emp);
         await saveCachedUser(emp);
@@ -575,10 +582,11 @@ export function useAuthSession({
       const cachedSession = await shiftSessionService.getCachedActiveSession(emp.id);
       if (cachedSession) {
         setActiveSession(cachedSession);
-        setIsSessionSyncing(false);
-      } else {
-        setIsSessionSyncing(true);
+        setTimeout(() => {
+          setIsSessionSyncing(false);
+        }, 1200);
       }
+      setIsSessionSyncing(true);
 
       setEmployee(emp);
       await saveCachedUser(emp);
