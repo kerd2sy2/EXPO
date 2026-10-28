@@ -3,6 +3,7 @@ import { EmployeeProfile, WorkSession, PreviewPhotoData, ThemeColors, Language }
 export interface ShiftScreenProps {
   employee: EmployeeProfile | null;
   activeSession: WorkSession | null;
+  isSessionSyncing?: boolean;
   enteredMotorcycle: string;
   setEnteredMotorcycle: (val: string) => void;
   startKm: string;

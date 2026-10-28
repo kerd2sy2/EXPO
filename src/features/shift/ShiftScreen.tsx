@@ -3,12 +3,14 @@ import { View, StyleSheet } from 'react-native';
 import { ShiftScreenProps } from './types/shift.types';
 import { StartShiftSection } from './components/StartShiftSection';
 import { EndShiftSection } from './components/EndShiftSection';
+import { ShiftCardSkeleton } from './components/ShiftCardSkeleton';
+import { ModuleErrorBoundary } from '../../components/ModuleErrorBoundary';
 import { parsePlateComponents } from '../../utils/plateUtils';
-
 
 export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   employee,
   activeSession,
+  isSessionSyncing = false,
   enteredMotorcycle,
   setEnteredMotorcycle,
   startKm,
@@ -95,68 +97,80 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
     (assignedParsed.digits ? plateDigits === assignedParsed.digits : true) &&
     (assignedParsed.letters && plateLetters ? plateLetters === assignedParsed.letters : true);
 
+  if (isSessionSyncing && !activeSession) {
+    return (
+      <View style={styles.tabContainer}>
+        <ShiftCardSkeleton colors={colors} isDarkMode={isDarkMode} isRTL={isRTL} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.tabContainer}>
       {!activeSession ? (
         /* =========================================================================
             START SHIFT FORM
            ========================================================================= */
-        <StartShiftSection
-          enteredMotorcycle={enteredMotorcycle}
-          plateDigits={plateDigits}
-          plateLetters={plateLetters}
-          assignedBike={assignedBike}
-          isBikeMatching={isBikeMatching}
-          isOdometerBroken={isOdometerBroken}
-          startKm={startKm}
-          setStartKm={setStartKm}
-          autoKmFetched={autoKmFetched}
-          startKmImage={startKmImage}
-          canStartShift={canStartShift}
-          submitting={submitting}
-          activeBikeRegistrationImage={activeBikeRegistrationImage}
-          needsOilChange={needsOilChange}
-          onOpenOilChangeModal={onOpenOilChangeModal}
-          onScanPlate={onScanPlate}
-          onTakeOdometerPhoto={onTakeOdometerPhoto}
-          onStartShift={onStartShift}
-          onPreviewPhoto={onPreviewPhoto}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          t={t}
-          lang={lang}
-        />
-      ) : (
-        /* =========================================================================
-            END SHIFT FORM (Active Shift in Progress)
-           ========================================================================= */
-        <View style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <EndShiftSection
-            isExemptOdometer={isExemptOdometer}
-            startKmNum={startKmNum}
-            endKm={endKm}
-            setEndKm={setEndKm}
-            endKmImage={endKmImage}
-            ordersCount={ordersCount}
-            setOrdersCount={setOrdersCount}
-            fuelCost={fuelCost}
-            setFuelCost={setFuelCost}
-            endNotes={endNotes}
-            setEndNotes={setEndNotes}
-            calculatedDistance={calculatedDistance}
-            canEndShift={canEndShift}
+        <ModuleErrorBoundary moduleName="نموذج بدء الدوام" colors={colors}>
+          <StartShiftSection
+            enteredMotorcycle={enteredMotorcycle}
+            plateDigits={plateDigits}
+            plateLetters={plateLetters}
+            assignedBike={assignedBike}
+            isBikeMatching={isBikeMatching}
+            isOdometerBroken={isOdometerBroken}
+            startKm={startKm}
+            setStartKm={setStartKm}
+            autoKmFetched={autoKmFetched}
+            startKmImage={startKmImage}
+            canStartShift={canStartShift}
             submitting={submitting}
+            activeBikeRegistrationImage={activeBikeRegistrationImage}
+            needsOilChange={needsOilChange}
+            onOpenOilChangeModal={onOpenOilChangeModal}
+            onScanPlate={onScanPlate}
             onTakeOdometerPhoto={onTakeOdometerPhoto}
-            onEndShift={onEndShift}
+            onStartShift={onStartShift}
             onPreviewPhoto={onPreviewPhoto}
-            onScrollToInput={onScrollToInput}
             colors={colors}
             isDarkMode={isDarkMode}
             isRTL={isRTL}
             t={t}
+            lang={lang}
           />
-        </View>
+        </ModuleErrorBoundary>
+      ) : (
+        /* =========================================================================
+            END SHIFT FORM (Active Shift in Progress)
+           ========================================================================= */
+        <ModuleErrorBoundary moduleName="نموذج إنهاء الدوام" colors={colors}>
+          <View style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <EndShiftSection
+              isExemptOdometer={isExemptOdometer}
+              startKmNum={startKmNum}
+              endKm={endKm}
+              setEndKm={setEndKm}
+              endKmImage={endKmImage}
+              ordersCount={ordersCount}
+              setOrdersCount={setOrdersCount}
+              fuelCost={fuelCost}
+              setFuelCost={setFuelCost}
+              endNotes={endNotes}
+              setEndNotes={setEndNotes}
+              calculatedDistance={calculatedDistance}
+              canEndShift={canEndShift}
+              submitting={submitting}
+              onTakeOdometerPhoto={onTakeOdometerPhoto}
+              onEndShift={onEndShift}
+              onPreviewPhoto={onPreviewPhoto}
+              onScrollToInput={onScrollToInput}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              isRTL={isRTL}
+              t={t}
+            />
+          </View>
+        </ModuleErrorBoundary>
       )}
     </View>
   );
