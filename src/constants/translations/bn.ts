@@ -259,8 +259,8 @@ export const bn: Record<TranslationKeys, string> = {
   retryNowBtn: 'এখনই আবার চেষ্টা করুন',
 
   // Oil Change Alert
-  oilChangeAlertTitle: 'বাইক সুরক্ষিত রাখুন এবং ইঞ্জিন অয়েল পরিবর্তন করুন',
-  oilChangeAlertMessage: 'সুপারভাইজারের কাছে গিয়ে তেল পরিবর্তন করুন',
+  oilChangeAlertTitle: 'বাইকের যত্ন ও ইঞ্জিন অয়েল পরিবর্তন',
+  oilChangeAlertMessage: 'তেল পরিবর্তনের জন্য সুপারভাইজারের কাছে যান',
   oilChangeAlertBtn: 'সম্পন্ন',
   oilChangeScreenTitle: 'তেল পরিবর্তন',
 };
