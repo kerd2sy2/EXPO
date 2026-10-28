@@ -22,6 +22,7 @@ export interface VehicleItem {
   vin?: string;
   status: 'ACTIVE' | 'MAINTENANCE' | 'OUT_OF_SERVICE' | 'INACTIVE';
   current_km?: number;
+  key_number?: string;
   branch_id?: string;
   created_at?: string;
 }

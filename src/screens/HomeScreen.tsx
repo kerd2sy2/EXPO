@@ -115,6 +115,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
         </TouchableOpacity>
 
+        {/* Module 2b: Employees Management (إدارة وتعديل الموظفين) */}
+        <TouchableOpacity
+          style={[
+            styles.moduleCard,
+            { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+          ]}
+          onPress={() => onNavigateToTab('employees')}
+          activeOpacity={0.75}
+        >
+          <View style={[styles.moduleIconBox, { backgroundColor: '#f9731615' }]}>
+            <Ionicons name="person-circle-outline" size={26} color="#f97316" />
+          </View>
+          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>إدارة وتعديل الموظفين</Text>
+              {totalDelegatesCount > 0 && (
+                <View style={[styles.miniBadge, { backgroundColor: '#f9731620' }]}>
+                  <Text style={[styles.miniBadgeText, { color: '#f97316' }]}>{totalDelegatesCount} موظف</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
+              دليل الموظفين، البحث، وتعديل البيانات وحسابات الدبابات مباشرة
+            </Text>
+          </View>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+
         {/* Module 3: Approvals Hub (مركز الموافقات) */}
         <TouchableOpacity
           style={[

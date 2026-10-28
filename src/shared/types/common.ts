@@ -20,6 +20,11 @@ export interface EmployeeProfile {
   passport_image?: string;
   vehicle_registration_image?: string;
   phone?: string;
+  shift?: string;
+  vehicle_type?: string;
+  application_id?: string;
+  application_type?: string;
+  iqama_expiration_date?: string;
   permissions?: string[];
   app_permissions?: Record<string, boolean>;
   is_admin?: boolean;
@@ -88,6 +93,7 @@ export type TabType =
   | 'add-vehicle'
   | 'accident-report'
   | 'supervisor-report'
-  | 'advance-request';
+  | 'advance-request'
+  | 'employees';
 export type Language = 'ar' | 'en' | 'bn' | 'ur';
 

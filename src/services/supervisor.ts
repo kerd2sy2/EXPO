@@ -120,6 +120,43 @@ export interface PendingMaintenanceRequest {
 }
 
 export const supervisorApi = {
+  // 0. Get all employees in supervisor branch (all job roles including drivers and supervisors)
+  getAllEmployees: async (): Promise<DelegateWithStatus[]> => {
+    try {
+      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>('/employees?limit=500', {
+        timeoutMs: 10000,
+      });
+      let list: DelegateWithStatus[] = [];
+      if (Array.isArray(resp)) {
+        list = resp;
+      } else if (resp && Array.isArray((resp as any).data)) {
+        list = (resp as any).data;
+      }
+      return list;
+    } catch (err) {
+      console.warn('[supervisorApi] getAllEmployees error:', err);
+      return [];
+    }
+  },
+
+  // 0b. Update employee details
+  updateEmployee: async (id: string, data: Partial<any>): Promise<{ message?: string; data?: any }> => {
+    return await apiRequest<{ message?: string; data?: any }>(`/employees/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      timeoutMs: 15000,
+    });
+  },
+
+  // 0c. Reset employee password
+  resetEmployeePassword: async (id: string, newPassword: string): Promise<any> => {
+    return await apiRequest(`/employees/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ new_password: newPassword }),
+      timeoutMs: 10000,
+    });
+  },
+
   // 1. Get all employees in supervisor branch (drivers only, full branch roster)
   getAllBranchDelegates: async (): Promise<DelegateWithStatus[]> => {
     try {

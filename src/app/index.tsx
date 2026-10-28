@@ -70,6 +70,7 @@ import { ApprovalsScreen } from '../screens/ApprovalsScreen';
 import { OperationsScreen } from '../screens/OperationsScreen';
 import { SupervisorReportScreen } from '../screens/SupervisorReportScreen';
 import { AdvanceRequestScreen } from '../screens/AdvanceRequestScreen';
+import { EmployeesScreen } from '../screens/EmployeesScreen';
 import {
   supervisorApi,
   BranchStats,
@@ -163,6 +164,7 @@ export default function DelegateApp() {
 
   // Supervisor Branch States
   const [branchDelegates, setBranchDelegates] = useState<DelegateWithStatus[]>([]);
+  const [allBranchEmployees, setAllBranchEmployees] = useState<DelegateWithStatus[]>([]);
   const [workingDelegates, setWorkingDelegates] = useState<DelegateWithStatus[]>([]);
   const [pendingMaintenance, setPendingMaintenance] = useState<PendingMaintenanceRequest[]>([]);
   const [pendingSessions, setPendingSessions] = useState<WorkSession[]>([]);
@@ -198,14 +200,16 @@ export default function DelegateApp() {
   const fetchSupervisorData = useCallback(async () => {
     try {
       setLoadingSupervisorData(true);
-      const [allDel, workDel, maint, pending, advances] = await Promise.all([
+      const [allDel, allEmps, workDel, maint, pending, advances] = await Promise.all([
         supervisorApi.getAllBranchDelegates(),
+        supervisorApi.getAllEmployees(),
         supervisorApi.getWorkingDelegates(),
         supervisorApi.getPendingMaintenance(),
         supervisorApi.getPendingSessions(),
         supervisorApi.getPendingInvestigations(),
       ]);
       setBranchDelegates(allDel);
+      setAllBranchEmployees(allEmps);
       setWorkingDelegates(workDel);
       setPendingMaintenance(maint);
       setPendingSessions(pending);
@@ -869,7 +873,8 @@ export default function DelegateApp() {
         currentTab === 'approvals' ||
         currentTab === 'home' ||
         currentTab === 'supervisor-report' ||
-        currentTab === 'advance-request'
+        currentTab === 'advance-request' ||
+        currentTab === 'employees'
       ) {
         fetchSupervisorData();
       }
@@ -1871,6 +1876,8 @@ export default function DelegateApp() {
                   ? 'تقرير مشرف'
                   : currentTab === 'advance-request'
                   ? 'سلفة'
+                  : currentTab === 'employees'
+                  ? 'إدارة وتعديل الموظفين'
                   : currentTab === 'shift'
                   ? (activeSession ? t.endShiftTitle : t.startShiftTitle)
                   : currentTab === 'history'
@@ -2071,6 +2078,26 @@ export default function DelegateApp() {
               />
             </ModuleErrorBoundary>
           </View>
+        ) : currentTab === 'employees' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="إدارة الموظفين" colors={colors} onReset={fetchSupervisorData}>
+              <EmployeesScreen
+                employees={(allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates).map((e) => ({
+                  ...e,
+                  is_working: workingDelegates.some((w) => w.id === e.id),
+                }))}
+                vehicles={vehicles}
+                loading={loadingSupervisorData}
+                onRefresh={fetchSupervisorData}
+                onEmployeeUpdated={() => {
+                  fetchSupervisorData();
+                }}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+              />
+            </ModuleErrorBoundary>
+          </View>
         ) : currentTab === 'history' ? (
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <ModuleErrorBoundary
@@ -2134,7 +2161,7 @@ export default function DelegateApp() {
                   employee={employee}
                   pendingSessions={pendingSessions}
                   workingDelegatesCount={workingDelegates.filter(d => !d.job_role?.includes('SUPERVISOR') && !(d as any).role_name?.includes('SUPERVISOR')).length}
-                  totalDelegatesCount={branchDelegates.filter(d => !d.job_role?.includes('SUPERVISOR') && !(d as any).role_name?.includes('SUPERVISOR')).length}
+                  totalDelegatesCount={(allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates).length}
                   todayOrdersCount={totalApprovedOrdersCount}
                   colors={colors}
                   isDarkMode={isDarkMode}
