@@ -141,8 +141,24 @@ export const cleanAndNormalizeOcrLetters = (raw: string): string => {
   if (str === '8') str = 'B';
   if (str === '5') str = 'S';
 
-  // Map M -> Z, Y -> V, Q -> G
-  str = str.replace(/M/g, 'Z').replace(/Y/g, 'V').replace(/Q/g, 'G');
+  // If token already contains Latin letters (e.g. "ST4" or "S7A"), convert mixed digit lookalikes
+  if (/[A-Z]/.test(str) && /\d/.test(str) && str.length <= 4) {
+    str = str
+      .replace(/4/g, 'A')
+      .replace(/8/g, 'B')
+      .replace(/5/g, 'S')
+      .replace(/0/g, 'D')
+      .replace(/7/g, 'T')
+      .replace(/1/g, 'A');
+  }
+
+  // Map M -> Z, Y -> V, Q -> G, O -> D, I -> A
+  str = str
+    .replace(/M/g, 'Z')
+    .replace(/Y/g, 'V')
+    .replace(/Q/g, 'G')
+    .replace(/O/g, 'D')
+    .replace(/I/g, 'A');
 
   // Filter strictly to the 17 authorized Saudi Latin letters:
   str = str.replace(/[^ABJDRSXTEGKLZNHUV]/g, '');
@@ -153,7 +169,8 @@ export const cleanAndNormalizeOcrLetters = (raw: string): string => {
 // Clean and parse Arabic letters from OCR text
 export const parseArabicLetters = (arRaw: string): string => {
   if (!arRaw) return '';
-  let str = arRaw.replace(/[^\u0600-\u06FF]/g, ' ');
+  let str = arRaw.replace(/هـ/g, 'ه');
+  str = str.replace(/[^\u0600-\u06FF]/g, ' ');
   str = str.replace(/السعودية|المملكة|دباب|لوحة/g, ' ');
 
   const validArChars: string[] = [];
@@ -167,9 +184,9 @@ export const parseArabicLetters = (arRaw: string): string => {
   return validArChars.map((c) => SAUDI_AR_TO_EN_MAP[c]).join('');
 };
 
-// Convert English letter pair to Arabic & English representations on plate
+// Convert English letter sequence (2 or 3 letters) to Arabic & English representations on plate
 export const formatPlateLetters = (enLettersStr: string): { ar: string; en: string } => {
-  const clean = (enLettersStr || '').replace(/[^A-Z]/g, '');
+  const clean = (enLettersStr || '').replace(/[^A-Z]/g, '').slice(0, 3);
   if (!clean) return { ar: '', en: '' };
 
   const enChars = clean.split('');
@@ -254,7 +271,7 @@ export function getOcrSimilarityScore(ocrCandidate: string, targetDigits: string
   return Math.max(0, 1.0 - dist / maxLen);
 }
 
-// Arabic letter combo signatures on Saudi motorcycle plates
+// Arabic letter combo signatures on Saudi motorcycle plates (2-letter combos)
 export const ARABIC_LETTER_COMBOS: Record<string, { en: string; ar: string }> = {
   'ر ع': { en: 'RA', ar: 'ر ع' },
   'ع ر': { en: 'RA', ar: 'ر ع' },
@@ -282,9 +299,42 @@ export const ARABIC_LETTER_COMBOS: Record<string, { en: string; ar: string }> = 
   'بع':  { en: 'BE', ar: 'ع ب' },
 };
 
+// Detect if the raw OCR text explicitly contains a 3-letter car plate sequence (e.g., "STA" or "S T A")
+export const detectExplicitThreeLetterCarPlate = (rawText: string): string => {
+  if (!rawText) return '';
+  const textWithAsciiDigits = rawText.replace(/[٠-٩]/g, (w) => {
+    const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    return `${ar.indexOf(w)}`;
+  });
+
+  const lines = textWithAsciiDigits.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    const cleanLine = line
+      .replace(/KSA|SAUDI|ARABIA|السعودية|المملكة/gi, ' ')
+      .replace(/\b\d{1,4}\b/g, ' ')
+      .trim();
+    const tokens = cleanLine.split(/\s+/).filter(Boolean);
+    let lineLetters = '';
+    for (const tok of tokens) {
+      if (/^\d+$/.test(tok)) continue;
+      lineLetters += cleanAndNormalizeOcrLetters(tok);
+    }
+    if (lineLetters.length === 3) {
+      return lineLetters;
+    }
+  }
+  return '';
+};
+
 // Find matching fleet plate from OCR text with exact + fuzzy matching
 export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null => {
   if (!rawText || typeof rawText !== 'string' || rawText.trim().length === 0) return null;
+
+  // If the scanned plate clearly has 3 letters (car plate like "2459 STA"), do not force it into a 2-letter motorcycle fleet entry
+  const threeLetterCar = detectExplicitThreeLetterCarPlate(rawText);
+  if (threeLetterCar.length === 3) {
+    return null;
+  }
 
   // Convert Arabic numerals to standard 0-9
   const textWithAsciiDigits = rawText.replace(/[٠-٩]/g, (w) => {
@@ -400,11 +450,11 @@ export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null
   return null;
 };
 
-// Flexible Character-by-Character Plate Parser for Google ML Kit
+// Flexible Character-by-Character Plate Parser for Google ML Kit (Supports 2-letter Motorcycle & 3-letter Car plates)
 export const parseMLKitPlateText = (text: string): PlateResultData | null => {
   if (!text || typeof text !== 'string' || text.trim().length === 0) return null;
 
-  // 1. Check Fleet Database first for 100% precision
+  // 1. Check Fleet Database first (skips automatically if a 3-letter car plate is detected)
   const fleetMatch = findBestFleetPlateMatch(text);
   if (fleetMatch) {
     return fleetMatch;
@@ -418,7 +468,7 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
 
   const lines = normalizedText.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
 
-  // 3. Extract Digits (MUST be 3 to 4 digits for valid motorcycle plate)
+  // 3. Extract Digits (3 to 4 digits, or spaced 3-4 digits on plate)
   const allDigitMatches = normalizedText.match(/\b\d{3,4}\b/g) || [];
   const filteredDigits = allDigitMatches.filter((d) => !['2024', '2025', '2026', '2027', '1000', '100'].includes(d));
 
@@ -429,6 +479,15 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
     const embeddedNum = normalizedText.match(/\d{3,4}/);
     if (embeddedNum) {
       detectedDigits = embeddedNum[0];
+    } else {
+      // Check if digits were spaced out on a single line e.g. "2 4 5 9"
+      for (const line of lines) {
+        const spacedMatch = line.match(/(?:\b\d\s+){2,3}\d\b/);
+        if (spacedMatch) {
+          detectedDigits = spacedMatch[0].replace(/\D/g, '');
+          break;
+        }
+      }
     }
   }
 
@@ -437,23 +496,45 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
     return null;
   }
 
-  // 4. Extract Letters (MANDATORY: Must have 2 valid letters)
+  // 4. Extract Letters (Supports BOTH 2-letter motorcycle plates and 3-letter car plates)
   let detectedEnLetters = '';
 
-  // Strategy A: Check lines for explicit Combo "6534 AD" or "AD 6534"
+  // Strategy A: Check lines containing the detected digits e.g. "2459 STA" or "6534 AD"
   for (const line of lines) {
     const cleanLine = line.replace(/KSA|SAUDI|ARABIA|السعودية|المملكة/gi, '').trim();
     if (cleanLine.includes(detectedDigits)) {
       const remainder = cleanLine.replace(detectedDigits, '').trim();
       const norm = cleanAndNormalizeOcrLetters(remainder);
       if (norm.length >= 2 && norm.length <= 3) {
-        detectedEnLetters = norm.slice(0, 2);
+        detectedEnLetters = norm.slice(0, 3);
         break;
       }
     }
   }
 
-  // Strategy B: Collect individual Latin letter tokens across all lines
+  // Strategy A2: Check each line for a clean 2-to-3 letter block (e.g. "S T A" or "STA" on its own line)
+  if (!detectedEnLetters || detectedEnLetters.length < 2) {
+    for (const line of lines) {
+      const cleanLine = line
+        .replace(/KSA|SAUDI|ARABIA|السعودية|المملكة/gi, ' ')
+        .replace(detectedDigits, ' ')
+        .replace(/\b\d+\b/g, ' ')
+        .trim();
+      if (!cleanLine) continue;
+
+      const lineTokens = cleanLine.split(/\s+/).filter(Boolean);
+      let lineCollected = '';
+      for (const tok of lineTokens) {
+        lineCollected += cleanAndNormalizeOcrLetters(tok);
+      }
+      if (lineCollected.length >= 2 && lineCollected.length <= 3) {
+        detectedEnLetters = lineCollected.slice(0, 3);
+        if (detectedEnLetters.length === 3) break;
+      }
+    }
+  }
+
+  // Strategy B: Collect individual Latin letter tokens across all lines (up to 3 letters)
   if (!detectedEnLetters || detectedEnLetters.length < 2) {
     const rawTokens = normalizedText
       .replace(/KSA|SAUDI|ARABIA|السعودية|المملكة/gi, ' ')
@@ -469,27 +550,32 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
       if (norm) {
         collectedLetters += norm;
       }
-      if (collectedLetters.length >= 2) {
-        detectedEnLetters = collectedLetters.slice(0, 2);
+      if (collectedLetters.length >= 3) {
+        detectedEnLetters = collectedLetters.slice(0, 3);
         break;
       }
+    }
+
+    if (!detectedEnLetters && collectedLetters.length >= 2) {
+      detectedEnLetters = collectedLetters.slice(0, 3);
     }
   }
 
   // Strategy C: Extract from Arabic characters if English wasn't recognized
   if (!detectedEnLetters || detectedEnLetters.length < 2) {
-    for (const combo in ARABIC_LETTER_COMBOS) {
-      if (text.includes(combo)) {
-        detectedEnLetters = ARABIC_LETTER_COMBOS[combo].en;
-        break;
-      }
-    }
-  }
-
-  if (!detectedEnLetters || detectedEnLetters.length < 2) {
     const arParsed = parseArabicLetters(text);
-    if (arParsed && arParsed.length >= 2) {
-      detectedEnLetters = arParsed.slice(0, 2);
+    if (arParsed && arParsed.length >= 3) {
+      detectedEnLetters = arParsed.slice(0, 3);
+    } else {
+      for (const combo in ARABIC_LETTER_COMBOS) {
+        if (text.includes(combo)) {
+          detectedEnLetters = ARABIC_LETTER_COMBOS[combo].en;
+          break;
+        }
+      }
+      if ((!detectedEnLetters || detectedEnLetters.length < 2) && arParsed && arParsed.length >= 2) {
+        detectedEnLetters = arParsed.slice(0, 3);
+      }
     }
   }
 
@@ -498,8 +584,8 @@ export const parseMLKitPlateText = (text: string): PlateResultData | null => {
     return null;
   }
 
-  if (detectedEnLetters.length > 2) {
-    detectedEnLetters = detectedEnLetters.slice(0, 2);
+  if (detectedEnLetters.length > 3) {
+    detectedEnLetters = detectedEnLetters.slice(0, 3);
   }
 
   const { ar: formattedAr, en: formattedEn } = formatPlateLetters(detectedEnLetters);
@@ -546,13 +632,18 @@ export const callPlateRecognizerApi = async (base64Data: string): Promise<PlateR
         const topResult = data.results[0];
         const rawPlate = String(topResult.plate || '').trim();
         const digits = rawPlate.replace(/[^0-9]/g, '');
-        const enLetters = rawPlate.replace(/[^a-zA-Z]/g, '').toUpperCase();
+        const rawEnLetters = rawPlate.replace(/[^a-zA-Z]/g, '').toUpperCase();
+        const enLetters = cleanAndNormalizeOcrLetters(rawEnLetters) || rawEnLetters;
 
         if (digits && digits.length >= 2) {
-          const fleetHit = FLEET_PLATES_REGISTRY[digits];
+          const isThreeLetterCar = enLetters.length === 3;
+          const fleetHit = !isThreeLetterCar ? FLEET_PLATES_REGISTRY[digits] : undefined;
           const finalLettersEn = enLetters || (fleetHit ? fleetHit.enLetters : '');
           const { ar: formattedAr, en: formattedEn } = formatPlateLetters(finalLettersEn);
-          const finalArLetters = (fleetHit && fleetHit.arLetters) ? fleetHit.arLetters : formattedAr;
+          const finalArLetters =
+            fleetHit && fleetHit.arLetters && (!enLetters || enLetters === fleetHit.enLetters)
+              ? fleetHit.arLetters
+              : formattedAr;
 
           return {
             digits: digits,

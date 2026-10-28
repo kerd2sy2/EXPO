@@ -57,82 +57,215 @@ export const toEnglishDigits = (numStr: string): string => {
 
 export interface PlateLetterSlots {
   leftAr: string;
+  middleAr?: string;
   rightAr: string;
   leftEn: string;
+  middleEn?: string;
   rightEn: string;
+  arSlots: string[];
+  enSlots: string[];
+  isThreeLetters: boolean;
 }
 
 export const getPlateLetterSlots = (input: string): PlateLetterSlots => {
   const clean = (input || '').trim();
-  if (!clean) return { leftAr: '', rightAr: '', leftEn: '', rightEn: '' };
-
-  const rawChars = clean.replace(/[\s\-_]/g, '').split('');
-  if (rawChars.length === 0) return { leftAr: '', rightAr: '', leftEn: '', rightEn: '' };
-
-  // Canonical pair handling for 100% flawless letter positioning on physical plate:
-  // 1. BE / ب ع (e.g. 7030, 8022): Left is ALWAYS B / ب, Right is ALWAYS E / ع
-  if (
-    (rawChars.includes('B') && rawChars.includes('E')) ||
-    (rawChars.includes('ب') && rawChars.includes('ع')) ||
-    /BE|EB|ب ع|ع ب|بع|عب/i.test(clean)
-  ) {
-    return { leftAr: 'ب', rightAr: 'ع', leftEn: 'B', rightEn: 'E' };
+  if (!clean) {
+    return {
+      leftAr: '',
+      middleAr: '',
+      rightAr: '',
+      leftEn: '',
+      middleEn: '',
+      rightEn: '',
+      arSlots: ['', ''],
+      enSlots: ['', ''],
+      isThreeLetters: false,
+    };
   }
 
-  // 2. AJ / ا ح (e.g. 5443, 5442): Left is ALWAYS A / ا, Right is ALWAYS J / ح
-  if (
-    (rawChars.includes('A') && rawChars.includes('J')) ||
-    ((rawChars.includes('ا') || rawChars.includes('أ')) && rawChars.includes('ح')) ||
-    /AJ|JA|ا ح|ح ا|اح|حا|أ ح|ح أ/i.test(clean)
-  ) {
-    return { leftAr: 'ا', rightAr: 'ح', leftEn: 'A', rightEn: 'J' };
+  // Normalize multi-char Arabic 'هـ' into single char 'ه' before splitting into characters
+  const normalizedClean = clean.replace(/هـ/g, 'ه');
+  const rawChars = normalizedClean.replace(/[\s\-_]/g, '').split('');
+  if (rawChars.length === 0) {
+    return {
+      leftAr: '',
+      middleAr: '',
+      rightAr: '',
+      leftEn: '',
+      middleEn: '',
+      rightEn: '',
+      arSlots: ['', ''],
+      enSlots: ['', ''],
+      isThreeLetters: false,
+    };
   }
 
-  // 3. AD / ا د (e.g. 6534, 6531): Left is ALWAYS A / ا, Right is ALWAYS D / د
-  if (
-    (rawChars.includes('A') && rawChars.includes('D')) ||
-    ((rawChars.includes('ا') || rawChars.includes('أ')) && rawChars.includes('د')) ||
-    /AD|DA|ا د|د ا|اد|دا|أ د|د أ/i.test(clean)
-  ) {
-    return { leftAr: 'ا', rightAr: 'د', leftEn: 'A', rightEn: 'D' };
-  }
+  // Canonical pair handling ONLY for 2-letter motorcycle plates:
+  if (rawChars.length === 2) {
+    // 1. BE / ب ع (e.g. 7030, 8022): Left is ALWAYS B / ب, Right is ALWAYS E / ع
+    if (
+      (rawChars.includes('B') && rawChars.includes('E')) ||
+      (rawChars.includes('ب') && rawChars.includes('ع')) ||
+      /^(?:BE|EB|ب\s*ع|ع\s*ب)$/i.test(normalizedClean)
+    ) {
+      return {
+        leftAr: 'ب',
+        middleAr: '',
+        rightAr: 'ع',
+        leftEn: 'B',
+        middleEn: '',
+        rightEn: 'E',
+        arSlots: ['ب', 'ع'],
+        enSlots: ['B', 'E'],
+        isThreeLetters: false,
+      };
+    }
 
-  // 4. BT / ب ط (e.g. 6241, 6238): Left is ALWAYS B / ب, Right is ALWAYS T / ط
-  if (
-    (rawChars.includes('B') && rawChars.includes('T')) ||
-    (rawChars.includes('ب') && rawChars.includes('ط')) ||
-    /BT|TB|ب ط|ط ب|بط|طب/i.test(clean)
-  ) {
-    return { leftAr: 'ب', rightAr: 'ط', leftEn: 'B', rightEn: 'T' };
-  }
+    // 2. AJ / ا ح (e.g. 5443, 5442): Left is ALWAYS A / ا, Right is ALWAYS J / ح
+    if (
+      (rawChars.includes('A') && rawChars.includes('J')) ||
+      ((rawChars.includes('ا') || rawChars.includes('أ')) && rawChars.includes('ح')) ||
+      /^(?:AJ|JA|[اأ]\s*ح|ح\s*[اأ])$/i.test(normalizedClean)
+    ) {
+      return {
+        leftAr: 'ا',
+        middleAr: '',
+        rightAr: 'ح',
+        leftEn: 'A',
+        middleEn: '',
+        rightEn: 'J',
+        arSlots: ['ا', 'ح'],
+        enSlots: ['A', 'J'],
+        isThreeLetters: false,
+      };
+    }
 
-  // 5. RA / ر ع (e.g. 651): Left is ALWAYS R / ر, Right is ALWAYS A / ع
-  if (
-    (rawChars.includes('R') && rawChars.includes('A')) ||
-    (rawChars.includes('ر') && rawChars.includes('ع')) ||
-    /RA|AR|ر ع|ع ر|رع|عر/i.test(clean)
-  ) {
-    return { leftAr: 'ر', rightAr: 'ع', leftEn: 'R', rightEn: 'A' };
+    // 3. AD / ا د (e.g. 6534, 6531): Left is ALWAYS A / ا, Right is ALWAYS D / د
+    if (
+      (rawChars.includes('A') && rawChars.includes('D')) ||
+      ((rawChars.includes('ا') || rawChars.includes('أ')) && rawChars.includes('د')) ||
+      /^(?:AD|DA|[اأ]\s*د|د\s*[اأ])$/i.test(normalizedClean)
+    ) {
+      return {
+        leftAr: 'ا',
+        middleAr: '',
+        rightAr: 'د',
+        leftEn: 'A',
+        middleEn: '',
+        rightEn: 'D',
+        arSlots: ['ا', 'د'],
+        enSlots: ['A', 'D'],
+        isThreeLetters: false,
+      };
+    }
+
+    // 4. BT / ب ط (e.g. 6241, 6238): Left is ALWAYS B / ب, Right is ALWAYS T / ط
+    if (
+      (rawChars.includes('B') && rawChars.includes('T')) ||
+      (rawChars.includes('ب') && rawChars.includes('ط')) ||
+      /^(?:BT|TB|ب\s*ط|ط\s*ب)$/i.test(normalizedClean)
+    ) {
+      return {
+        leftAr: 'ب',
+        middleAr: '',
+        rightAr: 'ط',
+        leftEn: 'B',
+        middleEn: '',
+        rightEn: 'T',
+        arSlots: ['ب', 'ط'],
+        enSlots: ['B', 'T'],
+        isThreeLetters: false,
+      };
+    }
+
+    // 5. RA / ر ع (e.g. 651): Left is ALWAYS R / ر, Right is ALWAYS A / ع
+    if (
+      (rawChars.includes('R') && rawChars.includes('A')) ||
+      (rawChars.includes('ر') && rawChars.includes('ع')) ||
+      /^(?:RA|AR|ر\s*ع|ع\s*ر)$/i.test(normalizedClean)
+    ) {
+      return {
+        leftAr: 'ر',
+        middleAr: '',
+        rightAr: 'ع',
+        leftEn: 'R',
+        middleEn: '',
+        rightEn: 'A',
+        arSlots: ['ر', 'ع'],
+        enSlots: ['R', 'A'],
+        isThreeLetters: false,
+      };
+    }
   }
 
   const isInputArabic = rawChars.some((c) => AR_TO_EN_LETTERS[c]);
+  const normalizeArChar = (ch: string) => (ch === 'أ' || ch === 'إ' || ch === 'آ' ? 'ا' : ch);
 
   if (isInputArabic) {
-    const ar1 = rawChars[0] === 'أ' || rawChars[0] === 'إ' ? 'ا' : rawChars[0];
-    const ar2 = rawChars[1] ? (rawChars[1] === 'أ' || rawChars[1] === 'إ' ? 'ا' : rawChars[1]) : '';
+    const ar1 = normalizeArChar(rawChars[0]);
+    const ar2 = rawChars[1] ? normalizeArChar(rawChars[1]) : '';
+    const ar3 = rawChars[2] ? normalizeArChar(rawChars[2]) : '';
     const en1 = AR_TO_EN_LETTERS[ar1] || ar1;
     const en2 = ar2 ? (AR_TO_EN_LETTERS[ar2] || ar2) : '';
-    return { leftAr: ar1, rightAr: ar2, leftEn: en1, rightEn: en2 };
+    const en3 = ar3 ? (AR_TO_EN_LETTERS[ar3] || ar3) : '';
+
+    if (ar3) {
+      return {
+        leftAr: ar1,
+        middleAr: ar2,
+        rightAr: ar3,
+        leftEn: en1,
+        middleEn: en2,
+        rightEn: en3,
+        arSlots: [ar1, ar2, ar3],
+        enSlots: [en1, en2, en3],
+        isThreeLetters: true,
+      };
+    }
+
+    return {
+      leftAr: ar1,
+      middleAr: '',
+      rightAr: ar2,
+      leftEn: en1,
+      middleEn: '',
+      rightEn: en2,
+      arSlots: [ar1, ar2],
+      enSlots: [en1, en2],
+      isThreeLetters: false,
+    };
   } else {
     const en1 = rawChars[0].toUpperCase();
     const en2 = rawChars[1] ? rawChars[1].toUpperCase() : '';
-    const ar1 = EN_TO_AR_LETTERS[en1] || en1;
-    const ar2 = en2 ? (EN_TO_AR_LETTERS[en2] || en2) : '';
+    const en3 = rawChars[2] ? rawChars[2].toUpperCase() : '';
+    const ar1 = normalizeArChar(EN_TO_AR_LETTERS[en1] || en1);
+    const ar2 = en2 ? normalizeArChar(EN_TO_AR_LETTERS[en2] || en2) : '';
+    const ar3 = en3 ? normalizeArChar(EN_TO_AR_LETTERS[en3] || en3) : '';
+
+    if (en3) {
+      return {
+        leftAr: ar1,
+        middleAr: ar2,
+        rightAr: ar3,
+        leftEn: en1,
+        middleEn: en2,
+        rightEn: en3,
+        arSlots: [ar1, ar2, ar3],
+        enSlots: [en1, en2, en3],
+        isThreeLetters: true,
+      };
+    }
+
     return {
-      leftAr: ar1 === 'أ' || ar1 === 'إ' ? 'ا' : ar1,
-      rightAr: ar2 === 'أ' || ar2 === 'إ' ? 'ا' : ar2,
+      leftAr: ar1,
+      middleAr: '',
+      rightAr: ar2,
       leftEn: en1,
+      middleEn: '',
       rightEn: en2,
+      arSlots: [ar1, ar2],
+      enSlots: [en1, en2],
+      isThreeLetters: false,
     };
   }
 };
@@ -140,8 +273,8 @@ export const getPlateLetterSlots = (input: string): PlateLetterSlots => {
 export const convertLettersToBoth = (input: string): { ar: string; en: string } => {
   const slots = getPlateLetterSlots(input);
   return {
-    ar: [slots.leftAr, slots.rightAr].filter(Boolean).join(' '),
-    en: [slots.leftEn, slots.rightEn].filter(Boolean).join(' '),
+    ar: slots.arSlots.filter(Boolean).join(' '),
+    en: slots.enSlots.filter(Boolean).join(' '),
   };
 };
 
@@ -162,9 +295,9 @@ export const getAlignedDigits = (englishDigits: string) => {
 };
 
 /**
- * Format bike / motorcycle plate for display based on user language.
- * - Arabic ('ar'): displays Arabic plate format e.g. "7030 ب ع"
- * - English / Urdu / Bengali ('en' | 'ur' | 'bn'): displays English plate format e.g. "7030 BE"
+ * Format bike / motorcycle / car plate for display based on user language.
+ * - Arabic ('ar'): displays Arabic plate format e.g. "7030 ب ع" or "2459 س ط ا"
+ * - English / Urdu / Bengali ('en' | 'ur' | 'bn'): displays English plate format e.g. "7030 B E" or "2459 S T A"
  */
 export const formatBikePlateForDisplay = (
   raw: string | undefined | null,
@@ -178,14 +311,14 @@ export const formatBikePlateForDisplay = (
   const slots = getPlateLetterSlots(letters);
 
   if (lang === 'ar') {
-    const arLetters = [slots.leftAr, slots.rightAr].filter(Boolean).join(' ');
+    const arLetters = slots.arSlots.filter(Boolean).join(' ');
     if (digits && arLetters) {
       return `${digits} ${arLetters}`;
     }
     return clean;
   } else {
-    // English, Urdu, Bengali: display in English digits and Latin letters (e.g. "7030 BE")
-    const enLetters = [slots.leftEn, slots.rightEn].filter(Boolean).join(' ');
+    // English, Urdu, Bengali: display in English digits and Latin letters (e.g. "7030 B E" or "2459 S T A")
+    const enLetters = slots.enSlots.filter(Boolean).join(' ');
     if (digits && enLetters) {
       return `${digits} ${enLetters}`;
     }
@@ -196,4 +329,3 @@ export const formatBikePlateForDisplay = (
     return toEnglishDigits(enConverted);
   }
 };
-

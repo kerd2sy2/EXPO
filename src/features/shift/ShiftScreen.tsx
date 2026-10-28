@@ -5,7 +5,7 @@ import { StartShiftSection } from './components/StartShiftSection';
 import { EndShiftSection } from './components/EndShiftSection';
 import { ShiftCardSkeleton } from './components/ShiftCardSkeleton';
 import { ModuleErrorBoundary } from '../../components/ModuleErrorBoundary';
-import { parsePlateComponents } from '../../utils/plateUtils';
+import { parsePlateComponents, getPlateLetterSlots } from '../../utils/plateUtils';
 
 export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   employee,
@@ -89,13 +89,20 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
         endKmImage
       );
 
-  // Verification matching against assigned motorcycle
+  // Verification matching against assigned motorcycle / vehicle (supports 2-letter motorcycles & 3-letter cars)
   const assignedBike = employee?.motorcycle_number || '';
   const assignedParsed = parsePlateComponents(assignedBike);
+  const normalizeLettersKey = (str: string) =>
+    getPlateLetterSlots(str)
+      .enSlots.filter(Boolean)
+      .sort()
+      .join('');
   const isBikeMatching =
     Boolean(plateDigits) &&
     (assignedParsed.digits ? plateDigits === assignedParsed.digits : true) &&
-    (assignedParsed.letters && plateLetters ? plateLetters === assignedParsed.letters : true);
+    (assignedParsed.letters && plateLetters
+      ? normalizeLettersKey(plateLetters) === normalizeLettersKey(assignedParsed.letters)
+      : true);
 
   if (isSessionSyncing && !activeSession) {
     return (
