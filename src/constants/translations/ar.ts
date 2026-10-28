@@ -257,9 +257,9 @@ export const ar = {
   retryNowBtn: 'إعادة المحاولة الآن',
 
   // Oil Change Alert
-  oilChangeAlertTitle: '',
+  oilChangeAlertTitle: 'غير زيت الان',
   oilChangeAlertMessage: '',
-  oilChangeAlertBtn: 'الرجوع إلى الرئيسية',
+  oilChangeAlertBtn: 'غير زيت الان',
   oilChangeScreenTitle: 'تغيير زيت الدباب',
 };
 

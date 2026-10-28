@@ -259,8 +259,8 @@ export const bn: Record<TranslationKeys, string> = {
   retryNowBtn: 'এখনই আবার চেষ্টা করুন',
 
   // Oil Change Alert
-  oilChangeAlertTitle: '',
+  oilChangeAlertTitle: 'এখনই তেল পরিবর্তন করুন',
   oilChangeAlertMessage: '',
-  oilChangeAlertBtn: 'হোমে ফিরে যান',
+  oilChangeAlertBtn: 'এখনই তেল পরিবর্তন করুন',
   oilChangeScreenTitle: 'তেল পরিবর্তন',
 };

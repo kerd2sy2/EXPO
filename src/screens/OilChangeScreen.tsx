@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
+  Animated,
+  Easing,
   Platform,
 } from 'react-native';
 import LottieView from 'lottie-react-native';
@@ -26,48 +28,99 @@ export interface OilChangeScreenProps {
 
 export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
   colors,
+  isDarkMode = false,
+  isRTL = true,
   lang = 'ar',
   t,
   onBackToHome,
 }) => {
-  const handleBackToHomePress = () => {
+  // Smooth entrance transition animation
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateYAnim = useRef(new Animated.Value(20)).current;
+  const scaleAnim = useRef(new Animated.Value(0.94)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateYAnim, {
+        toValue: 0,
+        bounciness: 5,
+        speed: 12,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        bounciness: 4,
+        speed: 12,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handleActionPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     onBackToHome();
   };
 
   const buttonText =
     t?.oilChangeAlertBtn ||
+    t?.oilChangeAlertTitle ||
     (lang === 'ar'
-      ? 'الرجوع إلى الرئيسية'
+      ? 'غير زيت الان'
       : lang === 'ur'
-      ? 'مین اسکرین پر واپس جائیں'
+      ? 'ابھی تیل تبدیل کریں'
       : lang === 'bn'
-      ? 'হোমে ফিরে যান'
-      : 'Return to Home');
+      ? 'এখনই তেল পরিবর্তন করুন'
+      : 'Change oil now');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Centered Lottie Animation with no background */}
-      <View style={styles.centerSection}>
-        <LottieView
-          source={require('../../assets/Lottie/LCKboLMu6C.lottie')}
-          autoPlay
-          loop
-          style={styles.lottieAnim}
-          resizeMode="contain"
-        />
-      </View>
+      <Animated.View
+        style={[
+          styles.contentWrap,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: translateYAnim }, { scale: scaleAnim }],
+          },
+        ]}
+      >
+        {/* Circular Background for Animation */}
+        <View
+          style={[
+            styles.circleContainer,
+            {
+              backgroundColor: isDarkMode
+                ? 'rgba(249, 115, 22, 0.12)'
+                : '#fff7ed',
+              borderColor: isDarkMode
+                ? 'rgba(249, 115, 22, 0.3)'
+                : 'rgba(249, 115, 22, 0.25)',
+            },
+          ]}
+        >
+          <LottieView
+            source={require('../../assets/Lottie/LCKboLMu6C.lottie')}
+            autoPlay
+            loop
+            style={styles.lottieAnim}
+            resizeMode="contain"
+          />
+        </View>
 
-      {/* Button at the very bottom, without home icon */}
-      <View style={styles.bottomSection}>
+        {/* Action Button directly under the animation: "غير زيت الان" */}
         <TouchableOpacity
-          style={[styles.homeButton, { backgroundColor: colors.primary || '#f97316' }]}
-          onPress={handleBackToHomePress}
+          style={[styles.actionButton, { backgroundColor: colors.primary || '#f97316' }]}
+          onPress={handleActionPress}
           activeOpacity={0.85}
         >
-          <Text style={styles.homeButtonText}>{buttonText}</Text>
+          <Text style={styles.actionButtonText}>{buttonText}</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </View>
   );
 };
@@ -75,34 +128,40 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+    minHeight: 520,
     width: '100%',
-    minHeight: 560,
   },
-  centerSection: {
-    flex: 1,
+  contentWrap: {
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+  },
+  circleContainer: {
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 28,
+    shadowColor: '#f97316',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: Platform.OS === 'ios' ? 0.16 : 0.25,
+    shadowRadius: 18,
+    elevation: 8,
   },
   lottieAnim: {
-    width: 270,
-    height: 270,
+    width: 200,
+    height: 200,
   },
-  bottomSection: {
+  actionButton: {
     width: '100%',
-    alignItems: 'center',
-    paddingTop: 16,
-  },
-  homeButton: {
-    width: '100%',
-    maxWidth: 340,
-    height: 54,
+    maxWidth: 280,
+    height: 52,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -112,11 +171,11 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-  homeButtonText: {
+  actionButtonText: {
     color: '#ffffff',
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
     textAlign: 'center',
   },
 });

@@ -1221,7 +1221,7 @@ export default function DelegateApp() {
             bikeNumber,
           });
           setCurrentTab('oil-change');
-          mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+          mainScrollRef.current?.scrollTo({ y: 0, animated: true });
         }
       } catch (err) {
         console.log('Error checking bike oil/km after scan:', err);
