@@ -680,5 +680,16 @@
       "numbers": "8041",
       "letters": ""
     }
+  },
+  {
+    "image_name": "2459_STA.jpg",
+    "plate_arabic": {
+      "numbers": "٢٤٥٩",
+      "letters": "س ط ا"
+    },
+    "plate_english": {
+      "numbers": "2459",
+      "letters": "STA"
+    }
   }
 ]
