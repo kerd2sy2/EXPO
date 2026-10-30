@@ -264,22 +264,30 @@ export const usePlateScanner = ({
     try {
       if (CameraViewComponent && !cameraFailed && cameraRef.current) {
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.6,
-          skipProcessing: true,
+          quality: 0.9,
+          skipProcessing: false,
           shutterSound: false,
         });
 
         if (photo && photo.uri) {
-          // Efficient client-side optimization to avoid memory spikes and GC freezes
+          // Pass full-res photo directly to on-device ML Kit
+          const detected = await executeAiScan(photo.uri, null);
+          if (detected && detected.digits && detected.digits.length >= 2) {
+            showResultPopup(detected, photo.uri, '');
+            setInternalScanning(false);
+            return;
+          }
+
+          // Fallback: optimize image for cloud / server ALPR
           const manipulated = await ImageManipulator.manipulateAsync(
             photo.uri,
-            [{ resize: { width: 900 } }],
-            { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+            [{ resize: { width: 1200 } }],
+            { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true }
           );
           const b64 = manipulated.base64 ? `data:image/jpeg;base64,${manipulated.base64}` : photo.uri;
-          const detected = await executeAiScan(manipulated.uri, b64);
-          if (detected && detected.digits && detected.digits.length >= 2) {
-            showResultPopup(detected, manipulated.uri, b64);
+          const retryDetected = await executeAiScan(manipulated.uri, b64);
+          if (retryDetected && retryDetected.digits && retryDetected.digits.length >= 2) {
+            showResultPopup(retryDetected, manipulated.uri, b64);
           } else {
             triggerErrorSheet(
               "لم نتمكن من قراءة أرقام اللوحة بوضوح، يرجى تقريب الكاميرا والتأكد من إضاءة اللوحة وإعادة المحاولة."
