@@ -18,6 +18,7 @@ import { ShutterButton } from './components/ShutterButton';
 import { PlateResultCard } from './components/PlateResultCard';
 import { ScannerIntroSplash } from './components/ScannerIntroSplash';
 import { ScannerErrorSheet } from './components/ScannerErrorSheet';
+import { AssignedBikeBottomSheet } from './components/AssignedBikeBottomSheet';
 import { translations } from '../../constants/translations';
 
 export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
@@ -63,7 +64,11 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     handleManualScan,
     handleConfirmResult,
     handleRescan,
-    handleSelectAssignedPlate,
+    showAssignedModal,
+    assignedSheetAnim,
+    openAssignedModal,
+    closeAssignedModal,
+    handleConfirmAssignedModal,
   } = usePlateScanner({
     visible,
     onClose,
@@ -138,7 +143,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               isBusy={isBusy}
               t={activeT}
               assignedPlate={assignedPlate}
-              onPressAssignedPlate={handleSelectAssignedPlate}
+              onPressAssignedPlate={openAssignedModal}
             />
 
             {/* Bottom Control / Result Popover */}
@@ -181,6 +186,17 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
           isDark={isDark}
           t={activeT}
           isRTL={activeIsRTL}
+        />
+
+        {/* Modern Bottom Sheet: Confirm Assigned Motorcycle with Lottie Animation */}
+        <AssignedBikeBottomSheet
+          visible={showAssignedModal}
+          assignedPlate={assignedPlate || ''}
+          sheetAnim={assignedSheetAnim}
+          onConfirm={handleConfirmAssignedModal}
+          onClose={closeAssignedModal}
+          isDark={isDark}
+          isBusy={isBusy}
         />
       </View>
     </Modal>

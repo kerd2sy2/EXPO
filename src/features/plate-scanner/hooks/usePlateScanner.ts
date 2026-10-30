@@ -335,68 +335,77 @@ export const usePlateScanner = ({
     }
   };
 
-  // One-click confirmation for courier's assigned motorcycle
-  const handleSelectAssignedPlate = useCallback(() => {
-    if (!assignedPlate || internalScanning || isProcessing) return;
+  // Bottom Sheet state for Confirming Registered Motorcycle
+  const [showAssignedModal, setShowAssignedModal] = useState(false);
+  const assignedSheetAnim = useRef(new Animated.Value(0)).current;
 
-    Alert.alert(
-      'تأكيد الدباب المسجل',
-      `هل أنت تستخدم دباب رقم (${assignedPlate}) بالفعل؟`,
-      [
-        {
-          text: 'إلغاء',
-          style: 'cancel',
-        },
-        {
-          text: 'نعم، تأكيد',
-          style: 'default',
-          onPress: async () => {
-            const assignedInfo = parseAssignedPlateInfo(assignedPlate);
-            if (!assignedInfo || !assignedInfo.digits) return;
+  const openAssignedModal = useCallback(() => {
+    if (!assignedPlate) return;
+    setShowAssignedModal(true);
+    Animated.spring(assignedSheetAnim, {
+      toValue: 1,
+      tension: 65,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [assignedPlate, assignedSheetAnim]);
 
-            const assignedResult: PlateResultData = {
-              digits: assignedInfo.digits,
-              letters: assignedInfo.arLetters,
-              full_plate: `${assignedInfo.digits} ${assignedInfo.arLetters}`.trim(),
-              arabic_digits: toArabicDigits(assignedInfo.digits),
-              arabic_letters: assignedInfo.arLetters,
-              english_letters: assignedInfo.enLetters,
-            };
+  const closeAssignedModal = useCallback(() => {
+    Animated.timing(assignedSheetAnim, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowAssignedModal(false);
+    });
+  }, [assignedSheetAnim]);
 
-            setInternalScanning(true);
-            let photoUri = '';
-            let b64 = '';
+  const handleConfirmAssignedModal = useCallback(async () => {
+    if (!assignedPlate) return;
+    closeAssignedModal();
 
-            try {
-              if (CameraViewComponent && !cameraFailed && cameraRef.current) {
-                const photo = await cameraRef.current.takePictureAsync({
-                  quality: 0.7,
-                  skipProcessing: true,
-                  shutterSound: false,
-                });
-                if (photo && photo.uri) {
-                  photoUri = photo.uri;
-                  const manipulated = await ImageManipulator.manipulateAsync(
-                    photo.uri,
-                    [{ resize: { width: 900 } }],
-                    { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-                  );
-                  b64 = manipulated.base64 ? `data:image/jpeg;base64,${manipulated.base64}` : photo.uri;
-                }
-              }
-            } catch (err) {
-              console.warn('Snap for assigned plate note:', err);
-            } finally {
-              setInternalScanning(false);
-            }
+    const assignedInfo = parseAssignedPlateInfo(assignedPlate);
+    if (!assignedInfo || !assignedInfo.digits) return;
 
-            // Immediately display success result card with the captured photo proof
-            showResultPopup(assignedResult, photoUri || 'assigned_bike', b64);
-          },
-        },
-      ]
-    );
-  }, [assignedPlate, internalScanning, isProcessing, cameraFailed]);
+    const assignedResult: PlateResultData = {
+      digits: assignedInfo.digits,
+      letters: assignedInfo.arLetters,
+      full_plate: `${assignedInfo.digits} ${assignedInfo.arLetters}`.trim(),
+      arabic_digits: toArabicDigits(assignedInfo.digits),
+      arabic_letters: assignedInfo.arLetters,
+      english_letters: assignedInfo.enLetters,
+    };
+
+    setInternalScanning(true);
+    let photoUri = '';
+    let b64 = '';
+
+    try {
+      if (CameraViewComponent && !cameraFailed && cameraRef.current) {
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.7,
+          skipProcessing: true,
+          shutterSound: false,
+        });
+        if (photo && photo.uri) {
+          photoUri = photo.uri;
+          const manipulated = await ImageManipulator.manipulateAsync(
+            photo.uri,
+            [{ resize: { width: 900 } }],
+            { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+          b64 = manipulated.base64 ? `data:image/jpeg;base64,${manipulated.base64}` : photo.uri;
+        }
+      }
+    } catch (err) {
+      console.warn('Snap for assigned plate error:', err);
+    } finally {
+      setInternalScanning(false);
+    }
+
+    // Immediately display success result card with the captured photo proof as if scanned!
+    showResultPopup(assignedResult, photoUri || 'assigned_bike', b64);
+  }, [assignedPlate, closeAssignedModal, cameraFailed]);
 
   // Confirm and Apply Detected Result
   const handleConfirmResult = () => {
@@ -453,7 +462,11 @@ export const usePlateScanner = ({
     handleManualScan,
     handleConfirmResult,
     handleRescan,
-    handleSelectAssignedPlate,
+    showAssignedModal,
+    assignedSheetAnim,
+    openAssignedModal,
+    closeAssignedModal,
+    handleConfirmAssignedModal,
   };
 };
 
