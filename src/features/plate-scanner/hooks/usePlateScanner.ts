@@ -376,36 +376,15 @@ export const usePlateScanner = ({
       english_letters: assignedInfo.enLetters,
     };
 
-    setInternalScanning(true);
-    let photoUri = '';
-    let b64 = '';
+    // Vibrate/haptic success feedback
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
-    try {
-      if (CameraViewComponent && !cameraFailed && cameraRef.current) {
-        const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.7,
-          skipProcessing: true,
-          shutterSound: false,
-        });
-        if (photo && photo.uri) {
-          photoUri = photo.uri;
-          const manipulated = await ImageManipulator.manipulateAsync(
-            photo.uri,
-            [{ resize: { width: 900 } }],
-            { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-          );
-          b64 = manipulated.base64 ? `data:image/jpeg;base64,${manipulated.base64}` : photo.uri;
-        }
-      }
-    } catch (err) {
-      console.warn('Snap for assigned plate error:', err);
-    } finally {
-      setInternalScanning(false);
-    }
-
-    // Immediately display success result card with the captured photo proof as if scanned!
-    showResultPopup(assignedResult, photoUri || 'assigned_bike', b64);
-  }, [assignedPlate, closeAssignedModal, cameraFailed]);
+    // Instantly close modal and trigger onScanned directly without photographing ("دون تصوير")
+    onClose();
+    onScanned('', '', assignedResult).catch((err) => {
+      console.error('onScanned assigned error:', err);
+    });
+  }, [assignedPlate, closeAssignedModal, onClose, onScanned]);
 
   // Confirm and Apply Detected Result
   const handleConfirmResult = () => {

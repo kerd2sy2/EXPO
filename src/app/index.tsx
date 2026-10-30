@@ -58,6 +58,7 @@ import { OilChangeScreen } from '../screens/OilChangeScreen';
 // Modals & Boundaries
 import { AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import { DelegateModalsPortal } from '../components/modals/DelegateModalsPortal';
+import { TargetCelebrationModal } from '../features/performance/components/TargetCelebrationModal';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 import { HomeScreenSkeleton } from '../components/skeletons/HomeScreenSkeleton';
 
@@ -319,6 +320,17 @@ export default function DelegateApp() {
     calculatedDistance,
   } = useMonthlyPerformance(historySessions, activeSession, endKm);
 
+  // 6.1 Monthly Target Celebration Modal state (triggers on launch when >= 460 orders, auto zeroes on new month)
+  const [showTargetCelebrationModal, setShowTargetCelebrationModal] = useState(false);
+  const celebrationCheckedRef = useRef(false);
+
+  useEffect(() => {
+    if (employee && totalApprovedOrdersCount >= 460 && !celebrationCheckedRef.current) {
+      celebrationCheckedRef.current = true;
+      setShowTargetCelebrationModal(true);
+    }
+  }, [employee, totalApprovedOrdersCount]);
+
   // 7. OTA Updates Micro-Module
   const {
     updateModalVisible,
@@ -572,7 +584,16 @@ export default function DelegateApp() {
           includeHeader
           topInset={topInset}
         />
-      </SafeAreaView>
+        {/* Monthly Target 460+ Celebration Modal */}
+      <TargetCelebrationModal
+        visible={showTargetCelebrationModal}
+        onClose={() => setShowTargetCelebrationModal(false)}
+        ordersCount={totalApprovedOrdersCount}
+        monthlyTarget={monthlyTarget}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+      />
+    </SafeAreaView>
     );
   }
 
@@ -771,6 +792,7 @@ export default function DelegateApp() {
                   deductedViolationsAmount={deductedViolationsAmount}
                   onNavigateToTab={handleNavigateToTab}
                   onStartShiftClick={handleStartShiftClick}
+                  onShowCelebration={() => setShowTargetCelebrationModal(true)}
                 />
               </ModuleErrorBoundary>
             )}

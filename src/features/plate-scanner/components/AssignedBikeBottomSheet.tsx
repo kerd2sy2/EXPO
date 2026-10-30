@@ -106,8 +106,8 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
               <>
-                <Ionicons name="camera" size={20} color="#ffffff" style={{ marginHorizontal: 6 }} />
-                <Text style={styles.confirmBtnText}>نعم، تأكيد والتقاط صورة اللوحة</Text>
+                <Ionicons name="checkmark-circle" size={20} color="#ffffff" style={{ marginHorizontal: 6 }} />
+                <Text style={styles.confirmBtnText}>نعم، تأكيد واستخدام الدباب</Text>
               </>
             )}
           </TouchableOpacity>

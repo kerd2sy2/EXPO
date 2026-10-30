@@ -402,8 +402,14 @@ export function useShiftController({
       return;
     }
 
+    const isAssignedBikeConfirmed =
+      Boolean(employee?.motorcycle_number) &&
+      Boolean(enteredMotorcycle) &&
+      (enteredMotorcycle.trim().toLowerCase() === employee?.motorcycle_number?.trim().toLowerCase() ||
+       enteredMotorcycle.trim().replace(/\s+/g, '').toLowerCase() === employee?.motorcycle_number?.trim().replace(/\s+/g, '').toLowerCase());
+
     const platePhoto = startPlateImageRef.current || startPlateImage;
-    if (!platePhoto) {
+    if (!platePhoto && !isAssignedBikeConfirmed) {
       setAlertConfig({
         type: 'warning',
         title: lang === 'ar' ? 'تصوير اللوحة إلزامي' : 'Plate Photo Required',

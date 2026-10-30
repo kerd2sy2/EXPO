@@ -7,6 +7,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import { EmployeeProfile, WorkSession, TabType, ThemeColors, Language } from '../types/delegate';
 import { DelegateViolation } from '../services/api';
 import { formatBikePlateForDisplay } from '../utils/plateUtils';
@@ -38,6 +39,7 @@ interface HomeScreenProps {
   violations?: DelegateViolation[];
   totalViolationsAmount?: number;
   deductedViolationsAmount?: number;
+  onShowCelebration?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -64,6 +66,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   violations = [],
   totalViolationsAmount = 0,
   deductedViolationsAmount = 0,
+  onShowCelebration,
 }) => {
   const isDifferentBike = Boolean(
     activeSession &&
@@ -123,6 +126,45 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <View style={styles.tabContainer}>
+      {/* Monthly Target 460+ Celebration Banner (Visible when >= 460 orders, vanishes when month resets) */}
+      {totalApprovedOrdersCount >= 460 && (
+        <ModuleErrorBoundary moduleName="بانر الاحتفال بالهدف" colors={colors}>
+          <TouchableOpacity
+            style={[
+              styles.celebrationBanner,
+              {
+                backgroundColor: isDarkMode ? '#1e293b' : '#fefce8',
+                borderColor: isDarkMode ? 'rgba(234, 179, 8, 0.45)' : '#fde047',
+              },
+            ]}
+            onPress={onShowCelebration}
+            activeOpacity={0.85}
+          >
+            <View style={styles.celebrationLottieWrap}>
+              <LottieView
+                source={require('../../assets/Lottie/lottie/GpI0uQYnKa.lottie')}
+                autoPlay
+                loop
+                style={styles.celebrationLottie}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={[styles.celebrationContent, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <View style={styles.celebrationTag}>
+                <Ionicons name="sparkles" size={13} color="#ca8a04" />
+                <Text style={styles.celebrationTagText}>تم تحقيق التارجت 460+ طلب 🎉</Text>
+              </View>
+              <Text style={[styles.celebrationTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                أداء استثنائي يا بطل!
+              </Text>
+              <Text style={[styles.celebrationSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                أنجزت {totalApprovedOrdersCount} طلب هذا الشهر • تم تفعيل شريحة 6 ريال للطلب
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </ModuleErrorBoundary>
+      )}
+
       {/* Module 1: Monthly Target & Progress Card (Isolated) */}
       <ModuleErrorBoundary moduleName="كرت الهدف الشهري" colors={colors}>
         <View style={[styles.targetCardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -391,6 +433,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 const styles = StyleSheet.create({
   tabContainer: {
     padding: 16,
+  },
+  celebrationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 22,
+    borderWidth: 1.5,
+    padding: 14,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  celebrationLottieWrap: {
+    width: 90,
+    height: 90,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  celebrationLottie: {
+    width: '100%',
+    height: '100%',
+  },
+  celebrationContent: {
+    flex: 1,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+  },
+  celebrationTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(234, 179, 8, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+    marginBottom: 4,
+  },
+  celebrationTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ca8a04',
+  },
+  celebrationTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  celebrationSubtitle: {
+    fontSize: 12,
+    lineHeight: 17,
   },
   targetCardContainer: {
     borderRadius: 20,
