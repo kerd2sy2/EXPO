@@ -24,6 +24,7 @@ interface UsePlateScannerProps {
   onClose: () => void;
   onScanned: (imageUri: string, base64: string, data?: PlateResultData) => Promise<void>;
   isProcessing?: boolean;
+  assignedPlate?: string;
 }
 
 export const usePlateScanner = ({
@@ -31,6 +32,7 @@ export const usePlateScanner = ({
   onClose,
   onScanned,
   isProcessing = false,
+  assignedPlate,
 }: UsePlateScannerProps) => {
   const cameraRef = useRef<any>(null);
   const [torchOn, setTorchOn] = useState(false);
@@ -270,8 +272,8 @@ export const usePlateScanner = ({
         });
 
         if (photo && photo.uri) {
-          // Pass full-res photo directly to on-device ML Kit
-          const detected = await executeAiScan(photo.uri, null);
+          // Pass full-res photo directly to on-device ML Kit with assignedPlate priority
+          const detected = await executeAiScan(photo.uri, null, assignedPlate);
           if (detected && detected.digits && detected.digits.length >= 2) {
             showResultPopup(detected, photo.uri, '');
             setInternalScanning(false);
@@ -285,7 +287,7 @@ export const usePlateScanner = ({
             { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true }
           );
           const b64 = manipulated.base64 ? `data:image/jpeg;base64,${manipulated.base64}` : photo.uri;
-          const retryDetected = await executeAiScan(manipulated.uri, b64);
+          const retryDetected = await executeAiScan(manipulated.uri, b64, assignedPlate);
           if (retryDetected && retryDetected.digits && retryDetected.digits.length >= 2) {
             showResultPopup(retryDetected, manipulated.uri, b64);
           } else {
@@ -315,7 +317,7 @@ export const usePlateScanner = ({
             { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
           );
           const b64 = manipulated.base64 ? `data:image/jpeg;base64,${manipulated.base64}` : manipulated.uri;
-          const detected = await executeAiScan(manipulated.uri, b64);
+          const detected = await executeAiScan(manipulated.uri, b64, assignedPlate);
           if (detected && detected.digits && detected.digits.length >= 2) {
             showResultPopup(detected, manipulated.uri, b64);
           } else {

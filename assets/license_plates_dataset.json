@@ -724,5 +724,38 @@
       "numbers": "7038",
       "letters": "BE"
     }
+  },
+  {
+    "image_name": "6541_AD.jpg",
+    "plate_arabic": {
+      "numbers": "٦٥٤١",
+      "letters": "ا د"
+    },
+    "plate_english": {
+      "numbers": "6541",
+      "letters": "AD"
+    }
+  },
+  {
+    "image_name": "6537_AD.jpg",
+    "plate_arabic": {
+      "numbers": "٦٥٣٧",
+      "letters": "ا د"
+    },
+    "plate_english": {
+      "numbers": "6537",
+      "letters": "AD"
+    }
+  },
+  {
+    "image_name": "1531_AJ.jpg",
+    "plate_arabic": {
+      "numbers": "١٥٣١",
+      "letters": "ا ح"
+    },
+    "plate_english": {
+      "numbers": "1531",
+      "letters": "AJ"
+    }
   }
 ]

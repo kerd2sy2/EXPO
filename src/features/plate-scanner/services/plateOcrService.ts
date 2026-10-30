@@ -456,8 +456,43 @@ export const matchOldSaudiMotorcyclePlate = (rawText: string, textWithAsciiDigit
   return null;
 };
 
-// Find matching fleet plate from OCR text with exact + fuzzy matching
-export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null => {
+// Helper to parse assigned motorcycle string e.g. "6541 ا د", "6541 AD", "6541"
+export const parseAssignedPlateInfo = (
+  assignedStr?: string
+): { digits: string; arLetters: string; enLetters: string } | null => {
+  if (!assignedStr || typeof assignedStr !== 'string') return null;
+  const clean = assignedStr.trim();
+  if (!clean) return null;
+
+  const ascii = clean.replace(/[٠-٩]/g, (w) => `${['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'].indexOf(w)}`);
+  const digitsMatch = ascii.match(/\b\d{3,4}\b/) || ascii.match(/\d{3,4}/);
+  const digits = digitsMatch ? digitsMatch[0] : '';
+  if (!digits) return null;
+
+  let arLetters = '';
+  let enLetters = '';
+
+  for (const combo in ARABIC_LETTER_COMBOS) {
+    if (clean.includes(combo)) {
+      arLetters = ARABIC_LETTER_COMBOS[combo].ar;
+      enLetters = ARABIC_LETTER_COMBOS[combo].en;
+      break;
+    }
+  }
+
+  if (!enLetters) {
+    const rawLatin = clean.replace(/[^a-zA-Z]/g, '').toUpperCase();
+    if (rawLatin.length >= 2) {
+      enLetters = rawLatin.slice(0, 2);
+      arLetters = formatPlateLetters(enLetters).ar;
+    }
+  }
+
+  return { digits, arLetters: arLetters || 'ا د', enLetters: enLetters || 'AD' };
+};
+
+// Find matching fleet plate from OCR text with exact + fuzzy matching, prioritizing the courier's assigned bike
+export const findBestFleetPlateMatch = (rawText: string, assignedPlate?: string): PlateResultData | null => {
   if (!rawText || typeof rawText !== 'string' || rawText.trim().length === 0) return null;
 
   const cleanedText = cleanOcrTextOfCountryStrip(rawText);
@@ -467,6 +502,55 @@ export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null
     const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     return `${ar.indexOf(w)}`;
   });
+
+  // Priority 0: Prioritize the courier's assigned motorcycle plate if provided
+  const assignedInfo = parseAssignedPlateInfo(assignedPlate);
+  if (assignedInfo && assignedInfo.digits) {
+    const targetDig = assignedInfo.digits;
+    if (!FLEET_PLATES_REGISTRY[targetDig]) {
+      registerVehicleInLocalFleet(targetDig, assignedInfo.enLetters);
+    }
+    const assignedEntry = FLEET_PLATES_REGISTRY[targetDig];
+
+    if (assignedEntry) {
+      // 0a: Exact digits found in OCR text or spaced (e.g. "6541" or "6 5 4 1")
+      const exactRegex = new RegExp(`(^|\\D)${targetDig}(\\D|$)`);
+      const spacedRegex = new RegExp(targetDig.split('').join('\\s+'));
+      if (
+        exactRegex.test(textWithAsciiDigits) ||
+        textWithAsciiDigits.includes(targetDig) ||
+        spacedRegex.test(textWithAsciiDigits)
+      ) {
+        return {
+          digits: assignedEntry.enDigits,
+          letters: assignedEntry.arLetters,
+          full_plate: `${assignedEntry.enDigits} ${assignedEntry.arLetters}`,
+          arabic_digits: assignedEntry.arDigits,
+          arabic_letters: assignedEntry.arLetters,
+          english_letters: assignedEntry.enLetters,
+        };
+      }
+
+      // 0b: Lookalike/fuzzy match for assigned digits (e.g. 6541 vs 6547/654I due to glare/scratch on the 1)
+      const allTokens = textWithAsciiDigits.split(/[\s\r\n\t]+/).map((w) => w.trim()).filter(Boolean);
+      for (const tok of allTokens) {
+        const cleanTok = tok.replace(/[^A-Za-z0-9]/g, '');
+        if (cleanTok.length >= 3 && cleanTok.length <= 5) {
+          const sim = getOcrSimilarityScore(cleanTok, targetDig);
+          if (sim >= 0.75 || (cleanTok.length === 4 && cleanTok.startsWith(targetDig.slice(0, 3)))) {
+            return {
+              digits: assignedEntry.enDigits,
+              letters: assignedEntry.arLetters,
+              full_plate: `${assignedEntry.enDigits} ${assignedEntry.arLetters}`,
+              arabic_digits: assignedEntry.arDigits,
+              arabic_letters: assignedEntry.arLetters,
+              english_letters: assignedEntry.enLetters,
+            };
+          }
+        }
+      }
+    }
+  }
 
   // Extract detected Arabic letter combo if present
   let detectedCombo: { en: string; ar: string } | null = null;
@@ -572,14 +656,14 @@ export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null
 };
 
 // Flexible Character-by-Character Plate Parser for Google ML Kit (Supports 2-letter Motorcycle & 3-letter Car plates)
-export const parseMLKitPlateText = (text: string): PlateResultData | null => {
+export const parseMLKitPlateText = (text: string, assignedPlate?: string): PlateResultData | null => {
   if (!text || typeof text !== 'string' || text.trim().length === 0) return null;
 
   // Pre-clean text of all vertical/horizontal country markings (K S A, السعودية)
   const cleanedText = cleanOcrTextOfCountryStrip(text);
 
-  // 1. Check Fleet Database first
-  const fleetMatch = findBestFleetPlateMatch(cleanedText);
+  // 1. Check Fleet Database first (with assigned plate priority!)
+  const fleetMatch = findBestFleetPlateMatch(cleanedText, assignedPlate);
   if (fleetMatch) {
     return fleetMatch;
   }
@@ -836,14 +920,14 @@ export const callPlateRecognizerApi = async (base64Data: string): Promise<PlateR
 };
 
 // Scan image through Google ML Kit, Plate Recognizer, or AI Backend Fallback
-export const executeAiScan = async (rawUri: string, rawB64?: string | null): Promise<PlateResultData | null> => {
+export const executeAiScan = async (rawUri: string, rawB64?: string | null, assignedPlate?: string): Promise<PlateResultData | null> => {
   try {
     // 1. Try Instant On-Device Google ML Kit first (0° and rotated 90°/270°)
     if (MLKitTextRecognition && typeof MLKitTextRecognition.recognize === 'function') {
       try {
         const mlkResult = await MLKitTextRecognition.recognize(rawUri);
         if (mlkResult && mlkResult.text) {
-          const parsed = parseMLKitPlateText(mlkResult.text);
+          const parsed = parseMLKitPlateText(mlkResult.text, assignedPlate);
           if (parsed && parsed.digits && parsed.digits.length >= 2) {
             return parsed;
           }
@@ -858,7 +942,7 @@ export const executeAiScan = async (rawUri: string, rawB64?: string | null): Pro
           );
           const mlkRot90 = await MLKitTextRecognition.recognize(rot90.uri);
           if (mlkRot90?.text) {
-            const parsed90 = parseMLKitPlateText(mlkRot90.text);
+            const parsed90 = parseMLKitPlateText(mlkRot90.text, assignedPlate);
             if (parsed90 && parsed90.digits && parsed90.digits.length >= 2) {
               return parsed90;
             }
@@ -874,7 +958,7 @@ export const executeAiScan = async (rawUri: string, rawB64?: string | null): Pro
           );
           const mlkRot270 = await MLKitTextRecognition.recognize(rot270.uri);
           if (mlkRot270?.text) {
-            const parsed270 = parseMLKitPlateText(mlkRot270.text);
+            const parsed270 = parseMLKitPlateText(mlkRot270.text, assignedPlate);
             if (parsed270 && parsed270.digits && parsed270.digits.length >= 2) {
               return parsed270;
             }

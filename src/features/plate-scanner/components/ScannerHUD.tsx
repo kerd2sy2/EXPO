@@ -10,6 +10,7 @@ interface ScannerHUDProps {
   detectedResult: PlateResultData | null;
   isBusy: boolean;
   t?: any;
+  assignedPlate?: string;
 }
 
 export const ScannerHUD: React.FC<ScannerHUDProps> = ({
@@ -18,6 +19,7 @@ export const ScannerHUD: React.FC<ScannerHUDProps> = ({
   detectedResult,
   isBusy,
   t,
+  assignedPlate,
 }) => {
   const translateY = laserAnim.interpolate({
     inputRange: [0, 1],
@@ -61,6 +63,15 @@ export const ScannerHUD: React.FC<ScannerHUDProps> = ({
           />
         )}
       </Animated.View>
+
+      {/* Priority Assigned Vehicle Indicator */}
+      {assignedPlate ? (
+        <View style={styles.assignedBadge}>
+          <Text style={styles.assignedBadgeText}>
+            🏍️ دبابك المسجل: {assignedPlate}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -123,6 +134,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 5,
     borderRightWidth: 5,
     borderBottomRightRadius: 20,
+  },
+  assignedBadge: {
+    marginTop: 14,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(249, 115, 22, 0.6)',
+  },
+  assignedBadgeText: {
+    color: '#fb923c',
+    fontSize: 13,
+    fontWeight: '700',
   },
   frameInnerGuidance: {
     position: 'absolute',

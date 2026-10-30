@@ -321,6 +321,7 @@ export const DelegateModalsPortal: React.FC<DelegateModalsPortalProps> = ({
           lang={lang}
           t={t}
           isRTL={isRTL}
+          assignedPlate={employee?.motorcycle_number}
         />
       </ModuleErrorBoundary>
 

@@ -29,6 +29,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
   lang = 'ar',
   t,
   isRTL,
+  assignedPlate,
 }) => {
   const activeT = t || (lang ? (translations as any)[lang] : translations.ar) || translations.ar;
   const activeIsRTL = isRTL !== undefined ? isRTL : (lang === 'ar' || lang === 'ur');
@@ -67,6 +68,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     onClose,
     onScanned,
     isProcessing,
+    assignedPlate,
   });
 
   if (!visible) return null;
@@ -134,6 +136,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               detectedResult={detectedResult}
               isBusy={isBusy}
               t={activeT}
+              assignedPlate={assignedPlate}
             />
 
             {/* Bottom Control / Result Popover */}

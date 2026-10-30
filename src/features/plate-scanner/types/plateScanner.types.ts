@@ -18,6 +18,7 @@ export interface PlateScannerModalProps {
   lang?: Language;
   t?: any;
   isRTL?: boolean;
+  assignedPlate?: string;
 }
 
 export interface FleetPlateEntry {
