@@ -713,5 +713,16 @@
       "numbers": "654",
       "letters": "RA"
     }
+  },
+  {
+    "image_name": "7038_BE.jpg",
+    "plate_arabic": {
+      "numbers": "٧٠٣٨",
+      "letters": "ع ب"
+    },
+    "plate_english": {
+      "numbers": "7038",
+      "letters": "BE"
+    }
   }
 ]
