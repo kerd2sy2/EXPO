@@ -63,6 +63,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     handleManualScan,
     handleConfirmResult,
     handleRescan,
+    handleSelectAssignedPlate,
   } = usePlateScanner({
     visible,
     onClose,
@@ -137,6 +138,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               isBusy={isBusy}
               t={activeT}
               assignedPlate={assignedPlate}
+              onPressAssignedPlate={handleSelectAssignedPlate}
             />
 
             {/* Bottom Control / Result Popover */}
