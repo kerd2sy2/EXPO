@@ -180,9 +180,7 @@ export const getPlateLetterSlots = (input: string): PlateLetterSlots => {
 
     // 5. RA / ر ع (e.g. 651): Left is ALWAYS R / ر, Right is ALWAYS A / ع
     if (
-      (rawChars.includes('R') && rawChars.includes('A')) ||
-      (rawChars.includes('ر') && rawChars.includes('ع')) ||
-      /^(?:RA|AR|ر\s*ع|ع\s*ر)$/i.test(normalizedClean)
+      (rawChars.includes('R') && (rawChars.includes('A') || rawChars.includes('E'))) || (rawChars.includes('ر') && rawChars.includes('ع')) || /^(?:RA|AR|RE|ER|ر\s*ع|ع\s*ر)$/i.test(normalizedClean)
     ) {
       return {
         leftAr: 'ر',

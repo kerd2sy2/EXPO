@@ -23,6 +23,7 @@ import { ChangePasswordModal } from '../components/modals/ChangePasswordModal';
 import { AddPhoneBottomSheet } from '../components/modals/AddPhoneBottomSheet';
 import { formatBranchName } from '../utils/branchUtils';
 import { formatBikePlateForDisplay } from '../utils/plateUtils';
+import { workApi } from '../services/work';
 import {
   API_BASE_URL,
   getTrustedDevicesList,
@@ -80,6 +81,27 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 }) => {
   const [currentEmp, setCurrentEmp] = useState<EmployeeProfile>(employee);
   const [showAddPhoneModal, setShowAddPhoneModal] = useState(false);
+  const [vehicleRegImage, setVehicleRegImage] = useState<string | null>(
+    activeBikeRegistrationImage || currentEmp.vehicle_registration_image || null
+  );
+
+  useEffect(() => {
+    const directImage = activeBikeRegistrationImage || currentEmp.vehicle_registration_image;
+    if (directImage) {
+      setVehicleRegImage(directImage);
+      return;
+    }
+    const bike = activeSession?.motorcycle_number || currentEmp.motorcycle_number;
+    if (bike && currentEmp.id) {
+      workApi.getLastKM(currentEmp.id, bike)
+        .then((res) => {
+          if (res?.registration_image) {
+            setVehicleRegImage(res.registration_image);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [activeBikeRegistrationImage, currentEmp.vehicle_registration_image, currentEmp.motorcycle_number, activeSession?.motorcycle_number, currentEmp.id]);
 
   useEffect(() => {
     setCurrentEmp(employee);
@@ -227,9 +249,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const rawActiveBike = activeSession?.motorcycle_number || currentEmp.motorcycle_number;
   const activeBikeNumber = formatBikePlateForDisplay(rawActiveBike, lang);
-  const currentVehicleRegImage = activeSession
-    ? (activeBikeRegistrationImage || currentEmp.vehicle_registration_image)
-    : currentEmp.vehicle_registration_image;
+  const currentVehicleRegImage = vehicleRegImage || activeBikeRegistrationImage || currentEmp.vehicle_registration_image;
 
   const nationalIdPhotoUrl = formatDocUrl(currentEmp.national_id_image);
   const drivingLicensePhotoUrl = formatDocUrl(currentEmp.driving_license_image);

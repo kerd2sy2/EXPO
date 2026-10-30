@@ -213,14 +213,21 @@ try {
 for (const it of datasetPlates) {
   const enDigits = String(it.plate_english?.numbers || it.plate_arabic?.numbers || '').trim();
   const arDigits = String(it.plate_arabic?.numbers || '').trim();
-  const enLetters = String(it.plate_english?.letters || '').replace(/\s+/g, '').toUpperCase();
+  let enLetters = String(it.plate_english?.letters || '').replace(/\s+/g, '').toUpperCase();
   const arLetters = String(it.plate_arabic?.letters || '').trim();
-  if (enDigits && enLetters) {
+  if (!enLetters && arLetters) {
+    if (arLetters === 'ر ع' || arLetters === 'رع') enLetters = 'RA';
+    else if (arLetters === 'ط ب' || arLetters === 'طب') enLetters = 'BT';
+    else if (arLetters === 'د ا' || arLetters === 'دا' || arLetters === 'ا د' || arLetters === 'اد') enLetters = 'AD';
+    else if (arLetters === 'ا ح' || arLetters === 'اح' || arLetters === 'أ ح' || arLetters === 'أح') enLetters = 'AJ';
+    else if (arLetters === 'ع ب' || arLetters === 'عب') enLetters = 'BE';
+  }
+  if (enDigits && (enLetters || arLetters)) {
     FLEET_PLATES_REGISTRY[enDigits] = {
       enDigits,
       arDigits: arDigits || toArabicDigits(enDigits),
-      enLetters,
-      arLetters: arLetters || formatPlateLetters(enLetters).ar,
+      enLetters: enLetters || 'RA',
+      arLetters: arLetters || (enLetters ? formatPlateLetters(enLetters).ar : 'ر ع'),
     };
   }
 }
@@ -326,6 +333,84 @@ export const detectExplicitThreeLetterCarPlate = (rawText: string): string => {
   return '';
 };
 
+// Disambiguate Old Classic Saudi Motorcycle Plates (3 digits + "ر ع")
+export const matchOldSaudiMotorcyclePlate = (rawText: string, textWithAsciiDigits: string): PlateResultData | null => {
+  if (!rawText) return null;
+
+  const oldFleetDigits = ['602', '603', '605', '608', '651', '652', '653', '654'];
+  const hasSaudiHeading = /السعودية|سعودية|المملكة/i.test(rawText);
+  const hasRaCombo = /ر\s*ع|ع\s*ر|رع|عر/i.test(rawText) || /\b(RA|RE)\b/i.test(rawText);
+
+  // 1. Direct search for 3-digit number in ascii or eastern arabic digits
+  for (const dig of oldFleetDigits) {
+    const arDig = toArabicDigits(dig);
+    const regexExact = new RegExp(`(^|\\D)${dig}(\\D|$)`);
+    if (
+      rawText.includes(arDig) ||
+      regexExact.test(textWithAsciiDigits) ||
+      (textWithAsciiDigits.includes(dig) && (hasSaudiHeading || hasRaCombo || textWithAsciiDigits.length <= 12))
+    ) {
+      const entry = FLEET_PLATES_REGISTRY[dig] || {
+        enDigits: dig,
+        arDigits: arDig,
+        enLetters: 'RA',
+        arLetters: 'ر ع',
+      };
+      return {
+        digits: entry.enDigits,
+        letters: entry.arLetters,
+        full_plate: `${entry.enDigits} ${entry.arLetters}`,
+        arabic_digits: entry.arDigits,
+        arabic_letters: entry.arLetters,
+        english_letters: entry.enLetters,
+      };
+    }
+  }
+
+  // 2. Shape Confusion for Eastern Arabic numerals on classic embossed plates
+  // ٦ (6) frequently recognized as 7, T, 1, or l
+  // ٠ (0) diamond dot frequently read as ., 0, o, or skipped
+  // ٥ (5) circle read as 5, 0, or o
+  // ٢ (2) read as 2 or r
+  // ٣ (3) read as 3, w, or m
+  // ٨ (8) read as 8 or B
+  const confusionMap: Record<string, string[]> = {
+    '651': ['751', 'T51', '151', '75I', '75l', 'l51', '65l', '65I'],
+    '652': ['752', 'T52', '152', '75r', 'l52', '65r'],
+    '653': ['753', 'T53', '153', '75w', '75m', 'l53', '65w', '65m'],
+    '602': ['702', 'T02', '102', '7.2', '72', '7o2', 'l02', '6.2'],
+    '603': ['703', 'T03', '103', '7.3', '73', '70w', '7w', '7o3', 'l03', '6.3'],
+    '605': ['705', 'T05', '105', '7.5', '75', '700', '7o5', 'l05', '6.5', '70o'],
+    '608': ['708', 'T08', '108', '7.8', '78', '70B', '7o8', 'l08', '6.8'],
+    '654': ['754', 'T54', '154', '75A', 'l54', '65A'],
+  };
+
+  for (const [realDigit, patterns] of Object.entries(confusionMap)) {
+    for (const pat of patterns) {
+      if (textWithAsciiDigits.includes(pat) || rawText.includes(pat)) {
+        if (hasSaudiHeading || hasRaCombo || textWithAsciiDigits.length <= 15) {
+          const entry = FLEET_PLATES_REGISTRY[realDigit] || {
+            enDigits: realDigit,
+            arDigits: toArabicDigits(realDigit),
+            enLetters: 'RA',
+            arLetters: 'ر ع',
+          };
+          return {
+            digits: entry.enDigits,
+            letters: entry.arLetters,
+            full_plate: `${entry.enDigits} ${entry.arLetters}`,
+            arabic_digits: entry.arDigits,
+            arabic_letters: entry.arLetters,
+            english_letters: entry.enLetters,
+          };
+        }
+      }
+    }
+  }
+
+  return null;
+};
+
 // Find matching fleet plate from OCR text with exact + fuzzy matching
 export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null => {
   if (!rawText || typeof rawText !== 'string' || rawText.trim().length === 0) return null;
@@ -341,6 +426,12 @@ export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null
     const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     return `${ar.indexOf(w)}`;
   });
+
+  // Check 0: Old Classic Saudi Motorcycle Plate Recognition (602, 603, 605, 608, 651, 652, 653, 654)
+  const oldPlateMatch = matchOldSaudiMotorcyclePlate(rawText, textWithAsciiDigits);
+  if (oldPlateMatch) {
+    return oldPlateMatch;
+  }
 
   // Extract detected Arabic letter combo if present
   let detectedCombo: { en: string; ar: string } | null = null;
@@ -387,17 +478,6 @@ export const findBestFleetPlateMatch = (rawText: string): PlateResultData | null
 
   // Check 3: Letter combo + partial digit disambiguation
   if (detectedCombo) {
-    if (detectedCombo.en === 'RA' && (/151|651|51|15|653/.test(textWithAsciiDigits) || rawText.includes('٦٥١') || rawText.includes('١٥١'))) {
-      const entry = FLEET_PLATES_REGISTRY['651'] || { enDigits: '651', arDigits: '٦٥١', enLetters: 'RA', arLetters: 'ر ع' };
-      return {
-        digits: entry.enDigits,
-        letters: entry.arLetters,
-        full_plate: `${entry.enDigits} ${entry.arLetters}`,
-        arabic_digits: entry.arDigits,
-        arabic_letters: entry.arLetters,
-        english_letters: entry.enLetters,
-      };
-    }
 
     // Filter fleet plates matching this letter combo
     for (const enNum in FLEET_PLATES_REGISTRY) {
@@ -665,7 +745,7 @@ export const callPlateRecognizerApi = async (base64Data: string): Promise<PlateR
 // Scan image through Google ML Kit, Plate Recognizer, or AI Backend Fallback
 export const executeAiScan = async (rawUri: string, rawB64?: string | null): Promise<PlateResultData | null> => {
   try {
-    // 1. Try Instant On-Device Google ML Kit first
+    // 1. Try Instant On-Device Google ML Kit first (0° and rotated 90°/270°)
     if (MLKitTextRecognition && typeof MLKitTextRecognition.recognize === 'function') {
       try {
         const mlkResult = await MLKitTextRecognition.recognize(rawUri);
@@ -675,6 +755,22 @@ export const executeAiScan = async (rawUri: string, rawB64?: string | null): Pro
             return parsed;
           }
         }
+
+        // Try rotating 90 degrees (common when photographing plates in portrait/sideways)
+        try {
+          const rot90 = await ImageManipulator.manipulateAsync(
+            rawUri,
+            [{ rotate: 90 }],
+            { format: ImageManipulator.SaveFormat.JPEG }
+          );
+          const mlkRot90 = await MLKitTextRecognition.recognize(rot90.uri);
+          if (mlkRot90?.text) {
+            const parsed90 = parseMLKitPlateText(mlkRot90.text);
+            if (parsed90 && parsed90.digits && parsed90.digits.length >= 2) {
+              return parsed90;
+            }
+          }
+        } catch {}
       } catch (mlkErr) {
         console.log('ML Kit on-device scan fallback:', mlkErr);
       }

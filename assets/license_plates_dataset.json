@@ -491,7 +491,7 @@
     },
     "plate_english": {
       "numbers": "5451",
-      "letters": ""
+      "letters": "AJ"
     }
   },
   {
@@ -502,7 +502,7 @@
     },
     "plate_english": {
       "numbers": "602",
-      "letters": ""
+      "letters": "RA"
     }
   },
   {
@@ -513,7 +513,7 @@
     },
     "plate_english": {
       "numbers": "603",
-      "letters": ""
+      "letters": "RA"
     }
   },
   {
@@ -524,7 +524,7 @@
     },
     "plate_english": {
       "numbers": "605",
-      "letters": ""
+      "letters": "RA"
     }
   },
   {
@@ -535,7 +535,7 @@
     },
     "plate_english": {
       "numbers": "608",
-      "letters": ""
+      "letters": "RA"
     }
   },
   {
@@ -546,7 +546,7 @@
     },
     "plate_english": {
       "numbers": "6242",
-      "letters": ""
+      "letters": "BT"
     }
   },
   {
@@ -557,7 +557,7 @@
     },
     "plate_english": {
       "numbers": "6536",
-      "letters": ""
+      "letters": "AD"
     }
   },
   {
@@ -568,7 +568,7 @@
     },
     "plate_english": {
       "numbers": "653",
-      "letters": ""
+      "letters": "RA"
     }
   },
   {
@@ -579,7 +579,7 @@
     },
     "plate_english": {
       "numbers": "6543",
-      "letters": ""
+      "letters": "AD"
     }
   },
   {
@@ -590,7 +590,7 @@
     },
     "plate_english": {
       "numbers": "6544",
-      "letters": ""
+      "letters": "AD"
     }
   },
   {
@@ -601,7 +601,7 @@
     },
     "plate_english": {
       "numbers": "6548",
-      "letters": ""
+      "letters": "AD"
     }
   },
   {
@@ -612,7 +612,7 @@
     },
     "plate_english": {
       "numbers": "6549",
-      "letters": ""
+      "letters": "AD"
     }
   },
   {
@@ -623,7 +623,7 @@
     },
     "plate_english": {
       "numbers": "7038",
-      "letters": ""
+      "letters": "AJ"
     }
   },
   {
@@ -634,7 +634,7 @@
     },
     "plate_english": {
       "numbers": "7568",
-      "letters": ""
+      "letters": "BE"
     }
   },
   {
@@ -656,7 +656,7 @@
     },
     "plate_english": {
       "numbers": "7573",
-      "letters": ""
+      "letters": "BE"
     }
   },
   {
@@ -667,7 +667,7 @@
     },
     "plate_english": {
       "numbers": "8023",
-      "letters": ""
+      "letters": "BE"
     }
   },
   {
@@ -678,7 +678,7 @@
     },
     "plate_english": {
       "numbers": "8041",
-      "letters": ""
+      "letters": "BE"
     }
   },
   {
@@ -690,6 +690,28 @@
     "plate_english": {
       "numbers": "2459",
       "letters": "STA"
+    }
+  },
+  {
+    "image_name": "652_RA.jpg",
+    "plate_arabic": {
+      "numbers": "٦٥٢",
+      "letters": "ر ع"
+    },
+    "plate_english": {
+      "numbers": "652",
+      "letters": "RA"
+    }
+  },
+  {
+    "image_name": "654_RA.jpg",
+    "plate_arabic": {
+      "numbers": "٦٥٤",
+      "letters": "ر ع"
+    },
+    "plate_english": {
+      "numbers": "654",
+      "letters": "RA"
     }
   }
 ]

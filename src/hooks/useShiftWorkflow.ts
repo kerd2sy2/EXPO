@@ -38,7 +38,7 @@ export function useShiftWorkflow(
   // Auto-fetch last KM and registration photo when motorcycle number is typed (Start Shift)
   useEffect(() => {
     if (activeSession || !employee) return;
-    const rawBike = enteredMotorcycle.trim();
+    const rawBike = enteredMotorcycle.trim() || employee.motorcycle_number?.trim() || "";
     const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     const bike = rawBike.replace(/[٠-٩]/g, (w) => `${arabicDigits.indexOf(w)}`).trim();
 
@@ -68,18 +68,20 @@ export function useShiftWorkflow(
 
         setNeedsOilChange(Boolean(res?.needs_oil_change));
 
-        if (res?.is_odometer_broken) {
-          setIsOdometerBroken(true);
-          setStartKm('0');
-          setAutoKmFetched(false);
-        } else {
-          setIsOdometerBroken(false);
-          if (res && res.last_end_km > 0) {
-            setStartKm(String(res.last_end_km));
-            setAutoKmFetched(true);
-          } else {
-            setStartKm('');
+        if (enteredMotorcycle.trim()) {
+          if (res?.is_odometer_broken) {
+            setIsOdometerBroken(true);
+            setStartKm("0");
             setAutoKmFetched(false);
+          } else {
+            setIsOdometerBroken(false);
+            if (res && res.last_end_km > 0) {
+              setStartKm(String(res.last_end_km));
+              setAutoKmFetched(true);
+            } else {
+              setStartKm("");
+              setAutoKmFetched(false);
+            }
           }
         }
       } catch (err) {
@@ -91,7 +93,7 @@ export function useShiftWorkflow(
     }, 280);
 
     return () => clearTimeout(timer);
-  }, [enteredMotorcycle, activeSession, employee?.id]);
+  }, [enteredMotorcycle, activeSession, employee?.id, employee?.motorcycle_number]);
 
   // Check broken odometer and registration image for active session (End Shift)
   useEffect(() => {

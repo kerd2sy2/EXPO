@@ -149,6 +149,18 @@ export const workApi = {
           } as EmployeeProfile;
         }
 
+                // If employee has a vehicle assigned but vehicle_registration_image is empty, auto-fetch from vehicle
+        if (!fullEmployee.vehicle_registration_image && fullEmployee.motorcycle_number) {
+          try {
+            const vKm = await workApi.getLastKM(fullEmployee.id, fullEmployee.motorcycle_number);
+            if (vKm?.registration_image) {
+              fullEmployee.vehicle_registration_image = vKm.registration_image;
+            }
+          } catch {
+            // non-blocking
+          }
+        }
+
         await saveCachedUser(fullEmployee);
         return fullEmployee;
       }
