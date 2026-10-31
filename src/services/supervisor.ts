@@ -318,11 +318,11 @@ export const supervisorApi = {
   // 9. Get unreviewed / pending sessions in branch for supervisor confirmation
   getPendingSessions: async (): Promise<WorkSession[]> => {
     try {
-      const resp: any = await apiRequest('/reports?is_reviewed=false&limit=150', {
+      const resp: any = await apiRequest('/reports?is_reviewed=false&status=COMPLETED&limit=150', {
         timeoutMs: 10000,
       });
       const filterFinished = (s: any) => {
-        const hasEnded = !!(s.end_time || s.end_km != null || (s.status && s.status !== 'ACTIVE' && s.status !== 'OPEN'));
+        const hasEnded = !s.is_reviewed && s.status !== 'ACTIVE' && s.status !== 'OPEN' && !!s.end_time;
         return !s.is_reviewed && hasEnded;
       };
       if (Array.isArray(resp)) {

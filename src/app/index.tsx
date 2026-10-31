@@ -1672,7 +1672,7 @@ export default function DelegateApp() {
 
   // All supervisor-approved completed sessions in current month
   const currentMonthApprovedSessions = historySessions.filter((s) => {
-    if (s.status === 'ACTIVE') return false;
+    if (s.status !== 'COMPLETED' || !s.end_time) return false;
     if (s.is_reviewed !== true) return false;
     if (!s.start_time) return true;
     try {
@@ -1685,7 +1685,7 @@ export default function DelegateApp() {
 
   // All pending completed sessions waiting for supervisor approval in current month
   const currentMonthPendingSessions = historySessions.filter((s) => {
-    if (s.status === 'ACTIVE') return false;
+    if (s.status !== 'COMPLETED' || !s.end_time) return false;
     if (s.is_reviewed === true) return false;
     if (!s.start_time) return true;
     try {

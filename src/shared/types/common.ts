@@ -47,6 +47,8 @@ export interface WorkSession {
   fuel_cost: number;
   motorcycle_number?: string;
   vehicle_type?: string;
+  application_type?: string;
+  application_id?: string;
   notes?: string;
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
   is_reviewed?: boolean;
@@ -96,4 +98,3 @@ export type TabType =
   | 'advance-request'
   | 'employees';
 export type Language = 'ar' | 'en' | 'bn' | 'ur';
-
