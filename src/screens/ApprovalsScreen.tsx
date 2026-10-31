@@ -280,14 +280,15 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
               >
-                {/* ── 1. HEADER: اسم الموظف + تحته رقم الدباب بدون لوحة ── */}
-                <View style={styles.cardHeaderRow}>
+                {/* ── 1. HEADER: اسم الموظف على اليمين + شارة أنهى الشفت والتاريخ على الشمال ── */}
+                <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {/* Right side in RTL: Employee Name + Motorcycle number */}
                   <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                    <Text style={[styles.employeeName, { color: colors.textPrimary }]}>
+                    <Text style={[styles.employeeName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                       {delegateName}
                     </Text>
                     <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                      <Text style={[styles.bikeText, { color: colors.primary }]}>
+                      <Text style={[styles.bikeText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
                         رقم الدباب: {bikeNumber || '—'}
                       </Text>
                       {delegateCode ? (
@@ -298,19 +299,20 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     </View>
                   </View>
 
+                  {/* Left side in RTL: Status Badge + Date */}
                   <View style={{ alignItems: isRTL ? 'flex-start' : 'flex-end' }}>
-                    <View style={[styles.statusBadge, { backgroundColor: '#10b98115', borderColor: '#10b98135' }]}>
+                    <View style={[styles.statusBadge, { backgroundColor: '#10b98115', borderColor: '#10b98135', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <View style={styles.greenDot} />
                       <Text style={styles.statusBadgeText}>أنهى الشفت</Text>
                     </View>
-                    <Text style={[styles.dateText, { color: colors.textSecondary, marginTop: 4 }]}>
+                    <Text style={[styles.dateText, { color: colors.textSecondary, marginTop: 4, textAlign: isRTL ? 'left' : 'right' }]}>
                       {session.start_time ? new Date(session.start_time).toLocaleDateString('ar-SA') : 'اليوم'}
                     </Text>
                   </View>
                 </View>
 
                 {/* ── 2. STATS BAR: الطلبات | المسافة | الوقود ── */}
-                <View style={[styles.compactStatsBar, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                <View style={[styles.compactStatsBar, { backgroundColor: colors.bg, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <View style={styles.statItem}>
                     <Text style={[styles.statItemVal, { color: '#2563eb' }]}>{session.orders_count || 0}</Text>
                     <Text style={[styles.statItemLbl, { color: colors.textSecondary }]}>الطلبات</Text>
@@ -327,8 +329,8 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   </View>
                 </View>
 
-                {/* ── 3. ODOMETER PHOTOS: صورتين العداد جنب بعض زى المناديب ── */}
-                <View style={styles.odometerPhotosRow}>
+                {/* ── 3. ODOMETER PHOTOS: صورتين العداد جنب بعض زى المناديب (البداية يمين والنهاية شمال) ── */}
+                <View style={[styles.odometerPhotosRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   {/* Start KM Photo */}
                   <TouchableOpacity
                     style={[
@@ -399,7 +401,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                 </View>
 
                 {/* ── 4. BUTTONS: زرار الاعتماد تحت الصور وزر التعديل ── */}
-                <View style={styles.actionRowContainer}>
+                <View style={[styles.actionRowContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <TouchableOpacity
                     style={[styles.mainApproveBtn, { backgroundColor: '#10b981' }]}
                     onPress={() => handleApproveShift(session)}
@@ -409,7 +411,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     {isLoading ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
                         <Ionicons name="checkmark-done" size={18} color="#fff" />
                         <Text style={styles.mainApproveBtnText}>اعتماد الوردية</Text>
                       </View>
@@ -454,12 +456,12 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
               {/* Modal Header */}
-              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                  <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                  <Text style={[styles.modalTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                     مراجعة وتعديل بيانات الوردية
                   </Text>
-                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                     {editingSession.employee_name || editingSession.employee?.name || 'مندوب'}
                     {editingSession.motorcycle_number ? ` • دباب: ${editingSession.motorcycle_number}` : ''}
                   </Text>
@@ -475,11 +477,11 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                 {/* ── SECTION 1: صــور الــعــداديــن ── */}
                 <View style={styles.modalSection}>
-                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8 }]}>
+                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8, textAlign: isRTL ? 'right' : 'left' }]}>
                     صور العدادين المسجلة (اضغط للتكبير):
                   </Text>
 
-                  <View style={styles.odometerPhotosRow}>
+                  <View style={[styles.odometerPhotosRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     {/* Start KM Photo Card */}
                     <TouchableOpacity
                       style={[
@@ -556,17 +558,17 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
                 {/* ── SECTION 2: تـعـديـل الـعـدادات والـمـسـافـة ── */}
                 <View style={styles.modalSection}>
-                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8 }]}>
+                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8, textAlign: isRTL ? 'right' : 'left' }]}>
                     تعديل قراءة العدادين والمسافة:
                   </Text>
 
-                  <View style={styles.twoInputsRow}>
+                  <View style={[styles.twoInputsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                         عداد البداية (كم)
                       </Text>
                       <TextInput
-                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
                         keyboardType="numeric"
                         value={editStartKm}
                         onChangeText={setEditStartKm}
@@ -576,11 +578,11 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     </View>
 
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                         عداد النهاية (كم)
                       </Text>
                       <TextInput
-                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
                         keyboardType="numeric"
                         value={editEndKm}
                         onChangeText={setEditEndKm}
@@ -591,9 +593,9 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   </View>
 
                   {/* Calculated Live Distance */}
-                  <View style={[styles.calculatedDistanceBanner, { backgroundColor: '#10b98115', borderColor: '#10b98140' }]}>
+                  <View style={[styles.calculatedDistanceBanner, { backgroundColor: '#10b98115', borderColor: '#10b98140', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <Ionicons name="calculator-outline" size={17} color="#059669" />
-                    <Text style={[styles.calculatedDistanceText, { color: colors.textPrimary }]}>
+                    <Text style={[styles.calculatedDistanceText, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                       المسافة المحسوبة:{' '}
                       <Text style={{ fontWeight: '900', fontSize: 15, color: '#059669' }}>
                         {liveCalculatedDistance.toFixed(1)} كم
@@ -604,17 +606,17 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
                 {/* ── SECTION 3: تـعـديـل الـطـلـبـات والـوقـود ── */}
                 <View style={styles.modalSection}>
-                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8 }]}>
+                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8, textAlign: isRTL ? 'right' : 'left' }]}>
                     تعديل الطلبات والوقود:
                   </Text>
 
-                  <View style={styles.twoInputsRow}>
+                  <View style={[styles.twoInputsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                         الطلبات المعتمدة
                       </Text>
                       <TextInput
-                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
                         keyboardType="numeric"
                         value={editOrdersCount}
                         onChangeText={setEditOrdersCount}
@@ -624,11 +626,11 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     </View>
 
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                         تكلفة الوقود (ريال)
                       </Text>
                       <TextInput
-                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
                         keyboardType="numeric"
                         value={editFuelCost}
                         onChangeText={setEditFuelCost}
@@ -641,29 +643,29 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
                 {/* ── SECTION 4: فـيـديـو الـتـوثـيـق (اخـتـيـاري) ── */}
                 <View style={styles.modalSection}>
-                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                     فيديو توثيق الطلبات (اختياري)
                   </Text>
                   {!editVideoUri ? (
                     <TouchableOpacity
-                      style={[styles.recordVideoBtn, { backgroundColor: '#3b82f6' }]}
+                      style={[styles.recordVideoBtn, { backgroundColor: '#3b82f6', flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                       onPress={handleRecordReviewVideo}
                     >
                       <Ionicons name="videocam" size={17} color="#fff" />
                       <Text style={styles.recordVideoBtnText}>فتح الكاميرا لتسجيل فيديو التوثيق</Text>
                     </TouchableOpacity>
                   ) : (
-                    <View style={[styles.videoRecordedCard, { borderColor: '#10b981', backgroundColor: '#10b98115' }]}>
+                    <View style={[styles.videoRecordedCard, { borderColor: '#10b981', backgroundColor: '#10b98115', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <Ionicons name="checkmark-circle" size={22} color="#10b981" />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.videoRecordedTitle, { color: colors.textPrimary }]}>
+                      <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                        <Text style={[styles.videoRecordedTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                           تم تسجيل فيديو التوثيق
                         </Text>
-                        <Text style={[styles.videoRecordedSub, { color: colors.textSecondary }]}>
+                        <Text style={[styles.videoRecordedSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                           سيتم حفظه على السيرفر لمدة 60 يوماً
                         </Text>
                       </View>
-                      <TouchableOpacity onPress={() => setEditVideoUri(null)} style={styles.reRecordSmallBtn}>
+                      <TouchableOpacity onPress={() => setEditVideoUri(null)} style={[styles.reRecordSmallBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                         <Ionicons name="refresh" size={14} color="#ef4444" />
                         <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '700' }}>إعادة</Text>
                       </TouchableOpacity>
@@ -673,11 +675,11 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
                 {/* ── SECTION 5: مـلاحـظـات الاعـتـمـاد ── */}
                 <View style={styles.modalSection}>
-                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                     ملاحظات المشرف
                   </Text>
                   <TextInput
-                    style={[styles.modernTextArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                    style={[styles.modernTextArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
                     multiline
                     numberOfLines={2}
                     value={editReviewNotes}
@@ -689,7 +691,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
               </ScrollView>
 
               {/* ── MODAL FOOTER ACTION BUTTONS ── */}
-              <View style={[styles.modalActions, { borderTopColor: colors.border }]}>
+              <View style={[styles.modalActions, { borderTopColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity
                   style={[styles.confirmApprovalBtn, { backgroundColor: '#10b981' }]}
                   onPress={handleSaveEditReview}
@@ -698,7 +700,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   {submittingReview ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
                       <Ionicons name="checkmark-circle" size={20} color="#fff" />
                       <Text style={styles.confirmApprovalBtnText}>
                         اعتماد وحفظ الوردية
