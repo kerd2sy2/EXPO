@@ -11,23 +11,18 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { ThemeColors } from '@shared/theme';
 import { WorkSession } from '@shared/types';
-import { SaudiPlateView } from '@shared/components';
-import { parsePlateComponents } from '@shared/utils/plateUtils';
 import { formatImageUrl, getStoredToken } from '../services/api';
 import {
   supervisorApi,
   PendingAdvanceRequest,
   PendingMaintenanceRequest,
 } from '../services/supervisor';
-
-const { width } = Dimensions.get('window');
 
 interface ApprovalsScreenProps {
   pendingSessions: WorkSession[];
@@ -100,7 +95,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         startKm: session.start_km,
         endKm: session.end_km,
       });
-      Alert.alert('تم بنجاح', 'تم اعتماد الوردية بنجاح وتحديث السجلات');
+      Alert.alert('تم بنجاح', `تم اعتماد وردية المندوب (${session.employee_name || session.employee?.name || 'المندوب'}) بنجاح.`);
       onRefresh();
     } catch (err: any) {
       Alert.alert('خطأ', err?.message || 'فشل اعتماد الوردية');
@@ -211,7 +206,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         'تم الاعتماد بنجاح',
         editVideoUri
           ? 'تم تعديل واعتماد الوردية بنجاح ورفع فيديو التوثيق على السيرفر.'
-          : 'تم تعديل واعتماد الوردية بنجاح وتحديث كافة السجلات.'
+          : 'تم تعديل واعتماد الوردية وتحديث كافة السجلات بنجاح.'
       );
       setEditingSession(null);
       setEditVideoUri(null);
@@ -225,12 +220,12 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* ── TOP SEARCH BAR ── */}
+      {/* ── SEARCH BAR ── */}
       <View style={[styles.topSearchWrapper, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Ionicons name="search" size={18} color={colors.textSecondary} />
         <TextInput
           style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-          placeholder="ابحث باسم المندوب، الكود، أو رقم الدباب..."
+          placeholder="ابحث باسم المندوب أو رقم الدباب..."
           placeholderTextColor={colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -239,30 +234,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
-        )}
-      </View>
-
-      {/* ── Counter Header ── */}
-      <View style={[styles.summaryBadgeRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-          <View style={[styles.summaryIconBox, { backgroundColor: '#3b82f615' }]}>
-            <Ionicons name="checkmark-done-circle" size={22} color="#2563eb" />
-          </View>
-          <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-            <Text style={[styles.summaryTitle, { color: colors.textPrimary }]}>
-              ورديات مكتملة بانتظار الاعتماد
-            </Text>
-            <Text style={[styles.summarySub, { color: colors.textSecondary }]}>
-              {filteredSessions.length > 0
-                ? `${filteredSessions.length} مناديب أنهوا الشفت بانتظار المراجعة والاعتماد`
-                : 'جميع ورديات المناديب معتمدة بالكامل'}
-            </Text>
-          </View>
-        </View>
-        {filteredSessions.length > 0 && (
-          <View style={[styles.pendingCountPill, { backgroundColor: '#f59e0b15', borderColor: '#f59e0b' }]}>
-            <Text style={[styles.pendingCountText, { color: '#d97706' }]}>{filteredSessions.length} منتهي</Text>
-          </View>
         )}
       </View>
 
@@ -277,15 +248,15 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         {filteredSessions.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons
-              name={searchQuery ? 'search-outline' : 'shield-checkmark'}
-              size={56}
+              name={searchQuery ? 'search-outline' : 'checkmark-circle-outline'}
+              size={54}
               color={searchQuery ? colors.textSecondary : '#10B981'}
             />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              {searchQuery ? `لا توجد نتائج مطابقة لـ "${searchQuery}"` : 'لا توجد ورديات معلقة'}
+              {searchQuery ? `لا توجد نتائج لـ "${searchQuery}"` : 'لا توجد ورديات معلقة'}
             </Text>
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              {searchQuery ? 'تأكد من كتابة الاسم أو رقم الدباب بشكل صحيح' : 'جميع ورديات المناديب في فرعك تمت مراجعتها واعتمادها'}
+              {searchQuery ? 'تأكد من كتابة الاسم أو رقم الدباب بشكل صحيح' : 'جميع ورديات المناديب في فرعك معتمدة بالكامل'}
             </Text>
           </View>
         ) : (
@@ -295,215 +266,183 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
               session.end_km != null && session.start_km != null
                 ? Math.max(0, session.end_km - session.start_km)
                 : 0;
-            const plateStr = session.motorcycle_number || session.employee?.motorcycle_number || '';
-            const parsedPlate = plateStr ? parsePlateComponents(plateStr) : null;
+            const bikeNumber = session.motorcycle_number || session.employee?.motorcycle_number || '';
             const delegateName = session.employee_name || session.employee?.name || 'مندوب';
             const delegateCode = session.employee?.employee_number || session.employee?.key_number || '';
-            const appName = session.application_type || session.application_id || '';
+            const startImgUrl = formatImageUrl(session.start_km_image);
+            const endImgUrl = formatImageUrl(session.end_km_image);
 
             return (
-              <TouchableOpacity
+              <View
                 key={session.id}
-                activeOpacity={0.88}
-                onPress={() => openEditModal(session)}
                 style={[
-                  styles.modernCard,
+                  styles.compactCard,
                   { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
               >
-                {/* ── CARD HEADER ── */}
+                {/* ── 1. HEADER: اسم الموظف + تحته رقم الدباب بدون لوحة ── */}
                 <View style={styles.cardHeaderRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                    <View style={[styles.avatarCircle, { backgroundColor: colors.primary + '18' }]}>
-                      <Ionicons name="person" size={20} color={colors.primary} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <Text style={[styles.delegateName, { color: colors.textPrimary }]}>
-                          {delegateName}
-                        </Text>
-                        {delegateCode ? (
-                          <View style={[styles.codeBadge, { backgroundColor: colors.border + '60' }]}>
-                            <Text style={[styles.codeBadgeText, { color: colors.textSecondary }]}>
-                              كود: {delegateCode}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                        <Text style={[styles.dateText, { color: colors.textSecondary }]}>
-                          {session.start_time ? new Date(session.start_time).toLocaleDateString('ar-SA') : 'اليوم'}
-                        </Text>
-                        {appName ? (
-                          <View style={[styles.appBadge, { backgroundColor: '#3b82f615' }]}>
-                            <Text style={styles.appBadgeText}>{appName}</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                    <View style={[styles.statusTagPill, { backgroundColor: '#10b98115', borderColor: '#10b98140' }]}>
-                      <Ionicons name="flag" size={12} color="#10b981" />
-                      <Text style={[styles.statusTagText, { color: '#059669' }]}>أنهى الشفت</Text>
-                    </View>
-                    {parsedPlate && (
-                      <SaudiPlateView
-                        digits={parsedPlate.digits}
-                        letters={parsedPlate.letters}
-                        editable={false}
-                        scale={0.52}
-                        isDarkMode={isDarkMode}
-                      />
-                    )}
-                  </View>
-                </View>
-
-                {/* ── 4 KPI TILES ── */}
-                <View style={styles.kpiGrid}>
-                  <View style={[styles.kpiTile, { backgroundColor: '#3b82f60e', borderColor: '#3b82f625' }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name="cube-outline" size={14} color="#2563eb" />
-                      <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>الطلبات</Text>
-                    </View>
-                    <Text style={[styles.kpiValue, { color: '#2563eb' }]}>
-                      {session.orders_count || 0}
+                  <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                    <Text style={[styles.employeeName, { color: colors.textPrimary }]}>
+                      {delegateName}
                     </Text>
-                  </View>
-
-                  <View style={[styles.kpiTile, { backgroundColor: '#10b9810e', borderColor: '#10b98125' }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name="speedometer-outline" size={14} color="#059669" />
-                      <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>المسافة</Text>
-                    </View>
-                    <Text style={[styles.kpiValue, { color: '#059669' }]}>
-                      {distance.toFixed(1)} <Text style={{ fontSize: 11, fontWeight: 'normal' }}>كم</Text>
-                    </Text>
-                  </View>
-
-                  <View style={[styles.kpiTile, { backgroundColor: '#f59e0b0e', borderColor: '#f59e0b25' }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name="flame-outline" size={14} color="#d97706" />
-                      <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>الوقود</Text>
-                    </View>
-                    <Text style={[styles.kpiValue, { color: '#d97706' }]}>
-                      {session.fuel_cost || 0} <Text style={{ fontSize: 11, fontWeight: 'normal' }}>ر.س</Text>
-                    </Text>
-                  </View>
-
-                  <View style={[styles.kpiTile, { backgroundColor: '#8b5cf60e', borderColor: '#8b5cf625' }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name="timer-outline" size={14} color="#7c3aed" />
-                      <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>العدادين</Text>
-                    </View>
-                    <Text style={[styles.kpiValue, { color: '#7c3aed', fontSize: 12 }]} numberOfLines={1}>
-                      {session.start_km ?? 0} ⬅ {session.end_km ?? 0}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* ── ODOMETER THUMBNAILS PREVIEW ── */}
-                {(session.start_km_image || session.end_km_image) && (
-                  <View style={[styles.odometerStrip, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="images-outline" size={16} color={colors.primary} />
-                      <Text style={[styles.odometerStripTitle, { color: colors.textPrimary }]}>
-                        صور العدادات المسجلة:
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <Text style={[styles.bikeText, { color: colors.primary }]}>
+                        رقم الدباب: {bikeNumber || '—'}
                       </Text>
-                    </View>
-
-                    <View style={styles.thumbnailsRow}>
-                      {session.start_km_image ? (
-                        <TouchableOpacity
-                          style={styles.thumbBox}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            onPreviewPhoto?.({ url: formatImageUrl(session.start_km_image)!, title: 'صورة عداد البداية' });
-                          }}
-                        >
-                          <Image
-                            source={{ uri: formatImageUrl(session.start_km_image) || '' }}
-                            style={styles.thumbImage}
-                          />
-                          <View style={[styles.thumbPill, { backgroundColor: '#10b981' }]}>
-                            <Text style={styles.thumbPillText}>عداد البدء ({session.start_km ?? 0})</Text>
-                          </View>
-                        </TouchableOpacity>
-                      ) : null}
-
-                      {session.end_km_image ? (
-                        <TouchableOpacity
-                          style={styles.thumbBox}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            onPreviewPhoto?.({ url: formatImageUrl(session.end_km_image)!, title: 'صورة عداد النهاية' });
-                          }}
-                        >
-                          <Image
-                            source={{ uri: formatImageUrl(session.end_km_image) || '' }}
-                            style={styles.thumbImage}
-                          />
-                          <View style={[styles.thumbPill, { backgroundColor: '#ef4444' }]}>
-                            <Text style={styles.thumbPillText}>عداد النهاية ({session.end_km ?? 0})</Text>
-                          </View>
-                        </TouchableOpacity>
+                      {delegateCode ? (
+                        <Text style={[styles.codeText, { color: colors.textSecondary }]}>
+                          • كود: {delegateCode}
+                        </Text>
                       ) : null}
                     </View>
                   </View>
-                )}
 
-                {/* ── CARD FOOTER & ACTIONS ── */}
-                <View style={styles.cardFooter}>
+                  <View style={{ alignItems: isRTL ? 'flex-start' : 'flex-end' }}>
+                    <View style={[styles.statusBadge, { backgroundColor: '#10b98115', borderColor: '#10b98135' }]}>
+                      <View style={styles.greenDot} />
+                      <Text style={styles.statusBadgeText}>أنهى الشفت</Text>
+                    </View>
+                    <Text style={[styles.dateText, { color: colors.textSecondary, marginTop: 4 }]}>
+                      {session.start_time ? new Date(session.start_time).toLocaleDateString('ar-SA') : 'اليوم'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* ── 2. STATS BAR: الطلبات | المسافة | الوقود ── */}
+                <View style={[styles.compactStatsBar, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statItemVal, { color: '#2563eb' }]}>{session.orders_count || 0}</Text>
+                    <Text style={[styles.statItemLbl, { color: colors.textSecondary }]}>الطلبات</Text>
+                  </View>
+                  <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statItemVal, { color: '#059669' }]}>{distance.toFixed(1)} كم</Text>
+                    <Text style={[styles.statItemLbl, { color: colors.textSecondary }]}>المسافة</Text>
+                  </View>
+                  <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statItemVal, { color: '#d97706' }]}>{session.fuel_cost || 0} ر.س</Text>
+                    <Text style={[styles.statItemLbl, { color: colors.textSecondary }]}>الوقود</Text>
+                  </View>
+                </View>
+
+                {/* ── 3. ODOMETER PHOTOS: صورتين العداد جنب بعض زى المناديب ── */}
+                <View style={styles.odometerPhotosRow}>
+                  {/* Start KM Photo */}
                   <TouchableOpacity
-                    style={[styles.editAndReviewBtn, { backgroundColor: colors.primary }]}
-                    onPress={() => openEditModal(session)}
+                    style={[
+                      styles.manadeebPhotoBox,
+                      { backgroundColor: colors.bg, borderColor: colors.border },
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      if (startImgUrl) {
+                        onPreviewPhoto?.({
+                          url: startImgUrl,
+                          title: `عداد البداية (${session.start_km ?? 0} كم)`,
+                        });
+                      } else {
+                        openEditModal(session);
+                      }
+                    }}
                   >
-                    <Ionicons name="create-outline" size={17} color="#fff" />
-                    <Text style={styles.editAndReviewBtnText}>مراجعة وتعديل العداد والطلبات</Text>
+                    {startImgUrl ? (
+                      <Image source={{ uri: startImgUrl }} style={styles.manadeebPhotoImg} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.emptyPhotoPlaceholder}>
+                        <Ionicons name="speedometer-outline" size={24} color={colors.textSecondary} />
+                        <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
+                      </View>
+                    )}
+                    <View style={styles.manadeebPhotoOverlay}>
+                      <Text style={styles.manadeebPhotoTag}>
+                        البداية: {session.start_km ?? 0} كم
+                      </Text>
+                      {startImgUrl ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
+                    </View>
                   </TouchableOpacity>
 
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {session.review_video_url ? (
-                      <TouchableOpacity
-                        style={[styles.watchVideoBtn, { borderColor: '#10b981', backgroundColor: '#10b98115' }]}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handlePlayVideo(session.review_video_url!);
-                        }}
-                      >
-                        <Ionicons name="play-circle" size={18} color="#10b981" />
-                        <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 12 }}>فيديو</Text>
-                      </TouchableOpacity>
-                    ) : null}
-
-                    <TouchableOpacity
-                      style={[styles.quickApproveBtn, { borderColor: '#10b981', backgroundColor: '#10b98112' }]}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleApproveShift(session);
-                      }}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <ActivityIndicator size="small" color="#10b981" />
-                      ) : (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                          <Ionicons name="checkmark-done" size={16} color="#10b981" />
-                          <Text style={{ color: '#059669', fontWeight: '700', fontSize: 13 }}>اعتماد فوري</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  </View>
+                  {/* End KM Photo */}
+                  <TouchableOpacity
+                    style={[
+                      styles.manadeebPhotoBox,
+                      { backgroundColor: colors.bg, borderColor: colors.border },
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      if (endImgUrl) {
+                        onPreviewPhoto?.({
+                          url: endImgUrl,
+                          title: `عداد النهاية (${session.end_km ?? 0} كم)`,
+                        });
+                      } else {
+                        openEditModal(session);
+                      }
+                    }}
+                  >
+                    {endImgUrl ? (
+                      <Image source={{ uri: endImgUrl }} style={styles.manadeebPhotoImg} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.emptyPhotoPlaceholder}>
+                        <Ionicons name="flag-outline" size={24} color={colors.textSecondary} />
+                        <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
+                      </View>
+                    )}
+                    <View style={styles.manadeebPhotoOverlay}>
+                      <Text style={styles.manadeebPhotoTag}>
+                        النهاية: {session.end_km ?? 0} كم
+                      </Text>
+                      {endImgUrl ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
+                    </View>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+
+                {/* ── 4. BUTTONS: زرار الاعتماد تحت الصور وزر التعديل ── */}
+                <View style={styles.actionRowContainer}>
+                  <TouchableOpacity
+                    style={[styles.mainApproveBtn, { backgroundColor: '#10b981' }]}
+                    onPress={() => handleApproveShift(session)}
+                    disabled={isLoading}
+                    activeOpacity={0.85}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="checkmark-done" size={18} color="#fff" />
+                        <Text style={styles.mainApproveBtnText}>اعتماد الوردية</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.editShiftBtn, { borderColor: colors.border, backgroundColor: colors.bg }]}
+                    onPress={() => openEditModal(session)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="create-outline" size={17} color={colors.primary} />
+                    <Text style={[styles.editShiftBtnText, { color: colors.primary }]}>تعديل البيانات</Text>
+                  </TouchableOpacity>
+
+                  {session.review_video_url ? (
+                    <TouchableOpacity
+                      style={[styles.videoBtn, { borderColor: '#10b981', backgroundColor: '#10b98115' }]}
+                      onPress={() => handlePlayVideo(session.review_video_url!)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="play-circle" size={18} color="#10b981" />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
             );
           })
         )}
       </ScrollView>
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* ── EDIT & REVIEW MODAL (المديولا الكاملة مع صور العدادين) ── */}
+      {/* ── EDIT & REVIEW MODAL (نافذة تعديل العداد والطلبات) ── */}
       {/* ═══════════════════════════════════════════════════════════ */}
       <Modal
         visible={!!editingSession}
@@ -516,13 +455,13 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
             <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
               {/* Modal Header */}
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                <View>
+                <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
                   <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                    مراجعة وتعديل وردية المندوب
+                    مراجعة وتعديل بيانات الوردية
                   </Text>
                   <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
                     {editingSession.employee_name || editingSession.employee?.name || 'مندوب'}
-                    {editingSession.employee?.employee_number ? ` • كود: ${editingSession.employee.employee_number}` : ''}
+                    {editingSession.motorcycle_number ? ` • دباب: ${editingSession.motorcycle_number}` : ''}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -536,107 +475,95 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                 {/* ── SECTION 1: صــور الــعــداديــن ── */}
                 <View style={styles.modalSection}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <Ionicons name="camera" size={18} color={colors.primary} />
-                    <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>
-                      صور العدادين (اضغط للتكبير)
-                    </Text>
-                  </View>
+                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8 }]}>
+                    صور العدادين المسجلة (اضغط للتكبير):
+                  </Text>
 
-                  <View style={styles.odometerPhotosGrid}>
+                  <View style={styles.odometerPhotosRow}>
                     {/* Start KM Photo Card */}
-                    <View style={[styles.odometerPhotoCard, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-                      <View style={styles.odometerPhotoHeader}>
-                        <View style={[styles.dotIndicator, { backgroundColor: '#10b981' }]} />
-                        <Text style={[styles.odometerPhotoTitle, { color: colors.textPrimary }]}>عداد البداية</Text>
-                      </View>
-
+                    <TouchableOpacity
+                      style={[
+                        styles.manadeebPhotoBox,
+                        { height: 115, backgroundColor: colors.bg, borderColor: colors.border },
+                      ]}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        if (editingSession.start_km_image) {
+                          onPreviewPhoto?.({
+                            url: formatImageUrl(editingSession.start_km_image)!,
+                            title: `صورة عداد البداية (${editingSession.start_km ?? 0} كم)`,
+                          });
+                        }
+                      }}
+                    >
                       {editingSession.start_km_image ? (
-                        <TouchableOpacity
-                          style={styles.modalPhotoTouch}
-                          activeOpacity={0.8}
-                          onPress={() =>
-                            onPreviewPhoto?.({
-                              url: formatImageUrl(editingSession.start_km_image)!,
-                              title: 'صورة عداد البداية',
-                            })
-                          }
-                        >
-                          <Image
-                            source={{ uri: formatImageUrl(editingSession.start_km_image) || '' }}
-                            style={styles.modalPhotoImage}
-                            resizeMode="cover"
-                          />
-                          <View style={styles.zoomHintBadge}>
-                            <Ionicons name="expand" size={13} color="#fff" />
-                            <Text style={styles.zoomHintText}>تكبير</Text>
-                          </View>
-                        </TouchableOpacity>
+                        <Image
+                          source={{ uri: formatImageUrl(editingSession.start_km_image) || '' }}
+                          style={styles.manadeebPhotoImg}
+                          resizeMode="cover"
+                        />
                       ) : (
-                        <View style={styles.emptyPhotoBox}>
-                          <Ionicons name="image-outline" size={32} color={colors.textSecondary} />
-                          <Text style={[styles.emptyPhotoText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
+                        <View style={styles.emptyPhotoPlaceholder}>
+                          <Ionicons name="speedometer-outline" size={28} color={colors.textSecondary} />
+                          <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
                         </View>
                       )}
-                      <Text style={[styles.odometerCaption, { color: colors.textSecondary }]}>
-                        مسجل: {editingSession.start_km ?? 0} كم
-                      </Text>
-                    </View>
+                      <View style={styles.manadeebPhotoOverlay}>
+                        <Text style={styles.manadeebPhotoTag}>
+                          البداية: {editingSession.start_km ?? 0} كم
+                        </Text>
+                        {editingSession.start_km_image ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
+                      </View>
+                    </TouchableOpacity>
 
                     {/* End KM Photo Card */}
-                    <View style={[styles.odometerPhotoCard, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-                      <View style={styles.odometerPhotoHeader}>
-                        <View style={[styles.dotIndicator, { backgroundColor: '#ef4444' }]} />
-                        <Text style={[styles.odometerPhotoTitle, { color: colors.textPrimary }]}>عداد النهاية</Text>
-                      </View>
-
+                    <TouchableOpacity
+                      style={[
+                        styles.manadeebPhotoBox,
+                        { height: 115, backgroundColor: colors.bg, borderColor: colors.border },
+                      ]}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        if (editingSession.end_km_image) {
+                          onPreviewPhoto?.({
+                            url: formatImageUrl(editingSession.end_km_image)!,
+                            title: `صورة عداد النهاية (${editingSession.end_km ?? 0} كم)`,
+                          });
+                        }
+                      }}
+                    >
                       {editingSession.end_km_image ? (
-                        <TouchableOpacity
-                          style={styles.modalPhotoTouch}
-                          activeOpacity={0.8}
-                          onPress={() =>
-                            onPreviewPhoto?.({
-                              url: formatImageUrl(editingSession.end_km_image)!,
-                              title: 'صورة عداد النهاية',
-                            })
-                          }
-                        >
-                          <Image
-                            source={{ uri: formatImageUrl(editingSession.end_km_image) || '' }}
-                            style={styles.modalPhotoImage}
-                            resizeMode="cover"
-                          />
-                          <View style={styles.zoomHintBadge}>
-                            <Ionicons name="expand" size={13} color="#fff" />
-                            <Text style={styles.zoomHintText}>تكبير</Text>
-                          </View>
-                        </TouchableOpacity>
+                        <Image
+                          source={{ uri: formatImageUrl(editingSession.end_km_image) || '' }}
+                          style={styles.manadeebPhotoImg}
+                          resizeMode="cover"
+                        />
                       ) : (
-                        <View style={styles.emptyPhotoBox}>
-                          <Ionicons name="image-outline" size={32} color={colors.textSecondary} />
-                          <Text style={[styles.emptyPhotoText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
+                        <View style={styles.emptyPhotoPlaceholder}>
+                          <Ionicons name="flag-outline" size={28} color={colors.textSecondary} />
+                          <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
                         </View>
                       )}
-                      <Text style={[styles.odometerCaption, { color: colors.textSecondary }]}>
-                        مسجل: {editingSession.end_km ?? 0} كم
-                      </Text>
-                    </View>
+                      <View style={styles.manadeebPhotoOverlay}>
+                        <Text style={styles.manadeebPhotoTag}>
+                          النهاية: {editingSession.end_km ?? 0} كم
+                        </Text>
+                        {editingSession.end_km_image ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
+                      </View>
+                    </TouchableOpacity>
                   </View>
                 </View>
 
                 {/* ── SECTION 2: تـعـديـل الـعـدادات والـمـسـافـة ── */}
                 <View style={styles.modalSection}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <Ionicons name="speedometer" size={18} color="#059669" />
-                    <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>
-                      تعديل قراءات العداد والمسافة
-                    </Text>
-                  </View>
+                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8 }]}>
+                    تعديل قراءة العدادين والمسافة:
+                  </Text>
 
                   <View style={styles.twoInputsRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>
-                        🟢 عداد البداية (كم)
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                        عداد البداية (كم)
                       </Text>
                       <TextInput
                         style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
@@ -649,8 +576,8 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     </View>
 
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>
-                        🏁 عداد النهاية (كم)
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                        عداد النهاية (كم)
                       </Text>
                       <TextInput
                         style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
@@ -665,10 +592,10 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
                   {/* Calculated Live Distance */}
                   <View style={[styles.calculatedDistanceBanner, { backgroundColor: '#10b98115', borderColor: '#10b98140' }]}>
-                    <Ionicons name="calculator-outline" size={18} color="#059669" />
+                    <Ionicons name="calculator-outline" size={17} color="#059669" />
                     <Text style={[styles.calculatedDistanceText, { color: colors.textPrimary }]}>
                       المسافة المحسوبة:{' '}
-                      <Text style={{ fontWeight: '900', fontSize: 16, color: '#059669' }}>
+                      <Text style={{ fontWeight: '900', fontSize: 15, color: '#059669' }}>
                         {liveCalculatedDistance.toFixed(1)} كم
                       </Text>
                     </Text>
@@ -677,17 +604,14 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
                 {/* ── SECTION 3: تـعـديـل الـطـلـبـات والـوقـود ── */}
                 <View style={styles.modalSection}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <Ionicons name="cube" size={18} color="#2563eb" />
-                    <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>
-                      تعديل الطلبات والوقود
-                    </Text>
-                  </View>
+                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8 }]}>
+                    تعديل الطلبات والوقود:
+                  </Text>
 
                   <View style={styles.twoInputsRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>
-                        📦 عدد الطلبات المعتمدة
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                        الطلبات المعتمدة
                       </Text>
                       <TextInput
                         style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
@@ -700,8 +624,8 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     </View>
 
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>
-                        ⛽ تكلفة الوقود (ريال)
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                        تكلفة الوقود (ريال)
                       </Text>
                       <TextInput
                         style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
@@ -717,20 +641,20 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
                 {/* ── SECTION 4: فـيـديـو الـتـوثـيـق (اخـتـيـاري) ── */}
                 <View style={styles.modalSection}>
-                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>
-                    📹 فيديو توثيق الطلبات (اختياري)
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                    فيديو توثيق الطلبات (اختياري)
                   </Text>
                   {!editVideoUri ? (
                     <TouchableOpacity
                       style={[styles.recordVideoBtn, { backgroundColor: '#3b82f6' }]}
                       onPress={handleRecordReviewVideo}
                     >
-                      <Ionicons name="videocam" size={18} color="#fff" />
-                      <Text style={styles.recordVideoBtnText}>فتح الكاميرا لتصوير فيديو التوثيق</Text>
+                      <Ionicons name="videocam" size={17} color="#fff" />
+                      <Text style={styles.recordVideoBtnText}>فتح الكاميرا لتسجيل فيديو التوثيق</Text>
                     </TouchableOpacity>
                   ) : (
                     <View style={[styles.videoRecordedCard, { borderColor: '#10b981', backgroundColor: '#10b98115' }]}>
-                      <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                      <Ionicons name="checkmark-circle" size={22} color="#10b981" />
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.videoRecordedTitle, { color: colors.textPrimary }]}>
                           تم تسجيل فيديو التوثيق
@@ -740,8 +664,8 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                         </Text>
                       </View>
                       <TouchableOpacity onPress={() => setEditVideoUri(null)} style={styles.reRecordSmallBtn}>
-                        <Ionicons name="refresh" size={15} color="#ef4444" />
-                        <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '700' }}>إعادة</Text>
+                        <Ionicons name="refresh" size={14} color="#ef4444" />
+                        <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '700' }}>إعادة</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -749,8 +673,8 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
                 {/* ── SECTION 5: مـلاحـظـات الاعـتـمـاد ── */}
                 <View style={styles.modalSection}>
-                  <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>
-                    📝 ملاحظات الاعتماد والتدقيق
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                    ملاحظات المشرف
                   </Text>
                   <TextInput
                     style={[styles.modernTextArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
@@ -758,7 +682,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     numberOfLines={2}
                     value={editReviewNotes}
                     onChangeText={setEditReviewNotes}
-                    placeholder="ملاحظات المشرف..."
+                    placeholder="ملاحظات الاعتماد والتدقيق..."
                     placeholderTextColor={colors.textSecondary}
                   />
                 </View>
@@ -775,9 +699,9 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Ionicons name="shield-checkmark" size={20} color="#fff" />
+                      <Ionicons name="checkmark-circle" size={20} color="#fff" />
                       <Text style={styles.confirmApprovalBtnText}>
-                        اعتماد وحفظ الوردية الآن
+                        اعتماد وحفظ الوردية
                       </Text>
                     </View>
                   )}
@@ -810,8 +734,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 8,
     paddingHorizontal: 14,
-    height: 46,
-    borderRadius: 14,
+    height: 44,
+    borderRadius: 12,
     borderWidth: 1,
     gap: 8,
   },
@@ -820,52 +744,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     height: '100%',
   },
-  summaryBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginBottom: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  summaryIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  summaryTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  summarySub: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  pendingCountPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  pendingCountText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 40,
-    gap: 14,
+    paddingBottom: 30,
+    gap: 12,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    gap: 12,
+    gap: 10,
   },
   emptyTitle: {
     fontSize: 16,
@@ -877,173 +765,175 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
 
-  /* Modern Card Styles */
-  modernCard: {
-    borderRadius: 18,
+  /* ── Compact & Clean Card Styles ── */
+  compactCard: {
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 15,
-    gap: 12,
+    padding: 14,
+    gap: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1.5,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  employeeName: {
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  bikeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  codeText: {
+    fontSize: 12,
+  },
+  statusBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  avatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  delegateName: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  codeBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    gap: 5,
+    borderWidth: 1,
     borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
   },
-  codeBadgeText: {
+  greenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+  statusBadgeText: {
+    color: '#059669',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '800',
   },
   dateText: {
     fontSize: 11,
   },
-  appBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-  },
-  appBadgeText: {
-    color: '#2563eb',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  statusTagPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  statusTagText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
 
-  /* KPI Grid */
-  kpiGrid: {
+  /* ── Compact Stats Bar ── */
+  compactStatsBar: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  kpiTile: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
     alignItems: 'center',
-    gap: 3,
+    justifyContent: 'space-around',
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
   },
-  kpiLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+  statItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
-  kpiValue: {
+  statItemVal: {
     fontSize: 14,
     fontWeight: '900',
   },
+  statItemLbl: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  statDivider: {
+    width: 1,
+    height: 22,
+  },
 
-  /* Odometer Strip */
-  odometerStrip: {
+  /* ── Odometer Photos Row (Same as Manadeeb) ── */
+  odometerPhotosRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  manadeebPhotoBox: {
+    flex: 1,
+    height: 105,
     borderRadius: 12,
     borderWidth: 1,
-    padding: 10,
-    gap: 8,
-  },
-  odometerStripTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  thumbnailsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  thumbBox: {
-    flex: 1,
-    height: 75,
-    borderRadius: 10,
     overflow: 'hidden',
     position: 'relative',
-    borderWidth: 1,
-    borderColor: '#6b728030',
   },
-  thumbImage: {
+  manadeebPhotoImg: {
     width: '100%',
     height: '100%',
   },
-  thumbPill: {
+  manadeebPhotoOverlay: {
     position: 'absolute',
-    bottom: 4,
-    left: 4,
-    right: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  thumbPillText: {
-    color: '#fff',
-    fontSize: 9,
+  manadeebPhotoTag: {
+    color: '#ffffff',
+    fontSize: 11,
     fontWeight: '800',
   },
+  emptyPhotoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  emptyPhotoPlaceholderText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
 
-  /* Card Footer Actions */
-  cardFooter: {
+  /* ── Action Buttons Under Photos ── */
+  actionRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     marginTop: 2,
   },
-  editAndReviewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 11,
-    borderRadius: 12,
-  },
-  editAndReviewBtnText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  watchVideoBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  quickApproveBtn: {
+  mainApproveBtn: {
     flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  mainApproveBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  editShiftBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 9.5,
     borderRadius: 10,
     borderWidth: 1,
+  },
+  editShiftBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  videoBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   /* ── Modal Styles ── */
@@ -1053,20 +943,20 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
     paddingTop: 16,
-    paddingHorizontal: 18,
-    paddingBottom: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
     maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   modalTitle: {
     fontSize: 16,
@@ -1084,84 +974,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalSection: {
-    marginBottom: 14,
+    marginBottom: 12,
   },
   sectionHeading: {
     fontSize: 13,
     fontWeight: '800',
-  },
-
-  /* Photos Grid in Modal */
-  odometerPhotosGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  odometerPhotoCard: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 8,
-    gap: 6,
-  },
-  odometerPhotoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  dotIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  odometerPhotoTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  modalPhotoTouch: {
-    width: '100%',
-    height: 110,
-    borderRadius: 8,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  modalPhotoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  zoomHintBadge: {
-    position: 'absolute',
-    bottom: 6,
-    left: 6,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  zoomHintText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  emptyPhotoBox: {
-    width: '100%',
-    height: 110,
-    borderRadius: 8,
-    backgroundColor: '#6b728012',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  emptyPhotoText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  odometerCaption: {
-    fontSize: 11,
-    textAlign: 'center',
-    fontWeight: '600',
   },
 
   /* Inputs */
@@ -1170,15 +987,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    marginBottom: 5,
+    marginBottom: 4,
   },
   modernInput: {
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
@@ -1186,24 +1003,24 @@ const styles = StyleSheet.create({
   calculatedDistanceBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 1,
-    marginTop: 8,
+    marginTop: 6,
   },
   calculatedDistanceText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   recordVideoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    borderRadius: 10,
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 9,
   },
   recordVideoBtnText: {
     color: '#fff',
@@ -1215,7 +1032,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     padding: 8,
-    borderRadius: 10,
+    borderRadius: 9,
     borderWidth: 1.5,
   },
   videoRecordedTitle: {
@@ -1230,30 +1047,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
     paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 3,
+    borderRadius: 5,
     backgroundColor: '#ef444415',
   },
   modernTextArea: {
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     fontSize: 13,
-    height: 60,
+    height: 56,
     textAlignVertical: 'top',
   },
   modalActions: {
     borderTopWidth: 1,
-    paddingTop: 12,
+    paddingTop: 10,
     gap: 8,
   },
   confirmApprovalBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 10,
   },
   confirmApprovalBtnText: {
     color: '#fff',
@@ -1263,8 +1080,8 @@ const styles = StyleSheet.create({
   cancelBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: 10,
+    paddingVertical: 8,
+    borderRadius: 9,
     borderWidth: 1,
   },
   cancelBtnText: {
