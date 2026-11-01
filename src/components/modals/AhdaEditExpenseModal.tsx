@@ -8,11 +8,12 @@ import {
   Image,
   Modal,
   ScrollView,
-  KeyboardAvoidingView,
   Platform,
   Dimensions,
   ActivityIndicator,
   Keyboard,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../../types/delegate';
@@ -21,6 +22,10 @@ import { toArabicDigits } from '../../utils/formatters';
 import { CustodyDayData } from '../../services/custodyService';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface AhdaEditExpenseModalProps {
   visible: boolean;
@@ -195,6 +200,33 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
     }
   }, [visible, dismissAndBlurAll]);
 
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        try {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        } catch (_) {}
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        try {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        } catch (_) {}
+        setKeyboardHeight(0);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const handlePick = (fromCamera: boolean) => {
     dismissAndBlurAll();
     onPickImage(fromCamera);
@@ -202,29 +234,41 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
-        style={styles.keyboardModalWrapper}
+      <View
+        style={[
+          styles.bottomSheetBackdrop,
+          keyboardHeight > 0 ? { paddingBottom: keyboardHeight } : null,
+        ]}
       >
-        <View style={styles.bottomSheetBackdrop}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
-          <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border, zIndex: 10 }]}>
-            <View style={styles.sheetIndicator} />
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => {
+            if (keyboardHeight > 0) {
+              Keyboard.dismiss();
+            } else {
+              onClose();
+            }
+          }}
+        />
+        <View style={[styles.bottomSheetBox, { backgroundColor: colors.card, borderColor: colors.border, zIndex: 10 }]}>
+          <View style={styles.sheetIndicator} />
 
-            {/* Header: Exact Title requested "تعديل الفاتورة" */}
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>تعديل الفاتورة</Text>
-              <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close-circle-outline" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
+          {/* Header: Exact Title requested "تعديل الفاتورة" */}
+          <View style={styles.sheetHeader}>
+            <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>تعديل الفاتورة</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close-circle-outline" size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              style={{ maxHeight: SCREEN_HEIGHT * 0.72 }}
-            >
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            style={{
+              maxHeight: keyboardHeight > 0 ? Math.max(220, SCREEN_HEIGHT - keyboardHeight - 130) : (SCREEN_HEIGHT * 0.72),
+            }}
+          >
               {/* Category Dropdown (شريط منسدل) */}
               <View style={styles.inputGroup}>
                 <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>نوع المصروف (القسم)</Text>
@@ -753,7 +797,6 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
             </ScrollView>
           </View>
         </View>
-      </KeyboardAvoidingView>
     </Modal>
   );
 };
