@@ -13,7 +13,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { ThemeColors } from '@shared/theme';
 import { WorkSession } from '@shared/types';
@@ -70,8 +69,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   const [editFuelCost, setEditFuelCost] = useState('');
   const [editStartKm, setEditStartKm] = useState('');
   const [editEndKm, setEditEndKm] = useState('');
-  const [editReviewNotes, setEditReviewNotes] = useState('');
-  const [editVideoUri, setEditVideoUri] = useState<string | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
 
   // Live distance calculation in modal
@@ -111,8 +108,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
     setEditFuelCost(String(session.fuel_cost || 0));
     setEditStartKm(session.start_km != null ? String(session.start_km) : '');
     setEditEndKm(session.end_km != null ? String(session.end_km) : '');
-    setEditReviewNotes(session.review_notes || 'معتمد بواسطة المشرف');
-    setEditVideoUri(null);
   };
 
   // Play Video inside app with authenticated token
@@ -140,51 +135,11 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
     }
   };
 
-  // Record Silent Review Proof Video
-  const handleRecordReviewVideo = async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('إذن الكاميرا مطلوب', 'يرجى تفعيل صلاحية الكاميرا لتسجيل فيديو توثيق الطلبات.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['videos'],
-        allowsEditing: false,
-        cameraType: ImagePicker.CameraType.back,
-        quality: 0.3,
-        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
-        videoMaxDuration: 45,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setEditVideoUri(result.assets[0].uri);
-      }
-    } catch (err: any) {
-      Alert.alert('خطأ بالكاميرا', err?.message || 'فشل فتح الكاميرا');
-    }
-  };
-
-  // Unified Save: Final Order Count + Start/End KM + Fuel + Video Upload + Shift Approval
+  // Save Edited Values & Approve Shift
   const handleSaveEditReview = async () => {
     if (!editingSession) return;
     try {
       setSubmittingReview(true);
-
-      let uploadedVideoUrl: string | undefined = undefined;
-      if (editVideoUri) {
-        const empName = editingSession.employee_name || editingSession.employee?.name || 'مندوب';
-        const videoRes = await supervisorApi.uploadOperationVideo({
-          videoUri: editVideoUri,
-          employeeId: editingSession.employee_id,
-          employeeName: empName,
-          orderNumber: editOrdersCount,
-          sessionId: editingSession.id,
-          notes: `توثيق مراجعة وردية - عدد الطلبات المعتمد: ${editOrdersCount}`,
-        });
-        uploadedVideoUrl = videoRes.video_url;
-      }
 
       const parsedStartKm = editStartKm !== '' ? parseFloat(editStartKm) : undefined;
       const parsedEndKm = editEndKm !== '' ? parseFloat(editEndKm) : undefined;
@@ -198,18 +153,11 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         fuelCost: parsedFuel,
         startKm: parsedStartKm,
         endKm: parsedEndKm,
-        reviewNotes: editReviewNotes.trim(),
-        reviewVideoUrl: uploadedVideoUrl,
+        reviewNotes: 'معتمد بواسطة المشرف',
       });
 
-      Alert.alert(
-        'تم الاعتماد بنجاح',
-        editVideoUri
-          ? 'تم تعديل واعتماد الوردية بنجاح ورفع فيديو التوثيق على السيرفر.'
-          : 'تم تعديل واعتماد الوردية وتحديث كافة السجلات بنجاح.'
-      );
+      Alert.alert('تم الاعتماد بنجاح', 'تم تعديل واعتماد بيانات الوردية بنجاح.');
       setEditingSession(null);
-      setEditVideoUri(null);
       onRefresh();
     } catch (err: any) {
       Alert.alert('خطأ', err?.message || 'فشل حفظ التعديلات والاعتماد');
@@ -273,12 +221,14 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
             const endImgUrl = formatImageUrl(session.end_km_image);
 
             return (
-              <View
+              <TouchableOpacity
                 key={session.id}
                 style={[
                   styles.compactCard,
                   { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
+                activeOpacity={0.92}
+                onPress={() => openEditModal(session)}
               >
                 {/* ── 1. HEADER: اسم الموظف على اليمين + شارة أنهى الشفت والتاريخ على الشمال ── */}
                 <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -437,14 +387,14 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     </TouchableOpacity>
                   ) : null}
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })
         )}
       </ScrollView>
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* ── EDIT & REVIEW MODAL (نافذة تعديل العداد والطلبات) ── */}
+      {/* ── EDIT & APPROVE MODAL (مراجعة وتعديل الوردية) ── */}
       {/* ═══════════════════════════════════════════════════════════ */}
       <Modal
         visible={!!editingSession}
@@ -459,11 +409,10 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
               <View style={[styles.modalHeader, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
                   <Text style={[styles.modalTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    مراجعة وتعديل بيانات الوردية
+                    {editingSession.employee_name || editingSession.employee?.name || 'المندوب'}
                   </Text>
-                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    {editingSession.employee_name || editingSession.employee?.name || 'مندوب'}
-                    {editingSession.motorcycle_number ? ` • دباب: ${editingSession.motorcycle_number}` : ''}
+                  <Text style={[styles.modalSubtitle, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    رقم الدباب: {editingSession.motorcycle_number || editingSession.employee?.motorcycle_number || '—'}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -474,234 +423,166 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-                {/* ── SECTION 1: صــور الــعــداديــن ── */}
-                <View style={styles.modalSection}>
-                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8, textAlign: isRTL ? 'right' : 'left' }]}>
-                    صور العدادين المسجلة (اضغط للتكبير):
-                  </Text>
-
-                  <View style={[styles.odometerPhotosRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    {/* Start KM Photo Card */}
-                    <TouchableOpacity
-                      style={[
-                        styles.manadeebPhotoBox,
-                        { height: 115, backgroundColor: colors.bg, borderColor: colors.border },
-                      ]}
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        if (editingSession.start_km_image) {
-                          onPreviewPhoto?.({
-                            url: formatImageUrl(editingSession.start_km_image)!,
-                            title: `صورة عداد البداية (${editingSession.start_km ?? 0} كم)`,
-                          });
-                        }
-                      }}
-                    >
-                      {editingSession.start_km_image ? (
-                        <Image
-                          source={{ uri: formatImageUrl(editingSession.start_km_image) || '' }}
-                          style={styles.manadeebPhotoImg}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={styles.emptyPhotoPlaceholder}>
-                          <Ionicons name="speedometer-outline" size={28} color={colors.textSecondary} />
-                          <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
-                        </View>
-                      )}
-                      <View style={styles.manadeebPhotoOverlay}>
-                        <Text style={styles.manadeebPhotoTag}>
-                          البداية: {editingSession.start_km ?? 0} كم
-                        </Text>
-                        {editingSession.start_km_image ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* End KM Photo Card */}
-                    <TouchableOpacity
-                      style={[
-                        styles.manadeebPhotoBox,
-                        { height: 115, backgroundColor: colors.bg, borderColor: colors.border },
-                      ]}
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        if (editingSession.end_km_image) {
-                          onPreviewPhoto?.({
-                            url: formatImageUrl(editingSession.end_km_image)!,
-                            title: `صورة عداد النهاية (${editingSession.end_km ?? 0} كم)`,
-                          });
-                        }
-                      }}
-                    >
-                      {editingSession.end_km_image ? (
-                        <Image
-                          source={{ uri: formatImageUrl(editingSession.end_km_image) || '' }}
-                          style={styles.manadeebPhotoImg}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={styles.emptyPhotoPlaceholder}>
-                          <Ionicons name="flag-outline" size={28} color={colors.textSecondary} />
-                          <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
-                        </View>
-                      )}
-                      <View style={styles.manadeebPhotoOverlay}>
-                        <Text style={styles.manadeebPhotoTag}>
-                          النهاية: {editingSession.end_km ?? 0} كم
-                        </Text>
-                        {editingSession.end_km_image ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* ── SECTION 2: تـعـديـل الـعـدادات والـمـسـافـة ── */}
-                <View style={styles.modalSection}>
-                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8, textAlign: isRTL ? 'right' : 'left' }]}>
-                    تعديل قراءة العدادين والمسافة:
-                  </Text>
-
-                  <View style={[styles.twoInputsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                        عداد البداية (كم)
-                      </Text>
-                      <TextInput
-                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
-                        keyboardType="numeric"
-                        value={editStartKm}
-                        onChangeText={setEditStartKm}
-                        placeholder="0"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                        عداد النهاية (كم)
-                      </Text>
-                      <TextInput
-                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
-                        keyboardType="numeric"
-                        value={editEndKm}
-                        onChangeText={setEditEndKm}
-                        placeholder="0"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Calculated Live Distance */}
-                  <View style={[styles.calculatedDistanceBanner, { backgroundColor: '#10b98115', borderColor: '#10b98140', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Ionicons name="calculator-outline" size={17} color="#059669" />
-                    <Text style={[styles.calculatedDistanceText, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      المسافة المحسوبة:{' '}
-                      <Text style={{ fontWeight: '900', fontSize: 15, color: '#059669' }}>
-                        {liveCalculatedDistance.toFixed(1)} كم
-                      </Text>
-                    </Text>
-                  </View>
-                </View>
-
-                {/* ── SECTION 3: تـعـديـل الـطـلـبـات والـوقـود ── */}
-                <View style={styles.modalSection}>
-                  <Text style={[styles.sectionHeading, { color: colors.textPrimary, marginBottom: 8, textAlign: isRTL ? 'right' : 'left' }]}>
-                    تعديل الطلبات والوقود:
-                  </Text>
-
-                  <View style={[styles.twoInputsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                        الطلبات المعتمدة
-                      </Text>
-                      <TextInput
-                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
-                        keyboardType="numeric"
-                        value={editOrdersCount}
-                        onChangeText={setEditOrdersCount}
-                        placeholder="0"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                        تكلفة الوقود (ريال)
-                      </Text>
-                      <TextInput
-                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
-                        keyboardType="numeric"
-                        value={editFuelCost}
-                        onChangeText={setEditFuelCost}
-                        placeholder="0"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                {/* ── SECTION 4: فـيـديـو الـتـوثـيـق (اخـتـيـاري) ── */}
-                <View style={styles.modalSection}>
-                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    فيديو توثيق الطلبات (اختياري)
-                  </Text>
-                  {!editVideoUri ? (
-                    <TouchableOpacity
-                      style={[styles.recordVideoBtn, { backgroundColor: '#3b82f6', flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                      onPress={handleRecordReviewVideo}
-                    >
-                      <Ionicons name="videocam" size={17} color="#fff" />
-                      <Text style={styles.recordVideoBtnText}>فتح الكاميرا لتسجيل فيديو التوثيق</Text>
-                    </TouchableOpacity>
+              {/* 1. صورتين العداد جنب بعض */}
+              <View style={[styles.odometerPhotosRow, { flexDirection: isRTL ? 'row-reverse' : 'row', marginBottom: 14 }]}>
+                {/* عداد البداية */}
+                <TouchableOpacity
+                  style={[
+                    styles.manadeebPhotoBox,
+                    { height: 110, backgroundColor: colors.bg, borderColor: colors.border },
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (editingSession.start_km_image) {
+                      onPreviewPhoto?.({
+                        url: formatImageUrl(editingSession.start_km_image)!,
+                        title: `صورة عداد البداية (${editingSession.start_km ?? 0} كم)`,
+                      });
+                    }
+                  }}
+                >
+                  {editingSession.start_km_image ? (
+                    <Image
+                      source={{ uri: formatImageUrl(editingSession.start_km_image) || '' }}
+                      style={styles.manadeebPhotoImg}
+                      resizeMode="cover"
+                    />
                   ) : (
-                    <View style={[styles.videoRecordedCard, { borderColor: '#10b981', backgroundColor: '#10b98115', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Ionicons name="checkmark-circle" size={22} color="#10b981" />
-                      <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                        <Text style={[styles.videoRecordedTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                          تم تسجيل فيديو التوثيق
-                        </Text>
-                        <Text style={[styles.videoRecordedSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                          سيتم حفظه على السيرفر لمدة 60 يوماً
-                        </Text>
-                      </View>
-                      <TouchableOpacity onPress={() => setEditVideoUri(null)} style={[styles.reRecordSmallBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <Ionicons name="refresh" size={14} color="#ef4444" />
-                        <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '700' }}>إعادة</Text>
-                      </TouchableOpacity>
+                    <View style={styles.emptyPhotoPlaceholder}>
+                      <Ionicons name="speedometer-outline" size={24} color={colors.textSecondary} />
+                      <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
                     </View>
                   )}
+                  <View style={[styles.manadeebPhotoOverlay, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Text style={styles.manadeebPhotoTag}>
+                      البداية: {editingSession.start_km ?? 0} كم
+                    </Text>
+                    {editingSession.start_km_image ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
+                  </View>
+                </TouchableOpacity>
+
+                {/* عداد النهاية */}
+                <TouchableOpacity
+                  style={[
+                    styles.manadeebPhotoBox,
+                    { height: 110, backgroundColor: colors.bg, borderColor: colors.border },
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (editingSession.end_km_image) {
+                      onPreviewPhoto?.({
+                        url: formatImageUrl(editingSession.end_km_image)!,
+                        title: `صورة عداد النهاية (${editingSession.end_km ?? 0} كم)`,
+                      });
+                    }
+                  }}
+                >
+                  {editingSession.end_km_image ? (
+                    <Image
+                      source={{ uri: formatImageUrl(editingSession.end_km_image) || '' }}
+                      style={styles.manadeebPhotoImg}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.emptyPhotoPlaceholder}>
+                      <Ionicons name="flag-outline" size={24} color={colors.textSecondary} />
+                      <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
+                    </View>
+                  )}
+                  <View style={[styles.manadeebPhotoOverlay, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Text style={styles.manadeebPhotoTag}>
+                      النهاية: {editingSession.end_km ?? 0} كم
+                    </Text>
+                    {editingSession.end_km_image ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* 2. الحقول الأربعة: العدادات والطلبات والبنزين */}
+              <View style={{ gap: 10, marginBottom: 16 }}>
+                {/* صف العدادات */}
+                <View style={[styles.twoInputsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      عداد البداية (كم)
+                    </Text>
+                    <TextInput
+                      style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                      keyboardType="numeric"
+                      value={editStartKm}
+                      onChangeText={setEditStartKm}
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary, marginBottom: 0 }]}>
+                        عداد النهاية (كم)
+                      </Text>
+                      {liveCalculatedDistance > 0 ? (
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#059669' }}>
+                          ({liveCalculatedDistance.toFixed(1)} كم)
+                        </Text>
+                      ) : null}
+                    </View>
+                    <TextInput
+                      style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                      keyboardType="numeric"
+                      value={editEndKm}
+                      onChangeText={setEditEndKm}
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
                 </View>
 
-                {/* ── SECTION 5: مـلاحـظـات الاعـتـمـاد ── */}
-                <View style={styles.modalSection}>
-                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    ملاحظات المشرف
-                  </Text>
-                  <TextInput
-                    style={[styles.modernTextArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
-                    multiline
-                    numberOfLines={2}
-                    value={editReviewNotes}
-                    onChangeText={setEditReviewNotes}
-                    placeholder="ملاحظات الاعتماد والتدقيق..."
-                    placeholderTextColor={colors.textSecondary}
-                  />
-                </View>
-              </ScrollView>
+                {/* صف الطلبات والبنزين */}
+                <View style={[styles.twoInputsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      عدد الطلبات
+                    </Text>
+                    <TextInput
+                      style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                      keyboardType="numeric"
+                      value={editOrdersCount}
+                      onChangeText={setEditOrdersCount}
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
 
-              {/* ── MODAL FOOTER ACTION BUTTONS ── */}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      تكلفة الوقود (ريال)
+                    </Text>
+                    <TextInput
+                      style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                      keyboardType="numeric"
+                      value={editFuelCost}
+                      onChangeText={setEditFuelCost}
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* 3. زر اعتماد وحفظ الوردية */}
               <View style={[styles.modalActions, { borderTopColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <TouchableOpacity
-                  style={[styles.confirmApprovalBtn, { backgroundColor: '#10b981' }]}
+                  style={[styles.confirmApprovalBtn, { backgroundColor: '#10b981', flex: 1 }]}
                   onPress={handleSaveEditReview}
                   disabled={submittingReview}
+                  activeOpacity={0.85}
                 >
                   {submittingReview ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-                      <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="checkmark-done" size={18} color="#fff" />
                       <Text style={styles.confirmApprovalBtnText}>
                         اعتماد وحفظ الوردية
                       </Text>
@@ -710,9 +591,10 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.cancelBtn, { borderColor: colors.border }]}
+                  style={[styles.cancelBtn, { borderColor: colors.border, paddingHorizontal: 16 }]}
                   onPress={() => setEditingSession(null)}
                   disabled={submittingReview}
+                  activeOpacity={0.85}
                 >
                   <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
                 </TouchableOpacity>
@@ -1001,66 +883,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
-  },
-  calculatedDistanceBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 6,
-  },
-  calculatedDistanceText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  recordVideoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
-    borderRadius: 9,
-  },
-  recordVideoBtnText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  videoRecordedCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 8,
-    borderRadius: 9,
-    borderWidth: 1.5,
-  },
-  videoRecordedTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  videoRecordedSub: {
-    fontSize: 10,
-  },
-  reRecordSmallBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 5,
-    backgroundColor: '#ef444415',
-  },
-  modernTextArea: {
-    borderWidth: 1,
-    borderRadius: 9,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    fontSize: 13,
-    height: 56,
-    textAlignVertical: 'top',
   },
   modalActions: {
     borderTopWidth: 1,
