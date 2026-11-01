@@ -59,6 +59,20 @@ export function usePushNotifications({
         const title = response?.notification?.request?.content?.title || '';
         const body = response?.notification?.request?.content?.body || '';
 
+        // 0. Shift Ended by Courier -> Navigate to approvals tab!
+        const isShiftEnded =
+          data?.type === 'SHIFT_COMPLETED_PENDING_REVIEW' ||
+          data?.type === 'SHIFT_ENDED' ||
+          title.includes('إنهاء وردية') ||
+          body.includes('بانتظار الاعتماد') ||
+          body.includes('إنهاء الشفت');
+
+        if (isShiftEnded) {
+          setCurrentTab('approvals');
+          mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+          return;
+        }
+
         // 1. Shift Approval Notification
         const isShiftApproval =
           data?.type === 'SESSION_APPROVED' ||

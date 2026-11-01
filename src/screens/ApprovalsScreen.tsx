@@ -11,6 +11,10 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -403,7 +407,14 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         onRequestClose={() => setEditingSession(null)}
       >
         {editingSession ? (
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalOverlay}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={StyleSheet.absoluteFill} />
+            </TouchableWithoutFeedback>
+
             <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
               {/* Modal Header */}
               <View style={[styles.modalHeader, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -423,184 +434,191 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                 </TouchableOpacity>
               </View>
 
-              {/* 1. صورتين العداد جنب بعض */}
-              <View style={[styles.odometerPhotosRow, { flexDirection: isRTL ? 'row-reverse' : 'row', marginBottom: 14 }]}>
-                {/* عداد البداية */}
-                <TouchableOpacity
-                  style={[
-                    styles.manadeebPhotoBox,
-                    { height: 110, backgroundColor: colors.bg, borderColor: colors.border },
-                  ]}
-                  activeOpacity={0.85}
-                  onPress={() => {
-                    if (editingSession.start_km_image) {
-                      onPreviewPhoto?.({
-                        url: formatImageUrl(editingSession.start_km_image)!,
-                        title: `صورة عداد البداية (${editingSession.start_km ?? 0} كم)`,
-                      });
-                    }
-                  }}
-                >
-                  {editingSession.start_km_image ? (
-                    <Image
-                      source={{ uri: formatImageUrl(editingSession.start_km_image) || '' }}
-                      style={styles.manadeebPhotoImg}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={styles.emptyPhotoPlaceholder}>
-                      <Ionicons name="speedometer-outline" size={24} color={colors.textSecondary} />
-                      <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
-                    </View>
-                  )}
-                  <View style={[styles.manadeebPhotoOverlay, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Text style={styles.manadeebPhotoTag}>
-                      البداية: {editingSession.start_km ?? 0} كم
-                    </Text>
-                    {editingSession.start_km_image ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
-                  </View>
-                </TouchableOpacity>
-
-                {/* عداد النهاية */}
-                <TouchableOpacity
-                  style={[
-                    styles.manadeebPhotoBox,
-                    { height: 110, backgroundColor: colors.bg, borderColor: colors.border },
-                  ]}
-                  activeOpacity={0.85}
-                  onPress={() => {
-                    if (editingSession.end_km_image) {
-                      onPreviewPhoto?.({
-                        url: formatImageUrl(editingSession.end_km_image)!,
-                        title: `صورة عداد النهاية (${editingSession.end_km ?? 0} كم)`,
-                      });
-                    }
-                  }}
-                >
-                  {editingSession.end_km_image ? (
-                    <Image
-                      source={{ uri: formatImageUrl(editingSession.end_km_image) || '' }}
-                      style={styles.manadeebPhotoImg}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={styles.emptyPhotoPlaceholder}>
-                      <Ionicons name="flag-outline" size={24} color={colors.textSecondary} />
-                      <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
-                    </View>
-                  )}
-                  <View style={[styles.manadeebPhotoOverlay, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Text style={styles.manadeebPhotoTag}>
-                      النهاية: {editingSession.end_km ?? 0} كم
-                    </Text>
-                    {editingSession.end_km_image ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* 2. الحقول الأربعة: العدادات والطلبات والبنزين */}
-              <View style={{ gap: 10, marginBottom: 16 }}>
-                {/* صف العدادات */}
-                <View style={[styles.twoInputsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      عداد البداية (كم)
-                    </Text>
-                    <TextInput
-                      style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                      keyboardType="numeric"
-                      value={editStartKm}
-                      onChangeText={setEditStartKm}
-                      placeholder="0"
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <Text style={[styles.inputLabel, { color: colors.textSecondary, marginBottom: 0 }]}>
-                        عداد النهاية (كم)
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                bounces={false}
+                contentContainerStyle={{ paddingBottom: 10 }}
+              >
+                {/* 1. صورتين العداد جنب بعض */}
+                <View style={[styles.odometerPhotosRow, { flexDirection: isRTL ? 'row-reverse' : 'row', marginBottom: 14 }]}>
+                  {/* عداد البداية */}
+                  <TouchableOpacity
+                    style={[
+                      styles.manadeebPhotoBox,
+                      { height: 110, backgroundColor: colors.bg, borderColor: colors.border },
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      if (editingSession.start_km_image) {
+                        onPreviewPhoto?.({
+                          url: formatImageUrl(editingSession.start_km_image)!,
+                          title: `صورة عداد البداية (${editingSession.start_km ?? 0} كم)`,
+                        });
+                      }
+                    }}
+                  >
+                    {editingSession.start_km_image ? (
+                      <Image
+                        source={{ uri: formatImageUrl(editingSession.start_km_image) || '' }}
+                        style={styles.manadeebPhotoImg}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.emptyPhotoPlaceholder}>
+                        <Ionicons name="speedometer-outline" size={24} color={colors.textSecondary} />
+                        <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
+                      </View>
+                    )}
+                    <View style={[styles.manadeebPhotoOverlay, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <Text style={styles.manadeebPhotoTag}>
+                        البداية: {editingSession.start_km ?? 0} كم
                       </Text>
-                      {liveCalculatedDistance > 0 ? (
-                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#059669' }}>
-                          ({liveCalculatedDistance.toFixed(1)} كم)
+                      {editingSession.start_km_image ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* عداد النهاية */}
+                  <TouchableOpacity
+                    style={[
+                      styles.manadeebPhotoBox,
+                      { height: 110, backgroundColor: colors.bg, borderColor: colors.border },
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      if (editingSession.end_km_image) {
+                        onPreviewPhoto?.({
+                          url: formatImageUrl(editingSession.end_km_image)!,
+                          title: `صورة عداد النهاية (${editingSession.end_km ?? 0} كم)`,
+                        });
+                      }
+                    }}
+                  >
+                    {editingSession.end_km_image ? (
+                      <Image
+                        source={{ uri: formatImageUrl(editingSession.end_km_image) || '' }}
+                        style={styles.manadeebPhotoImg}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.emptyPhotoPlaceholder}>
+                        <Ionicons name="flag-outline" size={24} color={colors.textSecondary} />
+                        <Text style={[styles.emptyPhotoPlaceholderText, { color: colors.textSecondary }]}>لا توجد صورة</Text>
+                      </View>
+                    )}
+                    <View style={[styles.manadeebPhotoOverlay, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                      <Text style={styles.manadeebPhotoTag}>
+                        النهاية: {editingSession.end_km ?? 0} كم
+                      </Text>
+                      {editingSession.end_km_image ? <Ionicons name="expand" size={13} color="#ffffff" /> : null}
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 2. الحقول الأربعة: العدادات والطلبات والبنزين */}
+                <View style={{ gap: 10, marginBottom: 16 }}>
+                  {/* صف العدادات */}
+                  <View style={[styles.twoInputsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                        عداد البداية (كم)
+                      </Text>
+                      <TextInput
+                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                        keyboardType="numeric"
+                        value={editStartKm}
+                        onChangeText={setEditStartKm}
+                        placeholder="0"
+                        placeholderTextColor={colors.textSecondary}
+                      />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <Text style={[styles.inputLabel, { color: colors.textSecondary, marginBottom: 0 }]}>
+                          عداد النهاية (كم)
                         </Text>
-                      ) : null}
+                        {liveCalculatedDistance > 0 ? (
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#059669' }}>
+                            ({liveCalculatedDistance.toFixed(1)} كم)
+                          </Text>
+                        ) : null}
+                      </View>
+                      <TextInput
+                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                        keyboardType="numeric"
+                        value={editEndKm}
+                        onChangeText={setEditEndKm}
+                        placeholder="0"
+                        placeholderTextColor={colors.textSecondary}
+                      />
                     </View>
-                    <TextInput
-                      style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                      keyboardType="numeric"
-                      value={editEndKm}
-                      onChangeText={setEditEndKm}
-                      placeholder="0"
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                  </View>
-                </View>
-
-                {/* صف الطلبات والبنزين */}
-                <View style={[styles.twoInputsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      عدد الطلبات
-                    </Text>
-                    <TextInput
-                      style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                      keyboardType="numeric"
-                      value={editOrdersCount}
-                      onChangeText={setEditOrdersCount}
-                      placeholder="0"
-                      placeholderTextColor={colors.textSecondary}
-                    />
                   </View>
 
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      تكلفة الوقود (ريال)
-                    </Text>
-                    <TextInput
-                      style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                      keyboardType="numeric"
-                      value={editFuelCost}
-                      onChangeText={setEditFuelCost}
-                      placeholder="0"
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              {/* 3. زر اعتماد وحفظ الوردية */}
-              <View style={[styles.modalActions, { borderTopColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <TouchableOpacity
-                  style={[styles.confirmApprovalBtn, { backgroundColor: '#10b981', flex: 1 }]}
-                  onPress={handleSaveEditReview}
-                  disabled={submittingReview}
-                  activeOpacity={0.85}
-                >
-                  {submittingReview ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="checkmark-done" size={18} color="#fff" />
-                      <Text style={styles.confirmApprovalBtnText}>
-                        اعتماد وحفظ الوردية
+                  {/* صف الطلبات والبنزين */}
+                  <View style={[styles.twoInputsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                        عدد الطلبات
                       </Text>
+                      <TextInput
+                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                        keyboardType="numeric"
+                        value={editOrdersCount}
+                        onChangeText={setEditOrdersCount}
+                        placeholder="0"
+                        placeholderTextColor={colors.textSecondary}
+                      />
                     </View>
-                  )}
-                </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.cancelBtn, { borderColor: colors.border, paddingHorizontal: 16 }]}
-                  onPress={() => setEditingSession(null)}
-                  disabled={submittingReview}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
-                </TouchableOpacity>
-              </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                        تكلفة الوقود (ريال)
+                      </Text>
+                      <TextInput
+                        style={[styles.modernInput, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                        keyboardType="numeric"
+                        value={editFuelCost}
+                        onChangeText={setEditFuelCost}
+                        placeholder="0"
+                        placeholderTextColor={colors.textSecondary}
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                {/* 3. زر اعتماد وحفظ الوردية */}
+                <View style={[styles.modalActions, { borderTopColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <TouchableOpacity
+                    style={[styles.confirmApprovalBtn, { backgroundColor: '#10b981', flex: 1 }]}
+                    onPress={handleSaveEditReview}
+                    disabled={submittingReview}
+                    activeOpacity={0.85}
+                  >
+                    {submittingReview ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="checkmark-done" size={18} color="#fff" />
+                        <Text style={styles.confirmApprovalBtnText}>
+                          اعتماد وحفظ الوردية
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.cancelBtn, { borderColor: colors.border, paddingHorizontal: 16 }]}
+                    onPress={() => setEditingSession(null)}
+                    disabled={submittingReview}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         ) : null}
       </Modal>
     </View>
