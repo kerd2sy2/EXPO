@@ -12,8 +12,8 @@ import {
   Dimensions,
   ActivityIndicator,
   Keyboard,
-  LayoutAnimation,
-  UIManager,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../../types/delegate';
@@ -22,10 +22,6 @@ import { toArabicDigits } from '../../utils/formatters';
 import { CustodyDayData } from '../../services/custodyService';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface AhdaEditExpenseModalProps {
   visible: boolean;
@@ -200,32 +196,50 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
     }
   }, [visible, dismissAndBlurAll]);
 
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardOffsetAnim = useRef(new Animated.Value(0)).current;
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        try {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        } catch (_) {}
-        setKeyboardHeight(e.endCoordinates.height);
-      }
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        try {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        } catch (_) {}
-        setKeyboardHeight(0);
-      }
-    );
-    return () => {
-      showSub.remove();
-      hideSub.remove();
+    let currentHeight = 0;
+
+    const onShow = (e: any) => {
+      const targetHeight = e?.endCoordinates?.height || 280;
+      if (currentHeight === targetHeight) return;
+      currentHeight = targetHeight;
+      setIsKeyboardVisible(true);
+
+      Animated.timing(keyboardOffsetAnim, {
+        toValue: targetHeight,
+        duration: Platform.OS === 'ios' ? (e?.duration || 260) : 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
     };
-  }, []);
+
+    const onHide = (e: any) => {
+      currentHeight = 0;
+      setIsKeyboardVisible(false);
+
+      Animated.timing(keyboardOffsetAnim, {
+        toValue: 0,
+        duration: Platform.OS === 'ios' ? (e?.duration || 200) : 180,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    };
+
+    const willShowSub = Keyboard.addListener('keyboardWillShow', onShow);
+    const didShowSub = Keyboard.addListener('keyboardDidShow', onShow);
+    const willHideSub = Keyboard.addListener('keyboardWillHide', onHide);
+    const didHideSub = Keyboard.addListener('keyboardDidHide', onHide);
+
+    return () => {
+      willShowSub.remove();
+      didShowSub.remove();
+      willHideSub.remove();
+      didHideSub.remove();
+    };
+  }, [keyboardOffsetAnim]);
 
   const handlePick = (fromCamera: boolean) => {
     dismissAndBlurAll();
@@ -234,17 +248,17 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View
+      <Animated.View
         style={[
           styles.bottomSheetBackdrop,
-          keyboardHeight > 0 ? { paddingBottom: keyboardHeight } : null,
+          { paddingBottom: keyboardOffsetAnim },
         ]}
       >
         <TouchableOpacity
           style={StyleSheet.absoluteFill}
           activeOpacity={1}
           onPress={() => {
-            if (keyboardHeight > 0) {
+            if (isKeyboardVisible) {
               Keyboard.dismiss();
             } else {
               onClose();
@@ -265,9 +279,11 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            bounces={false}
             style={{
-              maxHeight: keyboardHeight > 0 ? Math.max(220, SCREEN_HEIGHT - keyboardHeight - 130) : (SCREEN_HEIGHT * 0.72),
+              maxHeight: SCREEN_HEIGHT * 0.58,
             }}
+            contentContainerStyle={{ paddingBottom: 10 }}
           >
               {/* Category Dropdown (شريط منسدل) */}
               <View style={styles.inputGroup}>
@@ -796,7 +812,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
               </View>
             </ScrollView>
           </View>
-        </View>
+        </Animated.View>
     </Modal>
   );
 };
