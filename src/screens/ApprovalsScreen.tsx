@@ -57,6 +57,49 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Helper: format time cleanly (e.g. 08:30 ص or 04:15 م)
+  const formatTimeStr = (isoString?: string): string => {
+    if (!isoString) return '—';
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return '—';
+      let hours = d.getHours();
+      const minutes = d.getMinutes();
+      const isPM = hours >= 12;
+      hours = hours % 12 || 12;
+      const padMin = minutes < 10 ? `0${minutes}` : `${minutes}`;
+      const period = isPM ? 'م' : 'ص';
+      return `${hours}:${padMin} ${period}`;
+    } catch {
+      return '—';
+    }
+  };
+
+  // Helper: calculate total hours and minutes worked in the shift
+  const calculateShiftDuration = (startTime?: string, endTime?: string | null): string => {
+    if (!startTime || !endTime) return '—';
+    try {
+      const start = new Date(startTime).getTime();
+      const end = new Date(endTime).getTime();
+      if (isNaN(start) || isNaN(end) || end <= start) return '—';
+
+      const diffMs = end - start;
+      const totalMinutes = Math.round(diffMs / (1000 * 60));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+
+      if (hours === 0) {
+        return `${minutes} د`;
+      }
+      if (minutes === 0) {
+        return `${hours} س`;
+      }
+      return `${hours} س و ${minutes} د`;
+    } catch {
+      return '—';
+    }
+  };
+
   // Filter pending sessions: ONLY finished shifts that are not yet reviewed
   const filteredSessions = useMemo(() => {
     const finishedOnly = pendingSessions.filter(
@@ -317,7 +360,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   </View>
                 </View>
 
-                {/* ── 2. STATS BAR: الطلبات | المسافة | الوقود ── */}
+                {/* ── 2. STATS BAR: الطلبات | المسافة | الوقود | ساعات العمل ── */}
                 <View style={[styles.compactStatsBar, { backgroundColor: colors.bg, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <View style={styles.statItem}>
                     <Text style={[styles.statItemVal, { color: '#2563eb' }]}>{session.orders_count || 0}</Text>
@@ -333,9 +376,52 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     <Text style={[styles.statItemVal, { color: '#d97706' }]}>{session.fuel_cost || 0} ر.س</Text>
                     <Text style={[styles.statItemLbl, { color: colors.textSecondary }]}>الوقود</Text>
                   </View>
+                  <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statItemVal, { color: '#7c3aed' }]}>
+                      {calculateShiftDuration(session.start_time, session.end_time)}
+                    </Text>
+                    <Text style={[styles.statItemLbl, { color: colors.textSecondary }]}>ساعات العمل</Text>
+                  </View>
                 </View>
 
-                {/* ── 3. ODOMETER PHOTOS: صورتين العداد جنب بعض زى المناديب (البداية يمين والنهاية شمال) ── */}
+                {/* ── 3. ODOMETER TIME HEADERS: ساعة البداية فوق عداد البداية | إجمالي الساعات | ساعة النهاية فوق عداد النهاية ── */}
+                <View style={[styles.odometerTimesRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {/* فوق عداد البداية */}
+                  <View style={[styles.odometerTimeBox, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <Text style={[styles.odometerTimeLabel, { color: colors.textSecondary }]}>ساعة البداية</Text>
+                      <Ionicons name="time-outline" size={13} color="#2563eb" />
+                    </View>
+                    <Text style={[styles.odometerTimeValue, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {formatTimeStr(session.start_time)}
+                    </Text>
+                  </View>
+
+                  {/* إجمالي ساعات العمل في المنتصف */}
+                  <View style={[styles.durationPillBox, { backgroundColor: isDarkMode ? '#7c3aed18' : '#f5f3ff', borderColor: '#7c3aed35' }]}>
+                    <Ionicons name="timer-outline" size={13} color="#7c3aed" />
+                    <Text style={[styles.durationPillVal, { color: isDarkMode ? '#c4b5fd' : '#6d28d9' }]}>
+                      {calculateShiftDuration(session.start_time, session.end_time)}
+                    </Text>
+                    <Text style={[styles.durationPillLbl, { color: isDarkMode ? '#a78bfa' : '#7c3aed' }]}>
+                      إجمالي العمل
+                    </Text>
+                  </View>
+
+                  {/* فوق عداد النهاية */}
+                  <View style={[styles.odometerTimeBox, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <Text style={[styles.odometerTimeLabel, { color: colors.textSecondary }]}>ساعة النهاية</Text>
+                      <Ionicons name="flag-outline" size={13} color="#059669" />
+                    </View>
+                    <Text style={[styles.odometerTimeValue, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {formatTimeStr(session.end_time)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* ── 4. ODOMETER PHOTOS: صورتين العداد جنب بعض زى المناديب (البداية يمين والنهاية شمال) ── */}
                 <View style={[styles.odometerPhotosRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   {/* Start KM Photo */}
                   <TouchableOpacity
@@ -492,7 +578,43 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                 bounces={false}
                 contentContainerStyle={{ paddingBottom: 10 }}
               >
-                {/* 1. صورتين العداد جنب بعض */}
+                {/* 1. أوقات الوردية وإجمالي الساعات فوق صورتي العداد */}
+                <View style={[styles.odometerTimesRow, { flexDirection: isRTL ? 'row-reverse' : 'row', marginBottom: 8 }]}>
+                  {/* فوق عداد البداية */}
+                  <View style={[styles.odometerTimeBox, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <Text style={[styles.odometerTimeLabel, { color: colors.textSecondary }]}>ساعة البداية</Text>
+                      <Ionicons name="time-outline" size={13} color="#2563eb" />
+                    </View>
+                    <Text style={[styles.odometerTimeValue, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {formatTimeStr(editingSession.start_time)}
+                    </Text>
+                  </View>
+
+                  {/* إجمالي ساعات العمل في المنتصف */}
+                  <View style={[styles.durationPillBox, { backgroundColor: isDarkMode ? '#7c3aed18' : '#f5f3ff', borderColor: '#7c3aed35' }]}>
+                    <Ionicons name="timer-outline" size={13} color="#7c3aed" />
+                    <Text style={[styles.durationPillVal, { color: isDarkMode ? '#c4b5fd' : '#6d28d9' }]}>
+                      {calculateShiftDuration(editingSession.start_time, editingSession.end_time)}
+                    </Text>
+                    <Text style={[styles.durationPillLbl, { color: isDarkMode ? '#a78bfa' : '#7c3aed' }]}>
+                      إجمالي العمل
+                    </Text>
+                  </View>
+
+                  {/* فوق عداد النهاية */}
+                  <View style={[styles.odometerTimeBox, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                    <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <Text style={[styles.odometerTimeLabel, { color: colors.textSecondary }]}>ساعة النهاية</Text>
+                      <Ionicons name="flag-outline" size={13} color="#059669" />
+                    </View>
+                    <Text style={[styles.odometerTimeValue, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      {formatTimeStr(editingSession.end_time)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 2. صورتين العداد جنب بعض */}
                 <View style={[styles.odometerPhotosRow, { flexDirection: isRTL ? 'row-reverse' : 'row', marginBottom: 14 }]}>
                   {/* عداد البداية */}
                   <TouchableOpacity
@@ -805,6 +927,47 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 22,
+  },
+
+  /* ── Odometer Times & Duration Row ── */
+  odometerTimesRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 6,
+    alignItems: 'center',
+  },
+  odometerTimeBox: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  odometerTimeLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  odometerTimeValue: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  durationPillBox: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 76,
+  },
+  durationPillVal: {
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  durationPillLbl: {
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: 1,
   },
 
   /* ── Odometer Photos Row (Same as Manadeeb) ── */
