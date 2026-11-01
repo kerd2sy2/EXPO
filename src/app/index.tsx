@@ -297,6 +297,8 @@ export default function DelegateApp() {
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
   const [showPlateScannerModal, setShowPlateScannerModal] = useState(false);
   const [showAccidentModal, setShowAccidentModal] = useState(false);
+  const [targetApprovalSessionId, setTargetApprovalSessionId] = useState<string | null>(null);
+  const [targetApprovalEmployeeId, setTargetApprovalEmployeeId] = useState<string | null>(null);
   const [oilChangeModalState, setOilChangeModalState] = useState<{ visible: boolean; bikeNumber: string }>({
     visible: false,
     bikeNumber: '',
@@ -430,6 +432,12 @@ export default function DelegateApp() {
     setSelectedHistoryMonthKey,
     setSelectedHistoryMonthLabel,
     lang,
+    onSelectApprovalSession: (sessionId, employeeId) => {
+      setTargetApprovalSessionId(sessionId || null);
+      setTargetApprovalEmployeeId(employeeId || null);
+      fetchSupervisorData();
+    },
+    onRefreshSupervisor: fetchSupervisorData,
   });
 
   // Emergency Accident Shake Detection (Impact & Shake Sensor)
@@ -1987,6 +1995,12 @@ export default function DelegateApp() {
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
                 onPreviewPhoto={setPreviewPhoto}
+                targetSessionId={targetApprovalSessionId}
+                targetEmployeeId={targetApprovalEmployeeId}
+                onClearTargetSession={() => {
+                  setTargetApprovalSessionId(null);
+                  setTargetApprovalEmployeeId(null);
+                }}
               />
             </ModuleErrorBoundary>
           </View>

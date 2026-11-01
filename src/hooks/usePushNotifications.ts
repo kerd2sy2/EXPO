@@ -21,6 +21,8 @@ interface UsePushNotificationsProps {
   setSelectedHistoryMonthKey?: (key: string | null) => void;
   setSelectedHistoryMonthLabel?: (label: string | null) => void;
   lang?: Language;
+  onSelectApprovalSession?: (sessionId?: string, employeeId?: string) => void;
+  onRefreshSupervisor?: () => void;
 }
 
 export function usePushNotifications({
@@ -36,6 +38,8 @@ export function usePushNotifications({
   setSelectedHistoryMonthKey,
   setSelectedHistoryMonthLabel,
   lang = 'ar',
+  onSelectApprovalSession,
+  onRefreshSupervisor,
 }: UsePushNotificationsProps) {
   const handledNotifIdentifierRef = useRef<string | null>(null);
 
@@ -59,7 +63,7 @@ export function usePushNotifications({
         const title = response?.notification?.request?.content?.title || '';
         const body = response?.notification?.request?.content?.body || '';
 
-        // 0. Shift Ended by Courier -> Navigate to approvals tab!
+        // 0. Shift Ended by Courier -> Navigate to approvals tab & open delegate's approval modal!
         const isShiftEnded =
           data?.type === 'SHIFT_COMPLETED_PENDING_REVIEW' ||
           data?.type === 'SHIFT_ENDED' ||
@@ -68,6 +72,9 @@ export function usePushNotifications({
           body.includes('إنهاء الشفت');
 
         if (isShiftEnded) {
+          const sid = data?.sessionId || data?.session_id;
+          const eid = data?.employee_id || data?.employeeId;
+          onSelectApprovalSession?.(sid, eid);
           setCurrentTab('approvals');
           mainScrollRef.current?.scrollTo({ y: 0, animated: false });
           return;
@@ -229,6 +236,17 @@ export function usePushNotifications({
         const data = (notification?.request?.content?.data || {}) as any;
         const title = notification?.request?.content?.title || '';
         const body = notification?.request?.content?.body || '';
+
+        const isShiftEnded =
+          data?.type === 'SHIFT_COMPLETED_PENDING_REVIEW' ||
+          data?.type === 'SHIFT_ENDED' ||
+          title.includes('إنهاء وردية') ||
+          body.includes('بانتظار الاعتماد') ||
+          body.includes('إنهاء الشفت');
+
+        if (isShiftEnded) {
+          onRefreshSupervisor?.();
+        }
 
         const isShiftApproval =
           data?.type === 'SESSION_APPROVED' ||

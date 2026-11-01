@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { ThemeColors } from '@shared/theme';
 import { WorkSession } from '@shared/types';
-import { formatImageUrl, getStoredToken } from '../services/api';
+import { formatImageUrl, getStoredToken, apiRequest } from '../services/api';
 import {
   supervisorApi,
   PendingAdvanceRequest,
@@ -37,6 +37,9 @@ interface ApprovalsScreenProps {
   isDarkMode: boolean;
   isRTL: boolean;
   onPreviewPhoto?: (photo: { url: string; title: string }) => void;
+  targetSessionId?: string | null;
+  targetEmployeeId?: string | null;
+  onClearTargetSession?: () => void;
 }
 
 export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
@@ -47,6 +50,9 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   isDarkMode,
   isRTL,
   onPreviewPhoto,
+  targetSessionId,
+  targetEmployeeId,
+  onClearTargetSession,
 }) => {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,6 +119,42 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
     setEditStartKm(session.start_km != null ? String(session.start_km) : '');
     setEditEndKm(session.end_km != null ? String(session.end_km) : '');
   };
+
+  // Automatically open review modal when navigating from push notification
+  useEffect(() => {
+    if (!targetSessionId && !targetEmployeeId) return;
+
+    // 1. Search in current pendingSessions
+    const found = pendingSessions.find(
+      (s) =>
+        (targetSessionId && s.id === targetSessionId) ||
+        (targetEmployeeId && (s.employee_id === targetEmployeeId || s.employee?.id === targetEmployeeId))
+    );
+
+    if (found) {
+      openEditModal(found);
+      onClearTargetSession?.();
+      return;
+    }
+
+    // 2. If not yet in pendingSessions (e.g. fresh notification), fetch directly by ID
+    if (targetSessionId) {
+      let isCancelled = false;
+      apiRequest<any>(`/work/sessions/${targetSessionId}`)
+        .then((res) => {
+          if (isCancelled || !res) return;
+          const sessionData = res?.data || res;
+          if (sessionData && sessionData.id) {
+            openEditModal(sessionData);
+            onClearTargetSession?.();
+          }
+        })
+        .catch(() => {});
+      return () => {
+        isCancelled = true;
+      };
+    }
+  }, [targetSessionId, targetEmployeeId, pendingSessions]);
 
   // Play Video inside app with authenticated token
   const handlePlayVideo = async (videoUrl: string) => {
@@ -191,17 +233,27 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
       {/* ── LIST OF COMPLETED SESSIONS ── */}
       <ScrollView
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          filteredSessions.length === 0 && styles.listContentEmpty,
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }
       >
-        {filteredSessions.length === 0 ? (
+        {loading && filteredSessions.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary, marginTop: 8 }]}>
+              جارٍ تحميل الورديات...
+            </Text>
+          </View>
+        ) : filteredSessions.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons
               name={searchQuery ? 'search-outline' : 'checkmark-circle-outline'}
-              size={54}
+              size={56}
               color={searchQuery ? colors.textSecondary : '#10B981'}
             />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
@@ -651,11 +703,17 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
     gap: 12,
   },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
-    gap: 10,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    gap: 12,
   },
   emptyTitle: {
     fontSize: 16,
