@@ -96,5 +96,6 @@ export type TabType =
   | 'accident-report'
   | 'supervisor-report'
   | 'advance-request'
-  | 'employees';
+  | 'employees'
+  | 'orders-review';
 export type Language = 'ar' | 'en' | 'bn' | 'ur';

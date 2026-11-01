@@ -71,6 +71,7 @@ import { OperationsScreen } from '../screens/OperationsScreen';
 import { SupervisorReportScreen } from '../screens/SupervisorReportScreen';
 import { AdvanceRequestScreen } from '../screens/AdvanceRequestScreen';
 import { EmployeesScreen } from '../screens/EmployeesScreen';
+import { OrdersReviewScreen } from '../screens/OrdersReviewScreen';
 import {
   supervisorApi,
   BranchStats,
@@ -174,6 +175,7 @@ export default function DelegateApp() {
   const [advanceInitialMode, setAdvanceInitialMode] = useState<'list' | 'create'>('list');
   const [showOperationVideoModal, setShowOperationVideoModal] = useState(false);
   const [loadingSupervisorData, setLoadingSupervisorData] = useState(false);
+  const [ordersDatePickerOpen, setOrdersDatePickerOpen] = useState(false);
 
 
   // Operations & Fleet States
@@ -1886,6 +1888,8 @@ export default function DelegateApp() {
                   ? 'سلفة'
                   : currentTab === 'employees'
                   ? 'إدارة وتعديل الموظفين'
+                  : currentTab === 'orders-review'
+                  ? 'مراجعة الطلبات'
                   : currentTab === 'shift'
                   ? (activeSession ? t.endShiftTitle : t.startShiftTitle)
                   : currentTab === 'history'
@@ -1906,6 +1910,17 @@ export default function DelegateApp() {
 
             </View>
           </View>
+
+          {currentTab === 'orders-review' && (
+            <TouchableOpacity
+              style={[styles.headerCalendarBtn, { backgroundColor: colors.primaryLight }]}
+              onPress={() => setOrdersDatePickerOpen(true)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -2109,6 +2124,20 @@ export default function DelegateApp() {
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'orders-review' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="مراجعة الطلبات" colors={colors} onReset={fetchSupervisorData}>
+              <OrdersReviewScreen
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                onPreviewPhoto={setPreviewPhoto}
+                isDatePickerOpen={ordersDatePickerOpen}
+                onOpenDatePicker={() => setOrdersDatePickerOpen(true)}
+                onCloseDatePicker={() => setOrdersDatePickerOpen(false)}
               />
             </ModuleErrorBoundary>
           </View>
@@ -2546,6 +2575,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
     borderWidth: 0,
+  },
+  headerCalendarBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   subPageTitleContainer: {
     flex: 1,

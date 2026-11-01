@@ -176,6 +176,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={pendingCount > 0 ? '#f59e0b' : colors.textSecondary} />
         </TouchableOpacity>
 
+        {/* Module 3b: Orders Review (مراجعة الطلبات) */}
+        <TouchableOpacity
+          style={[
+            styles.moduleCard,
+            { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+          ]}
+          onPress={() => onNavigateToTab('orders-review')}
+          activeOpacity={0.75}
+        >
+          <View style={[styles.moduleIconBox, { backgroundColor: '#3b82f615' }]}>
+            <Ionicons name="receipt-outline" size={24} color="#3b82f6" />
+          </View>
+          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>مراجعة الطلبات</Text>
+            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
+              تدقيق طلبات اليوم أو تاريخ محدد، والبحث عن طلبات مناديب الفرع
+            </Text>
+          </View>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+
         {/* Module 4: Fleet & Operations */}
         <TouchableOpacity
           style={[

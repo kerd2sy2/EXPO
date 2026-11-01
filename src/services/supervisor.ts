@@ -526,6 +526,35 @@ export const supervisorApi = {
       method: 'DELETE',
     });
   },
+
+  // 21. Review orders (مراجعة الطلبات) by date or by employee
+  getOrdersReview: async (params: {
+    date?: string; // YYYY-MM-DD
+    employeeId?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<WorkSession[]> => {
+    try {
+      let url = `/reports?limit=${params.limit || 500}`;
+      if (params.date) {
+        url += `&start_date=${params.date}&end_date=${params.date}`;
+      } else {
+        if (params.startDate) url += `&start_date=${params.startDate}`;
+        if (params.endDate) url += `&end_date=${params.endDate}`;
+      }
+      if (params.employeeId) {
+        url += `&employee_id=${params.employeeId}`;
+      }
+      const resp: any = await apiRequest(url, { timeoutMs: 12000 });
+      if (Array.isArray(resp)) return resp;
+      if (resp && Array.isArray(resp.data)) return resp.data;
+      return [];
+    } catch (err) {
+      console.warn('[supervisorApi] getOrdersReview error:', err);
+      return [];
+    }
+  },
 };
 
 

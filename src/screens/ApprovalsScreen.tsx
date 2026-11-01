@@ -385,7 +385,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   </View>
                 </View>
 
-                {/* ── 3. ODOMETER TIME HEADERS: ساعة البداية فوق عداد البداية | إجمالي الساعات | ساعة النهاية فوق عداد النهاية ── */}
+                {/* ── 3. ODOMETER TIME HEADERS: ساعة البداية فوق عداد البداية | ساعة النهاية فوق عداد النهاية ── */}
                 <View style={[styles.odometerTimesRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   {/* فوق عداد البداية */}
                   <View style={[styles.odometerTimeBox, { backgroundColor: colors.bg, borderColor: colors.border }]}>
@@ -395,17 +395,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     </View>
                     <Text style={[styles.odometerTimeValue, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                       {formatTimeStr(session.start_time)}
-                    </Text>
-                  </View>
-
-                  {/* إجمالي ساعات العمل في المنتصف */}
-                  <View style={[styles.durationPillBox, { backgroundColor: isDarkMode ? '#7c3aed18' : '#f5f3ff', borderColor: '#7c3aed35' }]}>
-                    <Ionicons name="timer-outline" size={13} color="#7c3aed" />
-                    <Text style={[styles.durationPillVal, { color: isDarkMode ? '#c4b5fd' : '#6d28d9' }]}>
-                      {calculateShiftDuration(session.start_time, session.end_time)}
-                    </Text>
-                    <Text style={[styles.durationPillLbl, { color: isDarkMode ? '#a78bfa' : '#7c3aed' }]}>
-                      إجمالي العمل
                     </Text>
                   </View>
 
@@ -588,17 +577,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     </View>
                     <Text style={[styles.odometerTimeValue, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                       {formatTimeStr(editingSession.start_time)}
-                    </Text>
-                  </View>
-
-                  {/* إجمالي ساعات العمل في المنتصف */}
-                  <View style={[styles.durationPillBox, { backgroundColor: isDarkMode ? '#7c3aed18' : '#f5f3ff', borderColor: '#7c3aed35' }]}>
-                    <Ionicons name="timer-outline" size={13} color="#7c3aed" />
-                    <Text style={[styles.durationPillVal, { color: isDarkMode ? '#c4b5fd' : '#6d28d9' }]}>
-                      {calculateShiftDuration(editingSession.start_time, editingSession.end_time)}
-                    </Text>
-                    <Text style={[styles.durationPillLbl, { color: isDarkMode ? '#a78bfa' : '#7c3aed' }]}>
-                      إجمالي العمل
                     </Text>
                   </View>
 
