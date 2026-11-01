@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Platform,
   Dimensions,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../../types/delegate';
@@ -163,10 +164,46 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
   const currentCat = categories.find((c) => c.key === editCategory) || categories[0];
   const isAdvanceCategory = editCategory === 'internet_advance' || editCategory === 'advance';
 
+  const editAmountRef = useRef<TextInput>(null);
+  const editExportNumberRef = useRef<TextInput>(null);
+  const editRecipientRef = useRef<TextInput>(null);
+
+  const dismissAndBlurAll = useCallback(() => {
+    Keyboard.dismiss();
+    editAmountRef.current?.blur();
+    editExportNumberRef.current?.blur();
+    editRecipientRef.current?.blur();
+  }, []);
+
+  useEffect(() => {
+    if (editImageUri) {
+      dismissAndBlurAll();
+      const t1 = setTimeout(dismissAndBlurAll, 100);
+      const t2 = setTimeout(dismissAndBlurAll, 300);
+      const t3 = setTimeout(dismissAndBlurAll, 600);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    }
+  }, [editImageUri, dismissAndBlurAll]);
+
+  useEffect(() => {
+    if (!visible) {
+      dismissAndBlurAll();
+    }
+  }, [visible, dismissAndBlurAll]);
+
+  const handlePick = (fromCamera: boolean) => {
+    dismissAndBlurAll();
+    onPickImage(fromCamera);
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
         style={styles.keyboardModalWrapper}
       >
@@ -587,6 +624,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
               <View style={styles.inputGroup}>
                 <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>المبلغ المصروف (ريال) *</Text>
                 <TextInput
+                  ref={editAmountRef}
                   style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
                   placeholder="0.00"
                   placeholderTextColor="#94a3b8"
@@ -600,6 +638,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
               <View style={styles.inputGroup}>
                 <Text style={[styles.sheetLabel, { color: colors.textPrimary }]}>البيان التفصيلي</Text>
                 <TextInput
+                  ref={editRecipientRef}
                   style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
                   placeholder="البيان التفصيلي للفاتورة"
                   placeholderTextColor="#94a3b8"
@@ -621,6 +660,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                     </View>
                   </View>
                   <TextInput
+                    ref={editExportNumberRef}
                     style={[
                       styles.inputBox,
                       {
@@ -662,7 +702,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
                   <View style={styles.imagePickRow}>
                     <TouchableOpacity
                       style={[styles.pickBtn, { backgroundColor: isDarkMode ? '#334155' : '#ecfdf5', borderColor: '#fed7aa' }]}
-                      onPress={() => onPickImage(true)}
+                      onPress={() => handlePick(true)}
                       activeOpacity={0.8}
                     >
                       <Ionicons name="camera-outline" size={20} color="#047857" />
@@ -671,7 +711,7 @@ export const AhdaEditExpenseModal: React.FC<AhdaEditExpenseModalProps> = ({
 
                     <TouchableOpacity
                       style={[styles.pickBtn, { backgroundColor: isDarkMode ? '#334155' : '#f0f9ff', borderColor: '#bae6fd' }]}
-                      onPress={() => onPickImage(false)}
+                      onPress={() => handlePick(false)}
                       activeOpacity={0.8}
                     >
                       <Ionicons name="images-outline" size={20} color="#0284c7" />

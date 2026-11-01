@@ -926,6 +926,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   // 3. Pick or Capture Invoice Image
   const handlePickImage = async (useCamera: boolean = false) => {
+    Keyboard.dismiss();
     try {
       let result;
       if (useCamera) {
@@ -950,8 +951,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         });
       }
 
+      Keyboard.dismiss();
+
       if (!result.canceled && result.assets[0]?.uri) {
         setInvoiceImageUri(result.assets[0].uri);
+        setTimeout(() => Keyboard.dismiss(), 50);
+        setTimeout(() => Keyboard.dismiss(), 200);
+        setTimeout(() => Keyboard.dismiss(), 500);
       }
     } catch (err) {
       console.warn('Error picking image:', err);
@@ -1085,6 +1091,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
   // 4b-2. Pick or Capture Image for Edit Expense
   const handlePickEditImage = async (useCamera: boolean = false) => {
+    Keyboard.dismiss();
     try {
       let result;
       if (useCamera) {
@@ -1109,8 +1116,13 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
         });
       }
 
+      Keyboard.dismiss();
+
       if (!result.canceled && result.assets[0]?.uri) {
         setEditImageUri(result.assets[0].uri);
+        setTimeout(() => Keyboard.dismiss(), 50);
+        setTimeout(() => Keyboard.dismiss(), 200);
+        setTimeout(() => Keyboard.dismiss(), 500);
       }
     } catch (err) {
       console.warn('Error picking edit image:', err);
