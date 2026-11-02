@@ -145,8 +145,8 @@ export function useShiftController({
         const rawAsset = result.assets[0];
         const manipulated = await ImageManipulator.manipulateAsync(
           rawAsset.uri,
-          [{ resize: { width: 900 } }],
-          { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          [{ resize: { width: 720 } }],
+          { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG, base64: true }
         );
         const base64Uri = manipulated.base64
           ? `data:image/jpeg;base64,${manipulated.base64}`

@@ -45,9 +45,27 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
   useEffect(() => {
     if (employee?.id) {
       notificationService.initNotifications(employee.id);
-      checkUnreadBroadcasts();
-      const interval = setInterval(checkUnreadBroadcasts, 35000);
-      return () => clearInterval(interval);
+      let isMounted = true;
+      let timer;
+      const schedulePoll = () => {
+        if (!isMounted) return;
+        const nextDelay = 35000 + Math.floor(Math.random() * 20000);
+        timer = setTimeout(async () => {
+          if (!isMounted) return;
+          await checkUnreadBroadcasts();
+          schedulePoll();
+        }, nextDelay);
+      };
+      const initialDelay = 1500 + Math.floor(Math.random() * 3000);
+      timer = setTimeout(async () => {
+        if (!isMounted) return;
+        await checkUnreadBroadcasts();
+        schedulePoll();
+      }, initialDelay);
+      return () => {
+        isMounted = false;
+        if (timer) clearTimeout(timer);
+      };
     }
   }, [employee?.id, checkUnreadBroadcasts]);
 

@@ -387,10 +387,23 @@ export const usePlateScanner = ({
   }, [assignedPlate, closeAssignedModal, onClose, onScanned]);
 
   // Confirm and Apply Detected Result
-  const handleConfirmResult = () => {
-    if (detectedResult && capturedPhotoUri && capturedBase64) {
-      const uri = capturedPhotoUri;
-      const b64 = capturedBase64;
+  const handleConfirmResult = async () => {
+    if (detectedResult && capturedPhotoUri) {
+      let b64 = capturedBase64 || '';
+      let uri = capturedPhotoUri;
+      if (!b64 || b64.length > 200000) {
+        try {
+          const comp = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 640 } }],
+            { compress: 0.3, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+          if (comp.base64) {
+            b64 = 'data:image/jpeg;base64,' + comp.base64;
+            uri = comp.uri || uri;
+          }
+        } catch {}
+      }
       const res = detectedResult;
       onClose();
       onScanned(uri, b64, res).catch((err) => {
