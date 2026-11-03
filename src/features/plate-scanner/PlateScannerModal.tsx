@@ -85,7 +85,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
       animationType="none"
       transparent={true}
       statusBarTranslucent={true}
-      onRequestClose={onClose}
+      onRequestClose={() => { if (!showAssignedModal) onClose(); }}
     >
       <StatusBar
         barStyle={showIntroSplash ? (isDark ? 'light-content' : 'dark-content') : 'light-content'}
@@ -125,7 +125,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
 
         {/* HUD Viewfinder Overlay (Revealed cleanly when intro animation finishes and camera is live) */}
         {!showIntroSplash && (
-          <View style={styles.hudOverlay}>
+          <View style={[styles.hudOverlay, showAssignedModal && { opacity: 0 }]} pointerEvents={showAssignedModal ? "none" : "auto"}>
             {/* Top Header Controls */}
             <ScannerHeader
               onClose={onClose}

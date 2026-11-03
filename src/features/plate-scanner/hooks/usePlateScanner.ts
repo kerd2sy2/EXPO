@@ -363,10 +363,7 @@ export const usePlateScanner = ({
   // Automatically open assigned motorcycle bottom modal if courier has an assigned bike
   useEffect(() => {
     if (visible && assignedPlate && assignedPlate.trim().length > 0) {
-      const autoTimer = setTimeout(() => {
-        openAssignedModal();
-      }, 350);
-      return () => clearTimeout(autoTimer);
+      openAssignedModal();
     } else {
       setShowAssignedModal(false);
       assignedSheetAnim.setValue(0);

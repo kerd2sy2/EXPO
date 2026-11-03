@@ -23,25 +23,25 @@ const LOCALIZED_STRINGS: Record<string, {
     title: 'تأكيد استخدام الدباب',
     question: 'هل أنت تستخدم هذا الدباب؟',
     yes: 'نعم، استخدام هذا الدباب',
-    no: 'لا، مسح دباب آخر بالماسح',
+    no: 'لا، أعد المسح',
   },
   en: {
     title: 'Confirm Motorcycle',
     question: 'Are you using this motorcycle?',
     yes: 'Yes, Use This Motorcycle',
-    no: 'No, Scan Another Bike',
+    no: 'No, Rescan Plate',
   },
   ur: {
     title: 'موٹر سائیکل کی تصدیق',
     question: 'کیا آپ یہ موٹرسائیکل استعمال کر رہے ہیں؟',
     yes: 'ہاں، یہی موٹرسائیکل استعمال کریں',
-    no: 'نہیں، دوسری موٹرسائیکل اسکین کریں',
+    no: 'نہیں، دوبارہ اسکین کریں',
   },
   bn: {
     title: 'মোটরসাইকেল নিশ্চিতকরণ',
     question: 'আপনি কি এই বাইকটি ব্যবহার করছেন?',
     yes: 'হ্যাঁ, এই বাইকটি ব্যবহার করুন',
-    no: 'না, অন্য বাইক স্ক্যান করুন',
+    no: 'না, পুনরায় স্ক্যান করুন',
   },
 };
 
@@ -83,17 +83,19 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <TouchableWithoutFeedback onPress={onClose} disabled={isBusy}>
-        <Animated.View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: 'rgba(0, 0, 0, 0.72)',
-              opacity: sheetAnim,
-            },
-          ]}
-        />
-      </TouchableWithoutFeedback>
+      {/* Dark opaque backdrop masking the scanner completely; clicking outside does NOT dismiss */}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            backgroundColor: isDark ? '#090d16' : '#0f172a',
+            opacity: sheetAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 0.98],
+            }),
+          },
+        ]}
+      />
 
       <Animated.View
         style={[
