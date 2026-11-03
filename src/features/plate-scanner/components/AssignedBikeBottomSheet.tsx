@@ -10,13 +10,39 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import LottieView from 'lottie-react-native';
+import { parseAssignedPlateInfo } from '../services/plateOcrService';
+import { SaudiMotorcyclePlate } from '../../../components/ui/SaudiMotorcyclePlate';
 
-const LOCALIZED_QUESTIONS: Record<string, (plate: string) => string> = {
-  ar: (plate: string) => `هل أنت تستخدم دبابك رقم ${plate}؟`,
-  en: (plate: string) => `Are you using your motorcycle number ${plate}?`,
-  ur: (plate: string) => `کیا آپ اپنی موٹرسائیکل نمبر ${plate} استعمال کر رہے ہیں؟`,
-  bn: (plate: string) => `আপনি কি আপনার বাইক নম্বর ${plate} ব্যবহার করছেন?`,
+const LOCALIZED_STRINGS: Record<string, {
+  title: string;
+  question: (plate: string) => string;
+  yes: string;
+  no: string;
+}> = {
+  ar: {
+    title: 'تأكيد استخدام الدباب',
+    question: (plate: string) => `هل أنت تستخدم دبابك رقم ${plate}؟`,
+    yes: 'نعم، استخدام هذا الدباب',
+    no: 'لا، مسح دباب آخر بالماسح',
+  },
+  en: {
+    title: 'Confirm Motorcycle',
+    question: (plate: string) => `Are you using your motorcycle number ${plate}?`,
+    yes: 'Yes, Use This Motorcycle',
+    no: 'No, Scan Another Bike',
+  },
+  ur: {
+    title: 'موٹر سائیکل کی تصدیق',
+    question: (plate: string) => `کیا آپ اپنی موٹرسائیکل نمبر ${plate} استعمال کر رہے ہیں؟`,
+    yes: 'ہاں، یہی موٹرسائیکل استعمال کریں',
+    no: 'نہیں، دوسری موٹرسائیکل اسکین کریں',
+  },
+  bn: {
+    title: 'মোটরসাইকেল নিশ্চিতকরণ',
+    question: (plate: string) => `আপনি কি আপনার বাইক নম্বর ${plate} ব্যবহার করছেন?`,
+    yes: 'হ্যাঁ, এই বাইকটি ব্যবহার করুন',
+    no: 'না, অন্য বাইক স্ক্যান করুন',
+  },
 };
 
 export interface AssignedBikeBottomSheetProps {
@@ -42,20 +68,18 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
   isBusy = false,
   lang = 'ar',
   t,
-  isRTL,
+  isRTL: propIsRTL,
 }) => {
   if (!visible) return null;
 
-  const currentLang = (lang && LOCALIZED_QUESTIONS[lang]) ? lang : 'ar';
-  const transFn = LOCALIZED_QUESTIONS[currentLang];
+  const currentLang = (lang && LOCALIZED_STRINGS[lang]) ? lang : 'ar';
+  const texts = LOCALIZED_STRINGS[currentLang];
+  const isRTL = propIsRTL !== undefined ? propIsRTL : (currentLang === 'ar' || currentLang === 'ur');
 
-  // السؤال بالعربي ومترجم تحته إذا كانت لغة المندوب غير العربية
-  const arabicQuestion = `هل أنت تستخدم دبابك رقم ${assignedPlate}؟`;
-  const translatedQuestion = currentLang !== 'ar' ? transFn(assignedPlate) : '';
-
-  // الخيارات (أزرار القرار) دائماً بالعربي بناءً على طلب الإدارة
-  const yesText = 'نعم، استخدام هذا الدباب';
-  const noText = 'لا، مسح دباب آخر بالماسح';
+  // Extract digits and letters for the authentic Saudi Motorcycle Plate
+  const plateInfo = parseAssignedPlateInfo(assignedPlate);
+  const plateDigits = plateInfo?.digits || assignedPlate.replace(/[^0-9]/g, '') || assignedPlate;
+  const plateLetters = plateInfo?.arLetters || plateInfo?.enLetters || assignedPlate.replace(/[0-9]/g, '').trim() || 'ا د';
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -91,41 +115,28 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
         {/* Top Handle Pill */}
         <View style={[styles.sheetPill, { backgroundColor: isDark ? '#334155' : '#cbd5e1' }]} />
 
-        {/* Lottie Motorcycle Animation */}
-        <View style={styles.lottieContainer}>
-          <LottieView
-            source={require('../../../../assets/Lottie/lottie/m8NEtAYYYJ.lottie')}
-            autoPlay
-            loop
-            style={styles.lottieAnim}
-            resizeMode="contain"
+        {/* Modal Title */}
+        <Text style={[styles.sheetTitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+          {texts.title}
+        </Text>
+
+        {/* Main Question */}
+        <Text style={[styles.sheetQuestion, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+          {texts.question(assignedPlate)}
+        </Text>
+
+        {/* Small Authentic Saudi Motorcycle Plate (Numbers & Letters in Arabic & English) */}
+        <View style={styles.platePreviewWrapper}>
+          <SaudiMotorcyclePlate
+            digits={plateDigits}
+            letters={plateLetters}
+            editable={false}
+            isDarkMode={isDark}
+            scale={0.76}
           />
         </View>
 
-        {/* Title */}
-        <Text style={[styles.sheetTitle, { color: isDark ? '#ffffff' : '#0f172a' }]}>
-          تأكيد استخدام الدباب
-        </Text>
-
-        {/* Main Question (Arabic) */}
-        <Text style={[styles.sheetQuestion, { color: isDark ? '#f8fafc' : '#1e293b' }]}>
-          {arabicQuestion}
-        </Text>
-
-        {/* Secondary Subtitle Translation if courier has another language */}
-        {translatedQuestion !== '' && (
-          <Text style={[styles.sheetSubQuestion, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-            {translatedQuestion}
-          </Text>
-        )}
-
-        {/* Plate Highlight Badge */}
-        <View style={styles.plateHighlightBadge}>
-          <Ionicons name="bicycle" size={24} color="#f97316" style={{ marginHorizontal: 8 }} />
-          <Text style={styles.plateHighlightText}>{assignedPlate}</Text>
-        </View>
-
-        {/* Action Buttons (الخيارات بالعربي دائماً) */}
+        {/* Action Buttons */}
         <View style={styles.actionsRow}>
           {/* YES Button: Confirms using assigned motorcycle */}
           <TouchableOpacity
@@ -137,10 +148,10 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
             {isBusy ? (
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
-              <>
+              <View style={[styles.btnInner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <Ionicons name="checkmark-circle" size={22} color="#ffffff" style={{ marginHorizontal: 6 }} />
-                <Text style={styles.confirmBtnText}>{yesText}</Text>
-              </>
+                <Text style={styles.confirmBtnText}>{texts.yes}</Text>
+              </View>
             )}
           </TouchableOpacity>
 
@@ -154,10 +165,12 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
             activeOpacity={0.7}
             disabled={isBusy}
           >
-            <Ionicons name="scan-outline" size={19} color={isDark ? '#cbd5e1' : '#475569'} style={{ marginHorizontal: 6 }} />
-            <Text style={[styles.cancelBtnText, { color: isDark ? '#cbd5e1' : '#475569' }]}>
-              {noText}
-            </Text>
+            <View style={[styles.btnInner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="scan-outline" size={19} color={isDark ? '#cbd5e1' : '#475569'} style={{ marginHorizontal: 6 }} />
+              <Text style={[styles.cancelBtnText, { color: isDark ? '#cbd5e1' : '#475569' }]}>
+                {texts.no}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -188,67 +201,42 @@ const styles = StyleSheet.create({
     width: 44,
     height: 4,
     borderRadius: 2,
-    marginBottom: 8,
-  },
-  lottieContainer: {
-    width: 125,
-    height: 125,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  lottieAnim: {
-    width: 125,
-    height: 125,
+    marginBottom: 10,
   },
   sheetTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 4,
-    opacity: 0.85,
+    marginBottom: 6,
+    letterSpacing: 0.2,
   },
   sheetQuestion: {
-    fontSize: 17.5,
+    fontSize: 17,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 4,
-    paddingHorizontal: 8,
-    lineHeight: 25,
-  },
-  sheetSubQuestion: {
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
     paddingHorizontal: 12,
-    lineHeight: 18,
+    lineHeight: 24,
   },
-  plateHighlightBadge: {
-    flexDirection: 'row',
+  platePreviewWrapper: {
+    width: '100%',
     alignItems: 'center',
-    backgroundColor: 'rgba(249, 115, 22, 0.12)',
-    borderWidth: 1.5,
-    borderColor: '#f97316',
-    borderRadius: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    marginBottom: 16,
-    marginTop: 4,
-  },
-  plateHighlightText: {
-    color: '#f97316',
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: 1,
+    justifyContent: 'center',
+    height: 130,
+    marginVertical: 4,
+    overflow: 'visible',
   },
   actionsRow: {
     width: '100%',
     gap: 10,
+    marginTop: 6,
+  },
+  btnInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   confirmBtn: {
     backgroundColor: '#f97316',
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     height: 52,
@@ -265,7 +253,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   cancelBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     height: 48,
