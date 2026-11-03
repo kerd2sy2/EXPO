@@ -12,36 +12,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 
-const LOCALIZED_DATA: Record<string, {
-  title: string;
-  question: (plate: string) => string;
-  yes: string;
-  no: string;
-}> = {
-  ar: {
-    title: 'تأكيد استخدام الدباب',
-    question: (plate: string) => `هل أنت تستخدم دبابك رقم ${plate}؟`,
-    yes: 'نعم، استخدام هذا الدباب',
-    no: 'لا، مسح دباب آخر بالماسح',
-  },
-  en: {
-    title: 'Confirm Motorcycle Usage',
-    question: (plate: string) => `Are you using your motorcycle number ${plate}?`,
-    yes: 'Yes, use this motorcycle',
-    no: 'No, scan another with camera',
-  },
-  ur: {
-    title: 'موٹر سائیکل کی تصدیق',
-    question: (plate: string) => `کیا آپ اپنی موٹرسائیکل نمبر ${plate} استعمال کر رہے ہیں؟`,
-    yes: 'ہاں، یہی موٹرسائیکل استعمال کریں',
-    no: 'نہیں، کیمرے سے دوسری اسکین کریں',
-  },
-  bn: {
-    title: 'মোটরসাইকেল নিশ্চিতকরণ',
-    question: (plate: string) => `আপনি কি আপনার বাইক নম্বর ${plate} ব্যবহার করছেন?`,
-    yes: 'হ্যাঁ, এই বাইকটি ব্যবহার করুন',
-    no: 'না, ক্যামেরা দিয়ে অন্য বাইক স্ক্যান করুন',
-  },
+const LOCALIZED_QUESTIONS: Record<string, (plate: string) => string> = {
+  ar: (plate: string) => `هل أنت تستخدم دبابك رقم ${plate}؟`,
+  en: (plate: string) => `Are you using your motorcycle number ${plate}?`,
+  ur: (plate: string) => `کیا آپ اپنی موٹرسائیکل نمبر ${plate} استعمال کر رہے ہیں؟`,
+  bn: (plate: string) => `আপনি কি আপনার বাইক নম্বর ${plate} ব্যবহার করছেন?`,
 };
 
 export interface AssignedBikeBottomSheetProps {
@@ -71,15 +46,16 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
 }) => {
   if (!visible) return null;
 
-  const currentLang = (lang && LOCALIZED_DATA[lang]) ? lang : 'ar';
-  const localized = LOCALIZED_DATA[currentLang];
+  const currentLang = (lang && LOCALIZED_QUESTIONS[lang]) ? lang : 'ar';
+  const transFn = LOCALIZED_QUESTIONS[currentLang];
 
-  const titleText = t?.confirmAssignedBikeTitle || localized.title;
-  const questionText = t?.confirmAssignedBikeQuestion
-    ? t.confirmAssignedBikeQuestion.replace('{plate}', assignedPlate)
-    : localized.question(assignedPlate);
-  const yesText = t?.confirmAssignedBikeYes || localized.yes;
-  const noText = t?.confirmAssignedBikeNo || localized.no;
+  // السؤال بالعربي ومترجم تحته إذا كانت لغة المندوب غير العربية
+  const arabicQuestion = `هل أنت تستخدم دبابك رقم ${assignedPlate}؟`;
+  const translatedQuestion = currentLang !== 'ar' ? transFn(assignedPlate) : '';
+
+  // الخيارات (أزرار القرار) دائماً بالعربي بناءً على طلب الإدارة
+  const yesText = 'نعم، استخدام هذا الدباب';
+  const noText = 'لا، مسح دباب آخر بالماسح';
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -128,13 +104,20 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
 
         {/* Title */}
         <Text style={[styles.sheetTitle, { color: isDark ? '#ffffff' : '#0f172a' }]}>
-          {titleText}
+          تأكيد استخدام الدباب
         </Text>
 
-        {/* Main Question */}
+        {/* Main Question (Arabic) */}
         <Text style={[styles.sheetQuestion, { color: isDark ? '#f8fafc' : '#1e293b' }]}>
-          {questionText}
+          {arabicQuestion}
         </Text>
+
+        {/* Secondary Subtitle Translation if courier has another language */}
+        {translatedQuestion !== '' && (
+          <Text style={[styles.sheetSubQuestion, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+            {translatedQuestion}
+          </Text>
+        )}
 
         {/* Plate Highlight Badge */}
         <View style={styles.plateHighlightBadge}>
@@ -142,7 +125,7 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
           <Text style={styles.plateHighlightText}>{assignedPlate}</Text>
         </View>
 
-        {/* Action Buttons */}
+        {/* Action Buttons (الخيارات بالعربي دائماً) */}
         <View style={styles.actionsRow}>
           {/* YES Button: Confirms using assigned motorcycle */}
           <TouchableOpacity
@@ -208,30 +191,38 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   lottieContainer: {
-    width: 130,
-    height: 130,
+    width: 125,
+    height: 125,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   lottieAnim: {
-    width: 130,
-    height: 130,
+    width: 125,
+    height: 125,
   },
   sheetTitle: {
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
     opacity: 0.85,
   },
   sheetQuestion: {
-    fontSize: 17,
+    fontSize: 17.5,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 4,
     paddingHorizontal: 8,
-    lineHeight: 24,
+    lineHeight: 25,
+  },
+  sheetSubQuestion: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    lineHeight: 18,
   },
   plateHighlightBadge: {
     flexDirection: 'row',
@@ -242,7 +233,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 20,
     paddingVertical: 8,
-    marginBottom: 18,
+    marginBottom: 16,
+    marginTop: 4,
   },
   plateHighlightText: {
     color: '#f97316',
