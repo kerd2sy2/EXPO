@@ -258,6 +258,11 @@ export const ur: Record<TranslationKeys, string> = {
   scannerErrorTipFrame: 'نمبر پلیٹ کو نارنجی فریم کے اندر رکھیں',
   retryNowBtn: 'ابھی دوبارہ کوشش کریں',
 
+  confirmAssignedBikeTitle: 'موٹر سائیکل کی تصدیق',
+  confirmAssignedBikeQuestion: 'کیا آپ اپنی موٹرسائیکل نمبر {plate} استعمال کر رہے ہیں؟',
+  confirmAssignedBikeYes: 'ہاں، یہی موٹرسائیکل استعمال کریں',
+  confirmAssignedBikeNo: 'نہیں، کیمرے سے دوسری اسکین کریں',
+
   // Oil Change Alert
   oilChangeAlertTitle: 'موٹر سائیکل کی حفاظت کریں اور تیل تبدیل کریں',
   oilChangeAlertMessage: '',

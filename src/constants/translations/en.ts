@@ -258,6 +258,11 @@ export const en: Record<TranslationKeys, string> = {
   scannerErrorTipFrame: 'Align plate inside orange scan frame',
   retryNowBtn: 'Try Again Now',
 
+  confirmAssignedBikeTitle: 'Confirm Motorcycle Usage',
+  confirmAssignedBikeQuestion: 'Are you using your motorcycle number {plate}?',
+  confirmAssignedBikeYes: 'Yes, use this motorcycle',
+  confirmAssignedBikeNo: 'No, scan another with camera',
+
   // Oil Change Alert
   oilChangeAlertTitle: 'Protect your motorcycle and change the oil',
   oilChangeAlertMessage: '',

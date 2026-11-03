@@ -256,6 +256,11 @@ export const ar = {
   scannerErrorTipFrame: 'اجعل اللوحة داخل إطار المسح البرتقالي',
   retryNowBtn: 'إعادة المحاولة الآن',
 
+  confirmAssignedBikeTitle: 'تأكيد استخدام الدباب',
+  confirmAssignedBikeQuestion: 'هل أنت تستخدم دبابك رقم {plate}؟',
+  confirmAssignedBikeYes: 'نعم، استخدام هذا الدباب',
+  confirmAssignedBikeNo: 'لا، مسح دباب آخر بالماسح',
+
   // Oil Change Alert
   oilChangeAlertTitle: 'حافظ على الدباب وغير زيت',
   oilChangeAlertMessage: '',

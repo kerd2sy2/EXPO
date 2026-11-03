@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { PlateResultData } from '../types/plateScanner.types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -20,8 +20,6 @@ export const ScannerHUD: React.FC<ScannerHUDProps> = ({
   detectedResult,
   isBusy,
   t,
-  assignedPlate,
-  onPressAssignedPlate,
 }) => {
   const translateY = laserAnim.interpolate({
     inputRange: [0, 1],
@@ -65,22 +63,6 @@ export const ScannerHUD: React.FC<ScannerHUDProps> = ({
           />
         )}
       </Animated.View>
-
-      {/* Priority Assigned Vehicle Indicator (Clickable confirmation) */}
-      {assignedPlate ? (
-        <TouchableOpacity
-          style={styles.assignedBadge}
-          onPress={onPressAssignedPlate}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.assignedBadgeText}>
-            🏍️ دبابك المسجل: {assignedPlate}
-          </Text>
-          <Text style={styles.assignedBadgeHint}>
-            (اضغط هنا للتأكيد الفوري)
-          </Text>
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 };
@@ -143,32 +125,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 5,
     borderRightWidth: 5,
     borderBottomRightRadius: 20,
-  },
-  assignedBadge: {
-    marginTop: 14,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 22,
-    borderWidth: 1.8,
-    borderColor: '#f97316',
-    alignItems: 'center',
-    shadowColor: '#f97316',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  assignedBadgeText: {
-    color: '#fb923c',
-    fontSize: 13.5,
-    fontWeight: '800',
-  },
-  assignedBadgeHint: {
-    color: '#fdba74',
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
   },
   frameInnerGuidance: {
     position: 'absolute',

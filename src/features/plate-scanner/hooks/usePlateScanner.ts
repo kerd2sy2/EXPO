@@ -360,26 +360,41 @@ export const usePlateScanner = ({
     });
   }, [assignedSheetAnim]);
 
+  // Automatically open assigned motorcycle bottom modal if courier has an assigned bike
+  useEffect(() => {
+    if (visible && assignedPlate && assignedPlate.trim().length > 0) {
+      const autoTimer = setTimeout(() => {
+        openAssignedModal();
+      }, 350);
+      return () => clearTimeout(autoTimer);
+    } else {
+      setShowAssignedModal(false);
+      assignedSheetAnim.setValue(0);
+    }
+  }, [visible, assignedPlate, openAssignedModal, assignedSheetAnim]);
+
   const handleConfirmAssignedModal = useCallback(async () => {
     if (!assignedPlate) return;
     closeAssignedModal();
 
     const assignedInfo = parseAssignedPlateInfo(assignedPlate);
-    if (!assignedInfo || !assignedInfo.digits) return;
+    const digits = assignedInfo?.digits || assignedPlate.replace(/[^0-9]/g, '') || assignedPlate;
+    const arLetters = assignedInfo?.arLetters || '';
+    const enLetters = assignedInfo?.enLetters || '';
 
     const assignedResult: PlateResultData = {
-      digits: assignedInfo.digits,
-      letters: assignedInfo.arLetters,
-      full_plate: `${assignedInfo.digits} ${assignedInfo.arLetters}`.trim(),
-      arabic_digits: toArabicDigits(assignedInfo.digits),
-      arabic_letters: assignedInfo.arLetters,
-      english_letters: assignedInfo.enLetters,
+      digits: digits,
+      letters: arLetters,
+      full_plate: assignedPlate.trim(),
+      arabic_digits: toArabicDigits(digits),
+      arabic_letters: arLetters,
+      english_letters: enLetters,
     };
 
     // Vibrate/haptic success feedback
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
-    // Instantly close modal and trigger onScanned directly without photographing ("دون تصوير")
+    // Instantly close modal and trigger onScanned directly as if the courier scanned his bike
     onClose();
     onScanned('', '', assignedResult).catch((err) => {
       console.error('onScanned assigned error:', err);

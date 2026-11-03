@@ -142,8 +142,6 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               detectedResult={detectedResult}
               isBusy={isBusy}
               t={activeT}
-              assignedPlate={assignedPlate}
-              onPressAssignedPlate={openAssignedModal}
             />
 
             {/* Bottom Control / Result Popover */}
@@ -176,7 +174,6 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
           />
         )}
 
-
         {/* Modern Bottom Sheet Error Alert */}
         <ScannerErrorSheet
           visible={showErrorSheet}
@@ -197,6 +194,9 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
           onClose={closeAssignedModal}
           isDark={isDark}
           isBusy={isBusy}
+          lang={lang}
+          t={activeT}
+          isRTL={activeIsRTL}
         />
       </View>
     </Modal>

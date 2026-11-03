@@ -258,6 +258,11 @@ export const bn: Record<TranslationKeys, string> = {
   scannerErrorTipFrame: 'কমলা স্ক্যান ফ্রেমের মধ্যে প্লেট রাখুন',
   retryNowBtn: 'এখনই আবার চেষ্টা করুন',
 
+  confirmAssignedBikeTitle: 'মোটরসাইকেল নিশ্চিতকরণ',
+  confirmAssignedBikeQuestion: 'আপনি কি আপনার বাইক নম্বর {plate} ব্যবহার করছেন?',
+  confirmAssignedBikeYes: 'হ্যাঁ, এই বাইকটি ব্যবহার করুন',
+  confirmAssignedBikeNo: 'না, ক্যামেরা দিয়ে অন্য বাইক স্ক্যান করুন',
+
   // Oil Change Alert
   oilChangeAlertTitle: 'বাইকের যত্ন নিন এবং তেল পরিবর্তন করুন',
   oilChangeAlertMessage: '',

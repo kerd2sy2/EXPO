@@ -12,7 +12,39 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 
-interface AssignedBikeBottomSheetProps {
+const LOCALIZED_DATA: Record<string, {
+  title: string;
+  question: (plate: string) => string;
+  yes: string;
+  no: string;
+}> = {
+  ar: {
+    title: 'تأكيد استخدام الدباب',
+    question: (plate: string) => `هل أنت تستخدم دبابك رقم ${plate}؟`,
+    yes: 'نعم، استخدام هذا الدباب',
+    no: 'لا، مسح دباب آخر بالماسح',
+  },
+  en: {
+    title: 'Confirm Motorcycle Usage',
+    question: (plate: string) => `Are you using your motorcycle number ${plate}?`,
+    yes: 'Yes, use this motorcycle',
+    no: 'No, scan another with camera',
+  },
+  ur: {
+    title: 'موٹر سائیکل کی تصدیق',
+    question: (plate: string) => `کیا آپ اپنی موٹرسائیکل نمبر ${plate} استعمال کر رہے ہیں؟`,
+    yes: 'ہاں، یہی موٹرسائیکل استعمال کریں',
+    no: 'نہیں، کیمرے سے دوسری اسکین کریں',
+  },
+  bn: {
+    title: 'মোটরসাইকেল নিশ্চিতকরণ',
+    question: (plate: string) => `আপনি কি আপনার বাইক নম্বর ${plate} ব্যবহার করছেন?`,
+    yes: 'হ্যাঁ, এই বাইকটি ব্যবহার করুন',
+    no: 'না, ক্যামেরা দিয়ে অন্য বাইক স্ক্যান করুন',
+  },
+};
+
+export interface AssignedBikeBottomSheetProps {
   visible: boolean;
   assignedPlate: string;
   sheetAnim: Animated.Value;
@@ -20,6 +52,9 @@ interface AssignedBikeBottomSheetProps {
   onClose: () => void;
   isDark?: boolean;
   isBusy?: boolean;
+  lang?: string;
+  t?: any;
+  isRTL?: boolean;
 }
 
 export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = ({
@@ -30,8 +65,21 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
   onClose,
   isDark = true,
   isBusy = false,
+  lang = 'ar',
+  t,
+  isRTL,
 }) => {
   if (!visible) return null;
+
+  const currentLang = (lang && LOCALIZED_DATA[lang]) ? lang : 'ar';
+  const localized = LOCALIZED_DATA[currentLang];
+
+  const titleText = t?.confirmAssignedBikeTitle || localized.title;
+  const questionText = t?.confirmAssignedBikeQuestion
+    ? t.confirmAssignedBikeQuestion.replace('{plate}', assignedPlate)
+    : localized.question(assignedPlate);
+  const yesText = t?.confirmAssignedBikeYes || localized.yes;
+  const noText = t?.confirmAssignedBikeNo || localized.no;
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -57,7 +105,7 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
               {
                 translateY: sheetAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [460, 0],
+                  outputRange: [500, 0],
                 }),
               },
             ],
@@ -80,22 +128,23 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
 
         {/* Title */}
         <Text style={[styles.sheetTitle, { color: isDark ? '#ffffff' : '#0f172a' }]}>
-          تأكيد استخدام الدباب المسجل
+          {titleText}
+        </Text>
+
+        {/* Main Question */}
+        <Text style={[styles.sheetQuestion, { color: isDark ? '#f8fafc' : '#1e293b' }]}>
+          {questionText}
         </Text>
 
         {/* Plate Highlight Badge */}
         <View style={styles.plateHighlightBadge}>
-          <Ionicons name="bicycle" size={22} color="#f97316" style={{ marginHorizontal: 6 }} />
+          <Ionicons name="bicycle" size={24} color="#f97316" style={{ marginHorizontal: 8 }} />
           <Text style={styles.plateHighlightText}>{assignedPlate}</Text>
         </View>
 
-        {/* Question Subtitle */}
-        <Text style={[styles.sheetSubtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-          هل أنت تقود وتستخدم هذا الدباب بالفعل لبدء شفت العمل الآن؟
-        </Text>
-
         {/* Action Buttons */}
         <View style={styles.actionsRow}>
+          {/* YES Button: Confirms using assigned motorcycle */}
           <TouchableOpacity
             style={[styles.confirmBtn, isBusy && { opacity: 0.7 }]}
             onPress={onConfirm}
@@ -106,23 +155,25 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={20} color="#ffffff" style={{ marginHorizontal: 6 }} />
-                <Text style={styles.confirmBtnText}>نعم، تأكيد واستخدام الدباب</Text>
+                <Ionicons name="checkmark-circle" size={22} color="#ffffff" style={{ marginHorizontal: 6 }} />
+                <Text style={styles.confirmBtnText}>{yesText}</Text>
               </>
             )}
           </TouchableOpacity>
 
+          {/* NO Button: Closes modal and lets courier scan other bike with camera */}
           <TouchableOpacity
             style={[
               styles.cancelBtn,
-              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9' },
+              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9' },
             ]}
             onPress={onClose}
             activeOpacity={0.7}
             disabled={isBusy}
           >
-            <Text style={[styles.cancelBtnText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-              إلغاء والعودة لمسح الكاميرا
+            <Ionicons name="scan-outline" size={19} color={isDark ? '#cbd5e1' : '#475569'} style={{ marginHorizontal: 6 }} />
+            <Text style={[styles.cancelBtnText, { color: isDark ? '#cbd5e1' : '#475569' }]}>
+              {noText}
             </Text>
           </TouchableOpacity>
         </View>
@@ -157,21 +208,30 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   lottieContainer: {
-    width: 140,
-    height: 140,
+    width: 130,
+    height: 130,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
   },
   lottieAnim: {
-    width: 140,
-    height: 140,
+    width: 130,
+    height: 130,
   },
   sheetTitle: {
-    fontSize: 18,
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 6,
+    opacity: 0.85,
+  },
+  sheetQuestion: {
+    fontSize: 17,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+    paddingHorizontal: 8,
+    lineHeight: 24,
   },
   plateHighlightBadge: {
     flexDirection: 'row',
@@ -180,22 +240,15 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#f97316',
     borderRadius: 14,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingVertical: 8,
-    marginBottom: 10,
+    marginBottom: 18,
   },
   plateHighlightText: {
     color: '#f97316',
     fontSize: 20,
     fontWeight: '900',
     letterSpacing: 1,
-  },
-  sheetSubtitle: {
-    fontSize: 13.5,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 10,
   },
   actionsRow: {
     width: '100%',
@@ -216,17 +269,18 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     color: '#ffffff',
-    fontSize: 15,
+    fontSize: 15.5,
     fontWeight: '800',
   },
   cancelBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 46,
+    height: 48,
     borderRadius: 14,
   },
   cancelBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 14.5,
+    fontWeight: '700',
   },
 });
