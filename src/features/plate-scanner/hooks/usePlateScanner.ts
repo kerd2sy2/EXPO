@@ -134,7 +134,7 @@ export const usePlateScanner = ({
     setIsCameraReady(true);
     isCameraReadyRef.current = true;
     tryDismissIntroSplash();
-  }, [tryDismissIntroSplash]);
+  }, [tryDismissIntroSplash, assignedPlate]);
 
   const onAnimationFinish = useCallback(() => {
     isMinTimeElapsedRef.current = true;
@@ -144,13 +144,14 @@ export const usePlateScanner = ({
   // Intro Splash & Laser Sweep & Radar Animations lifecycle
   useEffect(() => {
     if (visible) {
-      setShowIntroSplash(true);
-      setCameraMounted(true); // Mount camera IMMEDIATELY so it prepares in background behind splash
-      introFadeAnim.setValue(1);
+      const hasAssigned = Boolean(assignedPlate && assignedPlate.trim().length > 0);
+      setShowIntroSplash(!hasAssigned);
+      setCameraMounted(true); // Mount camera IMMEDIATELY so it prepares in background
+      introFadeAnim.setValue(hasAssigned ? 0 : 1);
       setIsCameraReady(false);
       isCameraReadyRef.current = false;
-      isMinTimeElapsedRef.current = false;
-      isSplashDismissedRef.current = false;
+      isMinTimeElapsedRef.current = hasAssigned;
+      isSplashDismissedRef.current = hasAssigned;
       setDetectedResult(null);
       setCapturedPhotoUri(null);
       setShowErrorSheet(false);
@@ -217,7 +218,7 @@ export const usePlateScanner = ({
       isMinTimeElapsedRef.current = false;
       isSplashDismissedRef.current = false;
     }
-  }, [visible, errorSheetAnim, introFadeAnim, laserAnim, pulseAnim, resultCardAnim, tryDismissIntroSplash]);
+  }, [visible, assignedPlate, errorSheetAnim, introFadeAnim, laserAnim, pulseAnim, resultCardAnim, tryDismissIntroSplash]);
 
 
   // Trigger result card appearance animation & compress image for database proof

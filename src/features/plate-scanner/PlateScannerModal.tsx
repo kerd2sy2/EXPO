@@ -166,7 +166,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
         )}
 
         {/* Full-screen Intro Animation Splash */}
-        {showIntroSplash && (
+        {showIntroSplash && !showAssignedModal && (
           <ScannerIntroSplash
             introFadeAnim={introFadeAnim}
             onAnimationFinish={onAnimationFinish}
