@@ -9,6 +9,7 @@ import {
   I18nManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
 
 interface SaudiMotorcyclePlateProps {
   digits: string;
@@ -221,29 +222,35 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
           </View>
         </View>
 
-        {/* Right Sidebar: Emblem, 'السعودية', 'K S A' */}
+        {/* Right Sidebar: Authentic Saudi Inner Frame, Emblem, 'السعودية', 'K S A' */}
         <View
           style={[
             styles.sidebar,
             isRTL
-              ? { borderRightWidth: 2.5, borderRightColor: '#1e293b', borderLeftWidth: 0 }
-              : { borderLeftWidth: 2.5, borderLeftColor: '#1e293b', borderRightWidth: 0 },
+              ? { borderRightWidth: 2, borderRightColor: '#1e293b', borderLeftWidth: 0 }
+              : { borderLeftWidth: 2, borderLeftColor: '#1e293b', borderRightWidth: 0 },
           ]}
         >
-          {/* Saudi Palm & Crossed Swords Emblem */}
-          <View style={styles.emblemWrap}>
-            <Ionicons name="leaf" size={13} color="#1e3a29" style={{ transform: [{ rotate: '45deg' }] }} />
-            <View style={styles.swordsLine} />
-          </View>
+          {/* Inner embossed rounded groove border matching real Saudi motorcycle plate */}
+          <View style={styles.sidebarInnerFrame}>
+            {/* Authentic Saudi Palm & Crossed Swords Emblem */}
+            <View style={styles.emblemWrap}>
+              <ExpoImage
+                source={require('../../../assets/images/saudi_plate_emblem.svg')}
+                style={styles.emblemImage}
+                contentFit="contain"
+              />
+            </View>
 
-          {/* Arabic Country Text */}
-          <Text style={styles.sidebarCountryAr}>السعودية</Text>
+            {/* Arabic Country Text */}
+            <Text style={styles.sidebarCountryAr}>السعودية</Text>
 
-          {/* Vertical K S A */}
-          <View style={styles.verticalKSA}>
-            <Text style={styles.ksaLetter}>K</Text>
-            <Text style={styles.ksaLetter}>S</Text>
-            <Text style={styles.ksaLetter}>A</Text>
+            {/* Vertical K S A */}
+            <View style={styles.verticalKSA}>
+              <Text style={styles.ksaLetter}>K</Text>
+              <Text style={styles.ksaLetter}>S</Text>
+              <Text style={styles.ksaLetter}>A</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -438,34 +445,49 @@ const styles = StyleSheet.create({
   /* Right Sidebar (KSA) */
   sidebar: {
     width: 48,
-    borderLeftWidth: 2.5,
+    borderLeftWidth: 2,
     borderLeftColor: '#1e293b',
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 2.5,
+  },
+  sidebarInnerFrame: {
+    width: '100%',
+    height: '100%',
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    borderRadius: 7,
     backgroundColor: '#f8fafc',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 7,
+    paddingVertical: 4.5,
+    paddingHorizontal: 1,
   },
   emblemWrap: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 32,
+    height: 32,
+    marginTop: 0.5,
   },
-  swordsLine: {
-    width: 14,
-    height: 1.5,
-    backgroundColor: '#1e3a29',
-    marginTop: -2,
+  emblemImage: {
+    width: 29,
+    height: 29,
   },
   sidebarCountryAr: {
     fontSize: 9.5,
     fontWeight: '900',
     color: '#0f172a',
     textAlign: 'center',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
+    marginVertical: 1,
   },
   verticalKSA: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 1,
+    gap: 3,
+    marginBottom: 2,
   },
   ksaLetter: {
     fontSize: 14,
