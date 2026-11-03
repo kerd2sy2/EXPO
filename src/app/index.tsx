@@ -199,23 +199,35 @@ export default function DelegateApp() {
     }
   }, []);
 
+  const [loadingApprovalsOnly, setLoadingApprovalsOnly] = useState(false);
+
+  const refreshApprovalsOnly = useCallback(async () => {
+    try {
+      setLoadingApprovalsOnly(true);
+      await Promise.all([
+        supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
+        supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
+        supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
+      ]);
+    } catch (e) {
+      console.warn('[Eshraf] Error refreshing approvals only:', e);
+    } finally {
+      setLoadingApprovalsOnly(false);
+    }
+  }, []);
+
   const fetchSupervisorData = useCallback(async () => {
     try {
       setLoadingSupervisorData(true);
-      const [allDel, allEmps, workDel, maint, pending, advances] = await Promise.all([
-        supervisorApi.getAllBranchDelegates(),
-        supervisorApi.getAllEmployees(),
-        supervisorApi.getWorkingDelegates(),
-        supervisorApi.getPendingMaintenance(),
-        supervisorApi.getPendingSessions(),
-        supervisorApi.getPendingInvestigations(),
+      // Stream state updates progressively as each API call finishes (<60ms for approvals)
+      await Promise.all([
+        supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
+        supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
+        supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
+        supervisorApi.getWorkingDelegates().then(setWorkingDelegates).catch(() => {}),
+        supervisorApi.getAllBranchDelegates().then(setBranchDelegates).catch(() => {}),
+        supervisorApi.getAllEmployees().then(setAllBranchEmployees).catch(() => {}),
       ]);
-      setBranchDelegates(allDel);
-      setAllBranchEmployees(allEmps);
-      setWorkingDelegates(workDel);
-      setPendingMaintenance(maint);
-      setPendingSessions(pending);
-      setPendingAdvances(advances);
     } catch (e) {
       console.warn('[Eshraf] Error fetching supervisor data:', e);
     } finally {
@@ -2001,11 +2013,8 @@ export default function DelegateApp() {
                 pendingSessions={pendingSessions}
                 pendingAdvances={pendingAdvances}
                 pendingMaintenance={pendingMaintenance}
-                loading={loadingSupervisorData}
-                onRefresh={() => {
-                  fetchSupervisorData();
-                  if (employee?.id) fetchHistory(employee.id);
-                }}
+                loading={loadingApprovalsOnly || loadingSupervisorData}
+                onRefresh={refreshApprovalsOnly}
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}

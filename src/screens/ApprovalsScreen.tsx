@@ -549,9 +549,16 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   <Text style={[styles.modalTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                     {editingSession.employee_name || editingSession.employee?.name || 'المندوب'}
                   </Text>
-                  <Text style={[styles.modalSubtitle, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
-                    رقم الدباب: {editingSession.motorcycle_number || editingSession.employee?.motorcycle_number || '—'}
-                  </Text>
+                  <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 }}>
+                    <Text style={[styles.modalSubtitle, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      رقم الدباب: {editingSession.motorcycle_number || editingSession.employee?.motorcycle_number || '—'}
+                    </Text>
+                    {(editingSession.employee?.key_number || (editingSession as any).key_number) ? (
+                      <Text style={[styles.modalSubtitle, { color: '#16a34a', fontWeight: '800', textAlign: isRTL ? 'right' : 'left' }]}>
+                        • مفتاح رقم: {editingSession.employee?.key_number || (editingSession as any).key_number}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
                 <TouchableOpacity
                   onPress={() => setEditingSession(null)}

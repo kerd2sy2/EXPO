@@ -68,6 +68,7 @@ export function usePushNotifications({
           data?.type === 'SHIFT_COMPLETED_PENDING_REVIEW' ||
           data?.type === 'SHIFT_ENDED' ||
           title.includes('إنهاء وردية') ||
+          body.includes('أنهى المندوب') ||
           body.includes('بانتظار الاعتماد') ||
           body.includes('إنهاء الشفت');
 
