@@ -15,31 +15,31 @@ import { SaudiMotorcyclePlate } from '../../../components/ui/SaudiMotorcyclePlat
 
 const LOCALIZED_STRINGS: Record<string, {
   title: string;
-  question: (plate: string) => string;
+  question: string;
   yes: string;
   no: string;
 }> = {
   ar: {
     title: 'تأكيد استخدام الدباب',
-    question: (plate: string) => `هل أنت تستخدم دبابك رقم ${plate}؟`,
+    question: 'هل أنت تستخدم هذا الدباب؟',
     yes: 'نعم، استخدام هذا الدباب',
     no: 'لا، مسح دباب آخر بالماسح',
   },
   en: {
     title: 'Confirm Motorcycle',
-    question: (plate: string) => `Are you using your motorcycle number ${plate}?`,
+    question: 'Are you using this motorcycle?',
     yes: 'Yes, Use This Motorcycle',
     no: 'No, Scan Another Bike',
   },
   ur: {
     title: 'موٹر سائیکل کی تصدیق',
-    question: (plate: string) => `کیا آپ اپنی موٹرسائیکل نمبر ${plate} استعمال کر رہے ہیں؟`,
+    question: 'کیا آپ یہ موٹرسائیکل استعمال کر رہے ہیں؟',
     yes: 'ہاں، یہی موٹرسائیکل استعمال کریں',
     no: 'نہیں، دوسری موٹرسائیکل اسکین کریں',
   },
   bn: {
     title: 'মোটরসাইকেল নিশ্চিতকরণ',
-    question: (plate: string) => `আপনি কি আপনার বাইক নম্বর ${plate} ব্যবহার করছেন?`,
+    question: 'আপনি কি এই বাইকটি ব্যবহার করছেন?',
     yes: 'হ্যাঁ, এই বাইকটি ব্যবহার করুন',
     no: 'না, অন্য বাইক স্ক্যান করুন',
   },
@@ -120,9 +120,9 @@ export const AssignedBikeBottomSheet: React.FC<AssignedBikeBottomSheetProps> = (
           {texts.title}
         </Text>
 
-        {/* Main Question */}
+        {/* Main Question (Clean question without duplicating plate number) */}
         <Text style={[styles.sheetQuestion, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
-          {texts.question(assignedPlate)}
+          {texts.question}
         </Text>
 
         {/* Small Authentic Saudi Motorcycle Plate (Numbers & Letters in Arabic & English) */}
@@ -211,12 +211,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   sheetQuestion: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 8,
     paddingHorizontal: 12,
-    lineHeight: 24,
+    lineHeight: 25,
   },
   platePreviewWrapper: {
     width: '100%',
