@@ -1,23 +1,24 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  FlatList,
   TouchableOpacity,
-  ScrollView,
   TextInput,
   RefreshControl,
-  Image,
   Linking,
-  Alert,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '@shared/theme';
 import { SaudiPlateView } from '@shared/components';
-import { parsePlateComponents } from '@shared/utils/plateUtils';
+import { parsePlateComponents, toEnglishDigits } from '@shared/utils/plateUtils';
 import { DelegateWithStatus } from '../services/supervisor';
 import { VehicleItem } from '../services/operations';
 import { EditEmployeeModal } from '../components/modals/EditEmployeeModal';
+import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
 
 interface EmployeesScreenProps {
   employees: DelegateWithStatus[];
@@ -30,7 +31,18 @@ interface EmployeesScreenProps {
   isRTL: boolean;
 }
 
-type FilterRole = 'all' | 'drivers' | 'staff' | 'working';
+type RoleFilter = 'ALL' | 'DRIVER' | 'SUPERVISOR' | 'NO_PLATE';
+
+// Helper to extract numeric key value for natural sorting (1, 2, 3, ... 10, 11)
+export const extractKeySortValue = (keyStr?: string | null): number => {
+  if (!keyStr) return Number.MAX_SAFE_INTEGER;
+  const normalized = toEnglishDigits(String(keyStr)).trim();
+  if (!normalized) return Number.MAX_SAFE_INTEGER;
+  const match = normalized.match(/\d+/);
+  if (!match) return Number.MAX_SAFE_INTEGER - 1;
+  const num = parseInt(match[0], 10);
+  return Number.isNaN(num) ? Number.MAX_SAFE_INTEGER : num;
+};
 
 export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
   employees,
@@ -43,367 +55,444 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
   isRTL,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterRole, setFilterRole] = useState<FilterRole>('all');
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
   const [selectedEmpForEdit, setSelectedEmpForEdit] = useState<DelegateWithStatus | null>(null);
 
-  // Filter and search logic
+  // Filter & Sort Employees by Key Number Ascending (ترتيب المفاتيح 1, 2, 3...)
   const filteredEmployees = useMemo(() => {
-    let list = employees || [];
+    const q = toEnglishDigits(searchQuery.trim()).toLowerCase();
 
-    // Filter by role or active status
-    if (filterRole === 'drivers') {
-      list = list.filter((e) => {
-        const role = (e.job_role || (e as any).role_name || '').toUpperCase();
-        return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
-      });
-    } else if (filterRole === 'staff') {
-      list = list.filter((e) => {
-        const role = (e.job_role || (e as any).role_name || '').toUpperCase();
-        return role.includes('SUPERVISOR') || role.includes('ADMIN');
-      });
-    } else if (filterRole === 'working') {
-      list = list.filter((e) => !!e.is_working);
-    }
+    const filtered = employees.filter((emp) => {
+      const role = (emp.job_role || (emp as any).role_name || 'DRIVER').toUpperCase();
+      if (roleFilter === 'DRIVER' && (role.includes('SUPERVISOR') || role.includes('ADMIN'))) {
+        return false;
+      }
+      if (roleFilter === 'SUPERVISOR' && !role.includes('SUPERVISOR') && !role.includes('ADMIN')) {
+        return false;
+      }
+      if (roleFilter === 'NO_PLATE' && emp.motorcycle_number && emp.motorcycle_number.trim() !== '') {
+        return false;
+      }
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      list = list.filter((e) => {
-        return (
-          (e.name && e.name.toLowerCase().includes(q)) ||
-          (e.phone && e.phone.includes(q)) ||
-          (e.national_id && e.national_id.includes(q)) ||
-          (e.employee_number && e.employee_number.toLowerCase().includes(q)) ||
-          (e.motorcycle_number && e.motorcycle_number.toLowerCase().includes(q)) ||
-          (e.application_id && e.application_id.toLowerCase().includes(q))
-        );
-      });
-    }
+      if (!q) return true;
 
-    return list;
-  }, [employees, filterRole, searchQuery]);
+      const nameMatch = emp.name?.toLowerCase().includes(q);
+      const codeMatch = toEnglishDigits(emp.employee_number || '').toLowerCase().includes(q);
+      const idMatch = toEnglishDigits(emp.national_id || '').toLowerCase().includes(q);
+      const phoneMatch = toEnglishDigits(emp.phone || '').toLowerCase().includes(q);
+      const plateMatch = toEnglishDigits(emp.motorcycle_number || '').toLowerCase().includes(q);
+      const keyMatch = toEnglishDigits(emp.key_number || '').toLowerCase().includes(q);
+      const appIdMatch = toEnglishDigits(emp.application_id || '').toLowerCase().includes(q);
 
-  // Counts for filter badges
-  const counts = useMemo(() => {
-    const list = employees || [];
-    const drivers = list.filter((e) => {
-      const role = (e.job_role || (e as any).role_name || '').toUpperCase();
-      return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
-    }).length;
-    const staff = list.filter((e) => {
-      const role = (e.job_role || (e as any).role_name || '').toUpperCase();
-      return role.includes('SUPERVISOR') || role.includes('ADMIN');
-    }).length;
-    const working = list.filter((e) => !!e.is_working).length;
+      return nameMatch || codeMatch || idMatch || phoneMatch || plateMatch || keyMatch || appIdMatch;
+    });
 
-    return { all: list.length, drivers, staff, working };
+    return filtered.sort((a, b) => {
+      const keyA = extractKeySortValue(a.key_number);
+      const keyB = extractKeySortValue(b.key_number);
+      if (keyA !== keyB) {
+        return keyA - keyB;
+      }
+      // Tie-breaker: raw key string or name
+      const rawKeyA = toEnglishDigits(a.key_number || '');
+      const rawKeyB = toEnglishDigits(b.key_number || '');
+      if (rawKeyA !== rawKeyB) {
+        return rawKeyA.localeCompare(rawKeyB, 'ar');
+      }
+      return (a.name || '').localeCompare(b.name || '', 'ar');
+    });
+  }, [employees, searchQuery, roleFilter]);
+
+  // Quick Stats
+  const stats = useMemo(() => {
+    let drivers = 0;
+    let supervisors = 0;
+    let noPlate = 0;
+
+    employees.forEach((emp) => {
+      const role = (emp.job_role || (emp as any).role_name || 'DRIVER').toUpperCase();
+      if (role.includes('SUPERVISOR') || role.includes('ADMIN')) {
+        supervisors++;
+      } else {
+        drivers++;
+      }
+      if (!emp.motorcycle_number || !emp.motorcycle_number.trim()) {
+        noPlate++;
+      }
+    });
+
+    return {
+      total: employees.length,
+      drivers,
+      supervisors,
+      noPlate,
+    };
   }, [employees]);
 
-  const handleCall = (phone?: string) => {
+  const handleCall = useCallback((phone?: string) => {
     if (!phone) {
-      Alert.alert('تنبيه', 'لا يوجد رقم هاتف مسجل لهذا الموظف');
+      showBottomAlert({
+        type: 'warning',
+        title: 'تنبيه',
+        message: 'لا يوجد رقم جوال مسجل لهذا الموظف.',
+      });
       return;
     }
     Linking.openURL(`tel:${phone}`).catch(() => {
-      Alert.alert('خطأ', 'تعذر فتح تطبيق الهاتف');
-    });
-  };
-
-  const handleWhatsApp = (phone?: string) => {
-    if (!phone) {
-      Alert.alert('تنبيه', 'لا يوجد رقم هاتف مسجل لهذا الموظف');
-      return;
-    }
-    let clean = phone.replace(/\D/g, '');
-    if (clean.startsWith('05')) {
-      clean = '966' + clean.substring(1);
-    }
-    Linking.openURL(`whatsapp://send?phone=${clean}`).catch(() => {
-      Linking.openURL(`https://wa.me/${clean}`).catch(() => {
-        Alert.alert('خطأ', 'تعذر فتح تطبيق واتساب');
+      showBottomAlert({
+        type: 'error',
+        title: 'خطأ',
+        message: 'تعذر فتح تطبيق الاتصال.',
       });
     });
-  };
+  }, []);
+
+  const handleWhatsApp = useCallback((phone?: string) => {
+    if (!phone) {
+      showBottomAlert({
+        type: 'warning',
+        title: 'تنبيه',
+        message: 'لا يوجد رقم جوال مسجل لهذا الموظف.',
+      });
+      return;
+    }
+    const cleanPhone = toEnglishDigits(phone).replace(/\D/g, '');
+    const intlPhone = cleanPhone.startsWith('05')
+      ? `966${cleanPhone.slice(1)}`
+      : cleanPhone.startsWith('5')
+      ? `966${cleanPhone}`
+      : cleanPhone;
+
+    Linking.openURL(`https://wa.me/${intlPhone}`).catch(() => {
+      showBottomAlert({
+        type: 'error',
+        title: 'خطأ',
+        message: 'تعذر فتح تطبيق واتساب.',
+      });
+    });
+  }, []);
+
+  const renderEmployeeItem = useCallback(
+    ({ item: emp }: { item: DelegateWithStatus }) => {
+      const role = (emp.job_role || (emp as any).role_name || 'DRIVER').toUpperCase();
+      const isSupervisor = role.includes('SUPERVISOR') || role.includes('ADMIN');
+      const hasPlate = Boolean(emp.motorcycle_number && emp.motorcycle_number.trim());
+      const hasKey = Boolean(emp.key_number && emp.key_number.trim());
+      const plateComponents = hasPlate
+        ? parsePlateComponents(emp.motorcycle_number || '')
+        : { digits: '', letters: '' };
+
+      return (
+        <TouchableOpacity
+          activeOpacity={0.82}
+          onPress={() => setSelectedEmpForEdit(emp)}
+          style={[
+            styles.employeeCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: emp.is_working ? '#10b98160' : colors.border,
+            },
+          ]}
+        >
+          {/* Card Top Row: Key Badge + Name & Meta + Edit Action */}
+          <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            {/* Prominent Key Number Box (Sorted 1, 2, 3...) */}
+            <View
+              style={[
+                styles.keyRankBox,
+                {
+                  backgroundColor: hasKey
+                    ? isDarkMode
+                      ? 'rgba(245, 158, 11, 0.16)'
+                      : '#fffbeb'
+                    : isDarkMode
+                    ? '#1e293b'
+                    : '#f1f5f9',
+                  borderColor: hasKey ? '#f59e0b60' : colors.border,
+                },
+              ]}
+            >
+              <Ionicons
+                name="key"
+                size={13}
+                color={hasKey ? '#d97706' : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.keyRankNumber,
+                  { color: hasKey ? '#d97706' : colors.textSecondary },
+                ]}
+                numberOfLines={1}
+              >
+                {hasKey ? emp.key_number : '--'}
+              </Text>
+            </View>
+
+            {/* Name & Role Badges */}
+            <View style={[styles.empInfoCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <Text
+                style={[styles.empName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                numberOfLines={1}
+              >
+                {emp.name}
+              </Text>
+
+              <View style={[styles.badgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View
+                  style={[
+                    styles.roleBadge,
+                    {
+                      backgroundColor: isSupervisor ? '#f59e0b18' : '#0284c718',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.roleBadgeText,
+                      { color: isSupervisor ? '#d97706' : '#0284c7' },
+                    ]}
+                  >
+                    {isSupervisor ? 'مشرف' : 'مندوب'}
+                  </Text>
+                </View>
+
+                {emp.is_working && (
+                  <View style={[styles.workingBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={styles.workingDot} />
+                    <Text style={styles.workingBadgeText}>في الميدان</Text>
+                  </View>
+                )}
+
+                {!!emp.application_type && (
+                  <View style={[styles.appBadge, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}>
+                    <Text style={[styles.appBadgeText, { color: colors.textSecondary }]}>
+                      {emp.application_type} {emp.application_id ? `#${emp.application_id}` : ''}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Quick Call / WhatsApp / Open Page */}
+            <View style={[styles.quickActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              {!!emp.phone && (
+                <>
+                  <TouchableOpacity
+                    style={[styles.iconActionBtn, { backgroundColor: '#10b98115' }]}
+                    onPress={() => handleCall(emp.phone)}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Ionicons name="call" size={15} color="#10b981" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.iconActionBtn, { backgroundColor: '#25D36615' }]}
+                    onPress={() => handleWhatsApp(emp.phone)}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Ionicons name="logo-whatsapp" size={15} color="#25D366" />
+                  </TouchableOpacity>
+                </>
+              )}
+              <View style={[styles.openPagePill, { backgroundColor: colors.primary + '15' }]}>
+                <Ionicons
+                  name={isRTL ? 'chevron-back' : 'chevron-forward'}
+                  size={16}
+                  color={colors.primary}
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Compact Footer Strip: ID/Code on one side + Sleek Mini Plate on the other */}
+          <View
+            style={[
+              styles.cardBottomStrip,
+              {
+                backgroundColor: isDarkMode ? '#1e293b90' : '#f8fafc',
+                borderColor: colors.border,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+              },
+            ]}
+          >
+            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start', gap: 4 }}>
+              <View style={[styles.metaItem, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Ionicons name="card-outline" size={13} color={colors.textSecondary} />
+                <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                  الهوية: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{emp.national_id || '---'}</Text>
+                </Text>
+              </View>
+              <View style={[styles.metaItem, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Ionicons name="call-outline" size={13} color={colors.textSecondary} />
+                <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                  الجوال: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{emp.phone || '---'}</Text>
+                </Text>
+              </View>
+            </View>
+
+            {hasPlate ? (
+              <SaudiPlateView
+                digits={plateComponents.digits}
+                letters={plateComponents.letters}
+                editable={false}
+                scale={0.42}
+                isDarkMode={isDarkMode}
+              />
+            ) : (
+              <View style={[styles.noPlatePill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Ionicons name="alert-circle-outline" size={14} color="#ef4444" />
+                <Text style={styles.noPlateText}>بدون لوحة</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [colors, isDarkMode, isRTL, handleCall, handleWhatsApp]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Search Input Bar */}
-      <View style={[styles.searchBarWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Ionicons name="search" size={20} color={colors.textSecondary} />
-        <TextInput
-          style={[
-            styles.searchInput,
-            { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
-          ]}
-          placeholder="ابحث بالاسم، الجوال، الهوية، اللوحة، أو الكود..."
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          clearButtonMode="while-editing"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Filter Tabs */}
-      <View style={[styles.filterRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        {[
-          { key: 'all' as FilterRole, label: 'الكل', count: counts.all, color: colors.primary },
-          { key: 'drivers' as FilterRole, label: 'المناديب', count: counts.drivers, color: '#0284c7' },
-          { key: 'staff' as FilterRole, label: 'الإشراف', count: counts.staff, color: '#8b5cf6' },
-          { key: 'working' as FilterRole, label: 'في الميدان', count: counts.working, color: '#10b981' },
-        ].map((tab) => {
-          const active = filterRole === tab.key;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              style={[
-                styles.filterTab,
-                {
-                  backgroundColor: active ? tab.color + '18' : isDarkMode ? '#1e293b' : '#f1f5f9',
-                  borderColor: active ? tab.color : 'transparent',
-                },
-              ]}
-              onPress={() => setFilterRole(tab.key)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.filterTabLabel,
-                  { color: active ? tab.color : colors.textSecondary, fontWeight: active ? '800' : '600' },
-                ]}
-              >
-                {tab.label} ({tab.count})
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Employees Scroll List */}
-      <ScrollView
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {filteredEmployees.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={48} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {searchQuery ? 'لا يوجد موظف مطابق للبحث' : 'لا يوجد موظفين مسجلين حالياً'}
+      {/* Top Fixed Header: Summary Chips + Search Input */}
+      <View style={styles.topHeaderArea}>
+        {/* Quick Filter Chips */}
+        <View style={[styles.statsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <TouchableOpacity
+            style={[
+              styles.statChip,
+              {
+                backgroundColor: roleFilter === 'ALL' ? colors.primary : colors.card,
+                borderColor: roleFilter === 'ALL' ? colors.primary : colors.border,
+              },
+            ]}
+            onPress={() => setRoleFilter('ALL')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.statNum, { color: roleFilter === 'ALL' ? '#fff' : colors.textPrimary }]}>
+              {stats.total}
             </Text>
-          </View>
-        ) : (
-          filteredEmployees.map((emp) => {
-            const isWorking = !!emp.is_working;
-            const plate = parsePlateComponents(emp.motorcycle_number || '');
-            const rawRole = (emp.job_role || (emp as any).role_name || '').toUpperCase();
-            const isDriver = rawRole === 'DRIVER' || (!rawRole.includes('SUPERVISOR') && !rawRole.includes('ADMIN'));
-            const isSupervisor = rawRole.includes('SUPERVISOR');
+            <Text style={[styles.statLbl, { color: roleFilter === 'ALL' ? '#e0f2fe' : colors.textSecondary }]}>
+              الكل (مرتب بالمفاتيح)
+            </Text>
+          </TouchableOpacity>
 
-            return (
-              <View
-                key={emp.id}
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: isWorking ? '#10B98140' : colors.border,
-                  },
-                ]}
-              >
-                {/* Top Section: Avatar, Name, Badges */}
-                <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  {/* Avatar */}
-                  <View style={[styles.avatarWrap, { backgroundColor: colors.primary + '18' }]}>
-                    {emp.personal_image ? (
-                      <Image source={{ uri: emp.personal_image }} style={styles.avatarImg} />
-                    ) : (
-                      <Text style={[styles.avatarInitial, { color: colors.primary }]}>
-                        {emp.name ? emp.name.charAt(0) : 'م'}
-                      </Text>
-                    )}
-                    {isWorking && <View style={styles.onlineDot} />}
-                  </View>
+          <TouchableOpacity
+            style={[
+              styles.statChip,
+              {
+                backgroundColor: roleFilter === 'DRIVER' ? '#0284c7' : colors.card,
+                borderColor: roleFilter === 'DRIVER' ? '#0284c7' : colors.border,
+              },
+            ]}
+            onPress={() => setRoleFilter('DRIVER')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.statNum, { color: roleFilter === 'DRIVER' ? '#fff' : '#0284c7' }]}>
+              {stats.drivers}
+            </Text>
+            <Text style={[styles.statLbl, { color: roleFilter === 'DRIVER' ? '#e0f2fe' : colors.textSecondary }]}>
+              المناديب
+            </Text>
+          </TouchableOpacity>
 
-                  {/* Name & Role Badges */}
-                  <View style={[styles.nameBlock, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                    <Text style={[styles.empName, { color: colors.textPrimary }]} numberOfLines={1}>
-                      {emp.name}
-                    </Text>
+          <TouchableOpacity
+            style={[
+              styles.statChip,
+              {
+                backgroundColor: roleFilter === 'NO_PLATE' ? '#ef4444' : colors.card,
+                borderColor: roleFilter === 'NO_PLATE' ? '#ef4444' : colors.border,
+              },
+            ]}
+            onPress={() => setRoleFilter('NO_PLATE')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.statNum, { color: roleFilter === 'NO_PLATE' ? '#fff' : '#ef4444' }]}>
+              {stats.noPlate}
+            </Text>
+            <Text style={[styles.statLbl, { color: roleFilter === 'NO_PLATE' ? '#fee2e2' : colors.textSecondary }]}>
+              بدون لوحة
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-                    <View style={[styles.badgesRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      {/* Role Pill */}
-                      <View
-                        style={[
-                          styles.roleBadge,
-                          {
-                            backgroundColor: isDriver
-                              ? '#0284c718'
-                              : isSupervisor
-                              ? '#8b5cf618'
-                              : '#f59e0b18',
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.roleBadgeText,
-                            {
-                              color: isDriver ? '#0284c7' : isSupervisor ? '#8b5cf6' : '#f59e0b',
-                            },
-                          ]}
-                        >
-                          {isDriver ? 'سائق / مندوب' : isSupervisor ? 'مشرف ميداني' : 'إداري'}
-                        </Text>
-                      </View>
+        {/* Search Input */}
+        <View
+          style={[
+            styles.searchContainer,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            },
+          ]}
+        >
+          <Ionicons name="search-outline" size={20} color={colors.textSecondary} />
+          <TextInput
+            style={[
+              styles.searchInput,
+              {
+                color: colors.textPrimary,
+                textAlign: isRTL ? 'right' : 'left',
+              },
+            ]}
+            placeholder="ابحث برقم المفتاح، الاسم، اللوحة، أو الهوية..."
+            placeholderTextColor={colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
-                      {/* Shift Pill */}
-                      {emp.shift && (
-                        <View style={[styles.shiftBadge, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
-                          <Text style={[styles.shiftBadgeText, { color: colors.textSecondary }]}>
-                            {emp.shift === 'morning' ? 'صباحي ☀️' : emp.shift === 'evening' ? 'مسائي 🌙' : 'مرن 🔄'}
-                          </Text>
-                        </View>
-                      )}
+      {/* Virtualized Employee List for Instant Opening */}
+      {loading && employees.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
+            جاري تحميل قائمة الموظفين...
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredEmployees}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderEmployeeItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="people-outline" size={44} color={colors.textSecondary} />
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                لا يوجد موظفون مطابقون للبحث
+              </Text>
+            </View>
+          }
+        />
+      )}
 
-                      {/* Working Status Badge */}
-                      {isWorking && (
-                        <View style={styles.workingBadge}>
-                          <Text style={styles.workingBadgeText}>في شفت نشط</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Quick Action Buttons (Call / WhatsApp) */}
-                  <View style={[styles.quickActionsCol, { flexDirection: 'row', gap: 6 }]}>
-                    {!!emp.phone && (
-                      <>
-                        <TouchableOpacity
-                          style={[styles.circleActionBtn, { backgroundColor: '#10b98118' }]}
-                          onPress={() => handleWhatsApp(emp.phone)}
-                          activeOpacity={0.7}
-                        >
-                          <FontAwesome5 name="whatsapp" size={16} color="#10b981" />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.circleActionBtn, { backgroundColor: colors.primary + '18' }]}
-                          onPress={() => handleCall(emp.phone)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="call" size={15} color={colors.primary} />
-                        </TouchableOpacity>
-                      </>
-                    )}
-                  </View>
-                </View>
-
-                {/* Details Grid */}
-                <View style={[styles.detailsGrid, { backgroundColor: isDarkMode ? '#1e293b50' : '#f8fafc' }]}>
-                  {/* Phone & National ID */}
-                  <View style={[styles.gridRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={[styles.gridCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                      <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>رقم الجوال:</Text>
-                      <Text style={[styles.gridVal, { color: colors.textPrimary }]}>{emp.phone || 'غير مسجل'}</Text>
-                    </View>
-
-                    <View style={[styles.gridCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                      <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>الهوية / الإقامة:</Text>
-                      <Text style={[styles.gridVal, { color: colors.textPrimary }]}>{emp.national_id || '—'}</Text>
-                    </View>
-                  </View>
-
-                  {/* Code & Key Number */}
-                  <View style={[styles.gridRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={[styles.gridCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                      <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>كود الموظف:</Text>
-                      <Text style={[styles.gridVal, { color: colors.textPrimary }]}>{emp.employee_number || '—'}</Text>
-                    </View>
-
-                    <View style={[styles.gridCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                      <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>رقم المفتاح:</Text>
-                      <Text style={[styles.gridVal, { color: colors.textPrimary }]}>{emp.key_number ? `🔑 ${emp.key_number}` : '—'}</Text>
-                    </View>
-                  </View>
-
-                  {/* App & App ID */}
-                  {(emp.application_type || emp.application_id) && (
-                    <View style={[styles.gridRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <View style={[styles.gridCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                        <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>تطبيق التوصيل:</Text>
-                        <Text style={[styles.gridVal, { color: colors.textPrimary }]}>{emp.application_type || '—'}</Text>
-                      </View>
-
-                      <View style={[styles.gridCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                        <Text style={[styles.gridLabel, { color: colors.textSecondary }]}>معرف التطبيق:</Text>
-                        <Text style={[styles.gridVal, { color: colors.textPrimary }]}>{emp.application_id || '—'}</Text>
-                      </View>
-                    </View>
-                  )}
-                </View>
-
-                {/* Plate Display Row if registered */}
-                {emp.motorcycle_number ? (
-                  <View style={[styles.plateRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={[styles.plateLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Ionicons name="bicycle" size={16} color={colors.textSecondary} />
-                      <Text style={[styles.plateDesc, { color: colors.textSecondary }]}>المركبة المسجلة:</Text>
-                    </View>
-                    <SaudiPlateView
-                      digits={plate.digits}
-                      letters={plate.letters}
-                      editable={false}
-                      scale={0.52}
-                      isDarkMode={isDarkMode}
-                    />
-                  </View>
-                ) : null}
-
-                {/* Primary Edit Button */}
-                <TouchableOpacity
-                  style={[
-                    styles.editBtn,
-                    {
-                      backgroundColor: colors.primary + '15',
-                      borderColor: colors.primary,
-                      flexDirection: isRTL ? 'row-reverse' : 'row',
-                    },
-                  ]}
-                  onPress={() => setSelectedEmpForEdit(emp)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="create-outline" size={17} color={colors.primary} />
-                  <Text style={[styles.editBtnText, { color: colors.primary }]}>
-                    تعديل بيانات الموظف
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            );
-          })
-        )}
-      </ScrollView>
-
-      {/* Edit Employee Modal */}
+      {/* Full-Screen Employee Edit Page */}
       <EditEmployeeModal
-        visible={!!selectedEmpForEdit}
+        visible={Boolean(selectedEmpForEdit)}
         employee={selectedEmpForEdit}
         vehicles={vehicles}
         onClose={() => setSelectedEmpForEdit(null)}
-        onSuccess={(updated) => {
-          onEmployeeUpdated(updated);
-          onRefresh();
+        onSuccess={(updatedEmp) => {
+          onEmployeeUpdated(updatedEmp);
         }}
         colors={colors}
         isDarkMode={isDarkMode}
@@ -416,96 +505,97 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
   },
-  searchBarWrap: {
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
+  topHeaderArea: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  statsRow: {
     gap: 8,
     marginBottom: 10,
+  },
+  statChip: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statNum: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  statLbl: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  searchContainer: {
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    paddingVertical: 0,
-  },
-  filterRow: {
-    gap: 8,
-    marginBottom: 12,
-    flexWrap: 'wrap',
-  },
-  filterTab: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  filterTabLabel: {
-    fontSize: 12,
+    height: '100%',
   },
   listContent: {
-    paddingBottom: 30,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 32,
   },
-  emptyContainer: {
+  emptyBox: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
-    gap: 10,
+    marginTop: 20,
+    gap: 8,
   },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: '600',
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 6,
   },
-  card: {
+  employeeCard: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
-    gap: 12,
-    elevation: 2,
+    padding: 12,
+    marginBottom: 10,
+    elevation: 1,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
   },
-  cardHeader: {
+  cardTopRow: {
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 10,
   },
-  avatarWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  keyRankBox: {
+    minWidth: 52,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    paddingHorizontal: 6,
+    gap: 2,
   },
-  avatarImg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  keyRankNumber: {
+    fontSize: 14,
+    fontWeight: '900',
   },
-  avatarInitial: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#10b981',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  nameBlock: {
+  empInfoCol: {
     flex: 1,
     gap: 4,
   },
@@ -513,10 +603,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
-  badgesRow: {
+  badgeRow: {
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 6,
-    flexWrap: 'wrap',
   },
   roleBadge: {
     paddingHorizontal: 8,
@@ -524,82 +614,84 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   roleBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  shiftBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  shiftBadgeText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '800',
   },
   workingBadge: {
-    backgroundColor: '#10b98120',
-    paddingHorizontal: 6,
+    backgroundColor: '#10b98118',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignItems: 'center',
+    gap: 4,
+  },
+  workingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+  workingBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#10b981',
+  },
+  appBadge: {
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
   },
-  workingBadgeText: {
-    color: '#10b981',
+  appBadgeText: {
     fontSize: 10,
     fontWeight: '700',
   },
-  quickActionsCol: {
-    alignItems: 'center',
-  },
-  circleActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailsGrid: {
-    borderRadius: 10,
-    padding: 10,
-    gap: 8,
-  },
-  gridRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  gridCol: {
-    flex: 1,
-    gap: 2,
-  },
-  gridLabel: {
-    fontSize: 11,
-  },
-  gridVal: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  plateRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 2,
-  },
-  plateLabelGroup: {
+  quickActionsRow: {
     alignItems: 'center',
     gap: 6,
   },
-  plateDesc: {
-    fontSize: 12,
-    fontWeight: '600',
+  iconActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  editBtn: {
+  openPagePill: {
+    width: 30,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardBottomStrip: {
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 12,
     borderWidth: 1,
-    paddingVertical: 10,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
-  editBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
+  metaItem: {
+    alignItems: 'center',
+    gap: 5,
+  },
+  metaText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  noPlatePill: {
+    backgroundColor: '#ef444415',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    gap: 4,
+  },
+  noPlateText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ef4444',
   },
 });

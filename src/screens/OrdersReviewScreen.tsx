@@ -2,649 +2,762 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  RefreshControl,
   StyleSheet,
+  FlatList,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  RefreshControl,
+  Modal,
   ActivityIndicator,
-  Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { ThemeColors, WorkSession } from '../types/delegate';
-import { supervisorApi } from '../services/supervisor';
-import { DatePickerBottomSheet } from '../components/modals/DatePickerBottomSheet';
+import { ThemeColors, WorkSession, PreviewPhotoData } from '../types/delegate';
+import { DelegateWithStatus, supervisorApi } from '../services/supervisor';
 import { formatImageUrl } from '../services/api';
+import { toEnglishDigits } from '@shared/utils/plateUtils';
+import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
 
 interface OrdersReviewScreenProps {
+  employees?: DelegateWithStatus[];
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL: boolean;
-  onPreviewPhoto?: (photo: { url: string; title: string }) => void;
-  // External control for opening date picker from header
+  onPreviewPhoto: (photo: PreviewPhotoData) => void;
   isDatePickerOpen?: boolean;
-  onCloseDatePicker?: () => void;
   onOpenDatePicker?: () => void;
+  onCloseDatePicker?: () => void;
 }
 
+type ReviewStatusFilter = 'ALL' | 'PENDING' | 'REVIEWED';
+
+const formatTimeOnly = (iso?: string) => {
+  if (!iso) return '--:--';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '--:--';
+  }
+};
+
+const formatDateTimeFull = (iso?: string) => {
+  if (!iso) return '---';
+  try {
+    const d = new Date(iso);
+    const datePart = d.toLocaleDateString('ar-SA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+    const timePart = d.toLocaleTimeString('ar-SA', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return `${datePart} • ${timePart}`;
+  } catch {
+    return iso;
+  }
+};
+
+const calcShiftHours = (startIso?: string, endIso?: string) => {
+  if (!startIso || !endIso) return '0 س';
+  try {
+    const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime();
+    if (diffMs <= 0) return '0 س';
+    const totalMins = Math.floor(diffMs / 60000);
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hrs === 0) return `${mins} د`;
+    return mins > 0 ? `${hrs} س ${mins} د` : `${hrs} ساعة`;
+  } catch {
+    return '0 س';
+  }
+};
+
 export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
+  employees = [],
   colors,
   isDarkMode,
   isRTL,
   onPreviewPhoto,
-  isDatePickerOpen = false,
-  onCloseDatePicker,
-  onOpenDatePicker,
 }) => {
-  // Today's date string YYYY-MM-DD
-  const getTodayString = () => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
-  const [internalDatePickerOpen, setInternalDatePickerOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'day' | 'employee_all'>('day'); // 'day' = single day, 'employee_all' = all history for searched employee
-  const [sortBy, setSortBy] = useState<'orders_desc' | 'time_desc'>('orders_desc');
-
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [sessions, setSessions] = useState<WorkSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ReviewStatusFilter>('ALL');
 
-  const showDatePicker = isDatePickerOpen || internalDatePickerOpen;
-  const closeDatePicker = () => {
-    setInternalDatePickerOpen(false);
-    onCloseDatePicker?.();
-  };
-  const openDatePicker = () => {
-    if (onOpenDatePicker) {
-      onOpenDatePicker();
-    } else {
-      setInternalDatePickerOpen(true);
-    }
-  };
+  // Edit Modal State
+  const [selectedSession, setSelectedSession] = useState<WorkSession | null>(null);
+  const [editedOrders, setEditedOrders] = useState('');
+  const [editedFuel, setEditedFuel] = useState('');
+  const [editedStartKm, setEditedStartKm] = useState('');
+  const [editedEndKm, setEditedEndKm] = useState('');
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  // Fetch orders data
-  const fetchOrders = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  const employeeMap = useMemo(() => {
+    const map = new Map<string, DelegateWithStatus>();
+    employees.forEach((e) => {
+      if (e.id) map.set(String(e.id), e);
+    });
+    return map;
+  }, [employees]);
 
+  const fetchSessions = useCallback(async () => {
     try {
-      if (viewMode === 'day') {
-        const data = await supervisorApi.getOrdersReview({
-          date: selectedDate,
-          limit: 500,
-        });
-        setSessions(data || []);
-      } else {
-        // Fetch recent history (up to 500 sessions) to search employee across all dates
-        const data = await supervisorApi.getOrdersReview({
-          limit: 500,
-        });
-        setSessions(data || []);
-      }
-    } catch (err) {
-      console.warn('[OrdersReview] fetch error:', err);
-      setSessions([]);
+      setLoading(true);
+      const data = await supervisorApi.getBranchSessions(300, 1);
+      setSessions(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.warn('[OrdersReviewScreen] error fetching branch sessions:', e);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, [selectedDate, viewMode]);
+  }, []);
 
   useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+    fetchSessions();
+  }, [fetchSessions]);
 
-  // Navigate date by 1 day
-  const handleShiftDate = (direction: 'next' | 'prev') => {
-    const [y, m, d] = selectedDate.split('-').map(Number);
-    const curr = new Date(y, m - 1, d);
-    if (direction === 'next') {
-      curr.setDate(curr.getDate() + 1);
-    } else {
-      curr.setDate(curr.getDate() - 1);
-    }
-    const newY = curr.getFullYear();
-    const newM = String(curr.getMonth() + 1).padStart(2, '0');
-    const newD = String(curr.getDate()).padStart(2, '0');
-    setSelectedDate(`${newY}-${newM}-${newD}`);
-  };
+  // ONLY completed shifts (اعرض اللى خلص بس) + Sorted strictly descending by date & time (آخر حاجة تعرض الأول)
+  const completedSessions = useMemo(() => {
+    const q = toEnglishDigits(searchQuery.trim()).toLowerCase();
 
-  // Filter & Sort Sessions
-  const processedSessions = useMemo(() => {
-    let list = [...sessions];
+    return sessions
+      .filter((s) => {
+        // Show ONLY finished shifts
+        if (s.status !== 'COMPLETED' || !s.end_time) return false;
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter((s) => {
-        const name = (s.employee_name || s.employee?.name || '').toLowerCase();
-        const code = (s.employee?.employee_number || s.employee?.key_number || (s as any).key_number || '').toLowerCase();
-        const bike = (s.motorcycle_number || s.employee?.motorcycle_number || '').toLowerCase();
-        const natId = (s.employee?.national_id || (s as any).national_id || '').toLowerCase();
-        return name.includes(q) || code.includes(q) || bike.includes(q) || natId.includes(q);
-      });
-    }
+        if (statusFilter === 'PENDING' && s.is_reviewed) return false;
+        if (statusFilter === 'REVIEWED' && !s.is_reviewed) return false;
 
-    // Sort descending
-    list.sort((a, b) => {
-      if (sortBy === 'orders_desc') {
-        const ordA = a.orders_count || 0;
-        const ordB = b.orders_count || 0;
-        if (ordB !== ordA) return ordB - ordA; // Descending orders
-        // Tie-breaker: newest time
-        const timeA = new Date(a.start_time || 0).getTime();
-        const timeB = new Date(b.start_time || 0).getTime();
+        if (!q) return true;
+
+        const empRecord = employeeMap.get(String(s.employee_id));
+        const name = (s.employee_name || s.employee?.name || empRecord?.name || '').toLowerCase();
+        const bike = toEnglishDigits(s.motorcycle_number || '').toLowerCase();
+        const keyNum = toEnglishDigits(
+          (s as any).key_number || (s.employee as any)?.key_number || empRecord?.key_number || ''
+        ).toLowerCase();
+        const appId = toEnglishDigits(
+          (s as any).application_id || (s.employee as any)?.application_id || empRecord?.application_id || ''
+        ).toLowerCase();
+
+        return name.includes(q) || bike.includes(q) || keyNum.includes(q) || appId.includes(q);
+      })
+      .sort((a, b) => {
+        const timeB = new Date(b.end_time || b.start_time || 0).getTime();
+        const timeA = new Date(a.end_time || a.start_time || 0).getTime();
         return timeB - timeA;
-      } else {
-        // time_desc
-        const timeA = new Date(a.start_time || 0).getTime();
-        const timeB = new Date(b.start_time || 0).getTime();
-        return timeB - timeA; // Descending time
-      }
-    });
+      });
+  }, [sessions, searchQuery, statusFilter, employeeMap]);
 
-    return list;
-  }, [sessions, searchQuery, sortBy]);
-
-  // Summary Metrics
-  const summary = useMemo(() => {
+  // Summary KPIs for completed shifts
+  const summaryStats = useMemo(() => {
     let totalOrders = 0;
-    let totalDistance = 0;
-    let totalFuel = 0;
-    const uniqueEmployees = new Set<string>();
+    let totalKm = 0;
+    let pendingCount = 0;
+    let reviewedCount = 0;
 
-    processedSessions.forEach((s) => {
-      totalOrders += s.orders_count || 0;
-      totalDistance += (s.end_km != null && s.start_km != null && s.end_km >= s.start_km)
-        ? (s.end_km - s.start_km)
-        : (s.distance || 0);
-      totalFuel += s.fuel_cost || 0;
-      if (s.employee_id) uniqueEmployees.add(s.employee_id);
+    sessions.forEach((s) => {
+      if (s.status !== 'COMPLETED' || !s.end_time) return;
+      totalOrders += Number(s.orders_count ?? 0);
+      const dist =
+        s.end_km && s.start_km && Number(s.end_km) >= Number(s.start_km)
+          ? Number(s.end_km) - Number(s.start_km)
+          : Number((s as any).total_km ?? s.distance ?? 0);
+      totalKm += dist;
+      if (s.is_reviewed) reviewedCount++;
+      else pendingCount++;
     });
 
     return {
+      totalFinished: pendingCount + reviewedCount,
+      pendingCount,
+      reviewedCount,
       totalOrders,
-      totalDistance,
-      totalFuel,
-      delegatesCount: uniqueEmployees.size,
-      shiftsCount: processedSessions.length,
+      totalKm,
     };
-  }, [processedSessions]);
+  }, [sessions]);
 
-  // Clean time formatter
-  const formatTimeStr = (isoString?: string | null): string => {
-    if (!isoString) return '—';
-    try {
-      const d = new Date(isoString);
-      if (isNaN(d.getTime())) return '—';
-      let hours = d.getHours();
-      const minutes = d.getMinutes();
-      const isPM = hours >= 12;
-      hours = hours % 12 || 12;
-      const padMin = minutes < 10 ? `0${minutes}` : `${minutes}`;
-      const period = isPM ? 'م' : 'ص';
-      return `${hours}:${padMin} ${period}`;
-    } catch {
-      return '—';
-    }
+  const openEditModal = (session: WorkSession) => {
+    setSelectedSession(session);
+    setEditedOrders(String(session.orders_count ?? 0));
+    setEditedFuel(String(session.fuel_cost ?? 0));
+    setEditedStartKm(String(session.start_km ?? 0));
+    setEditedEndKm(String(session.end_km ?? 0));
+    setReviewNotes(session.review_notes || '');
   };
 
-  // Format date display
-  const formatDateDisplay = (dateStr: string): string => {
-    if (!dateStr) return '';
-    try {
-      const [y, m, d] = dateStr.split('-').map(Number);
-      const dateObj = new Date(y, m - 1, d);
-      const today = new Date();
-      if (
-        dateObj.getFullYear() === today.getFullYear() &&
-        dateObj.getMonth() === today.getMonth() &&
-        dateObj.getDate() === today.getDate()
-      ) {
-        return `اليوم (${dateStr})`;
-      }
-      return dateObj.toLocaleDateString('ar-SA', {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+  const handleSaveReview = async () => {
+    if (!selectedSession) return;
+    const startVal = Number(toEnglishDigits(editedStartKm)) || 0;
+    const endVal = Number(toEnglishDigits(editedEndKm)) || 0;
+
+    if (endVal > 0 && endVal < startVal) {
+      showBottomAlert({
+        type: 'warning',
+        title: 'قراءة عداد غير صحيحة',
+        message: 'كيلو النهاية لا يمكن أن يكون أقل من كيلو البداية.',
       });
-    } catch {
-      return dateStr;
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const ordersVal = Number(toEnglishDigits(editedOrders)) || 0;
+      const fuelVal = Number(toEnglishDigits(editedFuel)) || 0;
+
+      await supervisorApi.reviewSession({
+        sessionId: selectedSession.id,
+        isReviewed: true,
+        ordersCount: ordersVal,
+        fuelCost: fuelVal,
+        startKm: startVal,
+        endKm: endVal,
+        reviewNotes: reviewNotes.trim() || 'تمت المراجعة والاعتماد',
+      });
+
+      const empName =
+        selectedSession.employee_name ||
+        selectedSession.employee?.name ||
+        employeeMap.get(String(selectedSession.employee_id))?.name ||
+        'المندوب';
+
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === selectedSession.id
+            ? {
+                ...s,
+                is_reviewed: true,
+                orders_count: ordersVal,
+                fuel_cost: fuelVal,
+                start_km: startVal,
+                end_km: endVal,
+                review_notes: reviewNotes.trim(),
+              }
+            : s
+        )
+      );
+      setSelectedSession(null);
+      setTimeout(() => {
+        showBottomAlert({
+          type: 'success',
+          title: 'تم الحفظ والاعتماد',
+          message: `تم تحديث واعتماد طلبات (${empName}) بنجاح.`,
+        });
+      }, 150);
+    } catch (e: any) {
+      showBottomAlert({
+        type: 'error',
+        title: 'فشل التحديث',
+        message: e?.message || 'حدث خطأ أثناء حفظ المراجعة.',
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  const renderSessionCard = useCallback(
+    ({ item: session }: { item: WorkSession }) => {
+      const empRecord = employeeMap.get(String(session.employee_id));
+      const empName =
+        session.employee_name ||
+        session.employee?.name ||
+        empRecord?.name ||
+        'مندوب';
+      const keyNum =
+        (session as any).key_number ||
+        (session.employee as any)?.key_number ||
+        empRecord?.key_number ||
+        '';
+      const appId =
+        (session as any).application_id ||
+        (session.employee as any)?.application_id ||
+        empRecord?.application_id ||
+        '---';
+      const startKmVal = Number(session.start_km ?? 0);
+      const endKmVal = Number(session.end_km ?? 0);
+      const distanceKm =
+        endKmVal >= startKmVal && endKmVal > 0
+          ? endKmVal - startKmVal
+          : Number((session as any).total_km ?? session.distance ?? 0);
+      const hoursLabel = calcShiftHours(session.start_time, session.end_time);
+
+      // Exact 9 ordered items:
+      // 1. وقت البداية | 2. كيلو البداية | 3. وقت النهاية | 4. كيلو النهاية | 5. عدد الكيلوات | 6. الطلبات | 7. الساعات | 8. بنزين | 9. المعرف
+      const orderedMetrics = [
+        { label: '1. وقت البداية', value: formatTimeOnly(session.start_time), icon: 'play-circle-outline', color: '#0284c7' },
+        { label: '2. كيلو البداية', value: `${startKmVal} كم`, icon: 'speedometer-outline', color: '#0284c7' },
+        { label: '3. وقت النهاية', value: formatTimeOnly(session.end_time), icon: 'stop-circle-outline', color: '#6366f1' },
+        { label: '4. كيلو النهاية', value: `${endKmVal} كم`, icon: 'flag-outline', color: '#6366f1' },
+        { label: '5. عدد الكيلوات', value: `${distanceKm} كم`, icon: 'analytics-outline', color: '#0d9488' },
+        { label: '6. الطلبات', value: `${session.orders_count ?? 0} طلب`, icon: 'bag-check-outline', color: '#10b981', highlight: true },
+        { label: '7. الساعات', value: hoursLabel, icon: 'time-outline', color: '#8b5cf6' },
+        { label: '8. بنزين', value: `${session.fuel_cost ?? 0} ر.س`, icon: 'flame-outline', color: '#f59e0b' },
+        { label: '9. المعرف', value: String(appId), icon: 'id-card-outline', color: '#ec4899' },
+      ];
+
+      return (
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() => openEditModal(session)}
+          style={[
+            styles.sessionCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: session.is_reviewed ? colors.border : '#f59e0b60',
+            },
+          ]}
+        >
+          {/* Card Header: Name, Key Badge, Full Date & Time, Review Status */}
+          <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+              <View style={[styles.nameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={[styles.empName, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {empName}
+                </Text>
+                {!!keyNum && (
+                  <View style={[styles.keyBadge, { backgroundColor: '#f59e0b18', borderColor: '#f59e0b50', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Ionicons name="key" size={11} color="#d97706" />
+                    <Text style={styles.keyBadgeText}>مفتاح {keyNum}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Descending Full Date & Time */}
+              <View style={[styles.dateTimeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Ionicons name="calendar-outline" size={12} color={colors.textSecondary} />
+                <Text style={[styles.dateTimeText, { color: colors.textSecondary }]}>
+                  {formatDateTimeFull(session.end_time || session.start_time)}
+                </Text>
+                {!!session.motorcycle_number && (
+                  <Text style={[styles.dateTimeText, { color: colors.primary, fontWeight: '700' }]}>
+                    • {session.motorcycle_number}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Status Pill */}
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: session.is_reviewed ? '#10b98118' : '#f59e0b18',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+            >
+              <Ionicons
+                name={session.is_reviewed ? 'checkmark-circle' : 'time'}
+                size={13}
+                color={session.is_reviewed ? '#10b981' : '#d97706'}
+              />
+              <Text
+                style={[
+                  styles.statusBadgeText,
+                  { color: session.is_reviewed ? '#10b981' : '#d97706' },
+                ]}
+              >
+                {session.is_reviewed ? 'معتمد' : 'بانتظار الاعتماد'}
+              </Text>
+            </View>
+          </View>
+
+          {/* 9 Ordered Metrics Grid */}
+          <View style={[styles.orderedGrid, { direction: isRTL ? 'rtl' : 'ltr' }]}>
+            {orderedMetrics.map((m, idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.metricBox,
+                  {
+                    backgroundColor: m.highlight
+                      ? isDarkMode
+                        ? 'rgba(16, 185, 129, 0.14)'
+                        : '#ecfdf5'
+                      : isDarkMode
+                      ? '#1e293b'
+                      : '#f8fafc',
+                    borderColor: m.highlight ? '#10b98150' : colors.border,
+                  },
+                ]}
+              >
+                <View style={[styles.metricLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name={m.icon as any} size={12} color={m.color} />
+                  <Text style={[styles.metricLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {m.label}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.metricValue,
+                    { color: m.highlight ? '#10b981' : colors.textPrimary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {m.value}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Footer: Odometer Photos + Edit Button */}
+          <View style={[styles.cardFooter, { flexDirection: isRTL ? 'row-reverse' : 'row', borderTopColor: colors.border }]}>
+            <View style={[styles.photosActionGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              {!!session.start_km_image && (
+                <TouchableOpacity
+                  style={[styles.photoBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                  onPress={() =>
+                    onPreviewPhoto({
+                      url: formatImageUrl(session.start_km_image) || '',
+                      title: `عداد البداية (${startKmVal} كم) - ${empName}`,
+                    })
+                  }
+                >
+                  <Image
+                    source={{ uri: formatImageUrl(session.start_km_image) || '' }}
+                    style={styles.tinyThumb}
+                    contentFit="cover"
+                  />
+                  <Text style={[styles.photoBtnText, { color: colors.textPrimary }]}>صورة البداية</Text>
+                </TouchableOpacity>
+              )}
+
+              {!!session.end_km_image && (
+                <TouchableOpacity
+                  style={[styles.photoBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                  onPress={() =>
+                    onPreviewPhoto({
+                      url: formatImageUrl(session.end_km_image) || '',
+                      title: `عداد النهاية (${endKmVal} كم) - ${empName}`,
+                    })
+                  }
+                >
+                  <Image
+                    source={{ uri: formatImageUrl(session.end_km_image) || '' }}
+                    style={styles.tinyThumb}
+                    contentFit="cover"
+                  />
+                  <Text style={[styles.photoBtnText, { color: colors.textPrimary }]}>صورة النهاية</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.editActionBtn, { backgroundColor: colors.primary }]}
+              onPress={() => openEditModal(session)}
+            >
+              <Ionicons name="create-outline" size={15} color="#ffffff" />
+              <Text style={styles.editActionBtnText}>
+                {session.is_reviewed ? 'تعديل' : 'مراجعة واعتماد'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [colors, isDarkMode, isRTL, employeeMap, onPreviewPhoto]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* ── 1. DATE BANNER & CALENDAR SELECTOR ── */}
-      <View
-        style={[
-          styles.dateBannerCard,
-          { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-        ]}
-      >
-        {/* Prev Day button */}
-        <TouchableOpacity
-          style={[styles.dateNavBtn, { backgroundColor: colors.bg }]}
-          onPress={() => handleShiftDate(isRTL ? 'next' : 'prev')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-
-        {/* Center: Tap to open DatePickerBottomSheet */}
-        <TouchableOpacity
-          style={[styles.dateCenterBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          onPress={openDatePicker}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.calendarIconCircle, { backgroundColor: colors.primaryLight }]}>
-            <Ionicons name="calendar" size={18} color={colors.primary} />
-          </View>
-          <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-            <Text style={[styles.dateLabelText, { color: colors.textSecondary }]}>تاريخ المراجعة</Text>
-            <Text style={[styles.dateValueText, { color: colors.textPrimary }]}>
-              {formatDateDisplay(selectedDate)}
-            </Text>
-          </View>
-          <Ionicons name="chevron-down" size={16} color={colors.textSecondary} style={{ marginHorizontal: 4 }} />
-        </TouchableOpacity>
-
-        {/* Next Day button */}
-        <TouchableOpacity
-          style={[styles.dateNavBtn, { backgroundColor: colors.bg }]}
-          onPress={() => handleShiftDate(isRTL ? 'prev' : 'next')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── 2. SEARCH BAR ── */}
-      <View
-        style={[
-          styles.searchContainer,
-          { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-        ]}
-      >
-        <Ionicons name="search" size={20} color={colors.textSecondary} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-          placeholder="ابحث باسم المندوب، رقم الدباب، الكود، أو الهوية..."
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          clearButtonMode="while-editing"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* ── 3. FILTER & SORT CONTROLS ── */}
-      <View style={[styles.filterControlsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        {/* Mode Toggle: Day vs All History */}
-        <View style={[styles.modeToggleGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {/* Top Controls: Filter Chips + Search Bar */}
+      <View style={styles.topControls}>
+        <View style={[styles.filterRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <TouchableOpacity
             style={[
-              styles.modeToggleBtn,
-              viewMode === 'day' && { backgroundColor: colors.primary },
+              styles.filterChip,
+              {
+                backgroundColor: statusFilter === 'ALL' ? colors.primary : colors.card,
+                borderColor: statusFilter === 'ALL' ? colors.primary : colors.border,
+              },
             ]}
-            onPress={() => setViewMode('day')}
+            onPress={() => setStatusFilter('ALL')}
           >
-            <Text
-              style={[
-                styles.modeToggleText,
-                { color: viewMode === 'day' ? '#ffffff' : colors.textSecondary },
-              ]}
-            >
-              📅 طلبات اليوم
+            <Text style={[styles.filterNum, { color: statusFilter === 'ALL' ? '#fff' : colors.textPrimary }]}>
+              {summaryStats.totalFinished}
+            </Text>
+            <Text style={[styles.filterLbl, { color: statusFilter === 'ALL' ? '#e0f2fe' : colors.textSecondary }]}>
+              المنتهية (الأحدث أولاً)
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
-              styles.modeToggleBtn,
-              viewMode === 'employee_all' && { backgroundColor: colors.primary },
+              styles.filterChip,
+              {
+                backgroundColor: statusFilter === 'PENDING' ? '#d97706' : colors.card,
+                borderColor: statusFilter === 'PENDING' ? '#d97706' : colors.border,
+              },
             ]}
-            onPress={() => setViewMode('employee_all')}
+            onPress={() => setStatusFilter('PENDING')}
           >
-            <Text
-              style={[
-                styles.modeToggleText,
-                { color: viewMode === 'employee_all' ? '#ffffff' : colors.textSecondary },
-              ]}
-            >
-              👤 بحث بالموظف
+            <Text style={[styles.filterNum, { color: statusFilter === 'PENDING' ? '#fff' : '#d97706' }]}>
+              {summaryStats.pendingCount}
+            </Text>
+            <Text style={[styles.filterLbl, { color: statusFilter === 'PENDING' ? '#fef3c7' : colors.textSecondary }]}>
+              بانتظار المراجعة
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor: statusFilter === 'REVIEWED' ? '#10b981' : colors.card,
+                borderColor: statusFilter === 'REVIEWED' ? '#10b981' : colors.border,
+              },
+            ]}
+            onPress={() => setStatusFilter('REVIEWED')}
+          >
+            <Text style={[styles.filterNum, { color: statusFilter === 'REVIEWED' ? '#fff' : '#10b981' }]}>
+              {summaryStats.reviewedCount}
+            </Text>
+            <Text style={[styles.filterLbl, { color: statusFilter === 'REVIEWED' ? '#d1fae5' : colors.textSecondary }]}>
+              تم اعتمادها
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Sort descending button */}
-        <TouchableOpacity
+        <View
           style={[
-            styles.sortBtn,
-            { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
+            styles.searchBox,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            },
           ]}
-          onPress={() => setSortBy((prev) => (prev === 'orders_desc' ? 'time_desc' : 'orders_desc'))}
         >
-          <Ionicons name="swap-vertical" size={16} color={colors.primary} />
-          <Text style={[styles.sortBtnText, { color: colors.textPrimary }]}>
-            {sortBy === 'orders_desc' ? 'الأعلى طلبات' : 'الأحدث وقتاً'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* ── 4. SUMMARY METRICS BAR ── */}
-      <View
-        style={[
-          styles.summaryBar,
-          { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-        ]}
-      >
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryItemVal, { color: '#2563eb' }]}>
-            {summary.totalOrders}
-          </Text>
-          <Text style={[styles.summaryItemLbl, { color: colors.textSecondary }]}>إجمالي الطلبات</Text>
-        </View>
-        <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
-
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryItemVal, { color: '#10b981' }]}>
-            {summary.delegatesCount}
-          </Text>
-          <Text style={[styles.summaryItemLbl, { color: colors.textSecondary }]}>المناديب</Text>
-        </View>
-        <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
-
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryItemVal, { color: '#059669' }]}>
-            {summary.totalDistance.toFixed(0)} كم
-          </Text>
-          <Text style={[styles.summaryItemLbl, { color: colors.textSecondary }]}>المسافة</Text>
-        </View>
-        <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
-
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryItemVal, { color: '#d97706' }]}>
-            {summary.totalFuel.toFixed(0)} ر.س
-          </Text>
-          <Text style={[styles.summaryItemLbl, { color: colors.textSecondary }]}>الوقود</Text>
+          <Ionicons name="search-outline" size={19} color={colors.textSecondary} />
+          <TextInput
+            style={[
+              styles.searchInput,
+              { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+            ]}
+            placeholder="ابحث بالاسم، رقم المفتاح، اللوحة، أو المعرف..."
+            placeholderTextColor={colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {/* ── 5. ORDERS SESSIONS LIST ── */}
-      {loading && !refreshing ? (
-        <View style={styles.loadingBox}>
+      {loading && sessions.length === 0 ? (
+        <View style={styles.centerEmpty}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>جاري تحميل طلبات المناديب...</Text>
+          <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
+            جاري تحميل الشفتات المنتهية...
+          </Text>
         </View>
       ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
+        <FlatList
+          data={completedSessions}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderSessionCard}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => fetchOrders(true)}
-              tintColor={colors.primary}
+              refreshing={loading}
+              onRefresh={fetchSessions}
               colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
-        >
-          {processedSessions.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <View style={[styles.emptyIconCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Ionicons name="receipt-outline" size={44} color={colors.textSecondary} />
-              </View>
+          ListEmptyComponent={
+            <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Ionicons name="Clipboard-outline" size={42} color={colors.textSecondary} />
               <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                {searchQuery ? 'لا توجد طلبات مطابقة للبحث' : 'لا توجد طلبات مسجلة في هذا اليوم'}
+                لا توجد شفتات منتهية مطابقة
               </Text>
-              <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-                {searchQuery
-                  ? 'جرب البحث باسم موظف آخر أو رقم دباب مختلف'
-                  : 'يمكنك اختيار يوم آخر من التقويم بالأعلى أو البحث باسم الموظف'}
-              </Text>
-              <TouchableOpacity
-                style={[styles.emptyActionBtn, { backgroundColor: colors.primary }]}
-                onPress={() => {
-                  setSelectedDate(getTodayString());
-                  setSearchQuery('');
-                  setViewMode('day');
-                }}
-              >
-                <Ionicons name="today-outline" size={18} color="#ffffff" />
-                <Text style={styles.emptyActionBtnText}>عرض طلبات اليوم</Text>
-              </TouchableOpacity>
             </View>
-          ) : (
-            processedSessions.map((session, index) => {
-              const delegateName = session.employee_name || session.employee?.name || 'مندوب توصيل';
-              const bikeNumber = session.motorcycle_number || session.employee?.motorcycle_number || '—';
-              const code = session.employee?.employee_number || session.employee?.key_number || (session as any).key_number || '';
-              const distance = (session.end_km != null && session.start_km != null && session.end_km >= session.start_km)
-                ? (session.end_km - session.start_km)
-                : (session.distance || 0);
-
-              const isReviewed = session.is_reviewed;
-              const isCompleted = session.status === 'COMPLETED' || !!session.end_time;
-
-              const startImgUrl = formatImageUrl(session.start_km_image);
-              const endImgUrl = formatImageUrl(session.end_km_image);
-
-              return (
-                <View
-                  key={session.id || index}
-                  style={[
-                    styles.orderCard,
-                    { backgroundColor: colors.card, borderColor: colors.border },
-                  ]}
-                >
-                  {/* Card Header: Delegate info + Orders badge */}
-                  <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                      <Text style={[styles.delegateName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                        {delegateName}
-                      </Text>
-                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                        <Text style={[styles.bikeBadgeText, { color: colors.primary }]}>
-                          دباب: {bikeNumber}
-                        </Text>
-                        {code ? (
-                          <Text style={[styles.codeBadgeText, { color: colors.textSecondary }]}>
-                            • كود: {code}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
-
-                    {/* Big Prominent Orders Badge */}
-                    <View style={styles.ordersBadgeContainer}>
-                      <View style={[styles.ordersPill, { backgroundColor: isDarkMode ? '#2563eb25' : '#eff6ff', borderColor: '#2563eb40' }]}>
-                        <Text style={styles.ordersPillCount}>{session.orders_count || 0}</Text>
-                        <Text style={styles.ordersPillLabel}>طلب</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Status & Date row */}
-                  <View style={[styles.cardSubHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View
-                      style={[
-                        styles.statusTag,
-                        {
-                          backgroundColor: isReviewed
-                            ? '#10b98115'
-                            : isCompleted
-                            ? '#f59e0b15'
-                            : '#3b82f615',
-                          borderColor: isReviewed
-                            ? '#10b98135'
-                            : isCompleted
-                            ? '#f59e0b35'
-                            : '#3b82f635',
-                          flexDirection: isRTL ? 'row-reverse' : 'row',
-                        },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.statusDot,
-                          {
-                            backgroundColor: isReviewed
-                              ? '#10b981'
-                              : isCompleted
-                              ? '#f59e0b'
-                              : '#3b82f6',
-                          },
-                        ]}
-                      />
-                      <Text
-                        style={[
-                          styles.statusTagText,
-                          {
-                            color: isReviewed
-                              ? '#059669'
-                              : isCompleted
-                              ? '#d97706'
-                              : '#2563eb',
-                          },
-                        ]}
-                      >
-                        {isReviewed
-                          ? 'معتمد ✓'
-                          : isCompleted
-                          ? 'بانتظار الاعتماد'
-                          : 'وردية نشطة'}
-                      </Text>
-                    </View>
-
-                    <Text style={[styles.cardDateText, { color: colors.textSecondary }]}>
-                      {session.start_time
-                        ? new Date(session.start_time).toLocaleDateString('ar-SA')
-                        : selectedDate}
-                    </Text>
-                  </View>
-
-                  {/* Metrics Row: المسافة | الوقود | ساعة البداية | ساعة النهاية */}
-                  <View
-                    style={[
-                      styles.cardMetricsBar,
-                      { backgroundColor: colors.bg, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-                    ]}
-                  >
-                    <View style={styles.cardMetricCol}>
-                      <Text style={[styles.cardMetricVal, { color: '#059669' }]}>
-                        {distance.toFixed(1)} كم
-                      </Text>
-                      <Text style={[styles.cardMetricLbl, { color: colors.textSecondary }]}>المسافة</Text>
-                    </View>
-                    <View style={[styles.cardMetricDivider, { backgroundColor: colors.border }]} />
-
-                    <View style={styles.cardMetricCol}>
-                      <Text style={[styles.cardMetricVal, { color: '#d97706' }]}>
-                        {session.fuel_cost || 0} ر.س
-                      </Text>
-                      <Text style={[styles.cardMetricLbl, { color: colors.textSecondary }]}>الوقود</Text>
-                    </View>
-                    <View style={[styles.cardMetricDivider, { backgroundColor: colors.border }]} />
-
-                    <View style={styles.cardMetricCol}>
-                      <Text style={[styles.cardMetricVal, { color: '#2563eb' }]}>
-                        {formatTimeStr(session.start_time)}
-                      </Text>
-                      <Text style={[styles.cardMetricLbl, { color: colors.textSecondary }]}>البداية</Text>
-                    </View>
-                    <View style={[styles.cardMetricDivider, { backgroundColor: colors.border }]} />
-
-                    <View style={styles.cardMetricCol}>
-                      <Text style={[styles.cardMetricVal, { color: '#10b981' }]}>
-                        {formatTimeStr(session.end_time)}
-                      </Text>
-                      <Text style={[styles.cardMetricLbl, { color: colors.textSecondary }]}>النهاية</Text>
-                    </View>
-                  </View>
-
-                  {/* Odometers Row (with tap to preview photo) */}
-                  {(startImgUrl || endImgUrl || session.start_km != null) && (
-                    <View style={[styles.odometerFooterRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      {/* Start Odometer */}
-                      <TouchableOpacity
-                        style={[styles.odometerChip, { backgroundColor: colors.bg, borderColor: colors.border }]}
-                        activeOpacity={startImgUrl ? 0.75 : 1}
-                        onPress={() => {
-                          if (startImgUrl) {
-                            onPreviewPhoto?.({
-                              url: startImgUrl,
-                              title: `عداد البداية (${session.start_km ?? 0} كم) - ${delegateName}`,
-                            });
-                          }
-                        }}
-                      >
-                        <Ionicons name="speedometer-outline" size={14} color="#2563eb" />
-                        <Text style={[styles.odometerChipText, { color: colors.textPrimary }]}>
-                          عداد البدء: {session.start_km ?? 0} كم
-                        </Text>
-                        {startImgUrl ? (
-                          <Ionicons name="image-outline" size={13} color="#2563eb" />
-                        ) : null}
-                      </TouchableOpacity>
-
-                      {/* End Odometer */}
-                      <TouchableOpacity
-                        style={[styles.odometerChip, { backgroundColor: colors.bg, borderColor: colors.border }]}
-                        activeOpacity={endImgUrl ? 0.75 : 1}
-                        onPress={() => {
-                          if (endImgUrl) {
-                            onPreviewPhoto?.({
-                              url: endImgUrl,
-                              title: `عداد النهاية (${session.end_km ?? 0} كم) - ${delegateName}`,
-                            });
-                          }
-                        }}
-                      >
-                        <Ionicons name="flag-outline" size={14} color="#059669" />
-                        <Text style={[styles.odometerChipText, { color: colors.textPrimary }]}>
-                          عداد النهاية: {session.end_km ?? 0} كم
-                        </Text>
-                        {endImgUrl ? (
-                          <Ionicons name="image-outline" size={13} color="#059669" />
-                        ) : null}
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
+          }
+        />
       )}
 
-      {/* ── 6. BOTTOM SHEET DATE PICKER ── */}
-      <DatePickerBottomSheet
-        visible={showDatePicker}
-        selectedDate={selectedDate}
-        onSelectDate={(newDate) => {
-          setSelectedDate(newDate);
-          setViewMode('day'); // Switching date switches to day view
-        }}
-        onClose={closeDatePicker}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-      />
+      {/* Review & Edit Modal */}
+      <Modal
+        visible={Boolean(selectedSession)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedSession(null)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                مراجعة وتعديل الشفت المنتهي
+              </Text>
+              <TouchableOpacity
+                onPress={() => setSelectedSession(null)}
+                style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
+              >
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedSession && (
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <View
+                  style={[
+                    styles.modalBanner,
+                    {
+                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.modalEmpName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {selectedSession.employee_name || selectedSession.employee?.name || 'مندوب'}
+                  </Text>
+                  <Text style={[styles.modalMetaText, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    البداية: {formatDateTimeFull(selectedSession.start_time)}
+                  </Text>
+                  <Text style={[styles.modalMetaText, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    النهاية: {formatDateTimeFull(selectedSession.end_time)}
+                  </Text>
+                </View>
+
+                <View style={[styles.dualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      كيلو البداية
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.inputBorder,
+                          color: colors.textPrimary,
+                          textAlign: 'center',
+                        },
+                      ]}
+                      keyboardType="numeric"
+                      value={editedStartKm}
+                      onChangeText={(v) => setEditedStartKm(toEnglishDigits(v))}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      كيلو النهاية
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.inputBorder,
+                          color: colors.textPrimary,
+                          textAlign: 'center',
+                        },
+                      ]}
+                      keyboardType="numeric"
+                      value={editedEndKm}
+                      onChangeText={(v) => setEditedEndKm(toEnglishDigits(v))}
+                    />
+                  </View>
+                </View>
+
+                <View style={[styles.dualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      عدد الطلبات
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.primary,
+                          color: colors.textPrimary,
+                          textAlign: 'center',
+                        },
+                      ]}
+                      keyboardType="numeric"
+                      value={editedOrders}
+                      onChangeText={(v) => setEditedOrders(toEnglishDigits(v))}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      بنزين (ر.س)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.inputBorder,
+                          color: colors.textPrimary,
+                          textAlign: 'center',
+                        },
+                      ]}
+                      keyboardType="numeric"
+                      value={editedFuel}
+                      onChangeText={(v) => setEditedFuel(toEnglishDigits(v))}
+                    />
+                  </View>
+                </View>
+
+                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  ملاحظات المراجعة
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.inputBorder,
+                      color: colors.textPrimary,
+                      textAlign: isRTL ? 'right' : 'left',
+                    },
+                  ]}
+                  placeholder="ملاحظات المشرف..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={reviewNotes}
+                  onChangeText={setReviewNotes}
+                />
+
+                <TouchableOpacity
+                  style={[styles.saveReviewBtn, { backgroundColor: '#10b981' }]}
+                  onPress={handleSaveReview}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-done-circle" size={20} color="#ffffff" />
+                      <Text style={styles.saveReviewBtnText}>حفظ واعتماد البيانات</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -653,295 +766,269 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  dateBannerCard: {
-    marginHorizontal: 16,
-    marginTop: 8,
+  topControls: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  filterRow: {
+    gap: 8,
     marginBottom: 10,
-    borderRadius: 14,
-    borderWidth: 1,
+  },
+  filterChip: {
+    flex: 1,
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dateNavBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  dateCenterBtn: {
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 8,
+  filterNum: {
+    fontSize: 16,
+    fontWeight: '800',
   },
-  calendarIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dateLabelText: {
+  filterLbl: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
+    marginTop: 2,
   },
-  dateValueText: {
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  searchContainer: {
-    marginHorizontal: 16,
-    marginBottom: 10,
+  searchBox: {
+    height: 44,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 8,
     alignItems: 'center',
     gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    paddingVertical: 2,
-  },
-  filterControlsRow: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  modeToggleGroup: {
-    flexDirection: 'row',
-    borderRadius: 10,
-    borderWidth: 1,
-    padding: 2,
-    gap: 2,
-  },
-  modeToggleBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  modeToggleText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  sortBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  sortBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  summaryBar: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  summaryItemVal: {
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  summaryItemLbl: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  summaryDivider: {
-    width: 1,
-    height: 24,
+    height: '100%',
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 28,
-    gap: 10,
+    paddingTop: 4,
+    paddingBottom: 32,
   },
-  loadingBox: {
+  centerEmpty: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
   },
-  loadingText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    paddingVertical: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  emptyIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  emptyCard: {
+    borderRadius: 18,
     borderWidth: 1,
+    padding: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginTop: 16,
+    gap: 8,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  sessionCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  cardHeader: {
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 12,
+  },
+  nameRow: {
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  empName: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  keyBadge: {
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 7,
+    borderWidth: 1,
+  },
+  keyBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#d97706',
+  },
+  dateTimeRow: {
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+  },
+  dateTimeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  statusBadge: {
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 9,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  orderedGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
+  },
+  metricBox: {
+    width: '31.8%',
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 7,
+  },
+  metricLabelRow: {
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 3,
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  metricValue: {
+    fontSize: 12,
     fontWeight: '900',
     textAlign: 'center',
   },
-  emptySub: {
-    fontSize: 12,
-    textAlign: 'center',
-    maxWidth: 260,
-    lineHeight: 18,
+  cardFooter: {
+    paddingTop: 10,
+    borderTopWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
-  emptyActionBtn: {
-    flexDirection: 'row',
+  photosActionGroup: {
+    flex: 1,
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginTop: 8,
   },
-  emptyActionBtnText: {
+  photoBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    alignItems: 'center',
+    gap: 5,
+  },
+  tinyThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 5,
+  },
+  photoBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  editActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  editActionBtnText: {
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
   },
-  orderCard: {
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    padding: 20,
+    maxHeight: '88%',
+  },
+  modalHeaderRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBanner: {
     borderRadius: 14,
     borderWidth: 1,
     padding: 12,
-    gap: 8,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
+    marginBottom: 12,
+    gap: 3,
   },
-  cardHeader: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  delegateName: {
+  modalEmpName: {
     fontSize: 15,
-    fontWeight: '900',
-  },
-  bikeBadgeText: {
-    fontSize: 11,
     fontWeight: '800',
   },
-  codeBadgeText: {
-    fontSize: 11,
+  modalMetaText: {
+    fontSize: 12,
     fontWeight: '600',
   },
-  ordersBadgeContainer: {
-    alignItems: 'center',
+  dualRow: {
+    gap: 10,
   },
-  ordersPill: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 3,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 5,
+    marginTop: 8,
+  },
+  input: {
+    height: 44,
+    borderRadius: 11,
     borderWidth: 1,
-  },
-  ordersPillCount: {
-    color: '#2563eb',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  ordersPillLabel: {
-    color: '#2563eb',
-    fontSize: 11,
+    paddingHorizontal: 12,
+    fontSize: 15,
     fontWeight: '700',
   },
-  cardSubHeader: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 2,
-  },
-  statusTag: {
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusTagText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  cardDateText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  cardMetricsBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-  },
-  cardMetricCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  cardMetricVal: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  cardMetricLbl: {
-    fontSize: 9,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  cardMetricDivider: {
-    width: 1,
-    height: 20,
-  },
-  odometerFooterRow: {
-    gap: 8,
-    marginTop: 2,
-  },
-  odometerChip: {
-    flex: 1,
+  saveReviewBtn: {
+    height: 48,
+    borderRadius: 13,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-    borderWidth: 1,
+    gap: 8,
+    marginTop: 18,
+    marginBottom: 8,
   },
-  odometerChipText: {
-    fontSize: 10,
-    fontWeight: '700',
+  saveReviewBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

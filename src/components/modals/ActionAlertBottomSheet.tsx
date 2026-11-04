@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,9 @@ import {
   Dimensions,
   Linking,
   Platform,
+  Modal,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import { ThemeColors } from '../../types/delegate';
 
@@ -34,6 +35,15 @@ export interface AlertModalConfig {
   iconName?: string;
 }
 
+type GlobalAlertListener = (config: AlertModalConfig | null) => void;
+let globalAlertListener: GlobalAlertListener | null = null;
+
+export const showBottomAlert = (config: AlertModalConfig) => {
+  if (globalAlertListener) {
+    globalAlertListener(config);
+  }
+};
+
 interface ActionAlertBottomSheetProps {
   config: AlertModalConfig | null;
   colors: ThemeColors;
@@ -51,11 +61,25 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
   isRTL,
   onClose,
 }) => {
+  const [internalConfig, setInternalConfig] = useState<AlertModalConfig | null>(null);
+  const activeConfig = config || internalConfig;
+
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useEffect(() => {
-    if (config) {
+    globalAlertListener = (nextConfig) => {
+      setInternalConfig(nextConfig);
+    };
+    return () => {
+      globalAlertListener = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeConfig) {
+      sheetTranslateY.setValue(SCREEN_HEIGHT);
+      backdropAnim.setValue(0);
       Animated.parallel([
         Animated.timing(backdropAnim, {
           toValue: 1,
@@ -65,7 +89,7 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
         Animated.spring(sheetTranslateY, {
           toValue: 0,
           bounciness: 4,
-          speed: 13,
+          speed: 14,
           useNativeDriver: true,
         }),
       ]).start();
@@ -83,46 +107,47 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
         }),
       ]).start();
     }
-  }, [config]);
+  }, [activeConfig]);
 
-  if (!config) return null;
+  if (!activeConfig) return null;
 
   const handleClose = (callback?: () => void) => {
     Animated.parallel([
       Animated.timing(backdropAnim, {
         toValue: 0,
-        duration: 180,
+        duration: 160,
         useNativeDriver: true,
       }),
       Animated.timing(sheetTranslateY, {
         toValue: SCREEN_HEIGHT,
-        duration: 200,
+        duration: 190,
         useNativeDriver: true,
       }),
     ]).start(() => {
+      setInternalConfig(null);
       onClose();
       if (callback) callback();
     });
   };
 
   const handlePrimary = () => {
-    if (config.type === 'camera_permission' || config.type === 'location_permission') {
-      if (config.onPrimaryPress) {
-        config.onPrimaryPress();
+    if (activeConfig.type === 'camera_permission' || activeConfig.type === 'location_permission') {
+      if (activeConfig.onPrimaryPress) {
+        activeConfig.onPrimaryPress();
       } else {
         Linking.openSettings().catch(() => {});
       }
       handleClose();
     } else {
       handleClose(() => {
-        if (config.onPrimaryPress) config.onPrimaryPress();
+        if (activeConfig.onPrimaryPress) activeConfig.onPrimaryPress();
       });
     }
   };
 
   const handleSecondary = () => {
     handleClose(() => {
-      if (config.onSecondaryPress) config.onSecondaryPress();
+      if (activeConfig.onSecondaryPress) activeConfig.onSecondaryPress();
     });
   };
 
@@ -134,7 +159,7 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
   let defaultPrimaryText = isRTL ? 'حسناً' : 'OK';
   let defaultSecondaryText = isRTL ? 'إلغاء' : 'Cancel';
 
-  switch (config.type) {
+  switch (activeConfig.type) {
     case 'camera_permission':
       iconComponent = <Ionicons name="camera" size={32} color="#0284c7" />;
       iconBg = isDarkMode ? 'rgba(2, 132, 199, 0.18)' : '#f0f9ff';
@@ -184,96 +209,104 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
       break;
   }
 
-  const primaryLabel = config.primaryButtonText || defaultPrimaryText;
-  const hasSecondary = Boolean(config.secondaryButtonText || config.onSecondaryPress || config.type.includes('permission') || config.type === 'confirm');
-  const secondaryLabel = config.secondaryButtonText || defaultSecondaryText;
+  const primaryLabel = activeConfig.primaryButtonText || defaultPrimaryText;
+  const hasSecondary = Boolean(
+    activeConfig.secondaryButtonText ||
+      activeConfig.onSecondaryPress ||
+      activeConfig.type.includes('permission') ||
+      activeConfig.type === 'confirm'
+  );
+  const secondaryLabel = activeConfig.secondaryButtonText || defaultSecondaryText;
 
   return (
-    <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>
-      <TouchableOpacity
-        style={StyleSheet.absoluteFill}
-        activeOpacity={1}
-        onPress={() => handleClose()}
-      />
-      <Animated.View
-        style={[
-          styles.sheetCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            transform: [{ translateY: sheetTranslateY }],
-          },
-        ]}
-      >
-        {/* Top Handle Indicator */}
-        <View style={styles.handleWrap}>
-          <View style={[styles.handleBar, { backgroundColor: isDarkMode ? '#3f3f46' : '#cbd5e1' }]} />
-        </View>
-
-        {/* Icon Circle with Glow or Lottie */}
-        {lottieSource ? (
-          <View style={styles.lottieWrap}>
-            <LottieView
-              source={lottieSource}
-              autoPlay
-              loop={false}
-              style={{ width: 175, height: 95 }}
-              resizeMode="contain"
-            />
+    <Modal
+      visible={Boolean(activeConfig)}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={() => handleClose()}
+    >
+      <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => handleClose()}
+        />
+        <Animated.View
+          style={[
+            styles.sheetCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              transform: [{ translateY: sheetTranslateY }],
+            },
+          ]}
+        >
+          {/* Top Handle Indicator */}
+          <View style={styles.handleWrap}>
+            <View style={[styles.handleBar, { backgroundColor: isDarkMode ? '#3f3f46' : '#cbd5e1' }]} />
           </View>
-        ) : (
-          <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>
-            {iconComponent}
-          </View>
-        )}
 
-        {/* Title */}
-        <Text style={[styles.title, { color: colors.textPrimary, textAlign: 'center' }]}>
-          {config.title}
-        </Text>
-
-        {/* Message */}
-        <Text style={[styles.message, { color: colors.textSecondary, textAlign: 'center' }]}>
-          {config.message}
-        </Text>
-
-        {/* Action Buttons */}
-        <View style={[styles.buttonsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          {hasSecondary && (
-            <TouchableOpacity
-              style={[styles.secondaryBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-              onPress={handleSecondary}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
-                {secondaryLabel}
-              </Text>
-            </TouchableOpacity>
+          {/* Icon Circle with Glow or Lottie */}
+          {lottieSource ? (
+            <View style={styles.lottieWrap}>
+              <LottieView
+                source={lottieSource}
+                autoPlay
+                loop={false}
+                style={{ width: 175, height: 95 }}
+                resizeMode="contain"
+              />
+            </View>
+          ) : (
+            <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>
+              {iconComponent}
+            </View>
           )}
 
-          <TouchableOpacity
-            style={[styles.primaryBtn, { backgroundColor: primaryBtnColor, flex: hasSecondary ? 1.5 : 1 }]}
-            onPress={handlePrimary}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryBtnText}>{primaryLabel}</Text>
-          </TouchableOpacity>
-        </View>
+          {/* Title */}
+          <Text style={[styles.title, { color: colors.textPrimary, textAlign: 'center' }]}>
+            {activeConfig.title}
+          </Text>
+
+          {/* Message */}
+          <Text style={[styles.message, { color: colors.textSecondary, textAlign: 'center' }]}>
+            {activeConfig.message}
+          </Text>
+
+          {/* Action Buttons */}
+          <View style={[styles.buttonsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            {hasSecondary && (
+              <TouchableOpacity
+                style={[styles.secondaryBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                onPress={handleSecondary}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
+                  {secondaryLabel}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={[styles.primaryBtn, { backgroundColor: primaryBtnColor, flex: hasSecondary ? 1.5 : 1 }]}
+              onPress={handlePrimary}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryBtnText}>{primaryLabel}</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </Animated.View>
-    </Animated.View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   backdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'flex-end',
-    zIndex: 9999,
   },
   sheetCard: {
     borderTopLeftRadius: 28,

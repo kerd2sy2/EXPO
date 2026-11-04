@@ -18,6 +18,9 @@ export interface DelegateWithStatus extends EmployeeProfile {
   is_vpn?: boolean;
   photo_url?: string;
   out_of_zone?: boolean;
+  active_motorcycle?: string;
+  shift_start_time?: string;
+  start_km?: number;
 }
 
 export interface SupervisorStartShiftParams {
@@ -117,6 +120,7 @@ export interface PendingMaintenanceRequest {
   issue_description: string;
   status: string;
   created_at: string;
+  current_km?: number;
 }
 
 export const supervisorApi = {
@@ -554,6 +558,11 @@ export const supervisorApi = {
       console.warn('[supervisorApi] getOrdersReview error:', err);
       return [];
     }
+  },
+
+  // Alias for getOrdersReview
+  getBranchSessions: async (limit: number = 300, page: number = 1): Promise<WorkSession[]> => {
+    return supervisorApi.getOrdersReview({ limit });
   },
 };
 

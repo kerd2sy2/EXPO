@@ -1,29 +1,25 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  FlatList,
   ScrollView,
+  TouchableOpacity,
   TextInput,
   RefreshControl,
-  Image,
   Modal,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ThemeColors } from '@shared/theme';
-import { SaudiPlateView } from '@shared/components';
-import { parsePlateComponents } from '@shared/utils/plateUtils';
-import {
-  DelegateWithStatus,
-  supervisorApi,
-  SupervisorStartShiftParams,
-  SupervisorEndShiftParams,
-} from '../services/supervisor';
+import { ThemeColors } from '../types/delegate';
+import { DelegateWithStatus, supervisorApi } from '../services/supervisor';
+import { toEnglishDigits } from '@shared/utils/plateUtils';
+import { extractKeySortValue } from './EmployeesScreen';
+import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
 
 interface FieldScreenProps {
   delegates: DelegateWithStatus[];
@@ -32,10 +28,25 @@ interface FieldScreenProps {
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL: boolean;
-  onOverrideSuccess?: () => void;
+  onOverrideSuccess: () => void;
 }
 
-type FilterTab = 'all' | 'working' | 'idle';
+type FieldFilter = 'working' | 'not_working' | 'all';
+
+const calcLiveElapsed = (startIso?: string) => {
+  if (!startIso) return '';
+  try {
+    const diffMs = Date.now() - new Date(startIso).getTime();
+    if (diffMs <= 0) return 'بدأ للتو';
+    const mins = Math.floor(diffMs / 60000);
+    const hrs = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    if (hrs === 0) return `منذ ${remMins} د`;
+    return `منذ ${hrs} س و ${remMins} د`;
+  } catch {
+    return '';
+  }
+};
 
 export const FieldScreen: React.FC<FieldScreenProps> = ({
   delegates,
@@ -46,545 +57,571 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
   isRTL,
   onOverrideSuccess,
 }) => {
-  const [filter, setFilter] = useState<FilterTab>('all');
+  const [filter, setFilter] = useState<FieldFilter>('working');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Override Modal state
   const [selectedDelegate, setSelectedDelegate] = useState<DelegateWithStatus | null>(null);
-  const [modalMode, setModalMode] = useState<'start' | 'end'>('start');
-  const [modalVisible, setModalVisible] = useState(false);
+  const [overrideMode, setOverrideMode] = useState<'start' | 'end' | null>(null);
+
+  // Override Form State
+  const [bikeNum, setBikeNum] = useState('');
+  const [kmValue, setKmValue] = useState('');
+  const [ordersValue, setOrdersValue] = useState('');
+  const [notesValue, setNotesValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
 
-  // Form Fields for Override
-  const [startKm, setStartKm] = useState('');
-  const [motorcycleNumber, setMotorcycleNumber] = useState('');
-  const [endKm, setEndKm] = useState('');
-  const [ordersCount, setOrdersCount] = useState('');
-  const [fuelCost, setFuelCost] = useState('');
-  const [overrideReason, setOverrideReason] = useState('عطل بهاتف المندوب');
-  const [customReason, setCustomReason] = useState('');
-  const [notes, setNotes] = useState('');
+  const counts = useMemo(() => {
+    const working = delegates.filter((d) => d.is_working).length;
+    const idle = delegates.length - working;
+    return { working, idle, total: delegates.length };
+  }, [delegates]);
 
-  const REASON_PRESETS_START = [
-    'عطل بهاتف المندوب',
-    'مشكلة في تطبيق المندوب أو الاتصال',
-    'توجيه إداري ميداني عاجل',
-    'فقدان أو كسر الجهاز',
-  ];
+  // Filter & Sort by Key Number ascending (ترتيب المفاتيح 1, 2, 3...)
+  const filteredDelegates = useMemo(() => {
+    const q = toEnglishDigits(searchQuery.trim()).toLowerCase();
 
-  const REASON_PRESETS_END = [
-    'عطل بهاتف المندوب عند الإغلاق',
-    'نفاد شحن هاتف المندوب',
-    'اعتماد وإنهاء يدوي مباشر بطلب المشرف',
-    'حالة طوارئ ميدانية',
-  ];
+    return delegates
+      .filter((d) => {
+        if (filter === 'working' && !d.is_working) return false;
+        if (filter === 'not_working' && d.is_working) return false;
+        if (!q) return true;
 
-  const openOverrideModal = (del: DelegateWithStatus, mode: 'start' | 'end') => {
-    setSelectedDelegate(del);
-    setModalMode(mode);
-    setErrorMessage('');
-    setStartKm('');
-    setMotorcycleNumber(del.motorcycle_number || '');
-    setEndKm('');
-    setOrdersCount('');
-    setFuelCost('');
-    setNotes('');
-    setCustomReason('');
-    setOverrideReason(mode === 'start' ? REASON_PRESETS_START[0] : REASON_PRESETS_END[0]);
-    setModalVisible(true);
-  };
+        const nameMatch = (d.name || '').toLowerCase().includes(q);
+        const keyMatch = toEnglishDigits(d.key_number || '').toLowerCase().includes(q);
+        const bikeMatch = toEnglishDigits(
+          d.active_motorcycle || d.motorcycle_number || ''
+        ).toLowerCase().includes(q);
+        const appIdMatch = toEnglishDigits(d.application_id || '').toLowerCase().includes(q);
 
-  const closeOverrideModal = () => {
-    if (submitting) return;
-    setModalVisible(false);
-    setSelectedDelegate(null);
-  };
+        return nameMatch || keyMatch || bikeMatch || appIdMatch;
+      })
+      .sort((a, b) => {
+        const keyA = extractKeySortValue(a.key_number);
+        const keyB = extractKeySortValue(b.key_number);
+        if (keyA !== keyB) return keyA - keyB;
+        return (a.name || '').localeCompare(b.name || '', 'ar');
+      });
+  }, [delegates, filter, searchQuery]);
+
+  const openOverride = useCallback((d: DelegateWithStatus, mode: 'start' | 'end') => {
+    setSelectedDelegate(d);
+    setOverrideMode(mode);
+    setBikeNum(d.active_motorcycle || d.motorcycle_number || '');
+    setKmValue(d.start_km ? String(d.start_km) : '');
+    setOrdersValue('');
+    setNotesValue('');
+  }, []);
+
+  const handleCall = useCallback((phone?: string) => {
+    if (!phone) {
+      showBottomAlert({
+        type: 'warning',
+        title: 'تنبيه',
+        message: 'لا يوجد رقم جوال مسجل لهذا المندوب.',
+      });
+      return;
+    }
+    Linking.openURL(`tel:${phone}`).catch(() => {});
+  }, []);
+
+  const handleWhatsApp = useCallback((phone?: string) => {
+    if (!phone) {
+      showBottomAlert({
+        type: 'warning',
+        title: 'تنبيه',
+        message: 'لا يوجد رقم جوال مسجل لهذا المندوب.',
+      });
+      return;
+    }
+    const cleanPhone = toEnglishDigits(phone).replace(/\D/g, '');
+    const intlPhone = cleanPhone.startsWith('05')
+      ? `966${cleanPhone.slice(1)}`
+      : cleanPhone.startsWith('5')
+      ? `966${cleanPhone}`
+      : cleanPhone;
+    Linking.openURL(`https://wa.me/${intlPhone}`).catch(() => {});
+  }, []);
 
   const handleSubmitOverride = async () => {
-    if (!selectedDelegate) return;
-    setErrorMessage('');
+    if (!selectedDelegate || !overrideMode) return;
 
-    const finalReason = customReason.trim() ? customReason.trim() : overrideReason;
+    if (overrideMode === 'start' && !bikeNum.trim()) {
+      showBottomAlert({
+        type: 'warning',
+        title: 'بيانات مطلوبة',
+        message: 'يرجى إدخال رقم لوحة الدباب لبدء الوردية.',
+      });
+      return;
+    }
+    if (!kmValue.trim() || isNaN(Number(toEnglishDigits(kmValue)))) {
+      showBottomAlert({
+        type: 'warning',
+        title: 'بيانات مطلوبة',
+        message: 'يرجى إدخال قراءة العداد (الكيلومتر) بشكل صحيح.',
+      });
+      return;
+    }
 
     try {
       setSubmitting(true);
-      if (modalMode === 'start') {
-        const kmVal = Number(startKm);
-        if (isNaN(kmVal) || kmVal <= 0) {
-          setErrorMessage('يرجى إدخال قراءة عداد صحيحة للبدء');
-          setSubmitting(false);
-          return;
-        }
+      const numericKm = Number(toEnglishDigits(kmValue));
 
-        const params: SupervisorStartShiftParams = {
+      if (overrideMode === 'start') {
+        await supervisorApi.startShiftOverride({
           employeeId: selectedDelegate.id,
-          startKm: kmVal,
-          motorcycleNumber: motorcycleNumber.trim() || selectedDelegate.motorcycle_number,
-          overrideReason: finalReason,
-          notes: notes.trim(),
-        };
-
-        await supervisorApi.startShiftOverride(params);
-        Alert.alert('نجاح', `تم بدء الوردية استثنائياً للمندوب ${selectedDelegate.name}`);
+          motorcycleNumber: bikeNum.trim(),
+          startKm: numericKm,
+          overrideReason: 'بدء وردية بواسطة المشرف',
+          notes: notesValue.trim(),
+        });
       } else {
-        const endKmVal = Number(endKm);
-        if (isNaN(endKmVal) || endKmVal <= 0) {
-          setErrorMessage('يرجى إدخال قراءة العداد النهائية');
-          setSubmitting(false);
-          return;
-        }
-
-        const ordersVal = Number(ordersCount) || 0;
-        const fuelVal = Number(fuelCost) || 0;
-
-        const params: SupervisorEndShiftParams = {
+        await supervisorApi.endShiftOverride({
           employeeId: selectedDelegate.id,
-          endKm: endKmVal,
-          ordersCount: ordersVal,
-          fuelCost: fuelVal,
-          overrideReason: finalReason,
-          reviewNotes: notes.trim(),
-        };
-
-        await supervisorApi.endShiftOverride(params);
-        Alert.alert('نجاح', `تم إنهاء واعتماد وردية المندوب ${selectedDelegate.name}`);
+          endKm: numericKm,
+          ordersCount: Number(toEnglishDigits(ordersValue)) || 0,
+          fuelCost: 0,
+          overrideReason: 'إنهاء وردية بواسطة المشرف',
+          notes: notesValue.trim(),
+        });
       }
 
-      setModalVisible(false);
-      if (onOverrideSuccess) onOverrideSuccess();
-      onRefresh();
-    } catch (err: any) {
-      console.error('[FieldScreen] Override error:', err);
-      const msg = err?.message || 'حدث خطأ أثناء تنفيذ التدخل الاستثنائي';
-      setErrorMessage(msg);
+      const dName = selectedDelegate.name;
+      const wasStart = overrideMode === 'start';
+      setSelectedDelegate(null);
+      setOverrideMode(null);
+      onOverrideSuccess();
+
+      setTimeout(() => {
+        showBottomAlert({
+          type: 'success',
+          title: wasStart ? 'تم بدء الوردية' : 'تم إنهاء الوردية',
+          message: wasStart
+            ? `تم فتح وردية عمل للمندوب (${dName}) بنجاح.`
+            : `تم إنهاء وردية المندوب (${dName}) بنجاح.`,
+        });
+      }, 150);
+    } catch (e: any) {
+      showBottomAlert({
+        type: 'error',
+        title: 'تعذر تنفيذ العملية',
+        message: e?.message || 'حدث خطأ أثناء تنفيذ العملية.',
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  // 1. Exclude supervisors and administrators from branch delegates so only actual drivers appear
-  const branchDriversOnly = useMemo(() => {
-    return (delegates || []).filter((del) => {
-      const role = (del.job_role || (del as any).role_name || '').toUpperCase();
-      return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
-    });
-  }, [delegates]);
+  const renderDelegateCard = useCallback(
+    ({ item: d }: { item: DelegateWithStatus }) => {
+      const hasKey = Boolean(d.key_number && d.key_number.trim());
+      const plate = d.active_motorcycle || d.motorcycle_number || 'بدون لوحة';
+      const elapsed = d.is_working ? calcLiveElapsed(d.shift_start_time) : '';
+      const startTimeFormatted = d.shift_start_time
+        ? new Date(d.shift_start_time).toLocaleTimeString('ar-SA', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '--:--';
 
-  // 2. Cross-branch search state ("التركاية": فروع أخرى تظهر فقط عند البحث)
-  const [remoteSearchResults, setRemoteSearchResults] = useState<DelegateWithStatus[]>([]);
-  const [isSearchingRemote, setIsSearchingRemote] = useState(false);
+      return (
+        <View
+          style={[
+            styles.delegateCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: d.is_working ? '#10b98160' : colors.border,
+            },
+          ]}
+        >
+          {/* Top Row: Key Badge + Name & Live Status + Call/WhatsApp */}
+          <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View
+              style={[
+                styles.keyBox,
+                {
+                  backgroundColor: hasKey
+                    ? isDarkMode
+                      ? 'rgba(245, 158, 11, 0.16)'
+                      : '#fffbeb'
+                    : isDarkMode
+                    ? '#1e293b'
+                    : '#f1f5f9',
+                  borderColor: hasKey ? '#f59e0b60' : colors.border,
+                },
+              ]}
+            >
+              <Ionicons name="key" size={12} color={hasKey ? '#d97706' : colors.textSecondary} />
+              <Text style={[styles.keyNumberText, { color: hasKey ? '#d97706' : colors.textSecondary }]}>
+                {hasKey ? d.key_number : '--'}
+              </Text>
+            </View>
 
-  useEffect(() => {
-    const q = searchQuery.trim();
-    if (q.length < 2) {
-      setRemoteSearchResults([]);
-      setIsSearchingRemote(false);
-      return;
-    }
+            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+              <Text style={[styles.delegateName, { color: colors.textPrimary }]} numberOfLines={1}>
+                {d.name}
+              </Text>
+              <View style={[styles.statusLine, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View
+                  style={[
+                    styles.statusDot,
+                    { backgroundColor: d.is_working ? '#10b981' : '#ef4444' },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: d.is_working ? '#10b981' : colors.textSecondary },
+                  ]}
+                >
+                  {d.is_working ? `في الميدان (${elapsed || 'نشط'})` : 'خارج الدوام'}
+                </Text>
+              </View>
+            </View>
 
-    const timer = setTimeout(async () => {
-      try {
-        setIsSearchingRemote(true);
-        const results = await supervisorApi.searchDelegates(q);
-        setRemoteSearchResults(results);
-      } catch (err) {
-        console.warn('[FieldScreen] search error:', err);
-      } finally {
-        setIsSearchingRemote(false);
-      }
-    }, 350);
+            {!!d.phone && (
+              <View style={[styles.commButtons, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <TouchableOpacity
+                  style={[styles.commBtn, { backgroundColor: '#10b98118' }]}
+                  onPress={() => handleCall(d.phone)}
+                >
+                  <Ionicons name="call" size={15} color="#10b981" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.commBtn, { backgroundColor: '#25D36618' }]}
+                  onPress={() => handleWhatsApp(d.phone)}
+                >
+                  <Ionicons name="logo-whatsapp" size={15} color="#25D366" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
 
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+          {/* Info Strip: Motorcycle Plate, Start Time / KM, App ID */}
+          <View
+            style={[
+              styles.infoStrip,
+              {
+                backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                borderColor: colors.border,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+              },
+            ]}
+          >
+            <View style={styles.infoCell}>
+              <Text style={[styles.infoCellLabel, { color: colors.textSecondary }]}>الدباب</Text>
+              <Text style={[styles.infoCellValue, { color: colors.textPrimary }]} numberOfLines={1}>
+                {plate}
+              </Text>
+            </View>
 
-  // 3. Combined list: default is ONLY supervisor's branch. When searching, include cross-branch matches.
-  const activeDelegatesPool = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return branchDriversOnly;
-    }
+            {d.is_working ? (
+              <>
+                <View style={styles.infoCell}>
+                  <Text style={[styles.infoCellLabel, { color: colors.textSecondary }]}>وقت البداية</Text>
+                  <Text style={[styles.infoCellValue, { color: '#0284c7' }]}>{startTimeFormatted}</Text>
+                </View>
+                <View style={styles.infoCell}>
+                  <Text style={[styles.infoCellLabel, { color: colors.textSecondary }]}>كيلو البداية</Text>
+                  <Text style={[styles.infoCellValue, { color: colors.textPrimary }]}>
+                    {d.start_km ?? 0} كم
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <View style={styles.infoCell}>
+                <Text style={[styles.infoCellLabel, { color: colors.textSecondary }]}>المنصة والمعرف</Text>
+                <Text style={[styles.infoCellValue, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {d.application_type || '---'} {d.application_id ? `#${d.application_id}` : ''}
+                </Text>
+              </View>
+            )}
+          </View>
 
-    const map = new Map<string, DelegateWithStatus>();
-    // First, local branch drivers
-    branchDriversOnly.forEach((d) => map.set(d.id, d));
-    // Second, remote drivers matching query (from any branch)
-    remoteSearchResults.forEach((d) => {
-      if (!map.has(d.id)) {
-        map.set(d.id, d);
-      }
-    });
-
-    return Array.from(map.values());
-  }, [branchDriversOnly, remoteSearchResults, searchQuery]);
-
-  // Filter delegates by active tab and search query
-  const filteredDelegates = useMemo(() => {
-    return activeDelegatesPool.filter((del) => {
-      // Tab filter
-      if (filter === 'working' && !del.is_working) return false;
-      if (filter === 'idle' && del.is_working) return false;
-
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchName = del.name?.toLowerCase().includes(q);
-        const matchPhone = del.phone?.includes(q);
-        const matchId = del.national_id?.includes(q);
-        const matchBike = del.motorcycle_number?.toLowerCase().includes(q);
-        const matchBranch = (del.branch_name || '').toLowerCase().includes(q);
-        return matchName || matchPhone || matchId || matchBike || matchBranch;
-      }
-      return true;
-    });
-  }, [activeDelegatesPool, filter, searchQuery]);
-
-  const workingCount = branchDriversOnly.filter((d) => d.is_working).length;
-  const idleCount = Math.max(0, branchDriversOnly.length - workingCount);
+          {/* Supervisor Override Action Button */}
+          <TouchableOpacity
+            style={[
+              styles.overrideBtn,
+              {
+                backgroundColor: d.is_working ? '#ef444415' : '#10b98115',
+                borderColor: d.is_working ? '#ef444440' : '#10b98140',
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+              },
+            ]}
+            onPress={() => openOverride(d, d.is_working ? 'end' : 'start')}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={d.is_working ? 'stop-circle-outline' : 'play-circle-outline'}
+              size={18}
+              color={d.is_working ? '#ef4444' : '#10b981'}
+            />
+            <Text
+              style={[
+                styles.overrideBtnText,
+                { color: d.is_working ? '#ef4444' : '#10b981' },
+              ]}
+            >
+              {d.is_working ? 'إنهاء الوردية كمشرف' : 'بدء وردية للمندوب كمشرف'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    },
+    [colors, isDarkMode, isRTL, handleCall, handleWhatsApp, openOverride]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Search Bar */}
-      <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Ionicons name="search" size={20} color={colors.textSecondary} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-          placeholder="ابحث بالاسم، الهوية، الجوال أو رقم الدباب (بحث عام بكافة الفروع)..."
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {isSearchingRemote ? (
-          <ActivityIndicator size="small" color={colors.primary} style={{ marginHorizontal: 6 }} />
-        ) : searchQuery.length > 0 ? (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+      {/* Top Filter Tabs & Search */}
+      <View style={styles.topArea}>
+        <View style={[styles.tabsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <TouchableOpacity
+            style={[
+              styles.tabChip,
+              {
+                backgroundColor: filter === 'working' ? '#10b981' : colors.card,
+                borderColor: filter === 'working' ? '#10b981' : colors.border,
+              },
+            ]}
+            onPress={() => setFilter('working')}
+          >
+            <Text style={[styles.tabNum, { color: filter === 'working' ? '#fff' : '#10b981' }]}>
+              {counts.working}
+            </Text>
+            <Text style={[styles.tabLbl, { color: filter === 'working' ? '#d1fae5' : colors.textSecondary }]}>
+              في الميدان الآن
+            </Text>
           </TouchableOpacity>
-        ) : null}
+
+          <TouchableOpacity
+            style={[
+              styles.tabChip,
+              {
+                backgroundColor: filter === 'not_working' ? '#ef4444' : colors.card,
+                borderColor: filter === 'not_working' ? '#ef4444' : colors.border,
+              },
+            ]}
+            onPress={() => setFilter('not_working')}
+          >
+            <Text style={[styles.tabNum, { color: filter === 'not_working' ? '#fff' : '#ef4444' }]}>
+              {counts.idle}
+            </Text>
+            <Text style={[styles.tabLbl, { color: filter === 'not_working' ? '#fee2e2' : colors.textSecondary }]}>
+              خارج الدوام
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabChip,
+              {
+                backgroundColor: filter === 'all' ? colors.primary : colors.card,
+                borderColor: filter === 'all' ? colors.primary : colors.border,
+              },
+            ]}
+            onPress={() => setFilter('all')}
+          >
+            <Text style={[styles.tabNum, { color: filter === 'all' ? '#fff' : colors.textPrimary }]}>
+              {counts.total}
+            </Text>
+            <Text style={[styles.tabLbl, { color: filter === 'all' ? '#e0f2fe' : colors.textSecondary }]}>
+              الكل (بالمفاتيح)
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            },
+          ]}
+        >
+          <Ionicons name="search-outline" size={19} color={colors.textSecondary} />
+          <TextInput
+            style={[
+              styles.searchInput,
+              { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+            ]}
+            placeholder="ابحث برقم المفتاح، اسم المندوب، أو رقم اللوحة..."
+            placeholderTextColor={colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[
-            styles.tabItem,
-            filter === 'all' && [styles.activeTabItem, { borderColor: colors.primary, backgroundColor: colors.primary + '15' }],
-          ]}
-          onPress={() => setFilter('all')}
-        >
-          <Text style={[styles.tabLabel, { color: filter === 'all' ? colors.primary : colors.textSecondary }]}>
-            الكل ({delegates.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.tabItem,
-            filter === 'working' && [styles.activeTabItem, { borderColor: '#10B981', backgroundColor: '#10B98115' }],
-          ]}
-          onPress={() => setFilter('working')}
-        >
-          <View style={styles.tabBadgeRow}>
-            <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
-            <Text style={[styles.tabLabel, { color: filter === 'working' ? '#10B981' : colors.textSecondary }]}>
-              في الميدان ({workingCount})
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.tabItem,
-            filter === 'idle' && [styles.activeTabItem, { borderColor: '#6B7280', backgroundColor: '#6B728015' }],
-          ]}
-          onPress={() => setFilter('idle')}
-        >
-          <View style={styles.tabBadgeRow}>
-            <View style={[styles.statusDot, { backgroundColor: '#9CA3AF' }]} />
-            <Text style={[styles.tabLabel, { color: filter === 'idle' ? colors.textPrimary : colors.textSecondary }]}>
-              لم يبدأوا ({idleCount})
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      {/* Delegates List */}
-      <ScrollView
+      <FlatList
+        data={filteredDelegates}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderDelegateCard}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
         }
-      >
-        {filteredDelegates.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={48} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>لا يوجد مناديب مطابقين للبحث</Text>
+        ListEmptyComponent={
+          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="bicycle-outline" size={44} color={colors.textSecondary} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+              {filter === 'working'
+                ? 'لا يوجد مناديب في الميدان حالياً'
+                : 'لا يوجد مناديب مطابقون للبحث'}
+            </Text>
           </View>
-        ) : (
-          filteredDelegates.map((del) => {
-            const isWorking = !!del.is_working;
-            const plate = parsePlateComponents(del.motorcycle_number || '');
+        }
+      />
 
-            return (
-              <View
-                key={del.id}
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: isWorking ? '#10B98150' : colors.border,
-                    borderWidth: isWorking ? 1.5 : 1,
-                  },
-                ]}
-              >
-                {/* Top Row: Delegate Avatar & Info on Start, Status Badge on End */}
-                <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  {/* Start of card: Avatar + Name + Code/Phone */}
-                  <View style={[styles.delegateInfoRow, { flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 10, flex: 1 }]}>
-                    <View style={[styles.avatarCircle, { backgroundColor: isWorking ? '#10b98120' : colors.primaryLight }]}>
-                      {(del.photo_url || del.personal_image) ? (
-                        <Image source={{ uri: del.photo_url || del.personal_image }} style={styles.avatarImg} />
-                      ) : (
-                        <Text style={[styles.avatarInitial, { color: isWorking ? '#10b981' : colors.primary }]}>
-                          {del.name ? del.name.charAt(0) : 'م'}
-                        </Text>
-                      )}
-                    </View>
-                    <View style={[styles.nameBlock, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <Text style={[styles.delName, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {del.name}
-                        </Text>
-                        {del.branch_name ? (
-                          <View style={[styles.branchPill, { backgroundColor: colors.primaryLight }]}>
-                            <Text style={[styles.branchPillText, { color: colors.primary }]}>{del.branch_name}</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      <Text style={[styles.delPhone, { color: colors.textSecondary }]}>
-                        {del.employee_number ? `كود: ${del.employee_number} • ` : ''}{del.phone || del.national_id}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* End of card: Status Badge */}
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor: isWorking ? '#10B98115' : '#6B728015',
-                        borderColor: isWorking ? '#10B981' : '#9CA3AF',
-                        flexDirection: isRTL ? 'row-reverse' : 'row',
-                      },
-                    ]}
-                  >
-                    <View style={[styles.statusDot, { backgroundColor: isWorking ? '#10B981' : '#9CA3AF' }]} />
-                    <Text style={[styles.statusText, { color: isWorking ? '#10B981' : '#6B7280' }]}>
-                      {isWorking ? 'في الميدان' : 'لم يبدأ'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Middle Row: Plate on Start / Warning on End */}
-                <View style={[styles.cardMiddleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <View style={[styles.bikePlateWrap, { flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }]}>
-                    <Ionicons name="bicycle" size={16} color={colors.textSecondary} />
-                    {del.motorcycle_number ? (
-                      <SaudiPlateView
-                        digits={plate.digits}
-                        letters={plate.letters}
-                        editable={false}
-                        scale={0.52}
-                        isDarkMode={isDarkMode}
-                      />
-                    ) : (
-                      <Text style={[styles.noBikeText, { color: colors.textSecondary }]}>بدون دباب مسجل</Text>
-                    )}
-                  </View>
-
-                  {del.out_of_zone && (
-                    <View style={[styles.warningFlag, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <Ionicons name="warning" size={13} color="#EF4444" />
-                      <Text style={styles.warningFlagText}>خارج النطاق</Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Footer: Compact Action Button */}
-                <View style={styles.cardFooter}>
-                  {isWorking ? (
-                    <TouchableOpacity
-                      style={[styles.overrideBtn, { backgroundColor: '#EF444415', borderColor: '#EF4444' }]}
-                      onPress={() => openOverrideModal(del, 'end')}
-                    >
-                      <Ionicons name="stop-circle" size={16} color="#EF4444" />
-                      <Text style={[styles.overrideBtnText, { color: '#EF4444' }]}>إنهاء الوردية استثنائياً</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={[styles.overrideBtn, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}
-                      onPress={() => openOverrideModal(del, 'start')}
-                    >
-                      <Ionicons name="play-circle" size={16} color={colors.primary} />
-                      <Text style={[styles.overrideBtnText, { color: colors.primary }]}>بدء الوردية استثنائياً</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            );
-          })
-        )}
-      </ScrollView>
-
-      {/* Supervisor Shift Override Modal */}
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={closeOverrideModal}>
+      {/* Supervisor Override Start / End Shift Modal */}
+      <Modal
+        visible={Boolean(selectedDelegate && overrideMode)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setSelectedDelegate(null);
+          setOverrideMode(null);
+        }}
+      >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={styles.modalBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleBlock}>
-                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                  {modalMode === 'start' ? 'بدء وردية استثنائي' : 'إنهاء وردية استثنائي'}
-                </Text>
-                <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-                  المندوب: {selectedDelegate?.name}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={closeOverrideModal} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
+          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                {overrideMode === 'start'
+                  ? `بدء وردية: ${selectedDelegate?.name}`
+                  : `إنهاء وردية: ${selectedDelegate?.name}`}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedDelegate(null);
+                  setOverrideMode(null);
+                }}
+              >
+                <Ionicons name="close-circle" size={26} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            {errorMessage.length > 0 && (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={18} color="#EF4444" />
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            )}
-
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
-              {modalMode === 'start' ? (
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {overrideMode === 'start' && (
                 <>
-                  <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>قراءة العداد الحالية (كم) *</Text>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    رقم لوحة الدباب
+                  </Text>
                   <TextInput
-                    style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                    keyboardType="numeric"
-                    placeholder="مثال: 45200"
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: colors.inputBg,
+                        borderColor: colors.inputBorder,
+                        color: colors.textPrimary,
+                        textAlign: isRTL ? 'right' : 'left',
+                      },
+                    ]}
+                    placeholder="أدخل رقم اللوحة..."
                     placeholderTextColor={colors.textSecondary}
-                    value={startKm}
-                    onChangeText={setStartKm}
-                  />
-
-                  <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>رقم لوحة الدباب</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                    placeholder="مثال: 7030 ب ع"
-                    placeholderTextColor={colors.textSecondary}
-                    value={motorcycleNumber}
-                    onChangeText={setMotorcycleNumber}
-                  />
-                </>
-              ) : (
-                <>
-                  <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>قراءة العداد النهائية (كم) *</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                    keyboardType="numeric"
-                    placeholder="مثال: 45310"
-                    placeholderTextColor={colors.textSecondary}
-                    value={endKm}
-                    onChangeText={setEndKm}
-                  />
-
-                  <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>عدد الطلبات المنجزة *</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                    keyboardType="numeric"
-                    placeholder="مثال: 18"
-                    placeholderTextColor={colors.textSecondary}
-                    value={ordersCount}
-                    onChangeText={setOrdersCount}
-                  />
-
-                  <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>تكلفة البنزين (ريال)</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                    keyboardType="numeric"
-                    placeholder="مثال: 25"
-                    placeholderTextColor={colors.textSecondary}
-                    value={fuelCost}
-                    onChangeText={setFuelCost}
+                    value={bikeNum}
+                    onChangeText={setBikeNum}
                   />
                 </>
               )}
 
-              {/* Override Reason Presets */}
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>سبب التدخل الاستثنائي *</Text>
-              <View style={styles.presetsContainer}>
-                {(modalMode === 'start' ? REASON_PRESETS_START : REASON_PRESETS_END).map((preset) => (
-                  <TouchableOpacity
-                    key={preset}
+              <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                {overrideMode === 'start' ? 'كيلو البداية (كم)' : 'كيلو النهاية (كم)'}
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderColor: colors.inputBorder,
+                    color: colors.textPrimary,
+                    textAlign: 'center',
+                  },
+                ]}
+                placeholder="0"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="numeric"
+                value={kmValue}
+                onChangeText={(v) => setKmValue(toEnglishDigits(v))}
+              />
+
+              {overrideMode === 'end' && (
+                <>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    عدد الطلبات المنجزة
+                  </Text>
+                  <TextInput
                     style={[
-                      styles.presetBadge,
+                      styles.input,
                       {
-                        backgroundColor: overrideReason === preset ? colors.primary + '20' : colors.bg,
-                        borderColor: overrideReason === preset ? colors.primary : colors.border,
+                        backgroundColor: colors.inputBg,
+                        borderColor: colors.inputBorder,
+                        color: colors.textPrimary,
+                        textAlign: 'center',
                       },
                     ]}
-                    onPress={() => {
-                      setOverrideReason(preset);
-                      setCustomReason('');
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.presetText,
-                        { color: overrideReason === preset ? colors.primary : colors.textPrimary },
-                      ]}
-                    >
-                      {preset}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                    placeholder="0"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="numeric"
+                    value={ordersValue}
+                    onChangeText={(v) => setOrdersValue(toEnglishDigits(v))}
+                  />
+                </>
+              )}
 
+              <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                ملاحظات المشرف
+              </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, marginTop: 8 }]}
-                placeholder="أو اكتب سبب آخر مخصص..."
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderColor: colors.inputBorder,
+                    color: colors.textPrimary,
+                    textAlign: isRTL ? 'right' : 'left',
+                  },
+                ]}
+                placeholder="سبب التدخل الإداري..."
                 placeholderTextColor={colors.textSecondary}
-                value={customReason}
-                onChangeText={setCustomReason}
+                value={notesValue}
+                onChangeText={setNotesValue}
               />
 
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>ملاحظات المشرف</Text>
-              <TextInput
-                style={[styles.textArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                multiline
-                numberOfLines={3}
-                placeholder="ملاحظات توثيقية إضافية..."
-                placeholderTextColor={colors.textSecondary}
-                value={notes}
-                onChangeText={setNotes}
-              />
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
               <TouchableOpacity
-                style={[styles.submitBtn, { backgroundColor: modalMode === 'start' ? colors.primary : '#EF4444' }]}
+                style={[
+                  styles.submitOverrideBtn,
+                  { backgroundColor: overrideMode === 'start' ? '#10b981' : '#ef4444' },
+                ]}
                 onPress={handleSubmitOverride}
                 disabled={submitting}
               >
                 {submitting ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color="#ffffff" />
                 ) : (
-                  <Text style={styles.submitBtnText}>
-                    {modalMode === 'start' ? 'تأكيد بدء الوردية' : 'تأكيد إنهاء واعتماد الوردية'}
+                  <Text style={styles.submitOverrideBtnText}>
+                    {overrideMode === 'start' ? 'تأكيد بدء الوردية' : 'تأكيد إنهاء الوردية'}
                   </Text>
                 )}
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -596,274 +633,196 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  topArea: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  tabsRow: {
+    gap: 8,
+    marginBottom: 10,
+  },
+  tabChip: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     borderRadius: 12,
     borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabNum: {
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  tabLbl: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  searchBar: {
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    alignItems: 'center',
     gap: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    gap: 8,
-  },
-  tabItem: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  activeTabItem: {
-    borderWidth: 1,
-  },
-  tabBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  tabLabel: {
     fontSize: 13,
-    fontWeight: '700',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    height: '100%',
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 40,
-    gap: 12,
+    paddingTop: 4,
+    paddingBottom: 32,
   },
-  emptyContainer: {
+  emptyCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
-    gap: 12,
+    marginTop: 16,
+    gap: 8,
   },
-  emptyText: {
+  emptyTitle: {
     fontSize: 15,
+    fontWeight: '700',
   },
-  card: {
+  delegateCard: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 12,
-    gap: 10,
+    padding: 13,
+    marginBottom: 10,
   },
   cardTopRow: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  delegateInfoRow: {
-    alignItems: 'center',
     gap: 10,
-    flex: 1,
+    marginBottom: 10,
   },
-  avatarCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  keyBox: {
+    minWidth: 48,
+    height: 44,
+    borderRadius: 11,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  avatarImg: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-  },
-  avatarInitial: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  nameBlock: {
+    paddingHorizontal: 6,
     gap: 2,
-    flex: 1,
   },
-  delName: {
-    fontSize: 14,
+  keyNumberText: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  delegateName: {
+    fontSize: 15,
     fontWeight: '800',
   },
-  delPhone: {
-    fontSize: 11,
-  },
-  statusBadge: {
+  statusLine: {
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    borderWidth: 1,
+    marginTop: 3,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
   statusText: {
     fontSize: 11,
     fontWeight: '700',
   },
-  cardMiddleRow: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 2,
-  },
-  bikePlateWrap: {
+  commButtons: {
     alignItems: 'center',
     gap: 6,
   },
-  noBikeText: {
-    fontSize: 12,
-    fontStyle: 'italic',
-  },
-  warningFlag: {
-    flexDirection: 'row',
+  commBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EF444415',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
   },
-  warningFlagText: {
-    color: '#EF4444',
-    fontSize: 11,
+  infoStrip: {
+    borderRadius: 11,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    justifyContent: 'space-around',
+  },
+  infoCell: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  infoCellLabel: {
+    fontSize: 10,
     fontWeight: '700',
+    marginBottom: 2,
   },
-  cardFooter: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#6B728030',
-    paddingTop: 10,
+  infoCellValue: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   overrideBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
+    height: 40,
     borderRadius: 10,
     borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   overrideBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
   },
-  // Modal styles
-  modalOverlay: {
+  modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
-  modalCard: {
+  modalSheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
-    maxHeight: '90%',
+    maxHeight: '85%',
   },
   modalHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitleBlock: {
-    gap: 4,
+    marginBottom: 14,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
   },
-  modalSubtitle: {
-    fontSize: 13,
-  },
-  modalCloseBtn: {
-    padding: 6,
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#EF444415',
-    borderColor: '#EF4444',
-    borderWidth: 1,
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 12,
-  },
-  errorText: {
-    color: '#EF4444',
+  inputLabel: {
     fontSize: 12,
     fontWeight: '700',
-    flex: 1,
-  },
-  modalBody: {
-    maxHeight: 420,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 12,
-    marginBottom: 6,
+    marginBottom: 5,
+    marginTop: 8,
   },
   input: {
+    height: 44,
+    borderRadius: 11,
     borderWidth: 1,
-    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '700',
   },
-  textArea: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    height: 70,
-    textAlignVertical: 'top',
-  },
-  presetsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  presetBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  presetText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  modalFooter: {
-    marginTop: 16,
-  },
-  submitBtn: {
-    paddingVertical: 14,
+  submitOverrideBtn: {
+    height: 48,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 18,
+    marginBottom: 8,
   },
-  submitBtnText: {
-    color: '#fff',
+  submitOverrideBtnText: {
+    color: '#ffffff',
     fontSize: 15,
     fontWeight: '800',
-  },
-  branchPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  branchPillText: {
-    fontSize: 10,
-    fontWeight: '700',
   },
 });

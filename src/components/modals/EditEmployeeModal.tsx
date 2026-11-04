@@ -8,16 +8,18 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '@shared/theme';
 import { SaudiPlateView } from '@shared/components';
-import { parsePlateComponents } from '@shared/utils/plateUtils';
+import { parsePlateComponents, toEnglishDigits } from '@shared/utils/plateUtils';
 import { DelegateWithStatus, supervisorApi } from '../../services/supervisor';
 import { VehicleItem } from '../../services/operations';
+import { showBottomAlert } from './ActionAlertBottomSheet';
 
 interface EditEmployeeModalProps {
   visible: boolean;
@@ -29,6 +31,15 @@ interface EditEmployeeModalProps {
   isDarkMode: boolean;
   isRTL: boolean;
 }
+
+const DELIVERY_APPS = [
+  { key: 'ninja', label: 'نينجا (Ninja)' },
+  { key: 'jahez', label: 'جاهز (Jahez)' },
+  { key: 'hungerstation', label: 'هنقرستيشن' },
+  { key: 'keeta', label: 'كيتا (Keeta)' },
+  { key: 'mrsool', label: 'مرسول' },
+  { key: 'toyou', label: 'تو يو (ToYou)' },
+];
 
 export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
   visible,
@@ -78,7 +89,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
       setVehicleType(employee.vehicle_type || 'motorcycle');
       setMotorcycleNumber(employee.motorcycle_number || '');
       setKeyNumber(employee.key_number || '');
-      setApplicationType(employee.application_type || 'ninja');
+      setApplicationType((employee.application_type || 'ninja').toLowerCase());
       setApplicationId(employee.application_id || '');
       setIqamaExpirationDate(employee.iqama_expiration_date || '');
       setShowPasswordSection(false);
@@ -89,15 +100,15 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
     }
   }, [employee]);
 
-  // Filtered vehicles for picker
+  // Filtered vehicles for picker (supports Arabic & English digits)
   const filteredVehicles = useMemo(() => {
     if (!plateSearch.trim()) return vehicles;
-    const q = plateSearch.trim().toLowerCase();
-    return vehicles.filter(
-      (v) =>
-        (v.plate_number && v.plate_number.toLowerCase().includes(q)) ||
-        (v.key_number && v.key_number.toLowerCase().includes(q))
-    );
+    const q = toEnglishDigits(plateSearch.trim()).toLowerCase();
+    return vehicles.filter((v) => {
+      const p = toEnglishDigits(v.plate_number || '').toLowerCase();
+      const k = toEnglishDigits(v.key_number || '').toLowerCase();
+      return p.includes(q) || k.includes(q);
+    });
   }, [vehicles, plateSearch]);
 
   const plateComponents = useMemo(() => {
@@ -110,10 +121,29 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
 
     if (!name.trim()) {
       setErrorMsg('يرجى إدخال اسم الموظف');
+      showBottomAlert({
+        type: 'warning',
+        title: 'بيانات ناقصة',
+        message: 'يرجى إدخال اسم الموظف قبل الحفظ.',
+      });
       return;
     }
     if (!nationalId.trim()) {
       setErrorMsg('يرجى إدخال رقم الهوية أو الإقامة');
+      showBottomAlert({
+        type: 'warning',
+        title: 'بيانات ناقصة',
+        message: 'يرجى إدخال رقم الهوية أو الإقامة.',
+      });
+      return;
+    }
+
+    if (showPasswordSection && newPassword.trim() && newPassword.trim().length < 4) {
+      showBottomAlert({
+        type: 'warning',
+        title: 'تنبيه كلمة المرور',
+        message: 'كلمة المرور الجديدة يجب ألا تقل عن 4 خانات.',
+      });
       return;
     }
 
@@ -122,39 +152,45 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
 
       const payload: Record<string, any> = {
         name: name.trim(),
-        phone: phone.trim(),
-        national_id: nationalId.trim(),
-        employee_number: employeeNumber.trim(),
+        phone: toEnglishDigits(phone.trim()),
+        national_id: toEnglishDigits(nationalId.trim()),
+        employee_number: toEnglishDigits(employeeNumber.trim()),
         job_role: jobRole,
         shift,
         vehicle_type: vehicleType,
         motorcycle_number: motorcycleNumber.trim(),
-        key_number: keyNumber.trim(),
-        application_type: applicationType,
-        application_id: applicationId.trim(),
+        key_number: toEnglishDigits(keyNumber.trim()),
+        application_type: applicationType.trim(),
+        application_id: toEnglishDigits(applicationId.trim()),
         iqama_expiration_date: iqamaExpirationDate.trim() || undefined,
       };
 
       const res = await supervisorApi.updateEmployee(employee.id, payload);
 
       // Reset password if provided
-      if (showPasswordSection && newPassword.trim()) {
-        if (newPassword.trim().length < 4) {
-          Alert.alert('تنبيه', 'كلمة المرور يجب ألا تقل عن 4 خانات');
-        } else {
-          await supervisorApi.resetEmployeePassword(employee.id, newPassword.trim()).catch((err) => {
-            console.warn('[EditEmployeeModal] reset password error:', err);
-          });
-        }
+      if (showPasswordSection && newPassword.trim().length >= 4) {
+        await supervisorApi.resetEmployeePassword(employee.id, newPassword.trim()).catch((err) => {
+          console.warn('[EditEmployeePage] reset password error:', err);
+        });
       }
 
-      Alert.alert('نجاح', 'تم تحديث بيانات الموظف بنجاح');
       onSuccess(res?.data || { ...employee, ...payload });
       onClose();
+      setTimeout(() => {
+        showBottomAlert({
+          type: 'success',
+          title: 'تم الحفظ بنجاح',
+          message: `تم تحديث بيانات الموظف (${name.trim()}) بنجاح.`,
+        });
+      }, 150);
     } catch (err: any) {
       const msg = err?.message || 'حدث خطأ أثناء حفظ التعديلات';
       setErrorMsg(msg);
-      Alert.alert('خطأ', msg);
+      showBottomAlert({
+        type: 'error',
+        title: 'فشل الحفظ',
+        message: msg,
+      });
     } finally {
       setSaving(false);
     }
@@ -163,473 +199,307 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
   if (!visible || !employee) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
-      >
-        <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-          {/* Header */}
-          <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={[styles.modalTitleBlock, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-              <View style={[styles.headerIconRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.iconPill, { backgroundColor: colors.primary + '18' }]}>
-                  <Ionicons name="create-outline" size={20} color={colors.primary} />
-                </View>
-                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                  تعديل بيانات الموظف
-                </Text>
-              </View>
-              <Text style={[styles.modalSubTitle, { color: colors.textSecondary }]}>
-                {employee.name} {employee.employee_number ? `(${employee.employee_number})` : ''}
-              </Text>
-            </View>
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
+      <SafeAreaView style={[styles.pageContainer, { backgroundColor: colors.bg }]}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-            <TouchableOpacity
-              onPress={onClose}
-              disabled={saving}
-              style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#334155' : '#f1f5f9' }]}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
+        {/* Full-Page Top Navigation Bar */}
+        <View
+          style={[
+            styles.pageHeader,
+            {
+              backgroundColor: colors.card,
+              borderBottomColor: colors.border,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={onClose}
+            disabled={saving}
+            style={[
+              styles.backBtn,
+              { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' },
+            ]}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isRTL ? 'arrow-forward' : 'arrow-back'}
+              size={22}
+              color={colors.textPrimary}
+            />
+          </TouchableOpacity>
+
+          <View style={[styles.headerTitleWrap, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>
+              ملف وتعديل بيانات الموظف
+            </Text>
+            <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+              {employee.name} {keyNumber ? `• مفتاح رقم ${keyNumber}` : ''}
+            </Text>
           </View>
 
-          {/* Error Banner */}
-          {!!errorMsg && (
-            <View style={[styles.errorBanner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Ionicons name="alert-circle" size={18} color="#ef4444" />
-              <Text style={styles.errorBannerText}>{errorMsg}</Text>
+          {keyNumber ? (
+            <View style={[styles.keyHeaderBadge, { backgroundColor: colors.primary + '18', borderColor: colors.primary + '40' }]}>
+              <Ionicons name="key" size={14} color={colors.primary} />
+              <Text style={[styles.keyHeaderBadgeText, { color: colors.primary }]}>
+                {keyNumber}
+              </Text>
             </View>
-          )}
+          ) : null}
+        </View>
 
-          {/* Form Scroll Area */}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Section 1: Basic Information */}
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                البيانات الأساسية
-              </Text>
-            </View>
-
-            {/* Name */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                اسم الموظف *
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                    borderColor: colors.border,
-                    color: colors.textPrimary,
-                    textAlign: isRTL ? 'right' : 'left',
-                  },
-                ]}
-                value={name}
-                onChangeText={setName}
-                placeholder="الاسم الكامل"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-
-            {/* Phone & National ID Row */}
-            <View style={[styles.dualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  رقم الجوال
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="05xxxxxxxx"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  رقم الهوية / الإقامة *
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                  value={nationalId}
-                  onChangeText={setNationalId}
-                  placeholder="10 خانات"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="number-pad"
-                />
-              </View>
-            </View>
-
-            {/* Employee Number & Iqama Expiration Row */}
-            <View style={[styles.dualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  كود الموظف
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                  value={employeeNumber}
-                  onChangeText={setEmployeeNumber}
-                  placeholder="مثلاً: 1045"
-                  placeholderTextColor={colors.textSecondary}
-                />
-              </View>
-
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  تاريخ انتهاء الإقامة
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                  value={iqamaExpirationDate}
-                  onChangeText={setIqamaExpirationDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textSecondary}
-                />
-              </View>
-            </View>
-
-            {/* Job Role Selector */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                المسمى الوظيفي
-              </Text>
-              <View style={[styles.chipsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                {[
-                  { key: 'DRIVER', label: 'سائق / مندوب', icon: 'bicycle-outline' },
-                  { key: 'SUPERVISOR', label: 'مشرف ميداني', icon: 'shield-outline' },
-                  { key: 'ADMIN', label: 'إداري', icon: 'business-outline' },
-                ].map((item) => {
-                  const selected = jobRole === item.key;
-                  return (
-                    <TouchableOpacity
-                      key={item.key}
-                      onPress={() => setJobRole(item.key)}
-                      style={[
-                        styles.chip,
-                        {
-                          backgroundColor: selected
-                            ? colors.primary + '20'
-                            : isDarkMode
-                            ? '#1e293b'
-                            : '#f1f5f9',
-                          borderColor: selected ? colors.primary : colors.border,
-                          flexDirection: isRTL ? 'row-reverse' : 'row',
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={item.icon as any}
-                        size={16}
-                        color={selected ? colors.primary : colors.textSecondary}
-                      />
-                      <Text
-                        style={[
-                          styles.chipText,
-                          {
-                            color: selected ? colors.primary : colors.textPrimary,
-                            fontWeight: selected ? '700' : '500',
-                          },
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Shift Selector */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                وردية العمل
-              </Text>
-              <View style={[styles.chipsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                {[
-                  { key: 'morning', label: 'صباحي ☀️' },
-                  { key: 'evening', label: 'مسائي 🌙' },
-                  { key: 'flexible', label: 'مرن 🔄' },
-                ].map((item) => {
-                  const selected = shift === item.key;
-                  return (
-                    <TouchableOpacity
-                      key={item.key}
-                      onPress={() => setShift(item.key)}
-                      style={[
-                        styles.chip,
-                        {
-                          backgroundColor: selected
-                            ? '#10b98120'
-                            : isDarkMode
-                            ? '#1e293b'
-                            : '#f1f5f9',
-                          borderColor: selected ? '#10b981' : colors.border,
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          {
-                            color: selected ? '#10b981' : colors.textPrimary,
-                            fontWeight: selected ? '700' : '500',
-                          },
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Section 2: Vehicle & Fleet Details */}
-            <View style={[styles.sectionHeaderRow, { marginTop: 12 }]}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                بيانات المركبة والأسطول
-              </Text>
-            </View>
-
-            {/* Vehicle Type */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                نوع المركبة
-              </Text>
-              <View style={[styles.chipsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                {[
-                  { key: 'motorcycle', label: 'دراجة نارية (دباب)', icon: 'bicycle-outline' },
-                  { key: 'car', label: 'سيارة', icon: 'car-outline' },
-                ].map((item) => {
-                  const selected = vehicleType === item.key;
-                  return (
-                    <TouchableOpacity
-                      key={item.key}
-                      onPress={() => setVehicleType(item.key)}
-                      style={[
-                        styles.chip,
-                        {
-                          backgroundColor: selected
-                            ? '#0284c720'
-                            : isDarkMode
-                            ? '#1e293b'
-                            : '#f1f5f9',
-                          borderColor: selected ? '#0284c7' : colors.border,
-                          flexDirection: isRTL ? 'row-reverse' : 'row',
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={item.icon as any}
-                        size={16}
-                        color={selected ? '#0284c7' : colors.textSecondary}
-                      />
-                      <Text
-                        style={[
-                          styles.chipText,
-                          {
-                            color: selected ? '#0284c7' : colors.textPrimary,
-                            fontWeight: selected ? '700' : '500',
-                          },
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Motorcycle Plate & Key Row */}
-            <View style={[styles.dualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              {/* Plate Input with Picker Button */}
-              <View style={[styles.inputGroup, { flex: 1.4 }]}>
-                <View style={[styles.labelWithAction, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-                    رقم اللوحة
-                  </Text>
-                  {vehicles.length > 0 && (
-                    <TouchableOpacity
-                      onPress={() => setIsPlatePickerOpen(!isPlatePickerOpen)}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    >
-                      <Text style={[styles.pickerToggleText, { color: colors.primary }]}>
-                        {isPlatePickerOpen ? 'إدخال يدوي' : 'اختر من الأسطول'}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                  value={motorcycleNumber}
-                  onChangeText={setMotorcycleNumber}
-                  placeholder="مثال: 5443 ا ح"
-                  placeholderTextColor={colors.textSecondary}
-                />
-              </View>
-
-              {/* Key Number */}
-              <View style={[styles.inputGroup, { flex: 0.8 }]}>
-                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  رقم المفتاح
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                  value={keyNumber}
-                  onChangeText={setKeyNumber}
-                  placeholder="مثلاً: 39"
-                  placeholderTextColor={colors.textSecondary}
-                />
-              </View>
-            </View>
-
-            {/* Fleet Plate Quick Selector Dropdown */}
-            {isPlatePickerOpen && (
-              <View
-                style={[
-                  styles.pickerContainer,
-                  { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border },
-                ]}
-              >
-                <TextInput
-                  style={[
-                    styles.pickerSearchInput,
-                    {
-                      backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                  placeholder="بحث في مركبات الأسطول..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={plateSearch}
-                  onChangeText={setPlateSearch}
-                />
-                <ScrollView style={styles.pickerList} nestedScrollEnabled>
-                  {filteredVehicles.map((v) => (
-                    <TouchableOpacity
-                      key={v.id}
-                      style={[
-                        styles.pickerItem,
-                        {
-                          borderColor: colors.border,
-                          flexDirection: isRTL ? 'row-reverse' : 'row',
-                          backgroundColor:
-                            v.plate_number === motorcycleNumber ? colors.primary + '15' : 'transparent',
-                        },
-                      ]}
-                      onPress={() => {
-                        setMotorcycleNumber(v.plate_number || '');
-                        if (v.key_number) setKeyNumber(v.key_number);
-                        setIsPlatePickerOpen(false);
-                      }}
-                    >
-                      <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                        <Text style={[styles.pickerPlateText, { color: colors.textPrimary }]}>
-                          {v.plate_number}
-                        </Text>
-                        <Text style={[styles.pickerSubText, { color: colors.textSecondary }]}>
-                          {v.key_number ? `مفتاح: ${v.key_number} • ` : ''}عداد: {v.current_km || 0} كم
-                        </Text>
-                      </View>
-                      {v.plate_number === motorcycleNumber && (
-                        <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+            {/* Error Banner */}
+            {!!errorMsg && (
+              <View style={[styles.errorBanner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Ionicons name="alert-circle" size={18} color="#ef4444" />
+                <Text style={styles.errorBannerText}>{errorMsg}</Text>
               </View>
             )}
 
-            {/* Saudi Plate Preview */}
-            {!!motorcycleNumber.trim() && (
-              <View style={styles.platePreviewBox}>
+            {/* Card 1: Vehicle, Key Number & Compact Plate Preview */}
+            <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.cardTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.cardIconWrap, { backgroundColor: '#0284c718' }]}>
+                  <Ionicons name="bicycle" size={18} color="#0284c7" />
+                </View>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                  بيانات الدباب ورقم المفتاح
+                </Text>
+              </View>
+
+              {/* Compact Plate & Key Summary Banner */}
+              <View
+                style={[
+                  styles.compactPlateBanner,
+                  {
+                    backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                    borderColor: colors.border,
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+              >
+                <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start', gap: 6 }}>
+                  <View style={[styles.keyPillLarge, { backgroundColor: '#f59e0b18', borderColor: '#f59e0b50', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Ionicons name="key" size={15} color="#d97706" />
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#d97706' }}>
+                      مفتاح الدباب: {keyNumber || 'غير محدد'}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }}>
+                    {motorcycleNumber.trim()
+                      ? `اللوحة المسجلة: ${motorcycleNumber}`
+                      : 'لم يتم ربط لوحة دباب بعد'}
+                  </Text>
+                </View>
+
+                {/* Proportional Compact Plate (No extra vertical space) */}
                 <SaudiPlateView
                   digits={plateComponents.digits}
                   letters={plateComponents.letters}
                   editable={false}
-                  scale={0.65}
+                  scale={0.46}
                   isDarkMode={isDarkMode}
                 />
               </View>
-            )}
 
-            {/* Section 3: Delivery App Association */}
-            <View style={[styles.sectionHeaderRow, { marginTop: 12 }]}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                بيانات تطبيق التوصيل
-              </Text>
+              {/* Key Number & Plate Inputs Row */}
+              <View style={[styles.dualRow, { flexDirection: isRTL ? 'row-reverse' : 'row', marginTop: 12 }]}>
+                <View style={[styles.inputGroup, { flex: 0.85 }]}>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    رقم المفتاح
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                        borderColor: colors.border,
+                        color: colors.textPrimary,
+                        textAlign: 'center',
+                        fontWeight: '800',
+                        fontSize: 16,
+                      },
+                    ]}
+                    value={keyNumber}
+                    onChangeText={(val) => setKeyNumber(toEnglishDigits(val))}
+                    placeholder="مثلاً: 12"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="numeric"
+                  />
+                </View>
+
+                <View style={[styles.inputGroup, { flex: 1.45 }]}>
+                  <View style={[styles.labelWithAction, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                      رقم اللوحة (أرقام وحروف)
+                    </Text>
+                    {vehicles.length > 0 && (
+                      <TouchableOpacity
+                        onPress={() => setIsPlatePickerOpen(!isPlatePickerOpen)}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Text style={[styles.pickerToggleText, { color: colors.primary }]}>
+                          {isPlatePickerOpen ? 'إغلاق القائمة' : 'اختر من الأسطول'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                        borderColor: colors.border,
+                        color: colors.textPrimary,
+                        textAlign: isRTL ? 'right' : 'left',
+                        fontWeight: '700',
+                      },
+                    ]}
+                    value={motorcycleNumber}
+                    onChangeText={setMotorcycleNumber}
+                    placeholder="مثال: 5443 ا ح"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                </View>
+              </View>
+
+              {/* Fleet Plate Quick Selector Dropdown */}
+              {isPlatePickerOpen && (
+                <View
+                  style={[
+                    styles.pickerContainer,
+                    { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border },
+                  ]}
+                >
+                  <TextInput
+                    style={[
+                      styles.pickerSearchInput,
+                      {
+                        backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
+                        borderColor: colors.border,
+                        color: colors.textPrimary,
+                        textAlign: isRTL ? 'right' : 'left',
+                      },
+                    ]}
+                    placeholder="ابحث برقم اللوحة أو رقم المفتاح..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={plateSearch}
+                    onChangeText={setPlateSearch}
+                  />
+                  <ScrollView style={styles.pickerList} nestedScrollEnabled>
+                    {filteredVehicles.map((v) => (
+                      <TouchableOpacity
+                        key={v.id}
+                        style={[
+                          styles.pickerItem,
+                          {
+                            borderColor: colors.border,
+                            flexDirection: isRTL ? 'row-reverse' : 'row',
+                            backgroundColor:
+                              v.plate_number === motorcycleNumber ? colors.primary + '15' : 'transparent',
+                          },
+                        ]}
+                        onPress={() => {
+                          setMotorcycleNumber(v.plate_number || '');
+                          if (v.key_number) setKeyNumber(toEnglishDigits(v.key_number));
+                          setIsPlatePickerOpen(false);
+                        }}
+                      >
+                        <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                          <Text style={[styles.pickerPlateText, { color: colors.textPrimary }]}>
+                            {v.plate_number}
+                          </Text>
+                          <Text style={[styles.pickerSubText, { color: colors.textSecondary }]}>
+                            {v.key_number ? `مفتاح: ${v.key_number} • ` : ''}عداد: {v.current_km || 0} كم
+                          </Text>
+                        </View>
+                        {v.plate_number === motorcycleNumber && (
+                          <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Vehicle Type Selector */}
+              <View style={[styles.inputGroup, { marginTop: 4, marginBottom: 0 }]}>
+                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  نوع المركبة
+                </Text>
+                <View style={[styles.chipsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {[
+                    { key: 'motorcycle', label: 'دراجة نارية (دباب)', icon: 'bicycle-outline' },
+                    { key: 'car', label: 'سيارة', icon: 'car-outline' },
+                  ].map((item) => {
+                    const selected = vehicleType === item.key;
+                    return (
+                      <TouchableOpacity
+                        key={item.key}
+                        onPress={() => setVehicleType(item.key)}
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: selected
+                              ? '#0284c720'
+                              : isDarkMode
+                              ? '#1e293b'
+                              : '#f1f5f9',
+                            borderColor: selected ? '#0284c7' : colors.border,
+                            flexDirection: isRTL ? 'row-reverse' : 'row',
+                          },
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name={item.icon as any}
+                          size={16}
+                          color={selected ? '#0284c7' : colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.chipText,
+                            {
+                              color: selected ? '#0284c7' : colors.textPrimary,
+                              fontWeight: selected ? '700' : '500',
+                            },
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
             </View>
 
-            <View style={[styles.dualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              {/* App Type */}
-              <View style={[styles.inputGroup, { flex: 1 }]}>
+            {/* Card 2: Basic Employee Information */}
+            <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.cardTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.cardIconWrap, { backgroundColor: colors.primary + '18' }]}>
+                  <Ionicons name="person-outline" size={18} color={colors.primary} />
+                </View>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                  البيانات الشخصية والوظيفية
+                </Text>
+              </View>
+
+              {/* Name */}
+              <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  تطبيق التوصيل
+                  اسم الموظف *
                 </Text>
                 <TextInput
                   style={[
@@ -641,17 +511,258 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
                       textAlign: isRTL ? 'right' : 'left',
                     },
                   ]}
-                  value={applicationType}
-                  onChangeText={setApplicationType}
-                  placeholder="ninja, jahez..."
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="الاسم الكامل"
                   placeholderTextColor={colors.textSecondary}
                 />
               </View>
 
-              {/* Application ID */}
-              <View style={[styles.inputGroup, { flex: 1.2 }]}>
+              {/* Phone & National ID Row */}
+              <View style={[styles.dualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    رقم الجوال
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                        borderColor: colors.border,
+                        color: colors.textPrimary,
+                        textAlign: isRTL ? 'right' : 'left',
+                      },
+                    ]}
+                    value={phone}
+                    onChangeText={(v) => setPhone(toEnglishDigits(v))}
+                    placeholder="05xxxxxxxx"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    رقم الهوية / الإقامة *
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                        borderColor: colors.border,
+                        color: colors.textPrimary,
+                        textAlign: isRTL ? 'right' : 'left',
+                      },
+                    ]}
+                    value={nationalId}
+                    onChangeText={(v) => setNationalId(toEnglishDigits(v))}
+                    placeholder="10 خانات"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="number-pad"
+                  />
+                </View>
+              </View>
+
+              {/* Employee Number & Iqama Expiration Row */}
+              <View style={[styles.dualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    كود الموظف
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                        borderColor: colors.border,
+                        color: colors.textPrimary,
+                        textAlign: isRTL ? 'right' : 'left',
+                      },
+                    ]}
+                    value={employeeNumber}
+                    onChangeText={setEmployeeNumber}
+                    placeholder="مثلاً: 1045"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                </View>
+
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    تاريخ انتهاء الإقامة
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                        borderColor: colors.border,
+                        color: colors.textPrimary,
+                        textAlign: isRTL ? 'right' : 'left',
+                      },
+                    ]}
+                    value={iqamaExpirationDate}
+                    onChangeText={setIqamaExpirationDate}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                </View>
+              </View>
+
+              {/* Job Role & Shift */}
+              <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  معرف الموظف بالتطبيق
+                  المسمى الوظيفي
+                </Text>
+                <View style={[styles.chipsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {[
+                    { key: 'DRIVER', label: 'مندوب توصيل', icon: 'bicycle-outline' },
+                    { key: 'SUPERVISOR', label: 'مشرف ميداني', icon: 'shield-outline' },
+                    { key: 'ADMIN', label: 'إداري', icon: 'business-outline' },
+                  ].map((item) => {
+                    const selected = jobRole === item.key;
+                    return (
+                      <TouchableOpacity
+                        key={item.key}
+                        onPress={() => setJobRole(item.key)}
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: selected
+                              ? colors.primary + '20'
+                              : isDarkMode
+                              ? '#1e293b'
+                              : '#f1f5f9',
+                            borderColor: selected ? colors.primary : colors.border,
+                            flexDirection: isRTL ? 'row-reverse' : 'row',
+                          },
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name={item.icon as any}
+                          size={15}
+                          color={selected ? colors.primary : colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.chipText,
+                            {
+                              color: selected ? colors.primary : colors.textPrimary,
+                              fontWeight: selected ? '700' : '500',
+                            },
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={[styles.inputGroup, { marginBottom: 0 }]}>
+                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  وردية العمل
+                </Text>
+                <View style={[styles.chipsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {[
+                    { key: 'morning', label: 'صباحي ☀️' },
+                    { key: 'evening', label: 'مسائي 🌙' },
+                    { key: 'flexible', label: 'مرن 🔄' },
+                  ].map((item) => {
+                    const selected = shift === item.key;
+                    return (
+                      <TouchableOpacity
+                        key={item.key}
+                        onPress={() => setShift(item.key)}
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: selected
+                              ? '#10b98120'
+                              : isDarkMode
+                              ? '#1e293b'
+                              : '#f1f5f9',
+                            borderColor: selected ? '#10b981' : colors.border,
+                          },
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            {
+                              color: selected ? '#10b981' : colors.textPrimary,
+                              fontWeight: selected ? '700' : '500',
+                            },
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+
+            {/* Card 3: Delivery App & Identifier */}
+            <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.cardTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.cardIconWrap, { backgroundColor: '#10b98118' }]}>
+                  <Ionicons name="apps-outline" size={18} color="#10b981" />
+                </View>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                  منصة التوصيل والمعرف (ID)
+                </Text>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  اختر منصة التوصيل
+                </Text>
+                <View style={[styles.chipsContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {DELIVERY_APPS.map((app) => {
+                    const selected = applicationType.toLowerCase() === app.key;
+                    return (
+                      <TouchableOpacity
+                        key={app.key}
+                        onPress={() => setApplicationType(app.key)}
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: selected
+                              ? colors.primary + '20'
+                              : isDarkMode
+                              ? '#1e293b'
+                              : '#f1f5f9',
+                            borderColor: selected ? colors.primary : colors.border,
+                          },
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            {
+                              color: selected ? colors.primary : colors.textPrimary,
+                              fontWeight: selected ? '700' : '500',
+                            },
+                          ]}
+                        >
+                          {app.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={[styles.inputGroup, { marginBottom: 0 }]}>
+                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  المعرف في التطبيق (Application ID)
                 </Text>
                 <TextInput
                   style={[
@@ -661,22 +772,23 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
                       borderColor: colors.border,
                       color: colors.textPrimary,
                       textAlign: isRTL ? 'right' : 'left',
+                      fontWeight: '700',
                     },
                   ]}
                   value={applicationId}
                   onChangeText={setApplicationId}
-                  placeholder="ID في جاهز / نينجا"
+                  placeholder="معرف المندوب في نينجا / جاهز..."
                   placeholderTextColor={colors.textSecondary}
                 />
               </View>
             </View>
 
-            {/* Section 4: Security & Password Reset */}
+            {/* Card 4: Password Reset */}
             <TouchableOpacity
               style={[
                 styles.passwordToggleBtn,
                 {
-                  backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                  backgroundColor: colors.card,
                   borderColor: colors.border,
                   flexDirection: isRTL ? 'row-reverse' : 'row',
                 },
@@ -685,9 +797,9 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
               activeOpacity={0.7}
             >
               <View style={[styles.toggleLeft, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Ionicons name="key-outline" size={18} color="#f59e0b" />
+                <Ionicons name="lock-closed-outline" size={18} color="#f59e0b" />
                 <Text style={[styles.passwordToggleText, { color: colors.textPrimary }]}>
-                  إعادة تعيين كلمة المرور
+                  تغيير أو إعادة تعيين كلمة المرور للموظف
                 </Text>
               </View>
               <Ionicons
@@ -698,7 +810,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
             </TouchableOpacity>
 
             {showPasswordSection && (
-              <View style={styles.inputGroup}>
+              <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                   كلمة المرور الجديدة
                 </Text>
@@ -714,7 +826,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
                   ]}
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  placeholder="أدخل كلمة مرور جديدة"
+                  placeholder="أدخل كلمة مرور جديدة (4 خانات على الأقل)"
                   placeholderTextColor={colors.textSecondary}
                   secureTextEntry
                 />
@@ -722,90 +834,148 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
             )}
           </ScrollView>
 
-          {/* Footer Save Button */}
-          <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
+          {/* Bottom Sticky Save Bar */}
+          <View
+            style={[
+              styles.pageFooter,
+              {
+                backgroundColor: colors.card,
+                borderTopColor: colors.border,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.cancelBtn,
+                {
+                  backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={onClose}
+              disabled={saving}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>رجوع</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]}
               onPress={handleSave}
               disabled={saving}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
               {saving ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <View style={[styles.saveBtnRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Ionicons name="save-outline" size={20} color="#ffffff" />
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" />
                   <Text style={styles.saveBtnText}>حفظ التعديلات</Text>
                 </View>
               )}
             </TouchableOpacity>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  pageContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
   },
-  modalCard: {
-    maxHeight: '90%',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 16,
-    paddingHorizontal: 20,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-  },
-  modalHeader: {
+  pageHeader: {
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150, 150, 150, 0.15)',
+    gap: 12,
   },
-  modalTitleBlock: {
-    flex: 1,
-    gap: 3,
-  },
-  headerIconRow: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconPill: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalTitle: {
+  headerTitleWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  pageTitle: {
     fontSize: 17,
     fontWeight: '800',
   },
-  modalSubTitle: {
+  pageSubtitle: {
     fontSize: 12,
+    fontWeight: '600',
   },
-  closeBtn: {
+  keyHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  keyHeaderBadgeText: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 32,
+    gap: 14,
+  },
+  sectionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+  },
+  cardTitleRow: {
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  cardIconWrap: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  errorBanner: {
-    backgroundColor: '#ef444415',
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  compactPlateBanner: {
+    borderRadius: 14,
+    borderWidth: 1,
     padding: 10,
-    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  keyPillLarge: {
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: '#ef4444',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
     gap: 8,
-    marginVertical: 10,
   },
   errorBannerText: {
     color: '#ef4444',
@@ -813,43 +983,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
-  scrollContent: {
-    paddingVertical: 14,
-    gap: 14,
-  },
-  sectionHeaderRow: {
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
   inputGroup: {
-    gap: 6,
-  },
-  dualRow: {
-    gap: 12,
-    alignItems: 'flex-start',
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
+    marginBottom: 12,
   },
   labelWithAction: {
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 6,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   pickerToggleText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  input: {
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  dualRow: {
+    gap: 10,
   },
   chipsContainer: {
     flexWrap: 'wrap',
@@ -870,45 +1029,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     padding: 10,
-    maxHeight: 180,
+    marginBottom: 12,
+    maxHeight: 200,
   },
   pickerSearchInput: {
+    height: 38,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 12,
+    fontSize: 13,
     marginBottom: 8,
   },
   pickerList: {
-    maxHeight: 130,
+    maxHeight: 140,
   },
   pickerItem: {
     paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingHorizontal: 10,
     borderBottomWidth: 0.5,
-    justifyContent: 'space-between',
+    borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   pickerPlateText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   pickerSubText: {
     fontSize: 11,
-  },
-  platePreviewBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
+    marginTop: 2,
   },
   passwordToggleBtn: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    justifyContent: 'space-between',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     alignItems: 'center',
-    marginTop: 6,
+    justifyContent: 'space-between',
   },
   toggleLeft: {
     alignItems: 'center',
@@ -918,13 +1075,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  modalFooter: {
-    paddingVertical: 14,
+  pageFooter: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
+    gap: 10,
+  },
+  cancelBtn: {
+    flex: 0.4,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   saveBtn: {
-    borderRadius: 14,
-    paddingVertical: 13,
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },

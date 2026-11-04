@@ -8,13 +8,12 @@ import {
   RefreshControl,
   TextInput,
   Modal,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '@shared/theme';
 import { SaudiPlateView } from '@shared/components';
-import { parsePlateComponents } from '@shared/utils/plateUtils';
+import { parsePlateComponents, toEnglishDigits } from '@shared/utils/plateUtils';
 import {
   InventoryItem,
   VehicleItem,
@@ -23,10 +22,14 @@ import {
   CreateVehicleParams,
   ReportAccidentParams,
 } from '../services/operations';
+import { DelegateWithStatus } from '../services/supervisor';
+import { workApi } from '../services/work';
+import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
 
 export interface OperationsScreenProps {
   inventoryItems: InventoryItem[];
   vehicles: VehicleItem[];
+  employees?: DelegateWithStatus[];
   loading: boolean;
   onRefresh: () => void;
   colors: ThemeColors;
@@ -37,9 +40,14 @@ export interface OperationsScreenProps {
 
 type OperationsTab = 'oil' | 'fleet' | 'accidents';
 
+interface EnrichedVehicleItem extends VehicleItem {
+  courierName?: string;
+}
+
 export const OperationsScreen: React.FC<OperationsScreenProps> = ({
   inventoryItems,
   vehicles,
+  employees = [],
   loading,
   onRefresh,
   colors,
@@ -60,18 +68,70 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
   const [dispenseNotes, setDispenseNotes] = useState('');
   const [showDispenseDropdown, setShowDispenseDropdown] = useState(false);
 
-  // Filter matching vehicles for dispense oil
-  const matchingDispenseVehicles = useMemo(() => {
-    const q = dispensePlate.trim().toLowerCase();
-    if (!q) return [];
-    return vehicles.filter((v) => {
-      const p = (v.plate_number || '').toLowerCase();
-      const digitsOnly = p.replace(/\D/g, '');
-      const qDigitsOnly = q.replace(/\D/g, '');
-      if (qDigitsOnly && digitsOnly.includes(qDigitsOnly)) return true;
-      return p.includes(q);
+  // Merge Fleet Vehicles + Employee-assigned Motorcycles so NO bike is ever missing from autocomplete
+  const allSearchableBikes: EnrichedVehicleItem[] = useMemo(() => {
+    const map = new Map<string, EnrichedVehicleItem>();
+
+    vehicles.forEach((v) => {
+      if (!v.plate_number || !v.plate_number.trim()) return;
+      const normKey = toEnglishDigits(v.plate_number).replace(/\s+/g, '').toLowerCase();
+      map.set(normKey, { ...v });
     });
-  }, [dispensePlate, vehicles]);
+
+    employees.forEach((emp) => {
+      const plate = (emp.active_motorcycle || emp.motorcycle_number || '').trim();
+      if (!plate) return;
+      const normKey = toEnglishDigits(plate).replace(/\s+/g, '').toLowerCase();
+      const existing = map.get(normKey);
+      if (existing) {
+        if (!existing.key_number && emp.key_number) existing.key_number = emp.key_number;
+        if (!existing.courierName && emp.name) existing.courierName = emp.name;
+        if (!existing.current_km && emp.start_km) existing.current_km = emp.start_km;
+      } else {
+        map.set(normKey, {
+          id: `emp-bike-${emp.id}`,
+          plate_number: plate,
+          key_number: emp.key_number || '',
+          model: 'دباب توصيل',
+          status: 'ACTIVE',
+          current_km: emp.start_km || 0,
+          courierName: emp.name || '',
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [vehicles, employees]);
+
+  // Helper to filter bikes when user types >= 2 digits/characters (Arabic or English)
+  const filterBikesByQuery = (rawQuery: string): EnrichedVehicleItem[] => {
+    const normalizedQuery = toEnglishDigits(rawQuery.trim()).toLowerCase();
+    // Require at least 2 characters/digits so dropdown is accurate and responsive
+    const queryDigitsOnly = normalizedQuery.replace(/\D/g, '');
+    if (queryDigitsOnly.length < 2 && normalizedQuery.length < 2) {
+      return [];
+    }
+
+    return allSearchableBikes.filter((v) => {
+      const plateNorm = toEnglishDigits(v.plate_number || '').toLowerCase();
+      const plateDigits = plateNorm.replace(/\D/g, '');
+      const keyNorm = toEnglishDigits(v.key_number || '').toLowerCase();
+      const courierNorm = (v.courierName || '').toLowerCase();
+
+      if (queryDigitsOnly.length >= 2 && plateDigits.includes(queryDigitsOnly)) {
+        return true;
+      }
+      if (keyNorm && keyNorm === queryDigitsOnly) {
+        return true;
+      }
+      return plateNorm.includes(normalizedQuery) || courierNorm.includes(normalizedQuery);
+    });
+  };
+
+  const matchingDispenseVehicles = useMemo(
+    () => filterBikesByQuery(dispensePlate),
+    [dispensePlate, allSearchableBikes]
+  );
 
   // Add Vehicle State
   const [addVehicleModalVisible, setAddVehicleModalVisible] = useState(false);
@@ -87,19 +147,26 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
   const [accidentSeverity, setAccidentSeverity] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
   const [showAccidentDropdown, setShowAccidentDropdown] = useState(false);
 
-  // Filter matching vehicles for accident report
-  const matchingAccidentVehicles = useMemo(() => {
-    const q = accidentPlate.trim().toLowerCase();
-    if (!q) return [];
-    return vehicles.filter((v) => {
-      const p = (v.plate_number || '').toLowerCase();
-      const digitsOnly = p.replace(/\D/g, '');
-      const qDigitsOnly = q.replace(/\D/g, '');
-      if (qDigitsOnly && digitsOnly.includes(qDigitsOnly)) return true;
-      return p.includes(q);
-    });
-  }, [accidentPlate, vehicles]);
+  const matchingAccidentVehicles = useMemo(
+    () => filterBikesByQuery(accidentPlate),
+    [accidentPlate, allSearchableBikes]
+  );
 
+  // Select bike from dropdown and auto-fetch latest KM if needed
+  const handleSelectBikeForOil = async (bike: EnrichedVehicleItem) => {
+    setDispensePlate(bike.plate_number);
+    setShowDispenseDropdown(false);
+    if (bike.current_km && bike.current_km > 0) {
+      setDispenseKm(String(bike.current_km));
+    } else {
+      try {
+        const res = await workApi.getLastKM('', bike.plate_number);
+        if (res && res.last_end_km > 0) {
+          setDispenseKm(String(res.last_end_km));
+        }
+      } catch {}
+    }
+  };
 
   // Fleet Search & Filter State
   const [fleetSearchQuery, setFleetSearchQuery] = useState('');
@@ -108,54 +175,80 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
 
   // Filtered Vehicles
   const filteredVehicles = useMemo(() => {
-    return vehicles.filter((v) => {
+    return allSearchableBikes.filter((v) => {
       if (fleetStatusFilter === 'ACTIVE' && v.status !== 'ACTIVE') return false;
       if (fleetStatusFilter === 'MAINTENANCE' && v.status !== 'MAINTENANCE') return false;
 
       if (fleetSearchQuery.trim()) {
-        const q = fleetSearchQuery.toLowerCase().trim();
-        const matchPlate = (v.plate_number || '').toLowerCase().includes(q);
-        const matchModel = (v.model || '').toLowerCase().includes(q);
-        const matchVin = (v.vin || '').toLowerCase().includes(q);
-        return matchPlate || matchModel || matchVin;
+        const q = toEnglishDigits(fleetSearchQuery.trim()).toLowerCase();
+        const matchPlate = toEnglishDigits(v.plate_number || '').toLowerCase().includes(q);
+        const matchKey = toEnglishDigits(v.key_number || '').toLowerCase().includes(q);
+        const matchCourier = (v.courierName || '').toLowerCase().includes(q);
+        return matchPlate || matchKey || matchCourier;
       }
       return true;
     });
-  }, [vehicles, fleetStatusFilter, fleetSearchQuery]);
+  }, [allSearchableBikes, fleetStatusFilter, fleetSearchQuery]);
 
   // Toggle Vehicle Status
   const handleToggleVehicleStatus = async (v: VehicleItem) => {
+    if (String(v.id).startsWith('emp-bike-')) {
+      showBottomAlert({
+        type: 'warning',
+        title: 'تنبيه',
+        message: 'هذا الدباب مسجل في ملف الموظف فقط، يمكنك إضافته رسمياً للأسطول أولاً.',
+      });
+      return;
+    }
     const nextStatus = v.status === 'ACTIVE' ? 'MAINTENANCE' : 'ACTIVE';
     try {
       setUpdatingVehicleId(v.id);
       await operationsApi.updateVehicleStatus(v.id, nextStatus);
-      Alert.alert('تم بنجاح', nextStatus === 'ACTIVE' ? 'تم تنشيط الدباب وجعله جاهزاً بالخدمة' : 'تمت إحالة الدباب إلى مركز الصيانة');
       onRefresh();
+      showBottomAlert({
+        type: 'success',
+        title: 'تم تحديث الحالة',
+        message:
+          nextStatus === 'ACTIVE'
+            ? 'تم تنشيط الدباب وجعله جاهزاً بالخدمة.'
+            : 'تمت إحالة الدباب إلى مركز الصيانة.',
+      });
     } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشل تحديث حالة الدباب');
+      showBottomAlert({
+        type: 'error',
+        title: 'خطأ',
+        message: err?.message || 'فشل تحديث حالة الدباب.',
+      });
     } finally {
       setUpdatingVehicleId(null);
     }
   };
 
   // Quick Dispense Oil for specific vehicle
-  const handleQuickDispense = (v: VehicleItem) => {
+  const handleQuickDispense = (v: EnrichedVehicleItem) => {
     setDispensePlate(v.plate_number);
-    setDispenseKm(String(v.current_km || 0));
+    setDispenseKm(String(v.current_km || ''));
     setDispenseNotes('صرف زيت دوري معتمد');
     setDispenseModalVisible(true);
   };
 
-
   // Submit Dispense Oil
   const handleDispenseOil = async () => {
     if (!dispensePlate.trim()) {
-      Alert.alert('تنبيه', 'يرجى إدخال رقم لوحة الدباب');
+      showBottomAlert({
+        type: 'warning',
+        title: 'بيانات مطلوبة',
+        message: 'يرجى كتابة رقمين من اللوحة واختيار الدباب من القائمة المنسدلة.',
+      });
       return;
     }
-    const kmVal = Number(dispenseKm);
+    const kmVal = Number(toEnglishDigits(dispenseKm));
     if (isNaN(kmVal) || kmVal <= 0) {
-      Alert.alert('تنبيه', 'يرجى إدخال قراءة عداد صحيحة');
+      showBottomAlert({
+        type: 'warning',
+        title: 'قراءة العداد مطلوبة',
+        message: 'يرجى إدخال قراءة عداد الدباب الحالية (كم) بشكل صحيح.',
+      });
       return;
     }
 
@@ -165,18 +258,30 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
         motorcycleNumber: dispensePlate.trim(),
         currentKm: kmVal,
         oilItemId: oilItem?.id,
-        quantity: Number(dispenseQty) || 1,
+        quantity: Number(toEnglishDigits(dispenseQty)) || 1,
         notes: dispenseNotes.trim(),
       };
       await operationsApi.dispenseOil(params);
-      Alert.alert('تم بنجاح', `تم صرف الزيت وتحديث عداد الدباب ${dispensePlate}`);
+      const savedPlate = dispensePlate.trim();
       setDispenseModalVisible(false);
       setDispensePlate('');
       setDispenseKm('');
       setDispenseNotes('');
+      setShowDispenseDropdown(false);
       onRefresh();
+      setTimeout(() => {
+        showBottomAlert({
+          type: 'success',
+          title: 'تم صرف الزيت بنجاح',
+          message: `تم تسجيل غيار الزيت وتحديث عداد الدباب (${savedPlate}) عند ${kmVal} كم.`,
+        });
+      }, 150);
     } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشلت عملية صرف الزيت');
+      showBottomAlert({
+        type: 'error',
+        title: 'فشل صرف الزيت',
+        message: err?.message || 'تعذر إتمام عملية صرف الزيت، يرجى المحاولة مرة أخرى.',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -185,7 +290,11 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
   // Submit Create Vehicle
   const handleCreateVehicle = async () => {
     if (!newPlate.trim()) {
-      Alert.alert('تنبيه', 'يرجى إدخال رقم اللوحة');
+      showBottomAlert({
+        type: 'warning',
+        title: 'تنبيه',
+        message: 'يرجى إدخال رقم لوحة الدباب الجديد.',
+      });
       return;
     }
 
@@ -195,17 +304,28 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
         plateNumber: newPlate.trim(),
         model: newModel.trim(),
         vin: newVin.trim(),
-        initialKm: Number(newKm) || 0,
+        initialKm: Number(toEnglishDigits(newKm)) || 0,
       };
       await operationsApi.createVehicle(params);
-      Alert.alert('تم بنجاح', `تم تسجيل الدباب الجديد ${newPlate} في الأسطول`);
+      const savedPlate = newPlate.trim();
       setAddVehicleModalVisible(false);
       setNewPlate('');
       setNewVin('');
       setNewKm('0');
       onRefresh();
+      setTimeout(() => {
+        showBottomAlert({
+          type: 'success',
+          title: 'تمت الإضافة بنجاح',
+          message: `تم تسجيل الدباب الجديد (${savedPlate}) في أسطول الفرع.`,
+        });
+      }, 150);
     } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشل تسجيل الدباب الجديد');
+      showBottomAlert({
+        type: 'error',
+        title: 'خطأ في الإضافة',
+        message: err?.message || 'فشل تسجيل الدباب الجديد.',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -214,7 +334,11 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
   // Submit Accident Report
   const handleSubmitAccident = async () => {
     if (!accidentPlate.trim() || !accidentDesc.trim()) {
-      Alert.alert('تنبيه', 'يرجى كتابة رقم لوحة الدباب وتفاصيل الحادث');
+      showBottomAlert({
+        type: 'warning',
+        title: 'بيانات ناقصة',
+        message: 'يرجى اختيار رقم لوحة الدباب وكتابة تفاصيل الحادث.',
+      });
       return;
     }
 
@@ -227,19 +351,27 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
         severity: accidentSeverity,
       };
       await operationsApi.reportAccident(params);
-      Alert.alert('تم الإبلاغ', 'تم تسجيل بلاغ الحادث وإحالته كطلب صيانة طارئ للورشة');
       setAccidentDelName('');
       setAccidentPlate('');
       setAccidentDesc('');
+      setShowAccidentDropdown(false);
       onRefresh();
+      showBottomAlert({
+        type: 'success',
+        title: 'تم إرسال البلاغ',
+        message: 'تم تسجيل بلاغ الحادث وإحالته كطلب صيانة طارئ للورشة.',
+      });
     } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشل تسجيل بلاغ الحادث');
+      showBottomAlert({
+        type: 'error',
+        title: 'فشل الإرسال',
+        message: err?.message || 'فشل تسجيل بلاغ الحادث.',
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Oil stock calculation - search for oil items by type or name and read branch_quantity
   const oilItems = inventoryItems.filter(
     (item) =>
       item.type === 'oil' ||
@@ -252,18 +384,17 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
     oilItems.length > 0
       ? oilItems.reduce((acc, itm) => acc + (itm.branch_quantity ?? itm.quantity ?? 0), 0)
       : inventoryItems[0]
-      ? (inventoryItems[0].branch_quantity ?? inventoryItems[0].quantity ?? 0)
+      ? inventoryItems[0].branch_quantity ?? inventoryItems[0].quantity ?? 0
       : 0;
 
   const oilItem = oilItems[0] || inventoryItems[0];
   const isOilLow = totalOilQty <= (oilItem?.min_alert || oilItem?.min_limit || 5);
 
-  const activeVehiclesCount = vehicles.filter((v) => v.status === 'ACTIVE').length;
-  const maintenanceVehiclesCount = vehicles.filter((v) => v.status === 'MAINTENANCE').length;
+  const activeVehiclesCount = allSearchableBikes.filter((v) => v.status === 'ACTIVE').length;
+  const maintenanceVehiclesCount = allSearchableBikes.filter((v) => v.status === 'MAINTENANCE').length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Top Segmented Navigation Bar (shown only when mode === 'all') */}
       {mode === 'all' && (
         <View style={[styles.segmentContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TouchableOpacity
@@ -271,7 +402,7 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
             onPress={() => setActiveTab('oil')}
           >
             <Text style={[styles.segmentText, { color: activeTab === 'oil' ? '#fff' : colors.textSecondary }]}>
-              مخزن وزيت الفرع
+              تغيير الزيت والمخزن
             </Text>
           </TouchableOpacity>
 
@@ -280,7 +411,7 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
             onPress={() => setActiveTab('fleet')}
           >
             <Text style={[styles.segmentText, { color: activeTab === 'fleet' ? '#fff' : colors.textSecondary }]}>
-              الأسطول ({vehicles.length})
+              الأسطول ({allSearchableBikes.length})
             </Text>
           </TouchableOpacity>
 
@@ -298,6 +429,7 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }
@@ -305,25 +437,29 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
         {/* 1. OIL & WAREHOUSE TAB */}
         {activeTab === 'oil' && (
           <View style={styles.tabContent}>
-            {/* Inline Oil Dispense Form (shown prominently when mode === 'oil') */}
-            {mode === 'oil' && (
-              <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 14 }]}>
-                <View style={styles.kpiHeader}>
-                  <View style={[styles.iconCircle, { backgroundColor: colors.primary + '15' }]}>
-                    <Ionicons name="water" size={24} color={colors.primary} />
-                  </View>
-                  <View style={styles.kpiTextGroup}>
-                    <Text style={[styles.kpiTitle, { color: colors.textPrimary }]}>صرف زيت لدباب وتسجيل العداد</Text>
-                    <Text style={[styles.kpiSub, { color: colors.textSecondary }]}>
-                      اكتب أرقام اللوحة للاختيار الفوري من دبابات الأسطول
-                    </Text>
-                  </View>
+            <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.kpiHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.iconCircle, { backgroundColor: colors.primary + '15' }]}>
+                  <Ionicons name="water" size={24} color={colors.primary} />
                 </View>
+                <View style={[styles.kpiTextGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                  <Text style={[styles.kpiTitle, { color: colors.textPrimary }]}>
+                    صرف وتغيير زيت الدباب
+                  </Text>
+                  <Text style={[styles.kpiSub, { color: colors.textSecondary }]}>
+                    اكتب رقمين من اللوحة لتظهر لك قائمة الدبابات وتختار منها مباشرة
+                  </Text>
+                </View>
+              </View>
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>رقم لوحة الدباب *</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                رقم لوحة الدباب (اكتب رقمين للبحث التلقائي) *
+              </Text>
+              <View style={[styles.inputWithClear, { backgroundColor: colors.bg, borderColor: colors.primary, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Ionicons name="search-outline" size={18} color={colors.primary} />
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                  placeholder="اكتب أرقام اللوحة (مثال: 7030)..."
+                  style={[styles.flexInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                  placeholder="اكتب رقمين من اللوحة (مثال: 54 أو 70)..."
                   placeholderTextColor={colors.textSecondary}
                   value={dispensePlate}
                   onChangeText={(txt) => {
@@ -332,94 +468,143 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
                   }}
                   onFocus={() => setShowDispenseDropdown(true)}
                 />
+                {dispensePlate.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setDispensePlate('');
+                      setShowDispenseDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="close-circle" size={19} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
 
-                {/* Autocomplete Dropdown */}
-                {showDispenseDropdown && matchingDispenseVehicles.length > 0 && (
-                  <View style={[styles.autocompleteBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>
-                    <Text style={[styles.autocompleteHeader, { color: colors.primary }]}>دبابات الأسطول المطابقة (اضغط للاختيار):</Text>
-                    {matchingDispenseVehicles.slice(0, 5).map((v) => (
+              {/* Interactive Dropdown List when >= 2 digits typed */}
+              {showDispenseDropdown && matchingDispenseVehicles.length > 0 && (
+                <View style={[styles.autocompleteBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>
+                  <Text style={[styles.autocompleteHeader, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    الدبابات المطابقة ({matchingDispenseVehicles.length}) — اضغط للاختيار:
+                  </Text>
+                  <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {matchingDispenseVehicles.slice(0, 12).map((v) => (
                       <TouchableOpacity
                         key={v.id}
-                        style={[styles.autocompleteItem, { borderBottomColor: colors.border }]}
-                        onPress={() => {
-                          setDispensePlate(v.plate_number);
-                          setDispenseKm(String(v.current_km || 0));
-                          setShowDispenseDropdown(false);
-                        }}
+                        style={[
+                          styles.autocompleteItem,
+                          {
+                            borderBottomColor: colors.border,
+                            flexDirection: isRTL ? 'row-reverse' : 'row',
+                          },
+                        ]}
+                        onPress={() => handleSelectBikeForOil(v)}
                       >
-                        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-                          <Ionicons name="bicycle" size={16} color={colors.primary} />
-                          <Text style={[styles.autocompletePlate, { color: colors.textPrimary }]}>{v.plate_number}</Text>
+                        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                          <View style={[styles.bikeIconMini, { backgroundColor: colors.primary + '15' }]}>
+                            <Ionicons name="bicycle" size={16} color={colors.primary} />
+                          </View>
+                          <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
+                            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={[styles.autocompletePlate, { color: colors.textPrimary }]}>
+                                {v.plate_number}
+                              </Text>
+                              {!!v.key_number && (
+                                <View style={styles.keyMiniBadge}>
+                                  <Text style={styles.keyMiniBadgeText}>مفتاح {v.key_number}</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={[styles.autocompleteKm, { color: colors.textSecondary }]} numberOfLines={1}>
+                              {v.courierName ? `المندوب: ${v.courierName} • ` : ''}
+                              العداد: {v.current_km || 0} كم
+                            </Text>
+                          </View>
                         </View>
-                        <Text style={[styles.autocompleteKm, { color: colors.textSecondary }]}>
-                          {v.model || 'دباب'} • {v.current_km || 0} كم
-                        </Text>
+                        <Ionicons name="add-circle" size={20} color={colors.primary} />
                       </TouchableOpacity>
                     ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Compact Plate Preview once selected */}
+              {dispensePlate.trim().length > 0 && !showDispenseDropdown && (() => {
+                const parsed = parsePlateComponents(dispensePlate);
+                return (
+                  <View style={{ alignItems: 'center', marginVertical: 4 }}>
+                    <SaudiPlateView
+                      digits={parsed.digits}
+                      letters={parsed.letters}
+                      editable={false}
+                      scale={0.5}
+                      isDarkMode={isDarkMode}
+                    />
                   </View>
-                )}
+                );
+              })()}
 
-                {dispensePlate.trim().length > 0 && (() => {
-                  const parsed = parsePlateComponents(dispensePlate);
-                  return (
-                    <View style={{ alignItems: 'center', marginVertical: 6 }}>
-                      <SaudiPlateView
-                        digits={parsed.digits}
-                        letters={parsed.letters}
-                        editable={false}
-                        scale={0.7}
-                        isDarkMode={isDarkMode}
-                      />
-                    </View>
-                  );
-                })()}
+              <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: 10 }}>
+                <View style={{ flex: 1.3 }}>
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    قراءة العداد الحالية (كم) *
+                  </Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: 'center', fontWeight: '800' }]}
+                    keyboardType="numeric"
+                    placeholder="مثال: 45200"
+                    placeholderTextColor={colors.textSecondary}
+                    value={dispenseKm}
+                    onChangeText={(v) => setDispenseKm(toEnglishDigits(v))}
+                  />
+                </View>
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>قراءة العداد الحالية (كم) *</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                  keyboardType="numeric"
-                  placeholder="مثال: 45200"
-                  placeholderTextColor={colors.textSecondary}
-                  value={dispenseKm}
-                  onChangeText={setDispenseKm}
-                />
-
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>عدد العلب المنصرفة</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                  keyboardType="numeric"
-                  value={dispenseQty}
-                  onChangeText={setDispenseQty}
-                />
-
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>ملاحظات</Text>
-                <TextInput
-                  style={[styles.textArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                  multiline
-                  numberOfLines={2}
-                  placeholder="ملاحظات اختيارية..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={dispenseNotes}
-                  onChangeText={setDispenseNotes}
-                />
-
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: colors.primary, marginTop: 12 }]}
-                  onPress={handleDispenseOil}
-                  disabled={submitting}
-                >
-                  {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>تأكيد صرف الزيت</Text>}
-                </TouchableOpacity>
+                <View style={{ flex: 0.7 }}>
+                  <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    عدد العلب
+                  </Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: 'center', fontWeight: '800' }]}
+                    keyboardType="numeric"
+                    value={dispenseQty}
+                    onChangeText={(v) => setDispenseQty(toEnglishDigits(v))}
+                  />
+                </View>
               </View>
-            )}
+
+              <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
+                ملاحظات (اختياري)
+              </Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder="ملاحظات إضافية..."
+                placeholderTextColor={colors.textSecondary}
+                value={dispenseNotes}
+                onChangeText={setDispenseNotes}
+              />
+
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: colors.primary, marginTop: 8 }]}
+                onPress={handleDispenseOil}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                    <Text style={styles.actionBtnText}>تأكيد تغيير وصرف الزيت</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
 
             {/* Oil Stock KPI Card */}
             <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: isOilLow ? '#EF4444' : colors.border }]}>
-              <View style={styles.kpiHeader}>
+              <View style={[styles.kpiHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={[styles.iconCircle, { backgroundColor: isOilLow ? '#EF444415' : colors.primary + '15' }]}>
                   <Ionicons name="color-fill" size={24} color={isOilLow ? '#EF4444' : colors.primary} />
                 </View>
-                <View style={styles.kpiTextGroup}>
+                <View style={[styles.kpiTextGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                   <Text style={[styles.kpiTitle, { color: colors.textPrimary }]}>مخزون زيت المحركات بالفرع</Text>
                   <Text style={[styles.kpiSub, { color: colors.textSecondary }]}>
                     {oilItem?.name || 'عبوات زيت المحرك المعتمدة'}
@@ -427,7 +612,7 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
                 </View>
               </View>
 
-              <View style={styles.qtyRow}>
+              <View style={[styles.qtyRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <Text style={[styles.qtyNumber, { color: isOilLow ? '#EF4444' : colors.textPrimary }]}>
                   {totalOilQty}
                 </Text>
@@ -435,62 +620,24 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
                 {isOilLow && (
                   <View style={styles.lowStockBadge}>
                     <Ionicons name="alert-circle" size={14} color="#EF4444" />
-                    <Text style={styles.lowStockText}>مخزون منخفض - يلزم طلب توريد</Text>
+                    <Text style={styles.lowStockText}>مخزون منخفض</Text>
                   </View>
                 )}
               </View>
-
-              {mode !== 'oil' && (
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                  onPress={() => setDispenseModalVisible(true)}
-                >
-                  <Ionicons name="water" size={18} color="#fff" />
-                  <Text style={styles.actionBtnText}>صرف زيت لدباب وتسجيل العداد</Text>
-                </TouchableOpacity>
-              )}
             </View>
-
-
-            {/* Warehouse Items List */}
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>المواد المتوفرة في المستودع</Text>
-            {inventoryItems.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Ionicons name="cube-outline" size={40} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>لا توجد مواد مسجلة بالمستودع</Text>
-              </View>
-            ) : (
-              inventoryItems.map((item) => (
-                <View key={item.id} style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={styles.itemInfo}>
-                    <Text style={[styles.itemName, { color: colors.textPrimary }]}>{item.name}</Text>
-                    <Text style={[styles.itemCat, { color: colors.textSecondary }]}>
-                      {item.category || 'مستهلكات عامة'}
-                    </Text>
-                  </View>
-                  <View style={styles.itemQtyBadge}>
-                    <Text style={[styles.itemQtyText, { color: colors.primary }]}>
-                      {item.branch_quantity ?? item.quantity ?? 0}
-                    </Text>
-                    <Text style={[styles.itemUnitText, { color: colors.textSecondary }]}>{item.unit || 'علبة'}</Text>
-                  </View>
-                </View>
-              ))
-            )}
           </View>
         )}
 
         {/* 2. FLEET MANAGEMENT TAB */}
         {activeTab === 'fleet' && (
           <View style={styles.tabContent}>
-            {/* Inline Add Vehicle Form (shown when mode === 'add-vehicle') */}
             {mode === 'add-vehicle' && (
               <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 14 }]}>
-                <View style={styles.kpiHeader}>
+                <View style={[styles.kpiHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <View style={[styles.iconCircle, { backgroundColor: '#10B98115' }]}>
                     <Ionicons name="add-circle" size={24} color="#10B981" />
                   </View>
-                  <View style={styles.kpiTextGroup}>
+                  <View style={[styles.kpiTextGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                     <Text style={[styles.kpiTitle, { color: colors.textPrimary }]}>إضافة وتوثيق دباب جديد بالأسطول</Text>
                     <Text style={[styles.kpiSub, { color: colors.textSecondary }]}>
                       سجل بيانات الدباب الجديد ليتم ربطه تلقائياً بالفرع
@@ -498,9 +645,9 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
                   </View>
                 </View>
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>رقم اللوحة *</Text>
+                <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>رقم اللوحة *</Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
                   placeholder="مثال: 8022 ب ع"
                   placeholderTextColor={colors.textSecondary}
                   value={newPlate}
@@ -510,44 +657,35 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
                 {newPlate.trim().length > 0 && (() => {
                   const parsed = parsePlateComponents(newPlate);
                   return (
-                    <View style={{ alignItems: 'center', marginVertical: 6 }}>
+                    <View style={{ alignItems: 'center', marginVertical: 4 }}>
                       <SaudiPlateView
                         digits={parsed.digits}
                         letters={parsed.letters}
                         editable={false}
-                        scale={0.7}
+                        scale={0.5}
                         isDarkMode={isDarkMode}
                       />
                     </View>
                   );
                 })()}
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>الموديل والنوع</Text>
+                <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>الموديل والنوع</Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
                   value={newModel}
                   onChangeText={setNewModel}
                 />
 
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>رقم الهيكل (VIN)</Text>
+                <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>قراءة العداد الابتدائية (كم)</Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                  placeholder="اختياري..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={newVin}
-                  onChangeText={setNewVin}
-                />
-
-                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>قراءة العداد الابتدائية (كم)</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                  style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: 'center' }]}
                   keyboardType="numeric"
                   value={newKm}
-                  onChangeText={setNewKm}
+                  onChangeText={(v) => setNewKm(toEnglishDigits(v))}
                 />
 
                 <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: colors.primary, marginTop: 14 }]}
+                  style={[styles.actionBtn, { backgroundColor: colors.primary, marginTop: 10 }]}
                   onPress={handleCreateVehicle}
                   disabled={submitting}
                 >
@@ -560,8 +698,8 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
             <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.fleetStatsRow}>
                 <View style={styles.fleetStatCol}>
-                  <Text style={[styles.fleetStatNum, { color: colors.textPrimary }]}>{vehicles.length}</Text>
-                  <Text style={[styles.fleetStatLbl, { color: colors.textSecondary }]}>إجمالي الأسطول</Text>
+                  <Text style={[styles.fleetStatNum, { color: colors.textPrimary }]}>{allSearchableBikes.length}</Text>
+                  <Text style={[styles.fleetStatLbl, { color: colors.textSecondary }]}>إجمالي الدبابات</Text>
                 </View>
                 <View style={styles.fleetStatCol}>
                   <Text style={[styles.fleetStatNum, { color: '#10B981' }]}>{activeVehiclesCount}</Text>
@@ -572,25 +710,14 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
                   <Text style={[styles.fleetStatLbl, { color: colors.textSecondary }]}>في الصيانة</Text>
                 </View>
               </View>
-
-              {mode !== 'add-vehicle' && (
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: colors.primary, marginTop: 12 }]}
-                  onPress={() => setAddVehicleModalVisible(true)}
-                >
-                  <Ionicons name="add-circle" size={18} color="#fff" />
-                  <Text style={styles.actionBtnText}>إضافة وتوثيق دباب جديد</Text>
-                </TouchableOpacity>
-              )}
             </View>
 
-
             {/* Fleet Search Bar */}
-            <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Ionicons name="search" size={18} color={colors.textSecondary} />
               <TextInput
                 style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder="ابحث برقم اللوحة، الموديل، أو الشاصي..."
+                placeholder="ابحث برقم اللوحة، رقم المفتاح، أو اسم المندوب..."
                 placeholderTextColor={colors.textSecondary}
                 value={fleetSearchQuery}
                 onChangeText={setFleetSearchQuery}
@@ -602,206 +729,107 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
               )}
             </View>
 
-            {/* Filter Pills */}
-            <View style={styles.filterPillsRow}>
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  fleetStatusFilter === 'ALL' && [styles.filterPillActive, { backgroundColor: colors.primary }],
-                ]}
-                onPress={() => setFleetStatusFilter('ALL')}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    { color: fleetStatusFilter === 'ALL' ? '#fff' : colors.textSecondary },
-                  ]}
-                >
-                  الكل ({vehicles.length})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  fleetStatusFilter === 'ACTIVE' && [styles.filterPillActive, { backgroundColor: '#10B981' }],
-                ]}
-                onPress={() => setFleetStatusFilter('ACTIVE')}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    { color: fleetStatusFilter === 'ACTIVE' ? '#fff' : colors.textSecondary },
-                  ]}
-                >
-                  جاهز بالخدمة ({activeVehiclesCount})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  fleetStatusFilter === 'MAINTENANCE' && [styles.filterPillActive, { backgroundColor: '#F59E0B' }],
-                ]}
-                onPress={() => setFleetStatusFilter('MAINTENANCE')}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    { color: fleetStatusFilter === 'MAINTENANCE' ? '#fff' : colors.textSecondary },
-                  ]}
-                >
-                  في الصيانة ({maintenanceVehiclesCount})
-                </Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Vehicle List */}
-            {filteredVehicles.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Ionicons name="bicycle-outline" size={44} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  {fleetSearchQuery ? `لا توجد دبابات مطابقة لـ "${fleetSearchQuery}"` : 'لا توجد دبابات مسجلة بهذا التصنيف'}
-                </Text>
-              </View>
-            ) : (
-              filteredVehicles.map((v) => {
-                const plate = parsePlateComponents(v.plate_number || '');
-                const isActive = v.status === 'ACTIVE';
-                const isUpdating = updatingVehicleId === v.id;
+            {filteredVehicles.map((v) => {
+              const plate = parsePlateComponents(v.plate_number || '');
+              const isActive = v.status === 'ACTIVE';
+              const isUpdating = updatingVehicleId === v.id;
 
-                return (
-                  <View key={v.id} style={[styles.fleetCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    {/* Header Row: Plate + Status Badge */}
-                    <View style={styles.fleetCardHeader}>
-                      <SaudiPlateView
-                        digits={plate.digits}
-                        letters={plate.letters}
-                        editable={false}
-                        scale={0.72}
-                        isDarkMode={isDarkMode}
-                      />
-
-                      <View
-                        style={[
-                          styles.statusTag,
-                          {
-                            backgroundColor: isActive ? '#10B98115' : '#F59E0B15',
-                            borderColor: isActive ? '#10B981' : '#F59E0B',
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.statusTagText, { color: isActive ? '#10B981' : '#F59E0B' }]}>
-                          {isActive ? 'جاهز بالخدمة' : 'في الصيانة'}
+              return (
+                <View key={v.id} style={[styles.fleetCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View style={[styles.fleetCardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start', gap: 4 }}>
+                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textPrimary }}>
+                          {v.plate_number}
                         </Text>
-                      </View>
-                    </View>
-
-                    {/* Meta Row: Model, KM, VIN */}
-                    <View style={[styles.fleetMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <View style={styles.fleetMetaItem}>
-                        <Ionicons name="speedometer-outline" size={15} color={colors.primary} />
-                        <Text style={[styles.fleetMetaVal, { color: colors.textPrimary }]}>
-                          {v.current_km ? `${v.current_km} كم` : '0 كم'}
-                        </Text>
-                      </View>
-
-                      <View style={styles.fleetMetaItem}>
-                        <Ionicons name="bicycle-outline" size={15} color={colors.textSecondary} />
-                        <Text style={[styles.fleetMetaVal, { color: colors.textSecondary }]}>
-                          {v.model || 'دباب توصيل'}
-                        </Text>
-                      </View>
-
-                      {v.vin ? (
-                        <View style={styles.fleetMetaItem}>
-                          <Ionicons name="barcode-outline" size={15} color={colors.textSecondary} />
-                          <Text style={[styles.fleetMetaVal, { color: colors.textSecondary }]}>
-                            {v.vin.slice(-6)}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-
-                    {/* Actions Row: Toggle Status + Quick Dispense */}
-                    <View style={[styles.fleetActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                      <TouchableOpacity
-                        style={[
-                          styles.fleetActionBtn,
-                          {
-                            backgroundColor: isActive ? '#F59E0B15' : '#10B98115',
-                            borderColor: isActive ? '#F59E0B' : '#10B981',
-                          },
-                        ]}
-                        onPress={() => handleToggleVehicleStatus(v)}
-                        disabled={isUpdating}
-                      >
-                        {isUpdating ? (
-                          <ActivityIndicator size="small" color={isActive ? '#F59E0B' : '#10B981'} />
-                        ) : (
-                          <>
-                            <Ionicons
-                              name={isActive ? 'build-outline' : 'checkmark-circle-outline'}
-                              size={16}
-                              color={isActive ? '#F59E0B' : '#10B981'}
-                            />
-                            <Text
-                              style={[
-                                styles.fleetActionBtnText,
-                                { color: isActive ? '#F59E0B' : '#10B981' },
-                              ]}
-                            >
-                              {isActive ? 'إحالة للصيانة' : 'تنشيط للخدمة'}
-                            </Text>
-                          </>
+                        {!!v.key_number && (
+                          <View style={styles.keyMiniBadge}>
+                            <Text style={styles.keyMiniBadgeText}>مفتاح {v.key_number}</Text>
+                          </View>
                         )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.fleetActionBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
-                        onPress={() => handleQuickDispense(v)}
-                      >
-                        <Ionicons name="water-outline" size={16} color={colors.primary} />
-                        <Text style={[styles.fleetActionBtnText, { color: colors.primary }]}>صرف زيت</Text>
-                      </TouchableOpacity>
+                      </View>
+                      {!!v.courierName && (
+                        <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                          المندوب: {v.courierName}
+                        </Text>
+                      )}
+                      <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
+                        العداد: {v.current_km || 0} كم
+                      </Text>
                     </View>
+
+                    <SaudiPlateView
+                      digits={plate.digits}
+                      letters={plate.letters}
+                      editable={false}
+                      scale={0.44}
+                      isDarkMode={isDarkMode}
+                    />
                   </View>
-                );
-              })
-            )}
+
+                  <View style={[styles.fleetActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <TouchableOpacity
+                      style={[
+                        styles.fleetActionBtn,
+                        {
+                          backgroundColor: isActive ? '#F59E0B15' : '#10B98115',
+                          borderColor: isActive ? '#F59E0B' : '#10B981',
+                        },
+                      ]}
+                      onPress={() => handleToggleVehicleStatus(v)}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? (
+                        <ActivityIndicator size="small" color={isActive ? '#F59E0B' : '#10B981'} />
+                      ) : (
+                        <>
+                          <Ionicons
+                            name={isActive ? 'build-outline' : 'checkmark-circle-outline'}
+                            size={16}
+                            color={isActive ? '#F59E0B' : '#10B981'}
+                          />
+                          <Text style={[styles.fleetActionBtnText, { color: isActive ? '#F59E0B' : '#10B981' }]}>
+                            {isActive ? 'إحالة للصيانة' : 'تنشيط للخدمة'}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.fleetActionBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+                      onPress={() => handleQuickDispense(v)}
+                    >
+                      <Ionicons name="water-outline" size={16} color={colors.primary} />
+                      <Text style={[styles.fleetActionBtnText, { color: colors.primary }]}>صرف زيت</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         )}
 
-        {/* 3. ACCIDENTS & EMERGENCY INCIDENTS TAB */}
+        {/* 3. ACCIDENTS TAB */}
         {activeTab === 'accidents' && (
           <View style={styles.tabContent}>
             <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: '#EF444450' }]}>
-              <View style={styles.kpiHeader}>
+              <View style={[styles.kpiHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={[styles.iconCircle, { backgroundColor: '#EF444415' }]}>
                   <Ionicons name="warning" size={24} color="#EF4444" />
                 </View>
-                <View style={styles.kpiTextGroup}>
+                <View style={[styles.kpiTextGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                   <Text style={[styles.kpiTitle, { color: colors.textPrimary }]}>تسجيل بلاغ حادث أو عطل طارئ</Text>
                   <Text style={[styles.kpiSub, { color: colors.textSecondary }]}>
-                    يتم إحالة البلاغ مباشرة لورشة الصيانة بأولوية عاجلة
+                    اكتب رقمين من اللوحة لاختيار الدباب مباشرة
                   </Text>
                 </View>
               </View>
 
-              {/* Form Inputs */}
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>اسم المندوب المعني</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>رقم لوحة الدباب المتضرر *</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                placeholder="اسم المندوب..."
-                placeholderTextColor={colors.textSecondary}
-                value={accidentDelName}
-                onChangeText={setAccidentDelName}
-              />
-
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>رقم لوحة الدباب المتضرر *</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                placeholder="اكتب أرقام اللوحة (مثال: 7030)..."
+                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder="اكتب رقمين من اللوحة..."
                 placeholderTextColor={colors.textSecondary}
                 value={accidentPlate}
                 onChangeText={(txt) => {
@@ -811,49 +839,51 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
                 onFocus={() => setShowAccidentDropdown(true)}
               />
 
-              {/* Autocomplete Dropdown */}
               {showAccidentDropdown && matchingAccidentVehicles.length > 0 && (
                 <View style={[styles.autocompleteBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>
-                  <Text style={[styles.autocompleteHeader, { color: colors.primary }]}>دبابات الأسطول المطابقة (اضغط للاختيار):</Text>
-                  {matchingAccidentVehicles.slice(0, 5).map((v) => (
+                  <Text style={[styles.autocompleteHeader, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    الدبابات المطابقة (اضغط للاختيار):
+                  </Text>
+                  {matchingAccidentVehicles.slice(0, 6).map((v) => (
                     <TouchableOpacity
                       key={v.id}
-                      style={[styles.autocompleteItem, { borderBottomColor: colors.border }]}
+                      style={[styles.autocompleteItem, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                       onPress={() => {
                         setAccidentPlate(v.plate_number);
+                        if (v.courierName && !accidentDelName) {
+                          setAccidentDelName(v.courierName);
+                        }
                         setShowAccidentDropdown(false);
                       }}
                     >
                       <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
                         <Ionicons name="bicycle" size={16} color={colors.primary} />
                         <Text style={[styles.autocompletePlate, { color: colors.textPrimary }]}>{v.plate_number}</Text>
+                        {!!v.key_number && (
+                          <View style={styles.keyMiniBadge}>
+                            <Text style={styles.keyMiniBadgeText}>مفتاح {v.key_number}</Text>
+                          </View>
+                        )}
                       </View>
                       <Text style={[styles.autocompleteKm, { color: colors.textSecondary }]}>
-                        {v.model || 'دباب'} • {v.current_km || 0} كم
+                        {v.courierName || 'دباب'}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
 
-              {accidentPlate.trim().length > 0 && (() => {
-                const parsed = parsePlateComponents(accidentPlate);
-                return (
-                  <View style={{ alignItems: 'center', marginVertical: 6 }}>
-                    <SaudiPlateView
-                      digits={parsed.digits}
-                      letters={parsed.letters}
-                      editable={false}
-                      scale={0.7}
-                      isDarkMode={isDarkMode}
-                    />
-                  </View>
-                );
-              })()}
+              <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>اسم المندوب المعني</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder="اسم المندوب..."
+                placeholderTextColor={colors.textSecondary}
+                value={accidentDelName}
+                onChangeText={setAccidentDelName}
+              />
 
-
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>درجة خطورة الحادث</Text>
-              <View style={styles.severityRow}>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>درجة خطورة الحادث</Text>
+              <View style={[styles.severityRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 {(['LOW', 'MEDIUM', 'HIGH'] as const).map((lvl) => (
                   <TouchableOpacity
                     key={lvl}
@@ -881,9 +911,9 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
                 ))}
               </View>
 
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>تفاصيل الحادث والأضرار *</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>تفاصيل الحادث والأضرار *</Text>
               <TextInput
-                style={[styles.textArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[styles.textArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
                 multiline
                 numberOfLines={3}
                 placeholder="اكتب وصف الأضرار، سبب الحادث، وموقع الواقعة..."
@@ -893,7 +923,7 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
               />
 
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#EF4444', marginTop: 14 }]}
+                style={[styles.actionBtn, { backgroundColor: '#EF4444', marginTop: 10 }]}
                 onPress={handleSubmitAccident}
                 disabled={submitting}
               >
@@ -915,81 +945,51 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
       <Modal visible={dispenseModalVisible} transparent animationType="slide" onRequestClose={() => setDispenseModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>صرف زيت لدباب</Text>
               <TouchableOpacity onPress={() => setDispenseModalVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>رقم لوحة الدباب *</Text>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>رقم لوحة الدباب *</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                placeholder="اكتب أرقام اللوحة (مثال: 7030)..."
+                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder="اكتب رقمين من اللوحة..."
                 placeholderTextColor={colors.textSecondary}
                 value={dispensePlate}
                 onChangeText={(txt) => {
                   setDispensePlate(txt);
                   setShowDispenseDropdown(true);
                 }}
-                onFocus={() => setShowDispenseDropdown(true)}
               />
 
-              {/* Autocomplete Dropdown */}
               {showDispenseDropdown && matchingDispenseVehicles.length > 0 && (
                 <View style={[styles.autocompleteBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>
-                  <Text style={[styles.autocompleteHeader, { color: colors.primary }]}>دبابات الأسطول المطابقة (اضغط للاختيار):</Text>
-                  {matchingDispenseVehicles.slice(0, 5).map((v) => (
+                  {matchingDispenseVehicles.slice(0, 6).map((v) => (
                     <TouchableOpacity
                       key={v.id}
-                      style={[styles.autocompleteItem, { borderBottomColor: colors.border }]}
-                      onPress={() => {
-                        setDispensePlate(v.plate_number);
-                        setDispenseKm(String(v.current_km || 0));
-                        setShowDispenseDropdown(false);
-                      }}
+                      style={[styles.autocompleteItem, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                      onPress={() => handleSelectBikeForOil(v)}
                     >
-                      <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-                        <Ionicons name="bicycle" size={16} color={colors.primary} />
-                        <Text style={[styles.autocompletePlate, { color: colors.textPrimary }]}>{v.plate_number}</Text>
-                      </View>
+                      <Text style={[styles.autocompletePlate, { color: colors.textPrimary }]}>{v.plate_number}</Text>
                       <Text style={[styles.autocompleteKm, { color: colors.textSecondary }]}>
-                        {v.model || 'دباب'} • {v.current_km || 0} كم
+                        {v.key_number ? `مفتاح ${v.key_number} • ` : ''}{v.current_km || 0} كم
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
 
-
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>قراءة العداد الحالية (كم) *</Text>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>قراءة العداد الحالية (كم) *</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: 'center' }]}
                 keyboardType="numeric"
                 placeholder="مثال: 45200"
                 placeholderTextColor={colors.textSecondary}
                 value={dispenseKm}
-                onChangeText={setDispenseKm}
-              />
-
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>عدد العلب المنصرفة</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                keyboardType="numeric"
-                value={dispenseQty}
-                onChangeText={setDispenseQty}
-              />
-
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>ملاحظات</Text>
-              <TextInput
-                style={[styles.textArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                multiline
-                numberOfLines={2}
-                placeholder="ملاحظات اختيارية..."
-                placeholderTextColor={colors.textSecondary}
-                value={dispenseNotes}
-                onChangeText={setDispenseNotes}
+                onChangeText={(v) => setDispenseKm(toEnglishDigits(v))}
               />
             </ScrollView>
 
@@ -999,63 +999,6 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
               disabled={submitting}
             >
               {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>تأكيد صرف الزيت</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ADD VEHICLE MODAL */}
-      <Modal visible={addVehicleModalVisible} transparent animationType="slide" onRequestClose={() => setAddVehicleModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>إضافة وتوثيق دباب جديد</Text>
-              <TouchableOpacity onPress={() => setAddVehicleModalVisible(false)}>
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>رقم اللوحة *</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                placeholder="مثال: 8022 ب ع"
-                placeholderTextColor={colors.textSecondary}
-                value={newPlate}
-                onChangeText={setNewPlate}
-              />
-
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>الموديل والنوع</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                value={newModel}
-                onChangeText={setNewModel}
-              />
-
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>رقم الهيكل (VIN)</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                placeholder="اختياري..."
-                placeholderTextColor={colors.textSecondary}
-                value={newVin}
-                onChangeText={setNewVin}
-              />
-
-              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>قراءة العداد الابتدائية (كم)</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border }]}
-                keyboardType="numeric"
-                value={newKm}
-                onChangeText={setNewKm}
-              />
-            </ScrollView>
-
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.primary, marginTop: 12 }]}
-              onPress={handleCreateVehicle}
-              disabled={submitting}
-            >
-              {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>حفظ وتوثيق الدباب</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -1092,6 +1035,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 40,
   },
   tabContent: {
@@ -1100,11 +1044,10 @@ const styles = StyleSheet.create({
   kpiCard: {
     borderRadius: 18,
     borderWidth: 1,
-    padding: 18,
-    gap: 12,
+    padding: 16,
+    gap: 10,
   },
   kpiHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
@@ -1127,13 +1070,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   qtyRow: {
-    flexDirection: 'row',
     alignItems: 'baseline',
     gap: 8,
     flexWrap: 'wrap',
   },
   qtyNumber: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '900',
   },
   qtyUnit: {
@@ -1158,7 +1100,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderRadius: 12,
     gap: 8,
   },
@@ -1167,53 +1109,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    marginTop: 6,
-  },
-  emptyBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 30,
-    gap: 8,
-  },
-  emptyText: {
-    fontSize: 13,
-  },
-  itemCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-  },
-  itemInfo: {
-    gap: 3,
-  },
-  itemName: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  itemCat: {
-    fontSize: 12,
-  },
-  itemQtyBadge: {
-    alignItems: 'center',
-    gap: 1,
-  },
-  itemQtyText: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  itemUnitText: {
-    fontSize: 10,
-  },
   fleetStatsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingBottom: 4,
+    paddingVertical: 4,
   },
   fleetStatCol: {
     alignItems: 'center',
@@ -1226,24 +1125,7 @@ const styles = StyleSheet.create({
   fleetStatLbl: {
     fontSize: 11,
   },
-  vehicleInfoCol: {
-    gap: 6,
-  },
-  vehicleModelText: {
-    fontSize: 12,
-  },
-  statusTag: {
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  statusTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
   searchBox: {
-    flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     height: 44,
@@ -1253,62 +1135,30 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     height: '100%',
-  },
-  filterPillsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  filterPillActive: {
-    borderColor: 'transparent',
-  },
-  filterPillText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   fleetCard: {
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,
-    gap: 12,
+    gap: 10,
   },
   fleetCardHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  fleetMetaRow: {
-    alignItems: 'center',
-    gap: 14,
-  },
-  fleetMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  fleetMetaVal: {
-    fontSize: 12,
-    fontWeight: '600',
+    gap: 10,
   },
   fleetActionsRow: {
     alignItems: 'center',
     gap: 10,
-    marginTop: 4,
   },
   fleetActionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 10,
     borderWidth: 1,
     gap: 6,
@@ -1318,20 +1168,34 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    marginTop: 6,
+    marginTop: 4,
+  },
+  inputWithClear: {
+    borderWidth: 1.5,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    height: 46,
+    alignItems: 'center',
+    gap: 8,
+  },
+  flexInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    height: '100%',
   },
   input: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 11,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    height: 44,
     fontSize: 14,
   },
   textArea: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 11,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
@@ -1339,7 +1203,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   severityRow: {
-    flexDirection: 'row',
     gap: 8,
   },
   severityBtn: {
@@ -1370,7 +1233,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   modalHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
@@ -1380,20 +1242,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   autocompleteBox: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1.5,
-    marginTop: -4,
-    marginBottom: 10,
+    marginTop: 2,
+    marginBottom: 6,
     overflow: 'hidden',
-    elevation: 3,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
   autocompleteHeader: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 4,
@@ -1402,16 +1264,37 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
+  },
+  bikeIconMini: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   autocompletePlate: {
     fontSize: 14,
     fontWeight: '800',
   },
+  keyMiniBadge: {
+    backgroundColor: '#f59e0b20',
+    borderColor: '#f59e0b60',
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  keyMiniBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#d97706',
+  },
   autocompleteKm: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
   },
 });
-

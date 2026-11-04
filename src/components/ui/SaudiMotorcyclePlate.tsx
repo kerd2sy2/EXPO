@@ -68,32 +68,42 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
   const { arSlots, enSlots, isThreeLetters } = getPlateLetterSlots(letters);
 
   return (
-    <View style={[styles.plateOuterContainer, isDarkMode && styles.plateDarkShadow]}>
+    <View
+      style={[
+        styles.plateOuterContainer,
+        scale !== 1 && { width: 'auto', marginVertical: 2 },
+        isDarkMode && styles.plateDarkShadow,
+      ]}
+    >
       {/* Hidden inputs to allow direct tapping on the plate to type if editable */}
-      <TextInput
-        ref={digitsInputRef}
-        style={styles.hiddenInput}
-        value={englishDigits}
-        keyboardType="numeric"
-        maxLength={4}
-        onChangeText={(val) => {
-          const clean = toEnglishDigits(val).replace(/\D/g, '');
-          onChangeDigits?.(clean);
-          if (clean.length >= 4) {
-            lettersInputRef.current?.focus();
-          }
-        }}
-      />
-      <TextInput
-        ref={lettersInputRef}
-        style={styles.hiddenInput}
-        value={letters}
-        autoCapitalize="characters"
-        maxLength={8}
-        onChangeText={(val) => {
-          onChangeLetters?.(val);
-        }}
-      />
+      {editable && (
+        <>
+          <TextInput
+            ref={digitsInputRef}
+            style={styles.hiddenInput}
+            value={englishDigits}
+            keyboardType="numeric"
+            maxLength={4}
+            onChangeText={(val) => {
+              const clean = toEnglishDigits(val).replace(/\D/g, '');
+              onChangeDigits?.(clean);
+              if (clean.length >= 4) {
+                lettersInputRef.current?.focus();
+              }
+            }}
+          />
+          <TextInput
+            ref={lettersInputRef}
+            style={styles.hiddenInput}
+            value={letters}
+            autoCapitalize="characters"
+            maxLength={8}
+            onChangeText={(val) => {
+              onChangeLetters?.(val);
+            }}
+          />
+        </>
+      )}
 
       {/* Smart Plate Camera Scan Action Bar (Opt-in) */}
       {showScanButton && editable && onScanPlate && (
@@ -125,8 +135,25 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* Authentic Saudi Plate Body (Fixed Physical LTR Orientation) */}
-      <View style={[styles.plateBody, scale !== 1 && { transform: [{ scale }] }]}>
+      {/* Authentic Saudi Plate Body (Fixed Physical LTR Orientation & True Scaled Layout Box) */}
+      <View
+        style={
+          scale !== 1
+            ? {
+                width: Math.round(340 * scale),
+                height: Math.round(155 * scale),
+                justifyContent: 'center',
+                alignItems: 'center',
+              }
+            : { width: '100%', alignItems: 'center' }
+        }
+      >
+        <View
+          style={[
+            styles.plateBody,
+            scale !== 1 && { width: 340, transform: [{ scale }] },
+          ]}
+        >
         {/* Subtle realistic bolt rivets */}
         <View style={[styles.rivetDot, styles.rivetTopLeft]} />
         <View style={[styles.rivetDot, styles.rivetTopRight]} />
@@ -263,6 +290,7 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
               <Text style={styles.ksaLetter}>A</Text>
             </View>
           </View>
+        </View>
         </View>
       </View>
 

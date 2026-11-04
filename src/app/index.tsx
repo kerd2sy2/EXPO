@@ -245,10 +245,18 @@ export default function DelegateApp() {
         reviewNotes: notes || 'معتمد بواسطة المشرف',
       });
       setPendingSessions((prev) => prev.filter((s) => s.id !== session.id));
-      Alert.alert('تم بنجاح', `تم تأكيد وردية وطلبات (${session.employee_name || session.employee?.name || 'المندوب'}) بنجاح.`);
+      setAlertConfig({
+        type: 'success',
+        title: 'تم بنجاح',
+        message: `تم تأكيد وردية وطلبات (${session.employee_name || session.employee?.name || 'المندوب'}) بنجاح.`,
+      });
       fetchSupervisorData();
     } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشل تأكيد الوردية، يرجى المحاولة مجدداً.');
+      setAlertConfig({
+        type: 'error',
+        title: 'خطأ',
+        message: err?.message || 'فشل تأكيد الوردية، يرجى المحاولة مجدداً.',
+      });
     }
   }, [fetchSupervisorData]);
 
@@ -896,7 +904,11 @@ export default function DelegateApp() {
         currentTab === 'home' ||
         currentTab === 'supervisor-report' ||
         currentTab === 'advance-request' ||
-        currentTab === 'employees'
+        currentTab === 'employees' ||
+        currentTab === 'orders-review' ||
+        currentTab === 'operations' ||
+        currentTab === 'oil-change' ||
+        currentTab === 'accident-report'
       ) {
         fetchSupervisorData();
       }
@@ -904,7 +916,9 @@ export default function DelegateApp() {
         currentTab === 'operations' ||
         currentTab === 'oil-change' ||
         currentTab === 'add-vehicle' ||
-        currentTab === 'accident-report'
+        currentTab === 'accident-report' ||
+        currentTab === 'employees' ||
+        currentTab === 'dashboard'
       ) {
         fetchOperationsData();
       }
@@ -1972,6 +1986,9 @@ export default function DelegateApp() {
                 branchName={employee?.branch_name || 'فرع الإشراف'}
                 stats={branchStats}
                 workingDelegates={workingDelegates}
+                allDelegates={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
+                pendingSessions={pendingSessions}
+                vehicles={vehicles}
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
@@ -1988,7 +2005,7 @@ export default function DelegateApp() {
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <ModuleErrorBoundary moduleName="إدارة الميدان" colors={colors} onReset={fetchSupervisorData}>
               <FieldScreen
-                delegates={branchDelegates
+                delegates={(allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates)
                   .filter((d) => {
                     const role = (d.job_role || (d as any).role_name || '').toUpperCase();
                     return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
@@ -2013,6 +2030,7 @@ export default function DelegateApp() {
                 pendingSessions={pendingSessions}
                 pendingAdvances={pendingAdvances}
                 pendingMaintenance={pendingMaintenance}
+                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
                 loading={loadingApprovalsOnly || loadingSupervisorData}
                 onRefresh={refreshApprovalsOnly}
                 colors={colors}
@@ -2035,6 +2053,7 @@ export default function DelegateApp() {
                 mode="all"
                 inventoryItems={inventoryItems}
                 vehicles={vehicles}
+                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
                 loading={loadingOperationsData}
                 onRefresh={fetchOperationsData}
                 colors={colors}
@@ -2050,6 +2069,7 @@ export default function DelegateApp() {
                 mode="oil"
                 inventoryItems={inventoryItems}
                 vehicles={vehicles}
+                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
                 loading={loadingOperationsData}
                 onRefresh={fetchOperationsData}
                 colors={colors}
@@ -2065,6 +2085,7 @@ export default function DelegateApp() {
                 mode="add-vehicle"
                 inventoryItems={inventoryItems}
                 vehicles={vehicles}
+                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
                 loading={loadingOperationsData}
                 onRefresh={fetchOperationsData}
                 colors={colors}
@@ -2080,6 +2101,7 @@ export default function DelegateApp() {
                 mode="accidents"
                 inventoryItems={inventoryItems}
                 vehicles={vehicles}
+                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
                 loading={loadingOperationsData}
                 onRefresh={fetchOperationsData}
                 colors={colors}
@@ -2140,6 +2162,7 @@ export default function DelegateApp() {
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <ModuleErrorBoundary moduleName="مراجعة الطلبات" colors={colors} onReset={fetchSupervisorData}>
               <OrdersReviewScreen
+                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
