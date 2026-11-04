@@ -97,5 +97,6 @@ export type TabType =
   | 'supervisor-report'
   | 'advance-request'
   | 'employees'
-  | 'orders-review';
+  | 'orders-review'
+  | 'notifications';
 export type Language = 'ar' | 'en' | 'bn' | 'ur';

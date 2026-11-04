@@ -50,6 +50,13 @@ const REFRESH_TOKEN_KEY = 'aams_delegate_refresh_token';
 const USER_KEY = 'aams_delegate_user';
 
 let storedToken: string | null = null;
+let currentBranchId: string | null = null;
+
+export const setCurrentBranchId = (branchId: string | null) => {
+  currentBranchId = branchId ? String(branchId).trim() : null;
+};
+
+export const getCurrentBranchId = () => currentBranchId;
 let storedRefreshToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
@@ -103,6 +110,7 @@ export const setAuthToken = async (
       }
     } else {
       storedRefreshToken = null;
+      currentBranchId = null;
       await Promise.all([
         secureStorage.removeItem(TOKEN_KEY),
         secureStorage.removeItem(REFRESH_TOKEN_KEY),

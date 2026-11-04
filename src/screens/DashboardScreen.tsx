@@ -289,15 +289,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <View style={[styles.kpiIconBox, { backgroundColor: '#f59e0b18' }]}>
             <Ionicons name="flame" size={22} color="#f59e0b" />
           </View>
-          <View style={[styles.riyalValueRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
-              {analyticsData.pendingFuelSum || 0}
-            </Text>
+          <View style={[styles.riyalValueRow, { flexDirection: 'row', direction: 'ltr' }]}>
             <Image
               source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
               style={[styles.riyalSymbolImg, { tintColor: isDarkMode ? '#fbbf24' : '#d97706' }]}
               resizeMode="contain"
             />
+            <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
+              {analyticsData.pendingFuelSum || 0}
+            </Text>
           </View>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>البنزين</Text>
         </View>
@@ -311,7 +311,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {analyticsData.oilDueCount}
           </Text>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]} numberOfLines={1}>
-            دبابات تحتاج تغيير زيت
+            تغيير زيت
           </Text>
         </View>
       </View>

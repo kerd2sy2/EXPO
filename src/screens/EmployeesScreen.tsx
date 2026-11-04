@@ -31,7 +31,7 @@ interface EmployeesScreenProps {
   isRTL: boolean;
 }
 
-type RoleFilter = 'ALL' | 'DRIVER' | 'SUPERVISOR' | 'NO_PLATE';
+type RoleFilter = 'ALL' | 'WORKING' | 'NO_PLATE';
 
 // Helper to extract numeric key value for natural sorting (1, 2, 3, ... 10, 11)
 export const extractKeySortValue = (keyStr?: string | null): number => {
@@ -42,6 +42,11 @@ export const extractKeySortValue = (keyStr?: string | null): number => {
   if (!match) return Number.MAX_SAFE_INTEGER - 1;
   const num = parseInt(match[0], 10);
   return Number.isNaN(num) ? Number.MAX_SAFE_INTEGER : num;
+};
+
+const isDriverOnly = (emp: DelegateWithStatus): boolean => {
+  const role = (emp.job_role || (emp as any).role_name || 'DRIVER').toUpperCase();
+  return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT'));
 };
 
 export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
@@ -63,16 +68,10 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
     const q = toEnglishDigits(searchQuery.trim()).toLowerCase();
 
     const filtered = employees.filter((emp) => {
-      const role = (emp.job_role || (emp as any).role_name || 'DRIVER').toUpperCase();
-      if (roleFilter === 'DRIVER' && (role.includes('SUPERVISOR') || role.includes('ADMIN'))) {
-        return false;
-      }
-      if (roleFilter === 'SUPERVISOR' && !role.includes('SUPERVISOR') && !role.includes('ADMIN')) {
-        return false;
-      }
-      if (roleFilter === 'NO_PLATE' && emp.motorcycle_number && emp.motorcycle_number.trim() !== '') {
-        return false;
-      }
+      // Exclude supervisors and administrators completely from the delegates list
+      if (!isDriverOnly(emp)) return false;
+      if (roleFilter === 'WORKING' && !emp.is_working) return false;
+      if (roleFilter === 'NO_PLATE' && emp.motorcycle_number && emp.motorcycle_number.trim() !== '') return false;
 
       if (!q) return true;
 
@@ -106,27 +105,17 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
   // Quick Stats
   const stats = useMemo(() => {
     let drivers = 0;
-    let supervisors = 0;
+    let working = 0;
     let noPlate = 0;
 
     employees.forEach((emp) => {
-      const role = (emp.job_role || (emp as any).role_name || 'DRIVER').toUpperCase();
-      if (role.includes('SUPERVISOR') || role.includes('ADMIN')) {
-        supervisors++;
-      } else {
-        drivers++;
-      }
-      if (!emp.motorcycle_number || !emp.motorcycle_number.trim()) {
-        noPlate++;
-      }
+      if (!isDriverOnly(emp)) return;
+      drivers++;
+      if (emp.is_working) working++;
+      if (!emp.motorcycle_number || !emp.motorcycle_number.trim()) noPlate++;
     });
 
-    return {
-      total: employees.length,
-      drivers,
-      supervisors,
-      noPlate,
-    };
+    return { total: drivers, working, noPlate };
   }, [employees]);
 
   const handleCall = useCallback((phone?: string) => {
@@ -174,8 +163,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
 
   const renderEmployeeItem = useCallback(
     ({ item: emp }: { item: DelegateWithStatus }) => {
-      const role = (emp.job_role || (emp as any).role_name || 'DRIVER').toUpperCase();
-      const isSupervisor = role.includes('SUPERVISOR') || role.includes('ADMIN');
+      // Strictly delegate role display
       const hasPlate = Boolean(emp.motorcycle_number && emp.motorcycle_number.trim());
       const hasKey = Boolean(emp.key_number && emp.key_number.trim());
       const plateComponents = hasPlate
@@ -238,21 +226,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
               </Text>
 
               <View style={[styles.badgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View
-                  style={[
-                    styles.roleBadge,
-                    {
-                      backgroundColor: isSupervisor ? '#f59e0b18' : '#0284c718',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.roleBadgeText,
-                      { color: isSupervisor ? '#d97706' : '#0284c7' },
-                    ]}
-                  >
-                    {isSupervisor ? 'مشرف' : 'مندوب'}
+                <View style={[styles.roleBadge, { backgroundColor: '#0284c718' }]}>
+                  <Text style={[styles.roleBadgeText, { color: '#0284c7' }]}>
+                    مندوب
                   </Text>
                 </View>
 
@@ -379,18 +355,18 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
             style={[
               styles.statChip,
               {
-                backgroundColor: roleFilter === 'DRIVER' ? '#0284c7' : colors.card,
-                borderColor: roleFilter === 'DRIVER' ? '#0284c7' : colors.border,
+                backgroundColor: roleFilter === 'WORKING' ? '#10b981' : colors.card,
+                borderColor: roleFilter === 'WORKING' ? '#10b981' : colors.border,
               },
             ]}
-            onPress={() => setRoleFilter('DRIVER')}
+            onPress={() => setRoleFilter('WORKING')}
             activeOpacity={0.75}
           >
-            <Text style={[styles.statNum, { color: roleFilter === 'DRIVER' ? '#fff' : '#0284c7' }]}>
-              {stats.drivers}
+            <Text style={[styles.statNum, { color: roleFilter === 'WORKING' ? '#fff' : '#10b981' }]}>
+              {stats.working}
             </Text>
-            <Text style={[styles.statLbl, { color: roleFilter === 'DRIVER' ? '#e0f2fe' : colors.textSecondary }]}>
-              المناديب
+            <Text style={[styles.statLbl, { color: roleFilter === 'WORKING' ? '#dcfce7' : colors.textSecondary }]}>
+              يعمل الآن
             </Text>
           </TouchableOpacity>
 

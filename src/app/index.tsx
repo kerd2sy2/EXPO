@@ -72,6 +72,7 @@ import { SupervisorReportScreen } from '../screens/SupervisorReportScreen';
 import { AdvanceRequestScreen } from '../screens/AdvanceRequestScreen';
 import { EmployeesScreen } from '../screens/EmployeesScreen';
 import { OrdersReviewScreen } from '../screens/OrdersReviewScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { hasCustodyPermission, openOhdaApp } from '../utils/custodyPermissions';
 import {
   supervisorApi,
@@ -226,14 +227,15 @@ export default function DelegateApp() {
       if (!isSilent) {
         setLoadingSupervisorData(true);
       }
+      const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
       // Stream state updates progressively as each API call finishes
       await Promise.all([
         supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
-        supervisorApi.getWorkingDelegates().then(setWorkingDelegates).catch(() => {}),
-        supervisorApi.getAllBranchDelegates().then(setBranchDelegates).catch(() => {}),
-        supervisorApi.getAllEmployees().then(setAllBranchEmployees).catch(() => {}),
+        supervisorApi.getWorkingDelegates(branchId).then(setWorkingDelegates).catch(() => {}),
+        supervisorApi.getAllBranchDelegates(branchId).then(setBranchDelegates).catch(() => {}),
+        supervisorApi.getAllEmployees(branchId).then(setAllBranchEmployees).catch(() => {}),
       ]);
     } catch (e) {
       console.warn('[Eshraf] Error fetching supervisor data:', e);
@@ -242,7 +244,7 @@ export default function DelegateApp() {
         setLoadingSupervisorData(false);
       }
     }
-  }, []);
+  }, [employee?.branch_id]);
 
   const handleConfirmOrders = useCallback(async (session: WorkSession, ordersCount?: number, notes?: string) => {
     try {
@@ -1800,6 +1802,34 @@ export default function DelegateApp() {
       ? Number(endKm) - Number(activeSession.start_km)
       : 0;
 
+  // Strictly filter delegates belonging ONLY to the supervisor's branch and exclude supervisors/admins
+  const branchScopedDelegates = useMemo(() => {
+    const supBranch = employee?.branch_id ? String(employee.branch_id).trim() : null;
+    const list = branchDelegates.length > 0 ? branchDelegates : allBranchEmployees;
+    return list.filter((emp) => {
+      const role = (emp.job_role || (emp as any).role_name || 'DRIVER').toUpperCase();
+      const isDriver = role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT'));
+      if (!isDriver) return false;
+      if (supBranch && emp.branch_id) {
+        return String(emp.branch_id).trim().toLowerCase() === supBranch.toLowerCase();
+      }
+      return true;
+    });
+  }, [branchDelegates, allBranchEmployees, employee?.branch_id]);
+
+  // Unread operational alerts counter for Bell in HomeHeader
+  const unreadNotificationsCount = useMemo(() => {
+    const shiftCount = pendingSessions.length;
+    const maintCount = pendingMaintenance.length;
+    const advCount = pendingAdvances.length;
+    const oilCount = vehicles.filter((v) => {
+      const curr = Number(v.current_km || 0);
+      const last = Number((v as any).last_oil_change_km || 0);
+      return curr > 0 && last > 0 && curr - last >= 1000;
+    }).length;
+    return shiftCount + maintCount + advCount + oilCount;
+  }, [pendingSessions, pendingMaintenance, pendingAdvances, vehicles]);
+
   const rawEmpPhoto = useMemo(() => {
     const direct =
       (employee?.personal_image && typeof employee.personal_image === 'string' && employee.personal_image.trim()) ||
@@ -1897,6 +1927,8 @@ export default function DelegateApp() {
             onPressProfile={() => setCurrentTab('profile')}
             onLongPressProfile={() => setShowDiagnosticsModal(true)}
             onPressQr={() => setShowQrModal(true)}
+            unreadCount={unreadNotificationsCount}
+            onPressNotifications={() => setCurrentTab('notifications')}
           />
         </Animated.View>
       ) : (
@@ -1924,7 +1956,9 @@ export default function DelegateApp() {
 
             <View style={[styles.subPageTitleContainer, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
               <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {currentTab === 'dashboard'
+                {currentTab === 'notifications'
+                  ? 'مركز الإشعارات والتنبيهات'
+                  : currentTab === 'dashboard'
                   ? 'لوحة مؤشرات الفرع'
                   : currentTab === 'field'
                   ? 'متابعة الميدان والورديات'
@@ -2016,7 +2050,7 @@ export default function DelegateApp() {
                 branchName={employee?.branch_name || 'فرع الإشراف'}
                 stats={branchStats}
                 workingDelegates={workingDelegates}
-                allDelegates={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
+                allDelegates={branchScopedDelegates}
                 pendingSessions={pendingSessions}
                 vehicles={vehicles}
                 colors={colors}
@@ -2059,12 +2093,7 @@ export default function DelegateApp() {
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <ModuleErrorBoundary moduleName="إدارة الميدان" colors={colors} onReset={fetchSupervisorData}>
               <FieldScreen
-                delegates={(allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates)
-                  .filter((d) => {
-                    const role = (d.job_role || (d as any).role_name || '').toUpperCase();
-                    return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
-                  })
-                  .map((d) => ({
+                delegates={branchScopedDelegates.map((d) => ({
                     ...d,
                     is_working: workingDelegates.some((w) => w.id === d.id),
                   }))}
@@ -2084,7 +2113,7 @@ export default function DelegateApp() {
                 pendingSessions={pendingSessions}
                 pendingAdvances={pendingAdvances}
                 pendingMaintenance={pendingMaintenance}
-                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
+                employees={branchScopedDelegates}
                 loading={loadingApprovalsOnly || loadingSupervisorData}
                 onRefresh={refreshApprovalsOnly}
                 colors={colors}
@@ -2107,7 +2136,7 @@ export default function DelegateApp() {
                 mode="all"
                 inventoryItems={inventoryItems}
                 vehicles={vehicles}
-                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
+                employees={branchScopedDelegates}
                 loading={loadingOperationsData}
                 onRefresh={fetchOperationsData}
                 colors={colors}
@@ -2123,7 +2152,7 @@ export default function DelegateApp() {
                 mode="oil"
                 inventoryItems={inventoryItems}
                 vehicles={vehicles}
-                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
+                employees={branchScopedDelegates}
                 loading={loadingOperationsData}
                 onRefresh={fetchOperationsData}
                 colors={colors}
@@ -2139,7 +2168,7 @@ export default function DelegateApp() {
                 mode="add-vehicle"
                 inventoryItems={inventoryItems}
                 vehicles={vehicles}
-                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
+                employees={branchScopedDelegates}
                 loading={loadingOperationsData}
                 onRefresh={fetchOperationsData}
                 colors={colors}
@@ -2155,7 +2184,7 @@ export default function DelegateApp() {
                 mode="accidents"
                 inventoryItems={inventoryItems}
                 vehicles={vehicles}
-                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
+                employees={branchScopedDelegates}
                 loading={loadingOperationsData}
                 onRefresh={fetchOperationsData}
                 colors={colors}
@@ -2169,7 +2198,7 @@ export default function DelegateApp() {
             <ModuleErrorBoundary moduleName="تقرير مشرف" colors={colors} onReset={fetchSupervisorData}>
               <SupervisorReportScreen
                 initialMode={reportInitialMode}
-                branchDelegates={branchDelegates}
+                branchDelegates={branchScopedDelegates}
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
@@ -2183,7 +2212,7 @@ export default function DelegateApp() {
             <ModuleErrorBoundary moduleName="سلفة" colors={colors} onReset={fetchSupervisorData}>
               <AdvanceRequestScreen
                 initialMode={advanceInitialMode}
-                branchDelegates={branchDelegates}
+                branchDelegates={branchScopedDelegates}
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
@@ -2196,7 +2225,7 @@ export default function DelegateApp() {
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <ModuleErrorBoundary moduleName="إدارة الموظفين" colors={colors} onReset={fetchSupervisorData}>
               <EmployeesScreen
-                employees={(allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates).map((e) => ({
+                employees={branchScopedDelegates.map((e) => ({
                   ...e,
                   is_working: workingDelegates.some((w) => w.id === e.id),
                 }))}
@@ -2212,11 +2241,37 @@ export default function DelegateApp() {
               />
             </ModuleErrorBoundary>
           </View>
+        ) : currentTab === 'notifications' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="مركز الإشعارات" colors={colors} onReset={fetchSupervisorData}>
+              <NotificationsScreen
+                pendingSessions={pendingSessions}
+                workingDelegates={branchScopedDelegates.filter((d) => workingDelegates.some((w) => w.id === d.id))}
+                vehicles={vehicles}
+                pendingMaintenance={pendingMaintenance}
+                pendingAdvances={pendingAdvances}
+                onNavigateToTab={(tab, meta) => {
+                  if (meta?.sessionId) {
+                    setTargetApprovalSessionId(meta.sessionId);
+                  }
+                  if (meta?.employeeId) {
+                    setTargetApprovalEmployeeId(meta.employeeId);
+                  }
+                  setCurrentTab(tab);
+                }}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                onRefresh={fetchSupervisorData}
+                loading={loadingSupervisorData}
+              />
+            </ModuleErrorBoundary>
+          </View>
         ) : currentTab === 'orders-review' ? (
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <ModuleErrorBoundary moduleName="مراجعة الطلبات" colors={colors} onReset={fetchSupervisorData}>
               <OrdersReviewScreen
-                employees={allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates}
+                employees={branchScopedDelegates}
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
@@ -2585,7 +2640,7 @@ export default function DelegateApp() {
       <OperationVideoModal
         visible={showOperationVideoModal}
         onClose={() => setShowOperationVideoModal(false)}
-        branchDelegates={branchDelegates}
+        branchDelegates={branchScopedDelegates}
         pendingSessions={pendingSessions}
         onRefresh={fetchSupervisorData}
         colors={colors}

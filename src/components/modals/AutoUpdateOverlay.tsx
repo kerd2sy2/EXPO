@@ -39,12 +39,8 @@ export const AutoUpdateOverlay: React.FC = () => {
       const check = await Updates.checkForUpdateAsync().catch(() => ({ isAvailable: false } as any));
 
       if (check && check.isAvailable) {
-        setIsUpdating(true);
-
-        // Fetch update package
+        // Fetch update silently in background; applies on next cold start without interrupting active session
         await Updates.fetchUpdateAsync();
-        await new Promise((res) => setTimeout(res, 800));
-        await Updates.reloadAsync();
       }
     } catch (err) {
       console.log('[AutoUpdateOverlay] Update error:', err);

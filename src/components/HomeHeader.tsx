@@ -17,6 +17,8 @@ export interface HomeHeaderProps {
   onPressProfile: () => void;
   onLongPressProfile: () => void;
   onPressQr?: () => void;
+  unreadCount?: number;
+  onPressNotifications?: () => void;
 }
 
 export const HomeHeader: React.FC<HomeHeaderProps> = ({
@@ -26,6 +28,8 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
   isRTL,
   onPressProfile,
   onLongPressProfile,
+  unreadCount = 0,
+  onPressNotifications,
 }) => {
   const [imgError, setImgError] = React.useState(false);
 
@@ -80,7 +84,29 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
         </View>
       </TouchableOpacity>
 
-      <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} />
+      <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <TouchableOpacity
+          style={[
+            styles.headerBellBtn,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+          onPress={onPressNotifications}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="notifications-outline" size={21} color={colors.textPrimary} />
+          {(unreadCount || 0) > 0 && (
+            <View style={styles.bellBadge}>
+              <Text style={styles.bellBadgeText}>
+                {(unreadCount || 0) > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -140,6 +166,34 @@ const styles = StyleSheet.create({
   headerActions: {
     alignItems: 'center',
     gap: 8,
+  },
+  headerBellBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    backgroundColor: '#ef4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
+  bellBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '900',
   },
   supervisorBadge: {
     paddingHorizontal: 12,

@@ -125,9 +125,10 @@ export interface PendingMaintenanceRequest {
 
 export const supervisorApi = {
   // 0. Get all employees in supervisor branch (all job roles including drivers and supervisors)
-  getAllEmployees: async (): Promise<DelegateWithStatus[]> => {
+  getAllEmployees: async (branchId?: string): Promise<DelegateWithStatus[]> => {
     try {
-      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>('/employees?limit=500', {
+      const q = branchId ? `/employees?limit=500&branch_id=${encodeURIComponent(branchId)}` : '/employees?limit=500';
+      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>(q, {
         timeoutMs: 10000,
       });
       let list: DelegateWithStatus[] = [];
@@ -135,6 +136,9 @@ export const supervisorApi = {
         list = resp;
       } else if (resp && Array.isArray((resp as any).data)) {
         list = (resp as any).data;
+      }
+      if (branchId) {
+        list = list.filter((e) => !e.branch_id || String(e.branch_id).trim().toLowerCase() === String(branchId).trim().toLowerCase());
       }
       return list;
     } catch (err) {
@@ -162,9 +166,12 @@ export const supervisorApi = {
   },
 
   // 1. Get all employees in supervisor branch (drivers only, full branch roster)
-  getAllBranchDelegates: async (): Promise<DelegateWithStatus[]> => {
+  getAllBranchDelegates: async (branchId?: string): Promise<DelegateWithStatus[]> => {
     try {
-      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>('/employees?limit=500&job_role=DRIVER', {
+      const q = branchId
+        ? `/employees?limit=500&job_role=DRIVER&branch_id=${encodeURIComponent(branchId)}`
+        : '/employees?limit=500&job_role=DRIVER';
+      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>(q, {
         timeoutMs: 10000,
       });
       let list: DelegateWithStatus[] = [];
@@ -173,10 +180,14 @@ export const supervisorApi = {
       } else if (resp && Array.isArray(resp.data)) {
         list = resp.data;
       }
-      // Ensure only drivers (delegates), not supervisors or administrators
       return list.filter((e) => {
         const role = (e.job_role || (e as any).role_name || '').toUpperCase();
-        return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
+        const isDriver = role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT'));
+        if (!isDriver) return false;
+        if (branchId && e.branch_id) {
+          return String(e.branch_id).trim().toLowerCase() === String(branchId).trim().toLowerCase();
+        }
+        return true;
       });
     } catch (err) {
       console.warn('[supervisorApi] getAllBranchDelegates error:', err);
@@ -209,12 +220,22 @@ export const supervisorApi = {
   },
 
   // 2. Get currently working employees in supervisor branch
-  getWorkingDelegates: async (): Promise<DelegateWithStatus[]> => {
+  getWorkingDelegates: async (branchId?: string): Promise<DelegateWithStatus[]> => {
     try {
-      const resp = await apiRequest<DelegateWithStatus[]>('/employees/working', {
+      const q = branchId ? `/employees/working?branch_id=${encodeURIComponent(branchId)}` : '/employees/working';
+      const resp = await apiRequest<DelegateWithStatus[]>(q, {
         timeoutMs: 10000,
       });
-      return Array.isArray(resp) ? resp : [];
+      const list = Array.isArray(resp) ? resp : [];
+      return list.filter((e) => {
+        const role = (e.job_role || (e as any).role_name || '').toUpperCase();
+        const isDriver = role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT'));
+        if (!isDriver) return false;
+        if (branchId && e.branch_id) {
+          return String(e.branch_id).trim().toLowerCase() === String(branchId).trim().toLowerCase();
+        }
+        return true;
+      });
     } catch (err) {
       console.warn('[supervisorApi] getWorkingDelegates error:', err);
       return [];
