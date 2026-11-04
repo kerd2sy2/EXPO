@@ -80,6 +80,8 @@ import {
   DelegateWithStatus,
   PendingMaintenanceRequest,
   PendingAdvanceRequest,
+  isDeliveryDelegate,
+  isEmployeeInBranch,
 } from '../services/supervisor';
 import {
   operationsApi,
@@ -233,9 +235,9 @@ export default function DelegateApp() {
         supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
-        supervisorApi.getWorkingDelegates().then(setWorkingDelegates).catch(() => {}),
-        supervisorApi.getAllBranchDelegates().then(setBranchDelegates).catch(() => {}),
-        supervisorApi.getAllEmployees().then(setAllBranchEmployees).catch(() => {}),
+        supervisorApi.getWorkingDelegates(branchId).then(setWorkingDelegates).catch(() => {}),
+        supervisorApi.getAllBranchDelegates(branchId).then(setBranchDelegates).catch(() => {}),
+        supervisorApi.getAllEmployees(branchId).then(setAllBranchEmployees).catch(() => {}),
       ]);
     } catch (e) {
       console.warn('[Eshraf] Error fetching supervisor data:', e);
@@ -1808,18 +1810,35 @@ export default function DelegateApp() {
     });
 
     const combined = Array.from(map.values());
+    const supervisorBranchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
+    const supervisorBranchName = employee?.branch_name ? String(employee.branch_name).trim() : undefined;
 
     return combined.filter((emp) => {
-      const role = (emp.job_role || (emp as any).role_name || (emp as any).role || 'DRIVER').toUpperCase();
-      const isDelegate = role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT'));
-      return isDelegate;
+      if (!isDeliveryDelegate(emp)) return false;
+      if (supervisorBranchId || supervisorBranchName) {
+        if (!isEmployeeInBranch(emp, supervisorBranchId, supervisorBranchName)) return false;
+      }
+      return true;
     });
-  }, [branchDelegates, allBranchEmployees, workingDelegates]);
+  }, [branchDelegates, allBranchEmployees, workingDelegates, employee?.branch_id, employee?.branch_name]);
+
+  const branchScopedWorkingDelegates = useMemo(() => {
+    const supervisorBranchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
+    const supervisorBranchName = employee?.branch_name ? String(employee.branch_name).trim() : undefined;
+
+    return workingDelegates.filter((d) => {
+      if (!isDeliveryDelegate(d)) return false;
+      if (supervisorBranchId || supervisorBranchName) {
+        return isEmployeeInBranch(d, supervisorBranchId, supervisorBranchName);
+      }
+      return true;
+    });
+  }, [workingDelegates, employee?.branch_id, employee?.branch_name]);
 
   // Supervisor Live Branch Stats
   const branchStats: BranchStats = useMemo(() => {
     const total = branchScopedDelegates.length;
-    const working = workingDelegates.length;
+    const working = branchScopedWorkingDelegates.length;
     const effectiveTotal = Math.max(total, working);
     const notStarted = Math.max(0, effectiveTotal - working);
     const pendingShifts = historySessions.filter(
@@ -1832,7 +1851,7 @@ export default function DelegateApp() {
       pendingApprovalsCount: pendingShifts,
       todayOrdersCount: totalApprovedOrdersCount,
     };
-  }, [branchScopedDelegates, workingDelegates, historySessions, totalApprovedOrdersCount]);
+  }, [branchScopedDelegates, branchScopedWorkingDelegates, historySessions, totalApprovedOrdersCount]);
   const calculatedDistance =
     endKm && activeSession?.start_km && Number(endKm) >= Number(activeSession.start_km)
       ? Number(endKm) - Number(activeSession.start_km)
@@ -2072,7 +2091,7 @@ export default function DelegateApp() {
                 adminName={employee?.name || 'المشرف'}
                 branchName={employee?.branch_name || 'فرع الإشراف'}
                 stats={branchStats}
-                workingDelegates={workingDelegates}
+                workingDelegates={branchScopedWorkingDelegates}
                 allDelegates={branchScopedDelegates}
                 pendingSessions={pendingSessions}
                 vehicles={vehicles}
@@ -2121,7 +2140,7 @@ export default function DelegateApp() {
               <FieldScreen
                 delegates={branchScopedDelegates.map((d) => ({
                     ...d,
-                    is_working: workingDelegates.some((w) => w.id === d.id),
+                    is_working: branchScopedWorkingDelegates.some((w) => w.id === d.id),
                   }))}
                 loading={loadingSupervisorData}
                 onRefresh={fetchSupervisorData}
@@ -2253,7 +2272,7 @@ export default function DelegateApp() {
               <EmployeesScreen
                 employees={branchScopedDelegates.map((e) => ({
                   ...e,
-                  is_working: workingDelegates.some((w) => w.id === e.id),
+                  is_working: branchScopedWorkingDelegates.some((w) => w.id === e.id),
                 }))}
                 vehicles={vehicles}
                 loading={loadingSupervisorData}
@@ -2272,7 +2291,7 @@ export default function DelegateApp() {
             <ModuleErrorBoundary moduleName="مركز الإشعارات" colors={colors} onReset={fetchSupervisorData}>
               <NotificationsScreen
                 pendingSessions={pendingSessions}
-                workingDelegates={branchScopedDelegates.filter((d) => workingDelegates.some((w) => w.id === d.id))}
+                workingDelegates={branchScopedWorkingDelegates}
                 vehicles={vehicles}
                 pendingMaintenance={pendingMaintenance}
                 pendingAdvances={pendingAdvances}

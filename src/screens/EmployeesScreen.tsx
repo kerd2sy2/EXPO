@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '@shared/theme';
 import { SaudiPlateView } from '@shared/components';
 import { parsePlateComponents, toEnglishDigits } from '@shared/utils/plateUtils';
-import { DelegateWithStatus } from '../services/supervisor';
+import { DelegateWithStatus, isDeliveryDelegate } from '../services/supervisor';
 import { VehicleItem } from '../services/operations';
 import { EditEmployeeModal } from '../components/modals/EditEmployeeModal';
 import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
@@ -45,8 +45,7 @@ export const extractKeySortValue = (keyStr?: string | null): number => {
 };
 
 const isDriverOnly = (emp: DelegateWithStatus): boolean => {
-  const role = (emp.job_role || (emp as any).role_name || 'DRIVER').toUpperCase();
-  return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT'));
+  return isDeliveryDelegate(emp);
 };
 
 export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({

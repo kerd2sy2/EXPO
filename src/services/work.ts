@@ -3,6 +3,7 @@ import {
   setAuthToken,
   saveCachedUser,
   getCachedUser,
+  setCurrentBranchId,
   isBiometricEnabled,
   saveLastCredentialsForBiometrics,
   getStoredToken,
@@ -175,6 +176,9 @@ export const workApi = {
             employee_id: u.employee_id || cached?.employee_id || '',
             is_admin: true,
           };
+          if (fullAdmin.branch_id) {
+            setCurrentBranchId(fullAdmin.branch_id);
+          }
           await saveCachedUser(fullAdmin);
           return fullAdmin;
         }

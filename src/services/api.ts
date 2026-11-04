@@ -251,8 +251,12 @@ export const refreshAuthToken = async (): Promise<string | null> => {
 export const saveCachedUser = async (user: any): Promise<void> => {
   try {
     if (user) {
+      if (user.branch_id) {
+        currentBranchId = String(user.branch_id).trim();
+      }
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
     } else {
+      currentBranchId = null;
       await AsyncStorage.removeItem(USER_KEY);
     }
   } catch (e) {
@@ -263,7 +267,12 @@ export const saveCachedUser = async (user: any): Promise<void> => {
 export const getCachedUser = async (): Promise<any | null> => {
   try {
     const json = await AsyncStorage.getItem(USER_KEY);
-    return json ? JSON.parse(json) : null;
+    if (!json) return null;
+    const parsed = JSON.parse(json);
+    if (parsed?.branch_id && !currentBranchId) {
+      currentBranchId = String(parsed.branch_id).trim();
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -429,6 +438,11 @@ export async function apiRequest<T = any>(
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const activeBranchId = currentBranchId || getCurrentBranchId();
+    if (activeBranchId && !headers['X-Branch-ID']) {
+      headers['X-Branch-ID'] = activeBranchId;
     }
 
     const controller = new AbortController();

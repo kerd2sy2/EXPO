@@ -123,11 +123,76 @@ export interface PendingMaintenanceRequest {
   current_km?: number;
 }
 
+// Check if an employee is strictly a delivery delegate (Driver) and not an admin/supervisor/management
+export const isDeliveryDelegate = (emp: any): boolean => {
+  if (!emp) return false;
+  if (emp.is_admin) return false;
+
+  const rawRole = String(
+    emp.job_role ||
+    emp.role_name ||
+    emp.role ||
+    emp.role_obj?.name ||
+    ''
+  ).trim().toUpperCase();
+
+  // If role explicitly indicates management, supervision, administration, accounting, or cleaning
+  if (
+    rawRole.includes('SUPERVISOR') ||
+    rawRole.includes('ADMIN') ||
+    rawRole.includes('MANAGEMENT') ||
+    rawRole.includes('ACCOUNTANT') ||
+    rawRole.includes('CLEANER') ||
+    rawRole.includes('مشرف') ||
+    rawRole.includes('إدار') ||
+    rawRole.includes('مدير') ||
+    rawRole.includes('محاسب') ||
+    rawRole.includes('عامل') ||
+    rawRole.includes('نظافة')
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
+// Check if an employee belongs to the target branch
+export const isEmployeeInBranch = (
+  emp: any,
+  targetBranchId?: string | null,
+  targetBranchName?: string | null
+): boolean => {
+  if (!emp) return false;
+  const cleanTargetId = targetBranchId ? String(targetBranchId).trim().toLowerCase() : '';
+  const cleanTargetName = targetBranchName ? String(targetBranchName).trim().toLowerCase() : '';
+
+  if (!cleanTargetId && !cleanTargetName) return true;
+
+  const empBranchId = String(emp.branch_id || emp.branch?.id || '').trim().toLowerCase();
+  const empBranchName = String(emp.branch_name || emp.branch?.name || '').trim().toLowerCase();
+
+  if (cleanTargetId && empBranchId) {
+    return empBranchId === cleanTargetId;
+  }
+
+  if (cleanTargetName && empBranchName) {
+    return empBranchName === cleanTargetName;
+  }
+
+  // If supervisor has a specific branch and this employee has an explicit different branch_id, reject
+  if (cleanTargetId && empBranchId && empBranchId !== cleanTargetId) {
+    return false;
+  }
+
+  return true;
+};
+
 export const supervisorApi = {
   // 0. Get all employees in supervisor branch (all job roles including drivers and supervisors)
-  getAllEmployees: async (): Promise<DelegateWithStatus[]> => {
+  getAllEmployees: async (branchId?: string): Promise<DelegateWithStatus[]> => {
     try {
-      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>('/employees?limit=500', {
+      const q = branchId ? `&branch_id=${encodeURIComponent(branchId)}` : '';
+      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>(`/employees?limit=500${q}`, {
         timeoutMs: 10000,
       });
       let list: DelegateWithStatus[] = [];
@@ -135,6 +200,9 @@ export const supervisorApi = {
         list = resp;
       } else if (resp && Array.isArray((resp as any).data)) {
         list = (resp as any).data;
+      }
+      if (branchId) {
+        list = list.filter((e) => isEmployeeInBranch(e, branchId));
       }
       return list;
     } catch (err) {
@@ -162,9 +230,10 @@ export const supervisorApi = {
   },
 
   // 1. Get all employees in supervisor branch (drivers only, full branch roster)
-  getAllBranchDelegates: async (): Promise<DelegateWithStatus[]> => {
+  getAllBranchDelegates: async (branchId?: string): Promise<DelegateWithStatus[]> => {
     try {
-      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>('/employees?limit=500', {
+      const q = branchId ? `&branch_id=${encodeURIComponent(branchId)}` : '';
+      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>(`/employees?limit=500${q}`, {
         timeoutMs: 10000,
       });
       let list: DelegateWithStatus[] = [];
@@ -173,10 +242,10 @@ export const supervisorApi = {
       } else if (resp && Array.isArray(resp.data)) {
         list = resp.data;
       }
-      // Strictly exclude supervisors, administrators, and accountants
       return list.filter((e) => {
-        const role = (e.job_role || (e as any).role_name || (e as any).role || '').toUpperCase();
-        return !role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT');
+        if (!isDeliveryDelegate(e)) return false;
+        if (branchId && !isEmployeeInBranch(e, branchId)) return false;
+        return true;
       });
     } catch (err) {
       console.warn('[supervisorApi] getAllBranchDelegates error:', err);
@@ -198,10 +267,7 @@ export const supervisorApi = {
       } else if (resp && Array.isArray((resp as any).data)) {
         list = (resp as any).data;
       }
-      return list.filter((e) => {
-        const role = (e.job_role || (e as any).role_name || '').toUpperCase();
-        return role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN'));
-      });
+      return list.filter(isDeliveryDelegate);
     } catch (err) {
       console.warn('[supervisorApi] searchDelegates error:', err);
       return [];
@@ -209,15 +275,17 @@ export const supervisorApi = {
   },
 
   // 2. Get currently working employees in supervisor branch
-  getWorkingDelegates: async (): Promise<DelegateWithStatus[]> => {
+  getWorkingDelegates: async (branchId?: string): Promise<DelegateWithStatus[]> => {
     try {
-      const resp = await apiRequest<DelegateWithStatus[]>('/employees/working', {
+      const q = branchId ? `?branch_id=${encodeURIComponent(branchId)}` : '';
+      const resp = await apiRequest<DelegateWithStatus[]>(`/employees/working${q}`, {
         timeoutMs: 10000,
       });
       const list = Array.isArray(resp) ? resp : [];
       return list.filter((e) => {
-        const role = (e.job_role || (e as any).role_name || (e as any).role || '').toUpperCase();
-        return !role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT');
+        if (!isDeliveryDelegate(e)) return false;
+        if (branchId && !isEmployeeInBranch(e, branchId)) return false;
+        return true;
       });
     } catch (err) {
       console.warn('[supervisorApi] getWorkingDelegates error:', err);
