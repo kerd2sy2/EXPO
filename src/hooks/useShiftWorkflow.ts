@@ -42,14 +42,24 @@ export function useShiftWorkflow(
     const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     const bike = rawBike.replace(/[٠-٩]/g, (w) => `${arabicDigits.indexOf(w)}`).trim();
 
+    // Reset oil change status immediately when bike input changes so previous bike doesn't stick
+
+    setNeedsOilChange(false);
+
     if (!bike) {
+
       lastFetchedBikeRef.current = '';
+
       setStartKm('');
+
       setAutoKmFetched(false);
+
       setIsOdometerBroken(false);
+
       setActiveBikeRegistrationImage(null);
-      setNeedsOilChange(false);
+
       return;
+
     }
 
     const currentSeq = ++bikeFetchSeqRef.current;
