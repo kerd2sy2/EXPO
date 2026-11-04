@@ -86,18 +86,12 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
 
       <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <TouchableOpacity
-          style={[
-            styles.headerBellBtn,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
-          ]}
+          style={styles.headerBellBtn}
           onPress={onPressNotifications}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="notifications-outline" size={21} color={colors.textPrimary} />
+          <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
           {(unreadCount || 0) > 0 && (
             <View style={styles.bellBadge}>
               <Text style={styles.bellBadgeText}>
@@ -168,10 +162,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerBellBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 1.5,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',

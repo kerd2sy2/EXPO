@@ -1,20 +1,21 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   ScrollView,
   TextInput,
-  ActivityIndicator,
-  Alert,
-  Platform,
   RefreshControl,
+  Modal,
+  Alert,
+  ActivityIndicator,
+  Platform,
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as WebBrowser from 'expo-web-browser';
 import { ThemeColors } from '@shared/theme';
 import { WorkSession } from '@shared/types';
 import InAppVideoPlayer from './InAppVideoPlayer';
@@ -36,310 +37,194 @@ interface OperationVideoModalProps {
   isRTL?: boolean;
 }
 
-// Arabic weekdays & month names helper
-const ARABIC_WEEKDAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const ARABIC_MONTHS = [
-  'يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-];
+type DateFilterType = 'ALL' | 'TODAY' | 'WEEK';
 
-function formatDateToYMD(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function formatArabicDateLabel(ymd: string): string {
-  if (!ymd) return '';
-  const parts = ymd.split('-');
-  if (parts.length !== 3) return ymd;
-  const year = parseInt(parts[0], 10);
-  const monthIdx = parseInt(parts[1], 10) - 1;
-  const day = parseInt(parts[2], 10);
-  const dateObj = new Date(year, monthIdx, day);
-  const weekday = ARABIC_WEEKDAYS[dateObj.getDay()];
-  const monthName = ARABIC_MONTHS[monthIdx] || '';
-  return `${weekday}، ${day} ${monthName} ${year}`;
-}
+const formatArabicRelativeTime = (iso?: string) => {
+  if (!iso) return '---';
+  try {
+    const d = new Date(iso);
+    const now = Date.now();
+    const diffMs = now - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'الآن';
+    if (diffMin < 60) return `منذ ${diffMin} دقيقة`;
+    const diffHrs = Math.floor(diffMin / 60);
+    if (diffHrs < 24) return `منذ ${diffHrs} ساعة`;
+    const diffDays = Math.floor(diffHrs / 24);
+    if (diffDays === 1) return 'أمس';
+    if (diffDays < 7) return `منذ ${diffDays} أيام`;
+    return d.toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' });
+  } catch {
+    return '---';
+  }
+};
 
 export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
   visible,
   onClose,
   branchDelegates,
-  pendingSessions = [],
-  onRefresh,
   colors,
   isDarkMode,
   isRTL = true,
 }) => {
-  // Archive Data & State
   const [archiveVideos, setArchiveVideos] = useState<OperationVideo[]>([]);
-  const [loadingArchive, setLoadingArchive] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  // Default to today's date only as requested by user
-  const [dateFilter, setDateFilter] = useState<string>(() => formatDateToYMD(new Date()));
+  const [filterType, setFilterType] = useState<DateFilterType>('TODAY');
 
-  // In-App Video Playback State
+  // Video playback
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
 
-  // Video Action Bottom Sheet & Edit State
-  const [actionVideo, setActionVideo] = useState<OperationVideo | null>(null);
-  const [showActionModal, setShowActionModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+  // Edit Modal State
+  const [editingVideo, setEditingVideo] = useState<OperationVideo | null>(null);
   const [editOrderNumber, setEditOrderNumber] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Calendar / Date Picker Bottom Sheet Modal State
-  const [showDatePickerModal, setShowDatePickerModal] = useState(false);
-  const [selectedCalendarMonth, setSelectedCalendarMonth] = useState<string>(''); // YYYY-MM
-
-  // Record Proof Video Modal State
-  const [showRecordModal, setShowRecordModal] = useState(false);
-  const [recordedVideoUri, setRecordedVideoUri] = useState<string | null>(null);
-  const [selectedDelegate, setSelectedDelegate] = useState<DelegateWithStatus | null>(null);
-  const [showDelegatePicker, setShowDelegatePicker] = useState(false);
-  const [delegateSearch, setDelegateSearch] = useState('');
-  const [orderNumber, setOrderNumber] = useState('');
-  const [notes, setNotes] = useState('');
+  // Record / Upload State
+  const [showRecordSheet, setShowRecordSheet] = useState(false);
+  const [recordedUri, setRecordedUri] = useState<string | null>(null);
+  const [selectedDelegateId, setSelectedDelegateId] = useState<string>('');
+  const [newOrderNumber, setNewOrderNumber] = useState('');
+  const [newNotes, setNewNotes] = useState('');
   const [uploading, setUploading] = useState(false);
 
-
-  // Generate 60 days history for calendar picker
-  const availableDates = useMemo(() => {
-    const list: { ymd: string; day: number; weekday: string; monthKey: string; monthLabel: string }[] = [];
-    const now = new Date();
-    for (let i = 0; i < 60; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const ymd = formatDateToYMD(d);
-      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const monthLabel = `${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-      list.push({
-        ymd,
-        day: d.getDate(),
-        weekday: ARABIC_WEEKDAYS[d.getDay()],
-        monthKey,
-        monthLabel,
-      });
-    }
-    return list;
-  }, []);
-
-  // Distinct months within the 60-day range
-  const availableMonths = useMemo(() => {
-    const monthsMap = new Map<string, string>();
-    availableDates.forEach((item) => {
-      if (!monthsMap.has(item.monthKey)) {
-        monthsMap.set(item.monthKey, item.monthLabel);
-      }
-    });
-    return Array.from(monthsMap.entries()).map(([key, label]) => ({ key, label }));
-  }, [availableDates]);
-
-  // Set default calendar month to current month if unset
-  useEffect(() => {
-    if (availableMonths.length > 0 && !selectedCalendarMonth) {
-      setSelectedCalendarMonth(availableMonths[0].key);
-    }
-  }, [availableMonths, selectedCalendarMonth]);
-
-  // Days for currently selected month in calendar
-  const currentMonthDays = useMemo(() => {
-    return availableDates.filter((item) => item.monthKey === selectedCalendarMonth);
-  }, [availableDates, selectedCalendarMonth]);
-
-  // Load Archive Videos from Backend
-  const fetchArchive = async () => {
+  const fetchVideos = useCallback(async () => {
     try {
-      setLoadingArchive(true);
-      const list = await supervisorApi.getOperationVideos({
-        date: dateFilter || undefined,
-        employeeName: searchQuery || undefined,
-        orderNumber: searchQuery || undefined,
-      });
-      setArchiveVideos(list);
-    } catch (err: any) {
-      console.warn('[OperationVideoModal] fetchArchive error:', err);
+      setLoading(true);
+      const list = await supervisorApi.getOperationVideos();
+      setArchiveVideos(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.warn('[OperationVideoModal] Error fetching videos:', err);
     } finally {
-      setLoadingArchive(false);
+      setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (visible) {
-      fetchArchive();
+      fetchVideos();
     }
-  }, [visible, dateFilter]);
+  }, [visible, fetchVideos]);
 
-  // Filter delegates in delegate picker
-  const filteredDelegates = useMemo(() => {
-    if (!delegateSearch.trim()) return branchDelegates;
-    const q = delegateSearch.toLowerCase().trim();
-    return branchDelegates.filter(
-      (d) =>
-        (d.name || '').toLowerCase().includes(q) ||
-        (d.employee_number || '').toLowerCase().includes(q)
-    );
-  }, [branchDelegates, delegateSearch]);
+  // Fast filter by query and date type
+  const filteredVideos = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
 
-  // Filter local archive by search query & date filter
-  const filteredArchive = useMemo(() => {
     return archiveVideos.filter((v) => {
-      // Date filter check
-      if (dateFilter) {
-        const vDate = v.recorded_at ? formatDateToYMD(new Date(v.recorded_at)) : '';
-        if (vDate !== dateFilter) return false;
-      }
-      // Search query check
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const emp = (v.employee_name || '').toLowerCase();
-        const ord = (v.order_number || '').toLowerCase();
-        const note = (v.notes || '').toLowerCase();
-        if (!emp.includes(q) && !ord.includes(q) && !note.includes(q)) {
+      // 1. Date filter
+      if (v.recorded_at) {
+        const vDate = new Date(v.recorded_at).toISOString().slice(0, 10);
+        if (filterType === 'TODAY' && vDate !== todayStr) {
           return false;
         }
+        if (filterType === 'WEEK') {
+          const diffDays = (now.getTime() - new Date(v.recorded_at).getTime()) / (1000 * 3600 * 24);
+          if (diffDays > 7) return false;
+        }
       }
-      return true;
+
+      // 2. Search query filter
+      if (!q) return true;
+      const empMatch = v.employee_name?.toLowerCase().includes(q);
+      const orderMatch = v.order_number?.toLowerCase().includes(q);
+      const notesMatch = v.notes?.toLowerCase().includes(q);
+      return empMatch || orderMatch || notesMatch;
     });
-  }, [archiveVideos, searchQuery, dateFilter]);
+  }, [archiveVideos, searchQuery, filterType]);
 
-  // Launch Camera (Silent, Compressed 480p, Rear Camera)
-  const handleLaunchCamera = async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('إذن الكاميرا مطلوب', 'يرجى تفعيل صلاحية الكاميرا لتسجيل فيديو توثيق الطلبات.');
-        return;
-      }
+  const handlePlay = async (videoUrl?: string) => {
+    if (!videoUrl) {
+      Alert.alert('خطأ', 'رابط الفيديو غير متوفر');
+      return;
+    }
+    let fullUrl = formatImageUrl(videoUrl);
+    if (!fullUrl) {
+      Alert.alert('خطأ', 'رابط الفيديو غير صالح');
+      return;
+    }
+    const token = await getStoredToken();
+    if (token) {
+      const sep = fullUrl.includes('?') ? '&' : '?';
+      fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
+    }
+    setPlayingVideoUrl(fullUrl);
+  };
 
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['videos'],
-        allowsEditing: false,
-        cameraType: ImagePicker.CameraType.back,
-        quality: 0.3,
-        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
-        videoMaxDuration: 45,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setRecordedVideoUri(result.assets[0].uri);
-        setShowRecordModal(true);
-      }
-    } catch (err: any) {
-      Alert.alert('خطأ بالكاميرا', err?.message || 'فشل فتح الكاميرا لتسجيل الفيديو');
+  const handleOpenExternal = async () => {
+    if (playingVideoUrl) {
+      await WebBrowser.openBrowserAsync(playingVideoUrl).catch(() => {});
     }
   };
 
-  // Upload Video to Backend
-  const handleUploadVideo = async () => {
-    if (!recordedVideoUri) {
-      Alert.alert('تنبيه', 'يرجى تسجيل الفيديو أولاً قبل الحفظ.');
-      return;
-    }
-
+  // Launch camera
+  const handleRecordNew = async () => {
     try {
-      setUploading(true);
-      const empName = selectedDelegate?.name || 'توثيق عام للفرع';
-      await supervisorApi.uploadOperationVideo({
-        videoUri: recordedVideoUri,
-        employeeId: selectedDelegate?.id,
-        employeeName: empName,
-        orderNumber: orderNumber.trim(),
-        notes: notes.trim() || `توثيق مراجعة وردية - طلبات: ${orderNumber}`,
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('صلاحية الكاميرا', 'يرجى تفعيل صلاحية الكاميرا لتسجيل الفيديو.');
+        return;
+      }
+
+      const res = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['videos'],
+        allowsEditing: false,
+        cameraType: ImagePicker.CameraType.back,
+        quality: 0.4,
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Low,
+        videoMaxDuration: 60,
       });
 
-      Alert.alert('تم بنجاح', 'تم رفع الفيديو وحفظه في أرشيف السيرفر لمدة 60 يوماً بنجاح.');
-      setShowRecordModal(false);
-      setRecordedVideoUri(null);
-      setSelectedDelegate(null);
-      setOrderNumber('');
-      setNotes('');
-      fetchArchive();
-      onRefresh?.();
+      if (!res.canceled && res.assets && res.assets[0]?.uri) {
+        setRecordedUri(res.assets[0].uri);
+        setShowRecordSheet(true);
+      }
     } catch (err: any) {
-      Alert.alert('خطأ في الرفع', err?.message || 'فشل رفع الفيديو إلى السيرفر');
+      Alert.alert('خطأ', err?.message || 'تعذر فتح الكاميرا.');
+    }
+  };
+
+  const handleSaveUpload = async () => {
+    if (!recordedUri) return;
+    try {
+      setUploading(true);
+      const matched = branchDelegates.find((d) => String(d.id) === String(selectedDelegateId));
+      await supervisorApi.uploadOperationVideo({
+        videoUri: recordedUri,
+        employeeId: selectedDelegateId || undefined,
+        employeeName: matched?.name || undefined,
+        orderNumber: newOrderNumber.trim() || undefined,
+        notes: newNotes.trim() || undefined,
+      });
+
+      setShowRecordSheet(false);
+      setRecordedUri(null);
+      setNewOrderNumber('');
+      setNewNotes('');
+      fetchVideos();
+      Alert.alert('تم بنجاح', 'تم حفظ وتوثيق الفيديو في الأرشيف بنجاح.');
+    } catch (err: any) {
+      Alert.alert('فشل الرفع', err?.message || 'تعذر رفع الفيديو إلى السيرفر.');
     } finally {
       setUploading(false);
     }
   };
 
-  // Play Video inside app via embedded in-app video player
-  const handlePlayVideo = async (videoUrl: string) => {
-    try {
-      let fullUrl = formatImageUrl(videoUrl);
-      if (!fullUrl) {
-        Alert.alert('خطأ', 'رابط الفيديو غير صالح');
-        return;
-      }
-      const token = await getStoredToken();
-      if (token) {
-        const sep = fullUrl.includes('?') ? '&' : '?';
-        fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
-      }
-      setPlayingVideoUrl(fullUrl);
-    } catch (err: any) {
-      Alert.alert('خطأ', 'تعذر تشغيل مشغل الفيديو داخل التطبيق');
-    }
-  };
-
-  // Open Action Sheet on Long Press
-  const handleOpenActionSheet = (video: OperationVideo) => {
-    setActionVideo(video);
-    setShowActionModal(true);
-  };
-
-  // Start Edit Modal
-  const handleStartEdit = (video: OperationVideo) => {
-    setActionVideo(video);
-    setEditOrderNumber(video.order_number || '');
-    setEditNotes(video.notes || '');
-    setShowActionModal(false);
-    setShowEditModal(true);
-  };
-
-  // Save Edit
-  const handleSaveEdit = async () => {
-    if (!actionVideo) return;
-    try {
-      setSavingEdit(true);
-      await supervisorApi.updateOperationVideo(actionVideo.id, {
-        orderNumber: editOrderNumber.trim(),
-        notes: editNotes.trim(),
-      });
-      setArchiveVideos((prev) =>
-        prev.map((v) =>
-          v.id === actionVideo.id
-            ? { ...v, order_number: editOrderNumber.trim(), notes: editNotes.trim() }
-            : v
-        )
-      );
-      setShowEditModal(false);
-      Alert.alert('تم بنجاح', 'تم تحديث بيانات وتوثيق الفيديو بنجاح.');
-    } catch (err: any) {
-      Alert.alert('خطأ', err?.message || 'فشل تحديث بيانات الفيديو');
-    } finally {
-      setSavingEdit(false);
-    }
-  };
-
-  // Delete Video
-  const handleDeleteVideo = (video: OperationVideo) => {
+  const handleDelete = (video: OperationVideo) => {
     Alert.alert(
-      'تأكيد الحذف النهائي',
-      'هل أنت متأكد من حذف هذا الفيديو نهائياً من سيرفر AAMS؟ لا يمكن التراجع عن هذا الإجراء.',
+      'حذف توثيق الفيديو',
+      `هل أنت متأكد من حذف هذا الفيديو نهائياً؟`,
       [
         { text: 'إلغاء', style: 'cancel' },
         {
-          text: 'حذف نهائي',
+          text: 'حذف',
           style: 'destructive',
           onPress: async () => {
             try {
-              setShowActionModal(false);
               await supervisorApi.deleteOperationVideo(video.id);
               setArchiveVideos((prev) => prev.filter((v) => v.id !== video.id));
-              Alert.alert('تم', 'تم حذف الفيديو نهائياً بنجاح.');
             } catch (err: any) {
               Alert.alert('خطأ', err?.message || 'فشل حذف الفيديو');
             }
@@ -349,57 +234,57 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
     );
   };
 
+  const handleSaveEdit = async () => {
+    if (!editingVideo) return;
+    try {
+      setSavingEdit(true);
+      await supervisorApi.updateOperationVideo(editingVideo.id, {
+        orderNumber: editOrderNumber.trim(),
+        notes: editNotes.trim(),
+      });
+      setArchiveVideos((prev) =>
+        prev.map((v) =>
+          v.id === editingVideo.id
+            ? { ...v, order_number: editOrderNumber.trim(), notes: editNotes.trim() }
+            : v
+        )
+      );
+      setEditingVideo(null);
+    } catch (err: any) {
+      Alert.alert('خطأ', err?.message || 'فشل تحديث الفيديو');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-      <View style={[styles.container, { backgroundColor: colors.bg }]}>
-        {/* ── HEADER IDENTICAL TO OHDA & MANDOB ── */}
-        <View style={[styles.subPageHeaderContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          <View style={[styles.subPageHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <TouchableOpacity
-              style={[
-                styles.headerBackBtn,
-                { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border },
-              ]}
-              onPress={onClose}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Ionicons
-                name={isRTL ? 'arrow-forward' : 'arrow-back'}
-                size={22}
-                color={colors.textPrimary}
-              />
-            </TouchableOpacity>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+        {/* Header */}
+        <View style={[styles.headerRow, { backgroundColor: colors.card, borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <TouchableOpacity style={styles.backBtn} onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
 
-            <View style={[styles.subPageTitleContainer, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-              <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                مراجعة الفيديوهات
-              </Text>
-              <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
-              <Text style={[styles.subPageHeaderSub, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                أرشيف وفيديوهات التوثيق • حفظ تلقائي 60 يوماً
-              </Text>
-            </View>
-
-            {/* Quick Action: Calendar Picker in Header (replaced camera icon) */}
-            <TouchableOpacity
-              style={[
-                styles.headerCalendarBtn,
-                { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border },
-              ]}
-              onPress={() => setShowDatePickerModal(true)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-            </TouchableOpacity>
+          <View style={[styles.titleCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>مراجعة وفيديوهات التوثيق</Text>
+            <Text style={[styles.headerSub, { color: colors.textSecondary }]}>أرشيف الفيديوهات السحابي • حفظ 60 يوماً</Text>
           </View>
+
+          <TouchableOpacity
+            style={[styles.recordBtn, { backgroundColor: colors.primary, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+            onPress={handleRecordNew}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="videocam" size={17} color="#ffffff" />
+            <Text style={styles.recordBtnText}>توثيق جديد</Text>
+          </TouchableOpacity>
         </View>
 
-
-        {/* ── SEARCH & CALENDAR DATE FILTER BAR ── */}
-        <View style={[styles.filterBarContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          {/* Search Input */}
-          <View style={[styles.searchBox, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-            <Ionicons name="search" size={16} color={colors.textSecondary} />
+        {/* Search & Fast Filters */}
+        <View style={[styles.searchBarWrapper, { backgroundColor: colors.card }]}>
+          <View style={[styles.searchBox, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Ionicons name="search" size={17} color={colors.textSecondary} />
             <TextInput
               style={[styles.searchInput, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
               placeholder="ابحث بالاسم، رقم الطلب، الملاحظة..."
@@ -408,744 +293,243 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
                 <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Calendar Picker Trigger Button */}
-          <TouchableOpacity
-            style={[
-              styles.calendarFilterBtn,
-              {
-                backgroundColor: dateFilter ? `${colors.primary}15` : colors.bg,
-                borderColor: dateFilter ? colors.primary : colors.border,
-              },
-            ]}
-            onPress={() => setShowDatePickerModal(true)}
-          >
-            <Ionicons
-              name={dateFilter ? 'calendar' : 'calendar-outline'}
-              size={18}
-              color={dateFilter ? colors.primary : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.calendarFilterBtnText,
-                { color: dateFilter ? colors.primary : colors.textPrimary, fontWeight: dateFilter ? '800' : '600' },
-              ]}
-              numberOfLines={1}
+          <View style={[styles.chipsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <TouchableOpacity
+              style={[styles.chip, filterType === 'TODAY' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              onPress={() => setFilterType('TODAY')}
             >
-              {dateFilter ? formatArabicDateLabel(dateFilter) : 'التقويم (تحديد اليوم)'}
-            </Text>
-            {dateFilter ? (
-              <TouchableOpacity
-                onPress={() => setDateFilter('')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close-circle" size={16} color={colors.primary} />
-              </TouchableOpacity>
-            ) : (
-              <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
-            )}
-          </TouchableOpacity>
+              <Text style={[styles.chipText, { color: filterType === 'TODAY' ? '#ffffff' : colors.textPrimary }]}>فيديوهات اليوم</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.chip, filterType === 'WEEK' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              onPress={() => setFilterType('WEEK')}
+            >
+              <Text style={[styles.chipText, { color: filterType === 'WEEK' ? '#ffffff' : colors.textPrimary }]}>هذا الأسبوع</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.chip, filterType === 'ALL' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              onPress={() => setFilterType('ALL')}
+            >
+              <Text style={[styles.chipText, { color: filterType === 'ALL' ? '#ffffff' : colors.textPrimary }]}>جميع الفيديوهات ({archiveVideos.length})</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Active Filter Summary Strip */}
-        <View style={[styles.activeFilterStrip, { backgroundColor: colors.bg }]}>
-          <Text style={[styles.filterCountText, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-            {dateFilter
-              ? `فيديوهات يوم (${formatArabicDateLabel(dateFilter)}): ${filteredArchive.length} فيديو`
-              : `إجمالي فيديوهات الأرشيف: ${filteredArchive.length} فيديو (آخر 60 يوماً)`}
-          </Text>
-
-          <TouchableOpacity style={styles.refreshBtn} onPress={fetchArchive}>
-            <Ionicons name="refresh" size={16} color={colors.primary} />
-            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>تحديث</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── VIDEOS ARCHIVE LIST ── */}
-        {loadingArchive ? (
-          <View style={styles.loaderCenter}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loaderText, { color: colors.textSecondary }]}>جاري تحميل فيديوهات الأرشيف...</Text>
-          </View>
-        ) : filteredArchive.length === 0 ? (
-          <View style={styles.emptyCenter}>
-            <Ionicons
-              name={dateFilter || searchQuery ? 'search-outline' : 'film-outline'}
-              size={54}
-              color={colors.textSecondary}
-            />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              {dateFilter
-                ? `لا توجد فيديوهات مسجلة لتاريخ ${formatArabicDateLabel(dateFilter)}`
-                : searchQuery
-                ? `لا توجد نتائج مطابقة لـ "${searchQuery}"`
-                : 'لا توجد فيديوهات مسجلة بالأرشيف'}
-            </Text>
-            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-              {dateFilter
-                ? 'يمكنك اختيار يوم آخر من التقويم أو الضغط على "عرض الكل"'
-                : 'أي فيديو يتم توثيقه بالفرع يظهر هنا تلقائياً لمدة 60 يوماً مع إمكانية التشغيل والمراجعة.'}
-            </Text>
-
-            {dateFilter ? (
-              <TouchableOpacity
-                style={[styles.clearFilterActionBtn, { backgroundColor: colors.primary }]}
-                onPress={() => setDateFilter('')}
-              >
-                <Ionicons name="calendar-outline" size={16} color="#fff" />
-                <Text style={styles.clearFilterActionText}>عرض فيديوهات كافة الأيام</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.clearFilterActionBtn, { backgroundColor: colors.primary }]}
-                onPress={handleLaunchCamera}
-              >
-                <Ionicons name="videocam" size={16} color="#fff" />
-                <Text style={styles.clearFilterActionText}>تسجيل وتوثيق فيديو جديد</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          <ScrollView
-            contentContainerStyle={styles.archiveList}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={loadingArchive}
-                onRefresh={fetchArchive}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
-              />
-            }
-          >
-            {filteredArchive.map((video) => {
-              const formattedDate = new Date(video.recorded_at).toLocaleDateString('ar-SA', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              });
-
-              return (
-                <TouchableOpacity
-                  key={video.id}
-                  style={[styles.videoCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  activeOpacity={0.85}
-                  onLongPress={() => handleOpenActionSheet(video)}
-                  delayLongPress={400}
-                >
-                  {/* Top Info */}
-                  <View style={[styles.videoCardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={styles.videoCardHeader}>
-                      <Text
-                        style={[
-                          styles.videoEmployeeName,
-                          { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
-                        ]}
-                      >
-                        {video.employee_name || 'توثيق عام للفرع'}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.videoDate,
-                          { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' },
-                        ]}
-                      >
-                        {formattedDate}
-                      </Text>
-                    </View>
-
-                    {/* Retention Days Left Badge */}
-                    <View
-                      style={[
-                        styles.retentionBadge,
-                        {
-                          backgroundColor: video.days_left <= 7 ? '#ef444420' : '#10b98120',
-                          borderColor: video.days_left <= 7 ? '#ef4444' : '#10b981',
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="time-outline"
-                        size={14}
-                        color={video.days_left <= 7 ? '#ef4444' : '#10b981'}
-                      />
-                      <Text
-                        style={[
-                          styles.retentionBadgeText,
-                          { color: video.days_left <= 7 ? '#ef4444' : '#10b981' },
-                        ]}
-                      >
-                        متبقي {video.days_left} يوم
-                      </Text>
-                    </View>
+        {/* Video Cards List */}
+        <ScrollView
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchVideos} colors={[colors.primary]} tintColor={colors.primary} />}
+        >
+          {filteredVideos.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <View style={[styles.emptyIconCircle, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}>
+                <Ionicons name="film-outline" size={38} color={colors.textSecondary} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>لا توجد فيديوهات توثيق</Text>
+              <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+                {filterType === 'TODAY'
+                  ? 'لم يتم تسجيل فيديوهات توثيق اليوم حتى الآن.'
+                  : 'لا توجد نتائج تطابق خيارات البحث الحالية.'}
+              </Text>
+            </View>
+          ) : (
+            filteredVideos.map((video) => (
+              <View key={video.id} style={[styles.videoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                {/* Card Top: Delegate & Meta */}
+                <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={[styles.avatarCircle, { backgroundColor: colors.primary + '18' }]}>
+                    <Ionicons name="person" size={16} color={colors.primary} />
                   </View>
 
-                  {/* Order Tag & Notes */}
-                  {video.order_number ? (
-                    <View
-                      style={[
-                        styles.orderTag,
-                        { backgroundColor: '#3b82f615', flexDirection: isRTL ? 'row-reverse' : 'row' },
-                      ]}
-                    >
-                      <Ionicons name="receipt-outline" size={14} color="#2563eb" />
-                      <Text style={[styles.orderTagText, { color: '#2563eb' }]}>
-                        الطلبات: {video.order_number}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {video.notes ? (
-                    <Text
-                      style={[
-                        styles.videoNotes,
-                        { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' },
-                      ]}
-                    >
-                      {video.notes}
+                  <View style={[styles.cardHeaderCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                    <Text style={[styles.cardDelegateName, { color: colors.textPrimary }]}>
+                      {video.employee_name || 'توثيق عام للفرع'}
                     </Text>
-                  ) : null}
+                    <Text style={[styles.cardTimeText, { color: colors.textSecondary }]}>
+                      {formatArabicRelativeTime(video.recorded_at)}
+                    </Text>
+                  </View>
 
-                  {/* Action Buttons */}
-                  <View style={[styles.videoActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <TouchableOpacity
-                      style={[styles.playVideoBtn, { backgroundColor: colors.primary }]}
-                      onPress={() => handlePlayVideo(video.video_url)}
-                    >
-                      <Ionicons name="play" size={16} color="#fff" />
-                      <Text style={styles.playVideoBtnText}>مشاهدة وتشغيل الفيديو</Text>
-                    </TouchableOpacity>
+                  {!!video.order_number && (
+                    <View style={[styles.orderPill, { backgroundColor: '#0284c718' }]}>
+                      <Text style={styles.orderPillText}>طلب #{video.order_number}</Text>
+                    </View>
+                  )}
+                </View>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.moreActionBtn,
-                        { borderColor: colors.border, backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' },
-                      ]}
-                      onPress={() => handleOpenActionSheet(video)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="ellipsis-vertical" size={18} color={colors.textSecondary} />
-                    </TouchableOpacity>
+                {/* Big Visual Video Container with Centered Play Button */}
+                <TouchableOpacity
+                  style={styles.previewBox}
+                  activeOpacity={0.88}
+                  onPress={() => handlePlay(video.video_url)}
+                >
+                  <View style={styles.previewBackdrop}>
+                    <View style={styles.bigPlayButton}>
+                      <Ionicons name="play" size={30} color="#ffffff" style={{ marginLeft: 3 }} />
+                    </View>
+                    <Text style={styles.previewTapText}>اضغط لتشغيل الفيديو</Text>
                   </View>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
 
-        {/* ── IN-APP VIDEO PLAYER MODAL ── */}
-        <Modal
-          visible={!!playingVideoUrl}
-          transparent={false}
-          animationType="fade"
-          onRequestClose={() => setPlayingVideoUrl(null)}
-        >
+                {/* Notes if any */}
+                {!!video.notes && (
+                  <Text style={[styles.cardNotes, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    {video.notes}
+                  </Text>
+                )}
+
+                {/* Card Bottom Actions */}
+                <View style={[styles.cardActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <TouchableOpacity
+                    style={[styles.primaryPlayBtn, { backgroundColor: colors.primary, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                    onPress={() => handlePlay(video.video_url)}
+                  >
+                    <Ionicons name="play" size={16} color="#ffffff" />
+                    <Text style={styles.primaryPlayBtnText}>مشاهدة الفيديو</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionIconBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border }]}
+                    onPress={() => {
+                      setEditingVideo(video);
+                      setEditOrderNumber(video.order_number || '');
+                      setEditNotes(video.notes || '');
+                    }}
+                  >
+                    <Ionicons name="create-outline" size={17} color={colors.textPrimary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionIconBtn, { backgroundColor: '#ef444415', borderColor: '#ef444430' }]}
+                    onPress={() => handleDelete(video)}
+                  >
+                    <Ionicons name="trash-outline" size={17} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
+          )}
+        </ScrollView>
+
+        {/* ── HIGH PERFORMANCE VIDEO PLAYER MODAL ── */}
+        <Modal visible={!!playingVideoUrl} transparent={false} animationType="fade" onRequestClose={() => setPlayingVideoUrl(null)}>
           <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }}>
-            <View
-              style={{
-                height: 52,
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingHorizontal: 16,
-                backgroundColor: '#111827',
-                borderBottomWidth: 1,
-                borderBottomColor: '#1f2937',
-              }}
-            >
-              <TouchableOpacity
-                onPress={() => setPlayingVideoUrl(null)}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: '#374151',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
+            <View style={[styles.playerHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity style={styles.playerCloseBtn} onPress={() => setPlayingVideoUrl(null)}>
                 <Ionicons name="close" size={22} color="#ffffff" />
               </TouchableOpacity>
-              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>
-                مشاهدة توثيق الفيديو
-              </Text>
-              <View style={{ width: 36 }} />
+              <Text style={styles.playerTitle}>مشاهدة توثيق الفيديو</Text>
+              <TouchableOpacity style={styles.externalBtn} onPress={handleOpenExternal}>
+                <Ionicons name="open-outline" size={18} color="#f59e0b" />
+              </TouchableOpacity>
             </View>
             <View style={{ flex: 1, backgroundColor: '#000000' }}>
-              {playingVideoUrl ? <InAppVideoPlayer url={playingVideoUrl} /> : null}
+              {playingVideoUrl && <InAppVideoPlayer url={playingVideoUrl} />}
             </View>
           </SafeAreaView>
         </Modal>
 
-        {/* ── LONG PRESS ACTION BOTTOM SHEET ── */}
-        <Modal
-          visible={showActionModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowActionModal(false)}
-        >
-          <TouchableOpacity
-            style={styles.sheetOverlay}
-            activeOpacity={1}
-            onPress={() => setShowActionModal(false)}
-          >
-            <View style={[styles.bottomSheetCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.sheetHandle, { backgroundColor: isDarkMode ? '#3f3f46' : '#cbd5e1' }]} />
-              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', marginBottom: 14 }}>
-                <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
-                  إجراءات الفيديو • {actionVideo?.employee_name || 'توثيق عام'}
-                </Text>
-                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                  اختر الإجراء المطلوب لهذا التسجيل
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.sheetActionItem,
-                  { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-                ]}
-                onPress={() => {
-                  if (actionVideo) handleStartEdit(actionVideo);
-                }}
-              >
-                <View style={[styles.sheetActionIconBox, { backgroundColor: '#3b82f618' }]}>
-                  <Ionicons name="create-outline" size={20} color="#3b82f6" />
-                </View>
-                <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                  <Text style={[styles.sheetActionText, { color: colors.textPrimary }]}>تعديل البيانات والطلبات</Text>
-                  <Text style={{ fontSize: 11, color: colors.textSecondary }}>تعديل عدد الطلبات أو الملاحظات</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.sheetActionItem,
-                  { backgroundColor: '#ef444410', borderColor: '#ef444440', flexDirection: isRTL ? 'row-reverse' : 'row' },
-                ]}
-                onPress={() => {
-                  if (actionVideo) handleDeleteVideo(actionVideo);
-                }}
-              >
-                <View style={[styles.sheetActionIconBox, { backgroundColor: '#ef444420' }]}>
-                  <Ionicons name="trash-outline" size={20} color="#ef4444" />
-                </View>
-                <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                  <Text style={[styles.sheetActionText, { color: '#ef4444' }]}>حذف نهائي</Text>
-                  <Text style={{ fontSize: 11, color: '#ef444499' }}>حذف الفيديو وسجله نهائياً من السيرفر</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-
         {/* ── EDIT VIDEO DETAILS MODAL ── */}
-        <Modal
-          visible={showEditModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowEditModal(false)}
-        >
-          <View style={styles.sheetOverlay}>
-            <View style={[styles.editDialogCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.dialogHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Text style={[styles.dialogTitle, { color: colors.textPrimary }]}>تعديل بيانات الفيديو</Text>
-                <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                  <Ionicons name="close" size={22} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
+        <Modal visible={!!editingVideo} transparent animationType="fade" onRequestClose={() => setEditingVideo(null)}>
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+              <Text style={[styles.modalHeaderTitle, { color: colors.textPrimary }]}>تعديل بيانات الفيديو</Text>
 
-              <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 10 }]}>
-                عدد الطلبات / رقم الطلب
-              </Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>رقم الطلب (اختياري)</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
+                style={[styles.modalInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.bg }]}
                 value={editOrderNumber}
                 onChangeText={setEditOrderNumber}
-                placeholder="عدد الطلبات أو رقم الطلب..."
+                placeholder="مثال: 94821"
                 placeholderTextColor={colors.textSecondary}
               />
 
-              <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 10 }]}>
-                الملاحظات
-              </Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary, marginTop: 10 }]}>الملاحظات</Text>
               <TextInput
-                style={[styles.textArea, { backgroundColor: colors.bg, color: colors.textPrimary, borderColor: colors.border, textAlign: isRTL ? 'right' : 'left' }]}
+                style={[styles.modalInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.bg, height: 75 }]}
                 value={editNotes}
                 onChangeText={setEditNotes}
+                placeholder="اكتب ملاحظات التوثيق..."
+                placeholderTextColor={colors.textSecondary}
                 multiline
-                numberOfLines={3}
-                placeholder="أدخل أي ملاحظات تصحيحية..."
+              />
+
+              <View style={[styles.modalButtonsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <TouchableOpacity style={[styles.modalSaveBtn, { backgroundColor: colors.primary }]} onPress={handleSaveEdit} disabled={savingEdit}>
+                  {savingEdit ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalSaveBtnText}>حفظ التعديلات</Text>}
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.modalCancelBtn, { borderColor: colors.border }]} onPress={() => setEditingVideo(null)}>
+                  <Text style={[styles.modalCancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ── RECORD & UPLOAD BOTTOM SHEET ── */}
+        <Modal visible={showRecordSheet} transparent animationType="slide" onRequestClose={() => setShowRecordSheet(false)}>
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+              <View style={[styles.recordReadyBadge, { backgroundColor: '#10b98118' }]}>
+                <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                <Text style={{ color: '#10b981', fontWeight: '800', fontSize: 13 }}>تم التقاط الفيديو وجاهز للرفع</Text>
+              </View>
+
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>المندوب المرتبط بالفيديو</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 6 }}>
+                {branchDelegates.map((d) => (
+                  <TouchableOpacity
+                    key={d.id}
+                    style={[styles.delegatePill, selectedDelegateId === d.id && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                    onPress={() => setSelectedDelegateId(d.id)}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: selectedDelegateId === d.id ? '#fff' : colors.textPrimary }}>{d.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={[styles.inputLabel, { color: colors.textSecondary, marginTop: 10 }]}>رقم الطلب</Text>
+              <TextInput
+                style={[styles.modalInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.bg }]}
+                value={newOrderNumber}
+                onChangeText={setNewOrderNumber}
+                placeholder="أدخل رقم الطلب إذا توفر"
                 placeholderTextColor={colors.textSecondary}
               />
 
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.primary, marginTop: 16 }]}
-                onPress={handleSaveEdit}
-                disabled={savingEdit}
-              >
-                {savingEdit ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.actionBtnText}>حفظ التعديلات</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary, marginTop: 10 }]}>ملاحظات</Text>
+              <TextInput
+                style={[styles.modalInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.bg, height: 70 }]}
+                value={newNotes}
+                onChangeText={setNewNotes}
+                placeholder="تفاصيل التوثيق..."
+                placeholderTextColor={colors.textSecondary}
+                multiline
+              />
 
-
-        {/* ── BOTTOM SHEET CALENDAR MODAL (موديولا التقويم لآخر شهرين) ── */}
-        <Modal
-          visible={showDatePickerModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowDatePickerModal(false)}
-        >
-          <View style={styles.calendarModalOverlay}>
-            <View style={[styles.calendarModalCard, { backgroundColor: colors.card }]}>
-              {/* Calendar Modal Header */}
-              <View style={[styles.calendarModalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                  <Text style={[styles.calendarModalTitle, { color: colors.textPrimary }]}>
-                    تقويم مراجعة الفيديوهات
-                  </Text>
-                  <Text style={[styles.calendarModalSub, { color: colors.textSecondary }]}>
-                    اختر يوماً محدداً لمراجعة تسجيلاته (فترة الحفظ 60 يوماً)
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setShowDatePickerModal(false)}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <Ionicons name="close-circle" size={26} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Quick Presets */}
-              <View style={styles.presetsWrapper}>
-                <Text style={[styles.presetsSectionTitle, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  فلاتر سريعة:
-                </Text>
-                <View style={[styles.presetsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <TouchableOpacity
-                    style={[
-                      styles.presetChip,
-                      {
-                        backgroundColor: !dateFilter ? colors.primary : colors.bg,
-                        borderColor: !dateFilter ? colors.primary : colors.border,
-                      },
-                    ]}
-                    onPress={() => {
-                      setDateFilter('');
-                      setShowDatePickerModal(false);
-                    }}
-                  >
-                    <Text style={[styles.presetChipText, { color: !dateFilter ? '#fff' : colors.textPrimary }]}>
-                      عرض كل الأيام
-                    </Text>
-                  </TouchableOpacity>
-
-                  {availableDates.length > 0 && (
-                    <TouchableOpacity
-                      style={[
-                        styles.presetChip,
-                        {
-                          backgroundColor: dateFilter === availableDates[0].ymd ? colors.primary : colors.bg,
-                          borderColor: dateFilter === availableDates[0].ymd ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        setDateFilter(availableDates[0].ymd);
-                        setShowDatePickerModal(false);
-                      }}
-                    >
-                      <Text style={[styles.presetChipText, { color: dateFilter === availableDates[0].ymd ? '#fff' : colors.textPrimary }]}>
-                        اليوم
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {availableDates.length > 1 && (
-                    <TouchableOpacity
-                      style={[
-                        styles.presetChip,
-                        {
-                          backgroundColor: dateFilter === availableDates[1].ymd ? colors.primary : colors.bg,
-                          borderColor: dateFilter === availableDates[1].ymd ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        setDateFilter(availableDates[1].ymd);
-                        setShowDatePickerModal(false);
-                      }}
-                    >
-                      <Text style={[styles.presetChipText, { color: dateFilter === availableDates[1].ymd ? '#fff' : colors.textPrimary }]}>
-                        أمس
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              {/* Month Selector Tabs */}
-              <View style={[styles.monthsTabsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                {availableMonths.map((m) => {
-                  const isSelected = selectedCalendarMonth === m.key;
-                  return (
-                    <TouchableOpacity
-                      key={m.key}
-                      style={[
-                        styles.monthTabBtn,
-                        {
-                          backgroundColor: isSelected ? colors.primary : colors.bg,
-                          borderColor: isSelected ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => setSelectedCalendarMonth(m.key)}
-                    >
-                      <Text
-                        style={[
-                          styles.monthTabText,
-                          { color: isSelected ? '#fff' : colors.textPrimary, fontWeight: isSelected ? '800' : '600' },
-                        ]}
-                      >
-                        {m.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Days List for the selected Month */}
-              <ScrollView style={{ maxHeight: 250 }} showsVerticalScrollIndicator={false}>
-                <View style={[styles.daysGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  {currentMonthDays.map((item) => {
-                    const isSelected = dateFilter === item.ymd;
-                    return (
-                      <TouchableOpacity
-                        key={item.ymd}
-                        style={[
-                          styles.dayCard,
-                          {
-                            backgroundColor: isSelected ? colors.primary : colors.bg,
-                            borderColor: isSelected ? colors.primary : colors.border,
-                          },
-                        ]}
-                        onPress={() => {
-                          setDateFilter(item.ymd);
-                          setShowDatePickerModal(false);
-                        }}
-                      >
-                        <Text style={[styles.dayCardNumber, { color: isSelected ? '#fff' : colors.textPrimary }]}>
-                          {item.day}
-                        </Text>
-                        <Text style={[styles.dayCardWeekday, { color: isSelected ? '#fff' : colors.textSecondary }]}>
-                          {item.weekday}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-
-              {/* Modal Footer */}
-              <View style={[styles.calendarModalFooter, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <TouchableOpacity
-                  style={[styles.resetCalendarBtn, { borderColor: colors.border }]}
-                  onPress={() => {
-                    setDateFilter('');
-                    setShowDatePickerModal(false);
-                  }}
-                >
-                  <Text style={[styles.resetCalendarBtnText, { color: colors.textSecondary }]}>إلغاء التصفية</Text>
+              <View style={[styles.modalButtonsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <TouchableOpacity style={[styles.modalSaveBtn, { backgroundColor: colors.primary }]} onPress={handleSaveUpload} disabled={uploading}>
+                  {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalSaveBtnText}>رفع وتأكيد التوثيق</Text>}
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.closeCalendarBtn, { backgroundColor: colors.primary }]}
-                  onPress={() => setShowDatePickerModal(false)}
-                >
-                  <Text style={styles.closeCalendarBtnText}>تم</Text>
+                <TouchableOpacity style={[styles.modalCancelBtn, { borderColor: colors.border }]} onPress={() => setShowRecordSheet(false)}>
+                  <Text style={[styles.modalCancelBtnText, { color: colors.textSecondary }]}>إلغاء</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
         </Modal>
-
-        {/* ── RECORD & UPLOAD VIDEO MODAL ── */}
-        <Modal
-          visible={showRecordModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowRecordModal(false)}
-        >
-          <View style={styles.calendarModalOverlay}>
-            <View style={[styles.calendarModalCard, { backgroundColor: colors.card, maxHeight: '90%' }]}>
-              <View style={[styles.calendarModalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                  <Text style={[styles.calendarModalTitle, { color: colors.textPrimary }]}>
-                    حفظ وتوثيق الفيديو
-                  </Text>
-                  <Text style={[styles.calendarModalSub, { color: colors.textSecondary }]}>
-                    تسجيل صامت بجودة مضغوطة • حفظ لمدة 60 يوماً
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setShowRecordModal(false)}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <Ionicons name="close-circle" size={26} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Video ready banner */}
-                <View style={[styles.videoReadyBadge, { backgroundColor: '#10b98115', borderColor: '#10b98140' }]}>
-                  <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-                  <Text style={[styles.videoReadyText, { color: '#059669' }]}>
-                    تم تسجيل الفيديو بنجاح وجاهز للرفع على السيرفر
-                  </Text>
-                </View>
-
-                {/* Delegate Selector (Optional) */}
-                <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  المندوب (اختياري)
-                </Text>
-                <TouchableOpacity
-                  style={[styles.pickerTrigger, { backgroundColor: colors.bg, borderColor: colors.border }]}
-                  onPress={() => setShowDelegatePicker(!showDelegatePicker)}
-                >
-                  <Ionicons name="person-outline" size={18} color={colors.textSecondary} />
-                  <Text
-                    style={[
-                      styles.pickerTriggerText,
-                      { color: selectedDelegate ? colors.textPrimary : colors.textSecondary },
-                    ]}
-                  >
-                    {selectedDelegate ? selectedDelegate.name : 'اختر المندوب إن وُجد...'}
-                  </Text>
-                  {selectedDelegate && (
-                    <TouchableOpacity
-                      onPress={() => setSelectedDelegate(null)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                  )}
-                </TouchableOpacity>
-
-                {/* Delegate Picker Dropdown */}
-                {showDelegatePicker && (
-                  <View style={[styles.dropdownBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <TextInput
-                      style={[styles.dropdownSearch, { color: colors.textPrimary, borderColor: colors.border }]}
-                      placeholder="ابحث باسم المندوب..."
-                      placeholderTextColor={colors.textSecondary}
-                      value={delegateSearch}
-                      onChangeText={setDelegateSearch}
-                    />
-                    <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
-                      {filteredDelegates.map((d) => (
-                        <TouchableOpacity
-                          key={d.id}
-                          style={[styles.delegateItem, { borderBottomColor: colors.border }]}
-                          onPress={() => {
-                            setSelectedDelegate(d);
-                            setShowDelegatePicker(false);
-                          }}
-                        >
-                          <Text style={[styles.delegateItemName, { color: colors.textPrimary }]}>{d.name}</Text>
-                          <Text style={[styles.delegateItemCode, { color: colors.textSecondary }]}>
-                            {d.employee_number}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-
-                {/* Order Number Input */}
-                <Text
-                  style={[
-                    styles.inputLabel,
-                    { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 14 },
-                  ]}
-                >
-                  عدد الطلبات المعتمد أو رقم الطلب
-                </Text>
-                <TextInput
-                  style={[
-                    styles.inputField,
-                    {
-                      backgroundColor: colors.bg,
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                  placeholder="مثلاً: 16"
-                  placeholderTextColor={colors.textSecondary}
-                  value={orderNumber}
-                  onChangeText={setOrderNumber}
-                  keyboardType="numeric"
-                />
-
-                {/* Notes Input */}
-                <Text
-                  style={[
-                    styles.inputLabel,
-                    { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left', marginTop: 14 },
-                  ]}
-                >
-                  ملاحظات التوثيق
-                </Text>
-                <TextInput
-                  style={[
-                    styles.inputField,
-                    styles.textAreaField,
-                    {
-                      backgroundColor: colors.bg,
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                  placeholder="أي ملاحظات حول مراجعة الوردية أو التوثيق..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={notes}
-                  onChangeText={setNotes}
-                  multiline
-                  numberOfLines={3}
-                />
-
-                {/* Submit Video Upload Button */}
-                <TouchableOpacity
-                  style={[styles.submitBtn, { backgroundColor: colors.primary }]}
-                  onPress={handleUploadVideo}
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons name="cloud-upload" size={20} color="#fff" />
-                      <Text style={styles.submitBtnText}>حفظ الفيديو في الأرشيف (60 يوماً)</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };
@@ -1154,540 +538,310 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Sub-page header matching "لوحة مؤشرات الفرع"
-  subPageHeaderContainer: {
-    paddingTop: Platform.OS === 'ios' ? 52 : 36,
-    paddingBottom: 14,
+  headerRow: {
     paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-  },
-  subPageHeaderRow: {
     alignItems: 'center',
     gap: 12,
   },
-  headerBackBtn: {
+  backBtn: {
     width: 38,
     height: 38,
-    borderRadius: 10,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
   },
-  subPageTitleContainer: {
+  titleCol: {
     flex: 1,
-    justifyContent: 'center',
   },
-  subPageHeaderTitle: {
-    fontSize: 18,
+  headerTitle: {
+    fontSize: 16,
     fontWeight: '800',
   },
-  titleUnderlineBar: {
-    width: 34,
-    height: 3,
-    borderRadius: 2,
-    marginTop: 4,
-  },
-  subPageHeaderSub: {
+  headerSub: {
     fontSize: 11,
-    marginTop: 3,
+    fontWeight: '600',
+    marginTop: 1,
   },
-  headerCameraBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    justifyContent: 'center',
+  recordBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
     alignItems: 'center',
+    gap: 5,
   },
-
-  // Filter Bar
-  filterBarContainer: {
+  recordBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  searchBarWrapper: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 12,
     gap: 10,
-    borderBottomWidth: 1,
   },
   searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     height: 42,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-  },
-  calendarFilterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    height: 40,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-  },
-  calendarFilterBtnText: {
-    flex: 1,
-    fontSize: 13,
-  },
-
-  // Active filter strip
-  activeFilterStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  filterCountText: {
-    fontSize: 12,
     fontWeight: '600',
   },
-  refreshBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  chipsRow: {
+    gap: 8,
   },
-
-  // Archive List
-  archiveList: {
-    padding: 16,
-    gap: 12,
-    paddingBottom: 40,
-  },
-  videoCard: {
-    borderRadius: 16,
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
     borderWidth: 1,
-    padding: 14,
-    gap: 10,
+    borderColor: '#e2e8f0',
   },
-  videoCardTop: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  videoCardHeader: {
-    flex: 1,
-  },
-  videoEmployeeName: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  videoDate: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  retentionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  retentionBadgeText: {
+  chipText: {
     fontSize: 11,
     fontWeight: '700',
   },
-  orderTag: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
+  listContent: {
+    padding: 16,
+    paddingBottom: 40,
+    gap: 14,
+  },
+  videoCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      android: { elevation: 2 },
+    }),
+  },
+  cardHeaderRow: {
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
+  },
+  avatarCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardHeaderCol: {
+    flex: 1,
+  },
+  cardDelegateName: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  cardTimeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  orderPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
-  orderTagText: {
+  orderPillText: {
+    color: '#0284c7',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  previewBox: {
+    height: 150,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#0f172a',
+  },
+  previewBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    gap: 8,
+  },
+  bigPlayButton: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#f59e0b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  previewTapText: {
+    color: '#ffffff',
     fontSize: 12,
     fontWeight: '700',
   },
-  videoNotes: {
+  cardNotes: {
     fontSize: 13,
     lineHeight: 18,
+    fontWeight: '500',
   },
-  videoActionsRow: {
+  cardActionsRow: {
     alignItems: 'center',
-    gap: 10,
-    marginTop: 4,
-  },
-  playVideoBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
-    paddingVertical: 10,
-    borderRadius: 10,
+    marginTop: 2,
   },
-  playVideoBtnText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  headerCalendarBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  moreActionBtn: {
-    width: 40,
+  primaryPlayBtn: {
+    flex: 1,
     height: 40,
     borderRadius: 10,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
   },
-  deleteVideoBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  bottomSheetCard: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    gap: 12,
-  },
-  sheetHandle: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 10,
-  },
-  sheetTitle: {
-    fontSize: 16,
+  primaryPlayBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
     fontWeight: '800',
   },
-  sheetActionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  sheetActionIconBox: {
+  actionIconBtn: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetActionText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  editDialogCard: {
-    margin: 20,
-    borderRadius: 20,
     borderWidth: 1,
-    padding: 20,
-    alignSelf: 'center',
-    width: '90%',
-    maxWidth: 420,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  dialogHeader: {
+  playerHeader: {
+    height: 52,
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#0f172a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
   },
-  dialogTitle: {
-    fontSize: 16,
+  playerCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#334155',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playerTitle: {
+    color: '#ffffff',
+    fontSize: 15,
     fontWeight: '800',
   },
-  actionBtn: {
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
+  externalBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1e293b',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  actionBtnText: {
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 20,
+    padding: 20,
+    gap: 8,
+  },
+  modalHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modalButtonsRow: {
+    gap: 10,
+    marginTop: 14,
+  },
+  modalSaveBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalSaveBtnText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '800',
   },
-  input: {
+  modalCancelBtn: {
+    paddingHorizontal: 18,
     height: 44,
     borderRadius: 10,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    fontSize: 14,
-  },
-  textArea: {
-    height: 72,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    fontSize: 14,
-    textAlignVertical: 'top',
-  },
-
-  // Loaders & Empty states
-  loaderCenter: {
-    flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
-  },
-  loaderText: {
-    marginTop: 12,
-    fontSize: 14,
-  },
-  emptyCenter: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 30,
-    gap: 8,
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  emptySub: {
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 19,
-  },
-  clearFilterActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  clearFilterActionText: {
-    color: '#fff',
+  modalCancelBtnText: {
     fontSize: 13,
     fontWeight: '700',
   },
-
-  // Calendar Modal Bottom Sheet
-  calendarModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  calendarModalCard: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    maxHeight: '85%',
-  },
-  calendarModalHeader: {
+  recordReadyBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  calendarModalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  calendarModalSub: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  presetsWrapper: {
-    marginBottom: 12,
     gap: 6,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 6,
   },
-  presetsSectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  presetsRow: {
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  presetChip: {
+  delegatePill: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
+    borderColor: '#cbd5e1',
   },
-  presetChipText: {
+  emptyBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 10,
+  },
+  emptyIconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  emptySub: {
     fontSize: 12,
-    fontWeight: '700',
-  },
-  monthsTabsRow: {
-    gap: 8,
-    marginBottom: 12,
-  },
-  monthTabBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  monthTabText: {
-    fontSize: 13,
-  },
-  daysGrid: {
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  dayCard: {
-    width: '18%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  dayCardNumber: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  dayCardWeekday: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-  calendarModalFooter: {
-    gap: 10,
-    marginTop: 14,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#6B728030',
-  },
-  resetCalendarBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  resetCalendarBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  closeCalendarBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  closeCalendarBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
-  // Record Proof Modal Inside
-  videoReadyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  videoReadyText: {
-    fontSize: 13,
-    fontWeight: '700',
-    flex: 1,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  pickerTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  pickerTriggerText: {
-    flex: 1,
-    fontSize: 14,
-  },
-  dropdownBox: {
-    marginTop: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 10,
-  },
-  dropdownSearch: {
-    height: 40,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 8,
-    fontSize: 13,
-  },
-  delegateItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  delegateItemName: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  delegateItemCode: {
-    fontSize: 12,
-  },
-  inputField: {
-    height: 46,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 14,
-  },
-  textAreaField: {
-    height: 80,
-    paddingTop: 10,
-    textAlignVertical: 'top',
-  },
-  submitBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 16,
-    marginBottom: 20,
-  },
-  submitBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
+    textAlign: 'center',
   },
 });

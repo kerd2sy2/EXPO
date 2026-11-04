@@ -21,6 +21,9 @@ interface DashboardScreenProps {
   allDelegates?: DelegateWithStatus[];
   pendingSessions?: WorkSession[];
   vehicles?: VehicleItem[];
+  approvedOrdersCount?: number;
+  approvedKmCount?: number;
+  approvedFuelCount?: number;
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL: boolean;
@@ -46,6 +49,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   allDelegates = [],
   pendingSessions = [],
   vehicles = [],
+  approvedOrdersCount,
+  approvedKmCount,
+  approvedFuelCount,
   colors,
   isDarkMode,
   isRTL,
@@ -245,7 +251,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               يوجد {analyticsData.completedPendingCount} شفتات منتهية بانتظار اعتمادك
             </Text>
             <Text style={[styles.urgentSub, { color: isDarkMode ? '#fde68a' : '#b45309' }]}>
-              إجمالي {analyticsData.pendingOrdersSum} طلب • {analyticsData.pendingKmSum} كم • اضغط للمراجعة الفورية
+              إجمالي {analyticsData.pendingOrdersSum} طلب • {(approvedKmCount !== undefined ? approvedKmCount : analyticsData.pendingKmSum)} كم • اضغط للمراجعة الفورية
             </Text>
           </View>
           <Ionicons
@@ -268,7 +274,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <Ionicons name="bag-check" size={22} color="#10b981" />
           </View>
           <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
-            {analyticsData.pendingOrdersSum || stats.todayOrdersCount || 0}
+            {approvedOrdersCount !== undefined ? approvedOrdersCount : (stats.todayOrdersCount || 0)}
           </Text>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>طلبات</Text>
         </View>
@@ -296,7 +302,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               resizeMode="contain"
             />
             <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
-              {analyticsData.pendingFuelSum || 0}
+              {(approvedFuelCount !== undefined ? approvedFuelCount : 0)}
             </Text>
           </View>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>البنزين</Text>

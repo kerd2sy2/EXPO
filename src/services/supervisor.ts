@@ -125,10 +125,9 @@ export interface PendingMaintenanceRequest {
 
 export const supervisorApi = {
   // 0. Get all employees in supervisor branch (all job roles including drivers and supervisors)
-  getAllEmployees: async (branchId?: string): Promise<DelegateWithStatus[]> => {
+  getAllEmployees: async (): Promise<DelegateWithStatus[]> => {
     try {
-      const q = branchId ? `/employees?limit=500&branch_id=${encodeURIComponent(branchId)}` : '/employees?limit=500';
-      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>(q, {
+      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>('/employees?limit=500', {
         timeoutMs: 10000,
       });
       let list: DelegateWithStatus[] = [];
@@ -136,9 +135,6 @@ export const supervisorApi = {
         list = resp;
       } else if (resp && Array.isArray((resp as any).data)) {
         list = (resp as any).data;
-      }
-      if (branchId) {
-        list = list.filter((e) => !e.branch_id || String(e.branch_id).trim().toLowerCase() === String(branchId).trim().toLowerCase());
       }
       return list;
     } catch (err) {
@@ -166,12 +162,9 @@ export const supervisorApi = {
   },
 
   // 1. Get all employees in supervisor branch (drivers only, full branch roster)
-  getAllBranchDelegates: async (branchId?: string): Promise<DelegateWithStatus[]> => {
+  getAllBranchDelegates: async (): Promise<DelegateWithStatus[]> => {
     try {
-      const q = branchId
-        ? `/employees?limit=500&job_role=DRIVER&branch_id=${encodeURIComponent(branchId)}`
-        : '/employees?limit=500&job_role=DRIVER';
-      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>(q, {
+      const resp = await apiRequest<{ data?: DelegateWithStatus[] } | DelegateWithStatus[]>('/employees?limit=500', {
         timeoutMs: 10000,
       });
       let list: DelegateWithStatus[] = [];
@@ -180,14 +173,10 @@ export const supervisorApi = {
       } else if (resp && Array.isArray(resp.data)) {
         list = resp.data;
       }
+      // Strictly exclude supervisors, administrators, and accountants
       return list.filter((e) => {
-        const role = (e.job_role || (e as any).role_name || '').toUpperCase();
-        const isDriver = role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT'));
-        if (!isDriver) return false;
-        if (branchId && e.branch_id) {
-          return String(e.branch_id).trim().toLowerCase() === String(branchId).trim().toLowerCase();
-        }
-        return true;
+        const role = (e.job_role || (e as any).role_name || (e as any).role || '').toUpperCase();
+        return !role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT');
       });
     } catch (err) {
       console.warn('[supervisorApi] getAllBranchDelegates error:', err);
@@ -220,21 +209,15 @@ export const supervisorApi = {
   },
 
   // 2. Get currently working employees in supervisor branch
-  getWorkingDelegates: async (branchId?: string): Promise<DelegateWithStatus[]> => {
+  getWorkingDelegates: async (): Promise<DelegateWithStatus[]> => {
     try {
-      const q = branchId ? `/employees/working?branch_id=${encodeURIComponent(branchId)}` : '/employees/working';
-      const resp = await apiRequest<DelegateWithStatus[]>(q, {
+      const resp = await apiRequest<DelegateWithStatus[]>('/employees/working', {
         timeoutMs: 10000,
       });
       const list = Array.isArray(resp) ? resp : [];
       return list.filter((e) => {
-        const role = (e.job_role || (e as any).role_name || '').toUpperCase();
-        const isDriver = role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT'));
-        if (!isDriver) return false;
-        if (branchId && e.branch_id) {
-          return String(e.branch_id).trim().toLowerCase() === String(branchId).trim().toLowerCase();
-        }
-        return true;
+        const role = (e.job_role || (e as any).role_name || (e as any).role || '').toUpperCase();
+        return !role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT');
       });
     } catch (err) {
       console.warn('[supervisorApi] getWorkingDelegates error:', err);

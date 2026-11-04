@@ -41,7 +41,7 @@ interface ApprovalsScreenProps {
   onClearTargetSession?: () => void;
 }
 
-type ApprovalSubTab = 'shifts' | 'advances' | 'maintenance';
+
 
 const formatTimeOnly = (iso?: string) => {
   if (!iso) return '--:--';
@@ -102,7 +102,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   targetEmployeeId,
   onClearTargetSession,
 }) => {
-  const [subTab, setSubTab] = useState<ApprovalSubTab>('shifts');
+  
   const [selectedSession, setSelectedSession] = useState<WorkSession | null>(null);
   const [editedOrders, setEditedOrders] = useState('');
   const [editedFuel, setEditedFuel] = useState('');
@@ -147,7 +147,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
     }
 
     if (match) {
-      setSubTab('shifts');
       openSessionModal(match);
       onClearTargetSession?.();
     }
@@ -298,71 +297,20 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Sub-Tabs Selector */}
-      <View style={styles.topTabsWrapper}>
-        <View
-          style={[
-            styles.subTabsBar,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              flexDirection: isRTL ? 'row-reverse' : 'row',
-            },
-          ]}
-        >
-          <TouchableOpacity
-            style={[
-              styles.subTabBtn,
-              subTab === 'shifts' && { backgroundColor: colors.primary },
-            ]}
-            onPress={() => setSubTab('shifts')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.subTabText,
-                { color: subTab === 'shifts' ? '#ffffff' : colors.textSecondary },
-              ]}
-            >
-              الشفتات المنتهية ({sortedCompletedPendingSessions.length})
+      {/* Clean Orders Review Summary Strip */}
+      <View style={[styles.topTabsWrapper, { backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="bag-check" size={20} color={colors.primary} />
+            <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textPrimary }}>
+              مراجعة واعتماد الطلبات
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.subTabBtn,
-              subTab === 'advances' && { backgroundColor: colors.primary },
-            ]}
-            onPress={() => setSubTab('advances')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.subTabText,
-                { color: subTab === 'advances' ? '#ffffff' : colors.textSecondary },
-              ]}
-            >
-              التحقيقات ({pendingAdvances.length})
+          </View>
+          <View style={{ backgroundColor: colors.primary + '18', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+            <Text style={{ fontSize: 12, fontWeight: '800', color: colors.primary }}>
+              {sortedCompletedPendingSessions.length} شفت بانتظار الاعتماد
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.subTabBtn,
-              subTab === 'maintenance' && { backgroundColor: colors.primary },
-            ]}
-            onPress={() => setSubTab('maintenance')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.subTabText,
-                { color: subTab === 'maintenance' ? '#ffffff' : colors.textSecondary },
-              ]}
-            >
-              الصيانة ({pendingMaintenance.length})
-            </Text>
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -378,10 +326,8 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           />
         }
       >
-        {/* TAB 1: COMPLETED SHIFTS PENDING APPROVAL */}
-        {subTab === 'shifts' && (
-          <>
-            {sortedCompletedPendingSessions.length === 0 ? (
+        {/* COMPLETED SHIFTS FOR ORDERS APPROVAL */}
+        {sortedCompletedPendingSessions.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.emptyIconCircle, { backgroundColor: '#10b98118' }]}>
                   <Ionicons name="checkmark-done-outline" size={38} color="#10b981" />
@@ -587,121 +533,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                 );
               })
             )}
-          </>
-        )}
-
-        {/* TAB 2: INVESTIGATIONS */}
-        {subTab === 'advances' && (
-          <>
-            {pendingAdvances.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.emptyIconCircle, { backgroundColor: '#10b98118' }]}>
-                  <Ionicons name="shield-checkmark-outline" size={38} color="#10b981" />
-                </View>
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                  لا توجد تحقيقات معلقة
-                </Text>
-              </View>
-            ) : (
-              pendingAdvances.map((adv) => (
-                <View
-                  key={adv.id}
-                  style={[styles.approvalCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                >
-                  <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={[styles.empBadgeCircle, { backgroundColor: '#f59e0b18' }]}>
-                      <Ionicons name="document-text" size={18} color="#f59e0b" />
-                    </View>
-                    <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                      <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                        {adv.employee_name || 'مندوب'}
-                      </Text>
-                      <Text style={[styles.cardTimestamp, { color: colors.textSecondary }]}>
-                        السبب: {adv.reason || 'تحقيق غياب / مخالفة'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={[styles.cardActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <TouchableOpacity
-                      style={[styles.approveDirectBtn, { backgroundColor: '#10b981' }]}
-                      onPress={() => handleInvestigationDecision(adv.id, true)}
-                      disabled={submitting}
-                    >
-                      <Ionicons name="checkmark" size={16} color="#fff" />
-                      <Text style={styles.approveDirectBtnText}>موافقة</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.approveDirectBtn, { backgroundColor: '#ef4444' }]}
-                      onPress={() => handleInvestigationDecision(adv.id, false)}
-                      disabled={submitting}
-                    >
-                      <Ionicons name="close" size={16} color="#fff" />
-                      <Text style={styles.approveDirectBtnText}>رفض</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
-            )}
-          </>
-        )}
-
-        {/* TAB 3: MAINTENANCE */}
-        {subTab === 'maintenance' && (
-          <>
-            {pendingMaintenance.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.emptyIconCircle, { backgroundColor: '#10b98118' }]}>
-                  <Ionicons name="construct-outline" size={38} color="#10b981" />
-                </View>
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                  لا توجد طلبات صيانة معلقة
-                </Text>
-              </View>
-            ) : (
-              pendingMaintenance.map((maint) => (
-                <View
-                  key={maint.id}
-                  style={[styles.approvalCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                >
-                  <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={[styles.empBadgeCircle, { backgroundColor: '#8b5cf618' }]}>
-                      <Ionicons name="build" size={18} color="#8b5cf6" />
-                    </View>
-                    <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                      <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                        دباب: {maint.motorcycle_number}
-                      </Text>
-                      <Text style={[styles.cardTimestamp, { color: colors.textSecondary }]}>
-                        {maint.employee_name || 'مندوب'} • العداد: {maint.current_km || 0} كم
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={[styles.cardActionsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <TouchableOpacity
-                      style={[styles.approveDirectBtn, { backgroundColor: '#10b981' }]}
-                      onPress={() => handleMaintenanceDecision(maint.id, true)}
-                      disabled={submitting}
-                    >
-                      <Ionicons name="checkmark" size={16} color="#fff" />
-                      <Text style={styles.approveDirectBtnText}>اعتماد الصيانة</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.approveDirectBtn, { backgroundColor: '#ef4444' }]}
-                      onPress={() => handleMaintenanceDecision(maint.id, false)}
-                      disabled={submitting}
-                    >
-                      <Ionicons name="close" size={16} color="#fff" />
-                      <Text style={styles.approveDirectBtnText}>رفض</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
-            )}
-          </>
-        )}
-      </ScrollView>
+        </ScrollView>
 
       {/* Shift Edit & Review Modal */}
       <Modal

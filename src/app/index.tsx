@@ -233,9 +233,9 @@ export default function DelegateApp() {
         supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
-        supervisorApi.getWorkingDelegates(branchId).then(setWorkingDelegates).catch(() => {}),
-        supervisorApi.getAllBranchDelegates(branchId).then(setBranchDelegates).catch(() => {}),
-        supervisorApi.getAllEmployees(branchId).then(setAllBranchEmployees).catch(() => {}),
+        supervisorApi.getWorkingDelegates().then(setWorkingDelegates).catch(() => {}),
+        supervisorApi.getAllBranchDelegates().then(setBranchDelegates).catch(() => {}),
+        supervisorApi.getAllEmployees().then(setAllBranchEmployees).catch(() => {}),
       ]);
     } catch (e) {
       console.warn('[Eshraf] Error fetching supervisor data:', e);
@@ -1781,41 +1781,64 @@ export default function DelegateApp() {
   const targetProgressPct = Math.min(100, Math.round((totalApprovedOrdersCount / monthlyTarget) * 100));
   const remainingOrdersToTarget = Math.max(0, monthlyTarget - totalApprovedOrdersCount);
 
+  // Strictly filter delegates belonging ONLY to the supervisor's branch and exclude supervisors/admins
+  const branchScopedDelegates = useMemo(() => {
+    const map = new Map<string, DelegateWithStatus>();
+
+    branchDelegates.forEach((d) => {
+      if (d?.id) map.set(String(d.id), d);
+    });
+
+    allBranchEmployees.forEach((d) => {
+      if (d?.id && !map.has(String(d.id))) {
+        map.set(String(d.id), d);
+      }
+    });
+
+    // Every working delegate in this branch must be included in the roster
+    workingDelegates.forEach((w) => {
+      if (w?.id) {
+        const existing = map.get(String(w.id));
+        map.set(String(w.id), {
+          ...(existing || {}),
+          ...w,
+          is_working: true,
+        });
+      }
+    });
+
+    const combined = Array.from(map.values());
+
+    return combined.filter((emp) => {
+      const role = (emp.job_role || (emp as any).role_name || (emp as any).role || 'DRIVER').toUpperCase();
+      const isDelegate = role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT'));
+      return isDelegate;
+    });
+  }, [branchDelegates, allBranchEmployees, workingDelegates]);
+
   // Supervisor Live Branch Stats
   const branchStats: BranchStats = useMemo(() => {
-    const total = branchDelegates.length;
+    const total = branchScopedDelegates.length;
     const working = workingDelegates.length;
-    const notStarted = Math.max(0, total - working);
+    const effectiveTotal = Math.max(total, working);
+    const notStarted = Math.max(0, effectiveTotal - working);
     const pendingShifts = historySessions.filter(
       (s) => s.status === 'COMPLETED' && !s.is_reviewed
     ).length;
     return {
       workingCount: working,
-      totalCount: total,
+      totalCount: effectiveTotal,
       notStartedCount: notStarted,
       pendingApprovalsCount: pendingShifts,
       todayOrdersCount: totalApprovedOrdersCount,
     };
-  }, [branchDelegates, workingDelegates, historySessions, totalApprovedOrdersCount]);
+  }, [branchScopedDelegates, workingDelegates, historySessions, totalApprovedOrdersCount]);
   const calculatedDistance =
     endKm && activeSession?.start_km && Number(endKm) >= Number(activeSession.start_km)
       ? Number(endKm) - Number(activeSession.start_km)
       : 0;
 
-  // Strictly filter delegates belonging ONLY to the supervisor's branch and exclude supervisors/admins
-  const branchScopedDelegates = useMemo(() => {
-    const supBranch = employee?.branch_id ? String(employee.branch_id).trim() : null;
-    const list = branchDelegates.length > 0 ? branchDelegates : allBranchEmployees;
-    return list.filter((emp) => {
-      const role = (emp.job_role || (emp as any).role_name || 'DRIVER').toUpperCase();
-      const isDriver = role === 'DRIVER' || (!role.includes('SUPERVISOR') && !role.includes('ADMIN') && !role.includes('ACCOUNTANT'));
-      if (!isDriver) return false;
-      if (supBranch && emp.branch_id) {
-        return String(emp.branch_id).trim().toLowerCase() === supBranch.toLowerCase();
-      }
-      return true;
-    });
-  }, [branchDelegates, allBranchEmployees, employee?.branch_id]);
+  
 
   // Unread operational alerts counter for Bell in HomeHeader
   const unreadNotificationsCount = useMemo(() => {
@@ -2053,6 +2076,9 @@ export default function DelegateApp() {
                 allDelegates={branchScopedDelegates}
                 pendingSessions={pendingSessions}
                 vehicles={vehicles}
+                approvedOrdersCount={totalApprovedOrdersCount}
+                approvedKmCount={totalApprovedDistance}
+                approvedFuelCount={totalApprovedFuel}
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
