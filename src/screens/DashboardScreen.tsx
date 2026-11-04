@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -255,74 +256,66 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* 3. Analytical KPI Grid (6 Distinct Operational Indicators - Static Display Only) */}
+      {/* 3. Analytical KPI Grid (4 Focused Operational Indicators) */}
       <Text style={[styles.sectionHeader, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
         المؤشرات الرقمية للفرع والأسطول
       </Text>
 
       <View style={[styles.kpiGrid, { direction: isRTL ? 'rtl' : 'ltr' }]}>
+        {/* 1. طلبات */}
         <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.kpiIconBox, { backgroundColor: '#10b98118' }]}>
-            <Ionicons name="bag-check" size={20} color="#10b981" />
+            <Ionicons name="bag-check" size={22} color="#10b981" />
           </View>
           <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
             {analyticsData.pendingOrdersSum || stats.todayOrdersCount || 0}
           </Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>طلبات الشفتات</Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>طلبات</Text>
         </View>
 
+        {/* 2. الكيلومترات */}
         <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.kpiIconBox, { backgroundColor: '#0284c718' }]}>
-            <Ionicons name="speedometer" size={20} color="#0284c7" />
+            <Ionicons name="speedometer" size={22} color="#0284c7" />
           </View>
           <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
             {analyticsData.pendingKmSum} كم
           </Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>الكيلومترات المسجلة</Text>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>الكيلومترات</Text>
         </View>
 
+        {/* 3. البنزين (مع شعار الريال السعودي) */}
         <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.kpiIconBox, { backgroundColor: '#f59e0b18' }]}>
-            <Ionicons name="flame" size={20} color="#f59e0b" />
+            <Ionicons name="flame" size={22} color="#f59e0b" />
           </View>
-          <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
-            {analyticsData.pendingFuelSum} ر.س
-          </Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>تكلفة البنزين</Text>
+          <View style={[styles.riyalValueRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
+              {analyticsData.pendingFuelSum || 0}
+            </Text>
+            <Image
+              source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
+              style={[styles.riyalSymbolImg, { tintColor: isDarkMode ? '#fbbf24' : '#d97706' }]}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>البنزين</Text>
         </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.kpiIconBox, { backgroundColor: '#6366f118' }]}>
-            <Ionicons name="bicycle" size={20} color="#6366f1" />
-          </View>
-          <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
-            {analyticsData.assignedBikes}
-          </Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>دبابات مربوطة بمناديب</Text>
-        </View>
-
+        {/* 4. الدبابات اللى محتاجة تغير زيت */}
         <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.kpiIconBox, { backgroundColor: '#ef444418' }]}>
-            <Ionicons name="alert-circle" size={20} color="#ef4444" />
+            <Ionicons name="construct" size={22} color="#ef4444" />
           </View>
-          <Text style={[styles.kpiNumber, { color: '#ef4444' }]}>
-            {analyticsData.missingPlates}
+          <Text style={[styles.kpiNumber, { color: analyticsData.oilDueCount > 0 ? '#ef4444' : colors.textPrimary }]}>
+            {analyticsData.oilDueCount}
           </Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>مناديب بدون لوحة</Text>
-        </View>
-
-        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.kpiIconBox, { backgroundColor: '#8b5cf618' }]}>
-            <Ionicons name="water" size={20} color="#8b5cf6" />
-          </View>
-          <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
-            {vehicles.length || analyticsData.assignedBikes}
+          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+            دبابات تحتاج تغيير زيت
           </Text>
-          <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>متابعة غيار الزيت</Text>
         </View>
       </View>
-
-      {/* 4. Delivery Platforms Distribution Breakdown */}
+{/* 4. Delivery Platforms Distribution Breakdown */}
       {analyticsData.appDistribution.length > 0 && (
         <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -592,13 +585,21 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   kpiCard: {
-    width: '31%',
-    borderRadius: 16,
+    width: '48.3%',
+    borderRadius: 18,
     borderWidth: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    gap: 6,
+  },
+  riyalValueRow: {
     alignItems: 'center',
     gap: 5,
+  },
+  riyalSymbolImg: {
+    width: 15,
+    height: 15,
   },
   kpiIconBox: {
     width: 38,
@@ -608,11 +609,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   kpiNumber: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '900',
   },
   kpiLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
   },

@@ -184,9 +184,11 @@ export default function DelegateApp() {
   const [vehicles, setVehicles] = useState<VehicleItem[]>([]);
   const [loadingOperationsData, setLoadingOperationsData] = useState(false);
 
-  const fetchOperationsData = useCallback(async () => {
+  const fetchOperationsData = useCallback(async (isSilent = false) => {
     try {
-      setLoadingOperationsData(true);
+      if (!isSilent) {
+        setLoadingOperationsData(true);
+      }
       const [items, vehs] = await Promise.all([
         operationsApi.getInventoryItems(),
         operationsApi.getVehicles(),
@@ -196,7 +198,9 @@ export default function DelegateApp() {
     } catch (e) {
       console.warn('[Eshraf] Error fetching operations data:', e);
     } finally {
-      setLoadingOperationsData(false);
+      if (!isSilent) {
+        setLoadingOperationsData(false);
+      }
     }
   }, []);
 
@@ -217,10 +221,12 @@ export default function DelegateApp() {
     }
   }, []);
 
-  const fetchSupervisorData = useCallback(async () => {
+  const fetchSupervisorData = useCallback(async (isSilent = false) => {
     try {
-      setLoadingSupervisorData(true);
-      // Stream state updates progressively as each API call finishes (<60ms for approvals)
+      if (!isSilent) {
+        setLoadingSupervisorData(true);
+      }
+      // Stream state updates progressively as each API call finishes
       await Promise.all([
         supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
@@ -232,7 +238,9 @@ export default function DelegateApp() {
     } catch (e) {
       console.warn('[Eshraf] Error fetching supervisor data:', e);
     } finally {
-      setLoadingSupervisorData(false);
+      if (!isSilent) {
+        setLoadingSupervisorData(false);
+      }
     }
   }, []);
 
@@ -881,8 +889,13 @@ export default function DelegateApp() {
   };
 
   // Auto-fetch supervisor branch data when entering supervisor tabs
+  const hasLoadedSupervisorInitialRef = useRef(false);
+
   useEffect(() => {
     if (employee?.id) {
+      const isInitial = !hasLoadedSupervisorInitialRef.current;
+      hasLoadedSupervisorInitialRef.current = true;
+
       if (
         currentTab === 'dashboard' ||
         currentTab === 'field' ||
@@ -896,7 +909,7 @@ export default function DelegateApp() {
         currentTab === 'oil-change' ||
         currentTab === 'accident-report'
       ) {
-        fetchSupervisorData();
+        fetchSupervisorData(!isInitial);
       }
       if (
         currentTab === 'operations' ||
@@ -906,7 +919,7 @@ export default function DelegateApp() {
         currentTab === 'employees' ||
         currentTab === 'dashboard'
       ) {
-        fetchOperationsData();
+        fetchOperationsData(!isInitial);
       }
     }
   }, [currentTab, employee?.id, fetchSupervisorData, fetchOperationsData]);
