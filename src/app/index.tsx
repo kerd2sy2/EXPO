@@ -2016,7 +2016,7 @@ export default function DelegateApp() {
                 refreshing={loadingSupervisorData}
                 contentContainerStyle={{
                   paddingTop: currentTab === 'home' ? topInset + HOME_HEADER_HEIGHT + 8 : 12,
-                  paddingBottom: hasCustodyPermission(employee) ? 90 : 40,
+                  paddingBottom: 40,
                 }}
                 onScroll={currentTab === 'home' ? handleHomeScroll : undefined}
                 scrollEventThrottle={16}
@@ -2336,35 +2336,6 @@ export default function DelegateApp() {
 
       </KeyboardAvoidingView>
 
-      {/* Docked Custody (العهدة) Bottom Button on Home/Dashboard */}
-      {currentTab === 'home' && hasCustodyPermission(employee) && (
-        <View style={[styles.dockedOhdaContainer, { bottom: Math.max(16, insets.bottom + 8) }]}>
-          <TouchableOpacity
-            style={[
-              styles.dockedOhdaBtn,
-              {
-                backgroundColor: isDarkMode ? '#065f46' : '#059669',
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-              },
-            ]}
-            onPress={openOhdaApp}
-            activeOpacity={0.88}
-          >
-            <View style={styles.dockedOhdaIconWrap}>
-              <Ionicons name="wallet" size={22} color="#ffffff" />
-            </View>
-            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-              <Text style={styles.dockedOhdaBtnTitle}>العهدة</Text>
-              <Text style={styles.dockedOhdaBtnSub}>فتح تطبيق العهدة والمصروفات</Text>
-            </View>
-            <View style={[styles.dockedOhdaOpenPill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={styles.dockedOhdaOpenText}>فتح</Text>
-              <Ionicons name={isRTL ? 'arrow-back' : 'arrow-forward'} size={14} color="#ffffff" />
-            </View>
-          </TouchableOpacity>
-        </View>
-      )}
-
       {/* Fullscreen QR Modal */}
       <ModuleErrorBoundary moduleName="رمز الاستجابة السريعة (QR)" fallback={null}>
         <QrCodeModal
@@ -2650,53 +2621,5 @@ const styles = StyleSheet.create({
   mainScrollContent: {
     flexGrow: 1,
     paddingBottom: 24,
-  },
-  dockedOhdaContainer: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    zIndex: 999,
-  },
-  dockedOhdaBtn: {
-    height: 54,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    gap: 12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  dockedOhdaIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dockedOhdaBtnTitle: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  dockedOhdaBtnSub: {
-    color: '#d1fae5',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  dockedOhdaOpenPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    alignItems: 'center',
-    gap: 4,
-  },
-  dockedOhdaOpenText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '800',
   },
 });

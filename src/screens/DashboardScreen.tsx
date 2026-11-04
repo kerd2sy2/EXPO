@@ -433,37 +433,37 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* 7. Bottom Custody (العهدة) Action Banner for Authorized Supervisors */}
+      {/* 7. Dedicated Custody (العهدة) Banner for Authorized Supervisors */}
       {hasCustody && onOpenOhdaApp && (
         <TouchableOpacity
           style={[
             styles.ohdaBannerBtn,
             {
-              backgroundColor: isDarkMode ? 'rgba(5, 150, 105, 0.16)' : '#ecfdf5',
-              borderColor: isDarkMode ? '#059669' : '#10b981',
+              backgroundColor: isDarkMode ? 'rgba(5, 150, 105, 0.12)' : '#f0fdf4',
+              borderColor: isDarkMode ? '#05966944' : '#bbf7d0',
               flexDirection: isRTL ? 'row-reverse' : 'row',
             },
           ]}
           onPress={onOpenOhdaApp}
-          activeOpacity={0.85}
+          activeOpacity={0.82}
         >
-          <View style={[styles.shortcutIcon, { backgroundColor: '#10b98126' }]}>
+          <View style={[styles.ohdaIconBox, { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.18)' : '#dcfce7' }]}>
             <Ionicons name="wallet" size={24} color="#10b981" />
           </View>
           <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={[styles.shortcutTitle, { color: isDarkMode ? '#6ee7b7' : '#065f46', fontSize: 15, fontWeight: '800' }]}>
-                العهدة (تطبيق العهدة)
-              </Text>
-              <View style={styles.ohdaBadge}>
-                <Text style={styles.ohdaBadgeText}>صلاحية العهدة</Text>
-              </View>
-            </View>
-            <Text style={[styles.shortcutSub, { color: isDarkMode ? '#a7f3d0' : '#047857' }]}>
-              فتح وإدارة حسابات العهدة والمصروفات اليومية للفرع
+            <Text style={[styles.ohdaTitleText, { color: colors.textPrimary }]}>
+              العهدة
+            </Text>
+            <Text style={[styles.ohdaSubText, { color: colors.textSecondary }]}>
+              إدارة المصروفات ورصيد الفرع اليومي
             </Text>
           </View>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color="#10b981" />
+          <View style={[styles.ohdaActionPill, { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Text style={[styles.ohdaActionPillText, { color: isDarkMode ? '#4ade80' : '#15803d' }]}>
+              فتح التطبيق
+            </Text>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={14} color={isDarkMode ? '#4ade80' : '#15803d'} />
+          </View>
         </TouchableOpacity>
       )}
     </ScrollView>
@@ -705,21 +705,37 @@ const styles = StyleSheet.create({
   },
   ohdaBannerBtn: {
     marginTop: 12,
-    borderRadius: 16,
-    borderWidth: 1.5,
+    borderRadius: 18,
+    borderWidth: 1.2,
     padding: 14,
     alignItems: 'center',
     gap: 12,
   },
-  ohdaBadge: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+  ohdaIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  ohdaBadgeText: {
-    color: '#ffffff',
-    fontSize: 10,
+  ohdaTitleText: {
+    fontSize: 16,
     fontWeight: '800',
+  },
+  ohdaSubText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  ohdaActionPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignItems: 'center',
+    gap: 4,
+  },
+  ohdaActionPillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
