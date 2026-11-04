@@ -3,9 +3,9 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   StyleSheet,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { EmployeeProfile, ThemeColors } from '../types/delegate';
 
@@ -27,6 +27,16 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
   onPressProfile,
   onLongPressProfile,
 }) => {
+  // Extract only the first and second name as requested
+  const getFirstTwoNames = (fullName?: string) => {
+    if (!fullName) return '';
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length <= 2) return parts.join(' ');
+    return `${parts[0]} ${parts[1]}`;
+  };
+
+  const displayName = getFirstTwoNames(employee.name);
+
   return (
     <View style={[styles.headerContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
       <TouchableOpacity
@@ -37,7 +47,13 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
       >
         <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
           {empPhotoUrl ? (
-            <Image source={{ uri: empPhotoUrl }} style={styles.headerAvatarImg} />
+            <ExpoImage
+              source={{ uri: empPhotoUrl }}
+              style={styles.headerAvatarImg}
+              contentFit="cover"
+              transition={150}
+              cachePolicy="memory-disk"
+            />
           ) : (
             <Ionicons name="person" size={20} color={colors.primary} />
           )}
@@ -48,10 +64,8 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
             <Text
               style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
               numberOfLines={1}
-              adjustsFontSizeToFit={true}
-              minimumFontScale={0.75}
             >
-              {employee.name}
+              {displayName}
             </Text>
           </View>
           <View style={[styles.headerIdBadgeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
