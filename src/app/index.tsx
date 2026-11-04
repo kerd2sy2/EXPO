@@ -358,50 +358,37 @@ export default function DelegateApp() {
     const diff = currentY - lastScrollY.current;
     lastScrollY.current = currentY;
 
-    // Firmly lock header at natural position when near top or rubber-banding (pull down hard)
-    if (currentY <= 30) {
-      scrollDelta.current = 0;
+    // At top of scroll (or pulling down past top): immediately ensure header is visible
+    if (currentY <= 0) {
       if (isHeaderHidden.current) {
         isHeaderHidden.current = false;
         Animated.timing(headerTranslateY, {
           toValue: 0,
-          duration: 140,
+          duration: 120,
           useNativeDriver: true,
         }).start();
       }
       return;
     }
 
-    // Accumulate directional scroll delta with deadband to prevent rapid jitter
-    if (diff > 0) {
-      // Swiping up / scrolling down page
-      if (scrollDelta.current < 0) {
-        scrollDelta.current = 0;
-      }
-      scrollDelta.current += diff;
-
-      // Require deliberate scroll of >= 45px past top threshold before hiding
-      if (scrollDelta.current >= 45 && currentY > 60 && !isHeaderHidden.current) {
+    // Swiping up / scrolling down page: hide header immediately with motion
+    if (diff > 1.5) {
+      if (!isHeaderHidden.current) {
         isHeaderHidden.current = true;
         Animated.timing(headerTranslateY, {
           toValue: -HOME_HEADER_HEIGHT,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }).start();
       }
-    } else if (diff < 0) {
-      // Swiping down / scrolling up towards top
-      if (scrollDelta.current > 0) {
-        scrollDelta.current = 0;
-      }
-      scrollDelta.current += diff;
-
-      // Show header smoothly when scrolling up by at least 30px
-      if (scrollDelta.current <= -30 && isHeaderHidden.current) {
+    }
+    // Swiping down / scrolling up towards top: show header immediately
+    else if (diff < -1.5) {
+      if (isHeaderHidden.current) {
         isHeaderHidden.current = false;
         Animated.timing(headerTranslateY, {
           toValue: 0,
-          duration: 180,
+          duration: 150,
           useNativeDriver: true,
         }).start();
       }
@@ -1143,6 +1130,19 @@ export default function DelegateApp() {
           permissions: loginResp.admin.permissions || [],
           app_permissions: loginResp.admin.app_permissions,
           is_admin: true,
+          personal_image:
+            loginResp.admin.personal_image ||
+            loginResp.admin.avatar ||
+            loginResp.admin.google_avatar ||
+            loginResp.admin.photo ||
+            loginResp.admin.employee?.personal_image ||
+            '',
+          avatar:
+            loginResp.admin.avatar ||
+            loginResp.admin.google_avatar ||
+            loginResp.admin.personal_image ||
+            '',
+          employee_id: loginResp.admin.employee_id || '',
         } as EmployeeProfile)
       : (loginResp?.employee || (loginResp?.id ? loginResp : null));
 
@@ -1787,13 +1787,31 @@ export default function DelegateApp() {
       ? Number(endKm) - Number(activeSession.start_km)
       : 0;
 
-  const rawEmpPhoto =
-    employee?.personal_image ||
-    (employee as any)?.avatar ||
-    (employee as any)?.google_avatar ||
-    (employee as any)?.photo ||
-    (employee as any)?.image ||
-    null;
+  const rawEmpPhoto = useMemo(() => {
+    const direct =
+      (employee?.personal_image && typeof employee.personal_image === 'string' && employee.personal_image.trim()) ||
+      ((employee as any)?.avatar && typeof (employee as any).avatar === 'string' && (employee as any).avatar.trim()) ||
+      ((employee as any)?.google_avatar && typeof (employee as any).google_avatar === 'string' && (employee as any).google_avatar.trim()) ||
+      ((employee as any)?.photo && typeof (employee as any).photo === 'string' && (employee as any).photo.trim()) ||
+      ((employee as any)?.employee?.personal_image && typeof (employee as any).employee.personal_image === 'string' && (employee as any).employee.personal_image.trim()) ||
+      ((employee as any)?.image && typeof (employee as any).image === 'string' && (employee as any).image.trim());
+    if (direct) return direct;
+
+    const allEmps = allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates;
+    if (employee && allEmps.length > 0) {
+      const match = allEmps.find(
+        (emp) =>
+          (emp.id && emp.id === (employee as any).employee_id) ||
+          (emp.id && emp.id === employee.id) ||
+          (emp.phone && employee.phone && emp.phone.replace(/\D/g, '') === employee.phone.replace(/\D/g, '')) ||
+          (emp.name && employee.name && emp.name.trim().toLowerCase() === employee.name.trim().toLowerCase())
+      );
+      if (match?.personal_image && typeof match.personal_image === 'string' && match.personal_image.trim()) {
+        return match.personal_image.trim();
+      }
+    }
+    return null;
+  }, [employee, allBranchEmployees, branchDelegates]);
   const empPhotoUrl = formatImageUrl(rawEmpPhoto);
 
   // Loading Screen

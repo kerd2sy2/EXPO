@@ -27,11 +27,14 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
   onPressProfile,
   onLongPressProfile,
 }) => {
-  // Extract only the first and second name as requested
+  const [imgError, setImgError] = React.useState(false);
+
+  // Extract first and second name cleanly without cutting off
   const getFirstTwoNames = (fullName?: string) => {
     if (!fullName) return '';
-    const parts = fullName.trim().split(/\s+/).filter(Boolean);
-    if (parts.length <= 2) return parts.join(' ');
+    const clean = fullName.trim();
+    const parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length <= 1) return parts[0] || '';
     return `${parts[0]} ${parts[1]}`;
   };
 
@@ -46,13 +49,14 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
         activeOpacity={0.8}
       >
         <View style={[styles.headerAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-          {empPhotoUrl ? (
+          {empPhotoUrl && !imgError ? (
             <ExpoImage
               source={{ uri: empPhotoUrl }}
               style={styles.headerAvatarImg}
               contentFit="cover"
               transition={150}
               cachePolicy="memory-disk"
+              onError={() => setImgError(true)}
             />
           ) : (
             <Ionicons name="person" size={20} color={colors.primary} />
@@ -63,7 +67,6 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
             <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
             <Text
               style={[styles.headerUserName, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
-              numberOfLines={1}
             >
               {displayName}
             </Text>
@@ -117,12 +120,14 @@ const styles = StyleSheet.create({
   },
   headerNameRow: {
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
+    flexDirection: 'row',
   },
   headerUserName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    letterSpacing: -0.2,
+    flexShrink: 1,
+    paddingHorizontal: 2,
   },
   headerIdBadgeRow: {
     alignItems: 'center',

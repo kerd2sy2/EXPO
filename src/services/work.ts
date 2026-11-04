@@ -149,6 +149,16 @@ export const workApi = {
         );
 
         if (isAdm) {
+          const admPhoto =
+            u.personal_image ||
+            u.avatar ||
+            u.google_avatar ||
+            u.photo ||
+            u.employee?.personal_image ||
+            cached?.personal_image ||
+            cached?.avatar ||
+            '';
+
           const fullAdmin: EmployeeProfile = {
             ...(cached || {}),
             id: u.id,
@@ -160,6 +170,9 @@ export const workApi = {
             branch_name: u.branch_name || cached?.branch_name || '',
             permissions: Array.isArray(u.permissions) ? u.permissions : cached?.permissions || [],
             app_permissions: u.app_permissions || cached?.app_permissions,
+            personal_image: admPhoto,
+            avatar: admPhoto,
+            employee_id: u.employee_id || cached?.employee_id || '',
             is_admin: true,
           };
           await saveCachedUser(fullAdmin);

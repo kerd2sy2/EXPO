@@ -152,17 +152,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     { title: 'إدارة الموظفين', sub: 'مرتب بالمفاتيح', icon: 'people-outline', color: '#6366f1', onPress: () => onNavigateToTab('employees') },
     { title: 'تغيير الزيت', sub: 'بحث سريع باللوحة', icon: 'construct-outline', color: '#8b5cf6', onPress: () => onNavigateToTab('oil-change') },
     { title: 'التقارير والسلف', sub: 'رفع تقرير مشرف', icon: 'document-text-outline', color: '#ec4899', onPress: () => onOpenReportModal?.('list') },
-    ...(hasCustody && onOpenOhdaApp
-      ? [
-          {
-            title: 'العهدة',
-            sub: 'فتح تطبيق العهدة',
-            icon: 'wallet-outline',
-            color: '#059669',
-            onPress: onOpenOhdaApp,
-          },
-        ]
-      : []),
   ];
 
   return (
