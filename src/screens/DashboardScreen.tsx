@@ -24,11 +24,15 @@ interface DashboardScreenProps {
   isDarkMode: boolean;
   isRTL: boolean;
   onNavigateToTab: (tab: TabType) => void;
-  onOpenOverrideModal: () => void;
-  onOpenReportModal: () => void;
+  onOpenOverrideModal?: () => void;
+  onOpenReportModal?: (preferredMode?: 'list' | 'create') => void;
   onOpenOperationVideosModal?: () => void;
   onRefresh: () => void;
   refreshing: boolean;
+  contentContainerStyle?: any;
+  onScroll?: (event: any) => void;
+  scrollEventThrottle?: number;
+  progressViewOffset?: number;
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
@@ -47,6 +51,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenOperationVideosModal,
   onRefresh,
   refreshing,
+  contentContainerStyle,
+  onScroll,
+  scrollEventThrottle = 16,
+  progressViewOffset = 0,
 }) => {
   // Compute Deep Analytical KPIs
   const analyticsData = useMemo(() => {
@@ -128,14 +136,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.bg }]}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
           colors={[colors.primary]}
           tintColor={colors.primary}
+          progressViewOffset={progressViewOffset}
         />
       }
     >
@@ -363,7 +374,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           { title: 'مراجعة الطلبات', sub: 'السجل التنازلي', icon: 'list-circle-outline', color: '#0284c7', onPress: () => onNavigateToTab('orders-review') },
           { title: 'إدارة الموظفين', sub: 'مرتب بالمفاتيح', icon: 'people-outline', color: '#6366f1', onPress: () => onNavigateToTab('employees') },
           { title: 'تغيير الزيت', sub: 'بحث سريع باللوحة', icon: 'construct-outline', color: '#8b5cf6', onPress: () => onNavigateToTab('oil-change') },
-          { title: 'التقارير والسلف', sub: 'رفع تقرير مشرف', icon: 'document-text-outline', color: '#ec4899', onPress: onOpenReportModal },
+          { title: 'التقارير والسلف', sub: 'رفع تقرير مشرف', icon: 'document-text-outline', color: '#ec4899', onPress: () => onOpenReportModal?.('list') },
         ].map((item, i) => (
           <TouchableOpacity
             key={i}

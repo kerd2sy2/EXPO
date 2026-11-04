@@ -1978,9 +1978,9 @@ export default function DelegateApp() {
               lang={lang}
             />
           </ModuleErrorBoundary>
-        ) : currentTab === 'dashboard' ? (
+        ) : currentTab === 'dashboard' || currentTab === 'home' ? (
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="لوحة التحكم" colors={colors} onReset={fetchSupervisorData}>
+            <ModuleErrorBoundary moduleName="لوحة المؤشرات" colors={colors} onReset={fetchSupervisorData}>
               <DashboardScreen
                 adminName={employee?.name || 'المشرف'}
                 branchName={employee?.branch_name || 'فرع الإشراف'}
@@ -1992,12 +1992,34 @@ export default function DelegateApp() {
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
-                onNavigateToTab={(tab) => setCurrentTab(tab)}
+                onNavigateToTab={(tab) => {
+                  if (tab === 'dashboard') {
+                    setCurrentTab('home');
+                  } else {
+                    handleNavigateToTab(tab);
+                  }
+                }}
                 onOpenOverrideModal={() => setCurrentTab('field')}
-                onOpenReportModal={() => setShowReportModal(true)}
+                onOpenReportModal={(prefMode) => {
+                  if (prefMode === 'create') {
+                    setReportInitialMode('create');
+                    setAdvanceInitialMode('create');
+                  } else {
+                    setReportInitialMode('list');
+                    setAdvanceInitialMode('list');
+                  }
+                  setShowReportModal(true);
+                }}
                 onOpenOperationVideosModal={() => setShowOperationVideoModal(true)}
                 onRefresh={fetchSupervisorData}
                 refreshing={loadingSupervisorData}
+                contentContainerStyle={{
+                  paddingTop: currentTab === 'home' ? topInset + HOME_HEADER_HEIGHT + 8 : 12,
+                  paddingBottom: 40,
+                }}
+                onScroll={currentTab === 'home' ? handleHomeScroll : undefined}
+                scrollEventThrottle={16}
+                progressViewOffset={currentTab === 'home' ? topInset + HOME_HEADER_HEIGHT : 0}
               />
             </ModuleErrorBoundary>
           </View>
@@ -2211,12 +2233,10 @@ export default function DelegateApp() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            onScroll={handleHomeScroll}
-            scrollEventThrottle={16}
             contentContainerStyle={[
               styles.mainScrollContent,
               {
-                paddingTop: currentTab === 'home' ? topInset + HOME_HEADER_HEIGHT : 0,
+                paddingTop: 12,
                 paddingBottom: 24 + (keyboardOffset > 0 ? keyboardOffset + 24 : 0),
               },
             ]}
@@ -2226,41 +2246,9 @@ export default function DelegateApp() {
                 onRefresh={onRefresh}
                 colors={[colors.primary]}
                 tintColor={colors.primary}
-                progressViewOffset={topInset + (currentTab === 'home' ? HOME_HEADER_HEIGHT : 0)}
               />
             }
           >
-            {currentTab === 'home' && (
-              <ModuleErrorBoundary moduleName="الرئيسية" colors={colors} onReset={onRefresh}>
-                <HomeScreen
-                  employee={employee}
-                  pendingSessions={pendingSessions}
-                  workingDelegatesCount={workingDelegates.filter(d => !d.job_role?.includes('SUPERVISOR') && !(d as any).role_name?.includes('SUPERVISOR')).length}
-                  totalDelegatesCount={(allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates).length}
-                  todayOrdersCount={totalApprovedOrdersCount}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                  t={t}
-                  lang={lang}
-                  onNavigateToTab={handleNavigateToTab}
-                  onConfirmOrders={handleConfirmOrders}
-                  onOpenReportModal={(prefMode) => {
-                    if (prefMode === 'create') {
-                      setReportInitialMode('create');
-                      setAdvanceInitialMode('create');
-                    } else {
-                      setReportInitialMode('list');
-                      setAdvanceInitialMode('list');
-                    }
-                    setShowReportModal(true);
-                  }}
-                  onOpenOperationVideosModal={() => setShowOperationVideoModal(true)}
-                  onRefresh={fetchSupervisorData}
-                />
-              </ModuleErrorBoundary>
-            )}
-
             {currentTab === 'shift' && (
               <ModuleErrorBoundary moduleName="إدارة الشفت" colors={colors} onReset={() => checkSession(false)}>
                 <ShiftScreen

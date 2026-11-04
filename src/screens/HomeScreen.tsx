@@ -1,358 +1,89 @@
-import React, { useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { DashboardScreen } from './DashboardScreen';
 import { EmployeeProfile, WorkSession, TabType, ThemeColors, Language } from '../types/delegate';
-import { FleetActionPickerModal } from '../components/modals/FleetActionPickerModal';
+import { BranchStats, DelegateWithStatus } from '../services/supervisor';
+import { VehicleItem } from '../services/operations';
 
 export interface HomeScreenProps {
   employee: EmployeeProfile;
+  stats?: BranchStats;
+  workingDelegates?: DelegateWithStatus[];
+  allDelegates?: DelegateWithStatus[];
   pendingSessions?: WorkSession[];
-  workingDelegatesCount?: number;
-  totalDelegatesCount?: number;
-  todayOrdersCount?: number;
+  vehicles?: VehicleItem[];
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL: boolean;
-  t: any;
+  t?: any;
   lang?: Language;
   onNavigateToTab: (tab: TabType) => void;
   onOpenReportModal?: (preferredMode?: 'list' | 'create') => void;
   onOpenOperationVideosModal?: () => void;
-  onOpenWhatsAppModal?: () => void;
-  onConfirmOrders?: (session: WorkSession, ordersCount?: number, notes?: string) => Promise<void>;
+  onOpenOverrideModal?: () => void;
   onRefresh?: () => void;
-  // Backward compatibility
-  activeSession?: WorkSession | null;
-  historySessions?: WorkSession[];
-  totalApprovedOrdersCount?: number;
-  pendingOrdersCount?: number;
-  monthlyTarget?: number;
-  isTargetAchieved?: boolean;
-  expectedSalary?: number;
-  targetProgressPct?: number;
-  remainingOrdersToTarget?: number;
-  elapsedTime?: string;
-  onStartShiftClick?: () => void;
+  refreshing?: boolean;
+  contentContainerStyle?: any;
+  onScroll?: (event: any) => void;
+  scrollEventThrottle?: number;
+  progressViewOffset?: number;
+  // Legacy props
+  workingDelegatesCount?: number;
+  totalDelegatesCount?: number;
+  todayOrdersCount?: number;
+  onConfirmOrders?: any;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   employee,
+  stats,
+  workingDelegates = [],
+  allDelegates = [],
   pendingSessions = [],
-  workingDelegatesCount = 0,
-  totalDelegatesCount = 0,
-  todayOrdersCount = 0,
+  vehicles = [],
   colors,
   isDarkMode,
-  isRTL = true,
+  isRTL,
   onNavigateToTab,
   onOpenReportModal,
   onOpenOperationVideosModal,
-  onOpenWhatsAppModal,
+  onOpenOverrideModal,
+  onRefresh,
+  refreshing = false,
+  contentContainerStyle,
+  onScroll,
+  scrollEventThrottle = 16,
+  progressViewOffset = 0,
 }) => {
-  const [showFleetModal, setShowFleetModal] = useState(false);
-  const pendingCount = useMemo(() => {
-    return (pendingSessions || []).filter(
-      (s) => !!(s.end_time || s.end_km != null || s.status === 'COMPLETED')
-    ).length;
-  }, [pendingSessions]);
-
+  const branchStats: BranchStats = stats || {
+    workingCount: workingDelegates.length,
+    totalCount: allDelegates.length,
+    notStartedCount: Math.max(0, allDelegates.length - workingDelegates.length),
+    pendingApprovalsCount: pendingSessions.filter((s) => s.status === 'COMPLETED' && !s.is_reviewed).length,
+    todayOrdersCount: 0,
+  };
 
   return (
-    <View style={styles.container}>
-      {/* ── CORE SUPERVISOR HUBS & MODULES ── */}
-      <View style={styles.modulesSection}>
-        {/* Module 1: Branch Dashboard & Live KPIs */}
-        <TouchableOpacity
-          style={[
-            styles.moduleCard,
-            { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-          ]}
-          onPress={() => onNavigateToTab('dashboard')}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.moduleIconBox, { backgroundColor: colors.primaryLight }]}>
-            <Ionicons name="stats-chart" size={24} color={colors.primary} />
-          </View>
-          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>لوحة مؤشرات الفرع</Text>
-            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-              إحصائيات الأداء، معدل تغطية الميدان، والطلبات
-            </Text>
-          </View>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* Module 2: Field Live Monitoring */}
-        <TouchableOpacity
-          style={[
-            styles.moduleCard,
-            { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-          ]}
-          onPress={() => onNavigateToTab('field')}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.moduleIconBox, { backgroundColor: '#10b98115' }]}>
-            <Ionicons name="people" size={24} color="#10b981" />
-          </View>
-          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>متابعة الميدان والمناديب</Text>
-              {workingDelegatesCount > 0 && (
-                <View style={[styles.miniBadge, { backgroundColor: '#10b98120' }]}>
-                  <Text style={[styles.miniBadgeText, { color: '#10b981' }]}>{workingDelegatesCount} نشط</Text>
-                </View>
-              )}
-            </View>
-            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-              المناديب على رأس العمل، الدبابات، وبدء الورديات استثنائياً
-            </Text>
-          </View>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* Module 2b: Employees Management (إدارة وتعديل الموظفين) */}
-        <TouchableOpacity
-          style={[
-            styles.moduleCard,
-            { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-          ]}
-          onPress={() => onNavigateToTab('employees')}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.moduleIconBox, { backgroundColor: '#f9731615' }]}>
-            <Ionicons name="person-circle-outline" size={26} color="#f97316" />
-          </View>
-          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>إدارة وتعديل الموظفين</Text>
-              {totalDelegatesCount > 0 && (
-                <View style={[styles.miniBadge, { backgroundColor: '#f9731620' }]}>
-                  <Text style={[styles.miniBadgeText, { color: '#f97316' }]}>{totalDelegatesCount} موظف</Text>
-                </View>
-              )}
-            </View>
-            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-              دليل الموظفين، البحث، وتعديل البيانات وحسابات الدبابات مباشرة
-            </Text>
-          </View>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* Module 3: Approvals Hub (مركز الموافقات) */}
-        <TouchableOpacity
-          style={[
-            styles.moduleCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: pendingCount > 0 ? '#f59e0b' : colors.border,
-              borderWidth: pendingCount > 0 ? 1.5 : 1,
-              flexDirection: isRTL ? 'row-reverse' : 'row',
-            },
-          ]}
-          onPress={() => onNavigateToTab('approvals')}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.moduleIconBox, { backgroundColor: '#f59e0b15' }]}>
-            <Ionicons name="checkmark-done-circle" size={26} color="#f59e0b" />
-          </View>
-          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>مركز الموافقات</Text>
-              {pendingCount > 0 && (
-                <View style={[styles.alertBadge, { backgroundColor: '#ef4444' }]}>
-                  <Text style={styles.alertBadgeText}>{pendingCount} معلق</Text>
-                </View>
-              )}
-            </View>
-            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-              موافقة شفتات المناديب، الطلبات المعلقة، والسلف والصيانة
-            </Text>
-          </View>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={pendingCount > 0 ? '#f59e0b' : colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* Module 3b: Orders Review (مراجعة الطلبات) */}
-        <TouchableOpacity
-          style={[
-            styles.moduleCard,
-            { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-          ]}
-          onPress={() => onNavigateToTab('orders-review')}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.moduleIconBox, { backgroundColor: '#3b82f615' }]}>
-            <Ionicons name="receipt-outline" size={24} color="#3b82f6" />
-          </View>
-          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>مراجعة الطلبات</Text>
-            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-              تدقيق طلبات اليوم أو تاريخ محدد، والبحث عن طلبات مناديب الفرع
-            </Text>
-          </View>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* Module 4: Fleet & Operations */}
-        <TouchableOpacity
-          style={[
-            styles.moduleCard,
-            { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-          ]}
-          onPress={() => setShowFleetModal(true)}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.moduleIconBox, { backgroundColor: '#0284c715' }]}>
-            <Ionicons name="construct-outline" size={24} color="#0284c7" />
-          </View>
-          <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>إدارة الأسطول والدبابات</Text>
-            <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-              تغيير زيت، إضافة مركبة جديدة، أو بلاغ عن حادث
-            </Text>
-          </View>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* Module 5: Reports (التقارير) */}
-        {onOpenReportModal && (
-          <TouchableOpacity
-            style={[
-              styles.moduleCard,
-              { backgroundColor: colors.card, borderColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-            ]}
-            onPress={() => onOpenReportModal('list')}
-            onLongPress={() => onOpenReportModal('create')}
-            delayLongPress={400}
-            activeOpacity={0.75}
-          >
-            <View style={[styles.moduleIconBox, { backgroundColor: '#8b5cf615' }]}>
-              <Ionicons name="document-text" size={24} color="#8b5cf6" />
-            </View>
-            <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-              <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>التقارير</Text>
-              </View>
-              <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-                ضغطة لعرض السجل • ضغطة مطولة لإنشاء طلب جديد
-              </Text>
-            </View>
-            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        )}
-
-        {/* Module 6: Review Videos (مراجعة الفيديوهات) */}
-        {(onOpenOperationVideosModal || onOpenWhatsAppModal) && (
-          <TouchableOpacity
-            style={[
-              styles.moduleCard,
-              { backgroundColor: colors.card, borderColor: '#3b82f640', borderWidth: 1.5, flexDirection: isRTL ? 'row-reverse' : 'row' },
-            ]}
-            onPress={onOpenOperationVideosModal || onOpenWhatsAppModal}
-            activeOpacity={0.75}
-          >
-            <View style={[styles.moduleIconBox, { backgroundColor: '#3b82f620' }]}>
-              <Ionicons name="film" size={26} color="#3b82f6" />
-            </View>
-            <View style={[styles.moduleTextBox, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-              <View style={[styles.titleWithBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Text style={[styles.moduleTitle, { color: colors.textPrimary }]}>مراجعة الفيديوهات</Text>
-                <View style={[styles.miniBadge, { backgroundColor: '#3b82f620' }]}>
-                  <Text style={[styles.miniBadgeText, { color: '#2563eb' }]}>آخر 60 يوماً</Text>
-                </View>
-              </View>
-              <Text style={[styles.moduleSub, { color: colors.textSecondary }]}>
-                أرشيف وفيديوهات التوثيق الصامتة، البحث باليوم والتقويم، ومراجعة الطلبات
-              </Text>
-            </View>
-            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={20} color="#3b82f6" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Fleet Action Modal (تغيير زيت / إضافة مركبة جديدة / بلاغ عن حادث) */}
-      <FleetActionPickerModal
-        visible={showFleetModal}
-        onClose={() => setShowFleetModal(false)}
-        onSelectAction={(action) => {
-          setShowFleetModal(false);
-          onNavigateToTab(action);
-        }}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-      />
-    </View>
+    <DashboardScreen
+      adminName={employee.name || 'المشرف'}
+      branchName={employee.branch_name || 'فرع الإشراف'}
+      stats={branchStats}
+      workingDelegates={workingDelegates}
+      allDelegates={allDelegates}
+      pendingSessions={pendingSessions}
+      vehicles={vehicles}
+      colors={colors}
+      isDarkMode={isDarkMode}
+      isRTL={isRTL}
+      onNavigateToTab={onNavigateToTab}
+      onOpenOverrideModal={onOpenOverrideModal || (() => onNavigateToTab('field'))}
+      onOpenReportModal={onOpenReportModal ? () => onOpenReportModal('list') : () => {}}
+      onOpenOperationVideosModal={onOpenOperationVideosModal}
+      onRefresh={onRefresh || (() => {})}
+      refreshing={refreshing}
+      contentContainerStyle={contentContainerStyle}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
+      progressViewOffset={progressViewOffset}
+    />
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 24,
-    gap: 16,
-  },
-  modulesSection: {
-    gap: 12,
-    marginTop: 4,
-  },
-  moduleCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 14,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  moduleIconBox: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  moduleTextBox: {
-    flex: 1,
-    gap: 4,
-  },
-  titleWithBadge: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  moduleTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  moduleSub: {
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  miniBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  miniBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  alertBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  alertBadgeText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-});
