@@ -145,6 +145,9 @@ export const refreshAuthToken = async (): Promise<string | null> => {
       if (!rToken) {
         rToken = await loadStoredRefreshToken();
       }
+      if (!rToken) {
+        rToken = storedToken || (await loadStoredToken());
+      }
 
       if (!rToken) {
         console.log('[Auth] No refresh token available to refresh session');
@@ -183,14 +186,15 @@ export const refreshAuthToken = async (): Promise<string | null> => {
         // Only trigger session expired if definitively rejected by server (401/403) and not a transient issue
         if (response.status === 401 || response.status === 403) {
           console.log('[Auth] Refresh token expired or rejected by server.');
+          triggerSessionExpired();
         }
         return null;
       }
 
       const data = await response.json();
-      if (data?.access_token) {
-        const newAccess = data.access_token;
-        const newRefresh = data.refresh_token || rToken;
+      const newAccess = data?.access_token || data?.token;
+      if (newAccess) {
+        const newRefresh = data?.refresh_token || newAccess;
         await setAuthToken(newAccess, newRefresh);
 
         // Update biometrics if enabled
@@ -435,9 +439,6 @@ export async function apiRequest<T = any>(
             headers,
             signal: fetchOptions.signal || controller.signal,
           });
-        } else {
-          // Refresh failed
-          triggerSessionExpired();
         }
       }
 

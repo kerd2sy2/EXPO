@@ -460,20 +460,20 @@ export function useAuthSession({
         }
         setIsSessionSyncing(true);
 
-        setEmployee(emp);
-        await saveCachedUser(emp);
         if (res.access_token) {
-          await setAuthToken(res.access_token, res.refresh_token);
+          await setAuthToken(res.access_token, res.refresh_token || res.access_token);
           const bioOn = await isBiometricEnabled();
           if (bioOn && emp.national_id) {
             await saveLastCredentialsForBiometrics(
               emp.national_id,
               res.access_token,
               emp,
-              res.refresh_token
+              res.refresh_token || res.access_token
             );
           }
         }
+        await saveCachedUser(emp);
+        setEmployee(emp);
         setCurrentTab('home');
 
         workApi

@@ -121,10 +121,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
         if (saved && saved.user && !isAdmin) {
           let tokenToUse = saved.token;
-          if (saved.refreshToken) {
-            await setAuthToken(saved.token, saved.refreshToken);
+          let refreshToUse = saved.refreshToken || saved.token;
+          if (refreshToUse) {
+            await setAuthToken(saved.token, refreshToUse);
           } else if (saved.token) {
-            await setAuthToken(saved.token);
+            await setAuthToken(saved.token, saved.token);
           }
 
           // Ensure session is fresh
@@ -132,13 +133,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             const refreshed = await refreshAuthToken();
             if (refreshed) {
               tokenToUse = refreshed;
+              refreshToUse = refreshed;
             }
           } catch {}
 
           await saveCachedUser(saved.user);
           await onOtpSuccess({
             access_token: tokenToUse,
-            refresh_token: saved.refreshToken,
+            refresh_token: refreshToUse,
             employee: saved.user,
           });
         } else {
