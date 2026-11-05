@@ -77,6 +77,7 @@ import { hasCustodyPermission, openOhdaApp } from '../utils/custodyPermissions';
 import {
   supervisorApi,
   BranchStats,
+  ServerDashboardStats,
   DelegateWithStatus,
   PendingMaintenanceRequest,
   PendingAdvanceRequest,
@@ -175,6 +176,7 @@ export default function DelegateApp() {
   const [pendingMaintenance, setPendingMaintenance] = useState<PendingMaintenanceRequest[]>([]);
   const [pendingSessions, setPendingSessions] = useState<WorkSession[]>([]);
   const [branchSessions, setBranchSessions] = useState<WorkSession[]>([]);
+  const [serverDashboardStats, setServerDashboardStats] = useState<ServerDashboardStats | null>(null);
   const [pendingAdvances, setPendingAdvances] = useState<PendingAdvanceRequest[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportInitialMode, setReportInitialMode] = useState<'list' | 'create'>('list');
@@ -219,6 +221,7 @@ export default function DelegateApp() {
       await Promise.all([
         supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
         supervisorApi.getBranchSessions(500).then(setBranchSessions).catch(() => {}),
+        supervisorApi.getDashboardStats(branchId).then((ds) => { if (ds) setServerDashboardStats(ds); }).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
         operationsApi.getVehicles(branchId).then(setVehicles).catch(() => {}),
@@ -240,6 +243,7 @@ export default function DelegateApp() {
       await Promise.all([
         supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
         supervisorApi.getBranchSessions(500).then(setBranchSessions).catch(() => {}),
+        supervisorApi.getDashboardStats(branchId).then((ds) => { if (ds) setServerDashboardStats(ds); }).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
         supervisorApi.getWorkingDelegates(branchId).then(setWorkingDelegates).catch(() => {}),
@@ -1757,10 +1761,10 @@ export default function DelegateApp() {
     return isSessionFromToday(s);
   });
 
-  const todayApprovedOrdersCount = todayApprovedSessions
+  const computedTodayOrdersCount = todayApprovedSessions
     .reduce((acc, s) => acc + (Number(s.orders_count ?? (s as any).total_orders) || 0), 0);
 
-  const todayApprovedDistance = todayApprovedSessions
+  const computedTodayDistance = todayApprovedSessions
     .reduce((acc, s) => {
       const explicitDist = Number((s as any).total_km ?? s.distance ?? 0);
       if (explicitDist > 0) return acc + explicitDist;
@@ -1770,8 +1774,23 @@ export default function DelegateApp() {
       return acc;
     }, 0);
 
-  const todayApprovedFuel = todayApprovedSessions
+  const computedTodayFuel = todayApprovedSessions
     .reduce((acc, s) => acc + (Number(s.fuel_cost) || 0), 0);
+
+  const todayApprovedOrdersCount =
+    serverDashboardStats?.today_orders !== undefined
+      ? Number(serverDashboardStats.today_orders)
+      : computedTodayOrdersCount;
+
+  const todayApprovedDistance =
+    serverDashboardStats?.today_distance !== undefined
+      ? Number(serverDashboardStats.today_distance)
+      : computedTodayDistance;
+
+  const todayApprovedFuel =
+    serverDashboardStats?.today_fuel_cost !== undefined
+      ? Number(serverDashboardStats.today_fuel_cost)
+      : computedTodayFuel;
 
   const currentMonthApprovedSessions = sessionsSourceForAnalytics.filter((s) => {
     const isCompleted = s.status === 'COMPLETED' || !!s.end_time;
@@ -1889,7 +1908,10 @@ export default function DelegateApp() {
   // Supervisor Live Branch Stats
   const branchStats: BranchStats = useMemo(() => {
     const total = branchScopedDelegates.length;
-    const working = branchScopedWorkingDelegates.length;
+    const working =
+      serverDashboardStats?.working_employees !== undefined
+        ? Number(serverDashboardStats.working_employees)
+        : branchScopedWorkingDelegates.length;
     const effectiveTotal = Math.max(total, working);
     const notStarted = Math.max(0, effectiveTotal - working);
     const pendingShifts =
@@ -1904,8 +1926,16 @@ export default function DelegateApp() {
       notStartedCount: notStarted,
       pendingApprovalsCount: pendingShifts,
       todayOrdersCount: todayApprovedOrdersCount,
+      todayEmployeesCount:
+        serverDashboardStats?.today_employees !== undefined
+          ? Number(serverDashboardStats.today_employees)
+          : working,
+      finishedEmployeesCount:
+        serverDashboardStats?.finished_employees !== undefined
+          ? Number(serverDashboardStats.finished_employees)
+          : undefined,
     };
-  }, [branchScopedDelegates, branchScopedWorkingDelegates, pendingSessions.length, sessionsSourceForAnalytics, todayApprovedOrdersCount]);
+  }, [branchScopedDelegates, branchScopedWorkingDelegates, pendingSessions.length, sessionsSourceForAnalytics, todayApprovedOrdersCount, serverDashboardStats]);
   const calculatedDistance =
     endKm && activeSession?.start_km && Number(endKm) >= Number(activeSession.start_km)
       ? Number(endKm) - Number(activeSession.start_km)

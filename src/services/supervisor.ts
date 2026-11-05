@@ -7,6 +7,22 @@ export interface BranchStats {
   notStartedCount: number;
   pendingApprovalsCount: number;
   todayOrdersCount: number;
+  todayEmployeesCount?: number;
+  finishedEmployeesCount?: number;
+}
+
+export interface ServerDashboardStats {
+  total_employees: number;
+  active_employees: number;
+  today_employees: number;
+  working_employees: number;
+  finished_employees: number;
+  total_motorcycles: number;
+  active_motorcycles: number;
+  today_orders: number;
+  today_distance: number;
+  today_fuel_cost: number;
+  avg_working_hours: number;
 }
 
 export interface DelegateWithStatus extends EmployeeProfile {
@@ -635,6 +651,20 @@ export const supervisorApi = {
   // Alias for getOrdersReview
   getBranchSessions: async (limit: number = 300, page: number = 1): Promise<WorkSession[]> => {
     return supervisorApi.getOrdersReview({ limit });
+  },
+
+  // 22. Get live server dashboard stats (same endpoint as web dashboard /api/v1/dashboard)
+  getDashboardStats: async (branchId?: string): Promise<ServerDashboardStats | null> => {
+    try {
+      const q = branchId ? `?branch_id=${encodeURIComponent(branchId)}` : '';
+      const resp = await apiRequest<ServerDashboardStats>(`/dashboard${q}`, {
+        timeoutMs: 10000,
+      });
+      return resp || null;
+    } catch (err) {
+      console.warn('[supervisorApi] getDashboardStats error:', err);
+      return null;
+    }
   },
 };
 

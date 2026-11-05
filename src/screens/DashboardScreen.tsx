@@ -86,12 +86,23 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     });
 
     const totalDrivers = driversOnly.length || stats.totalCount || 0;
-    const activeCount = workingDelegates.filter((d) => {
-      const role = (d.job_role || (d as any).role_name || 'DRIVER').toUpperCase();
-      return !role.includes('SUPERVISOR') && !role.includes('ADMIN');
-    }).length;
+    const activeCount =
+      stats.workingCount !== undefined
+        ? stats.workingCount
+        : workingDelegates.filter((d) => {
+            const role = (d.job_role || (d as any).role_name || 'DRIVER').toUpperCase();
+            return !role.includes('SUPERVISOR') && !role.includes('ADMIN');
+          }).length;
+    const todayCount =
+      stats.todayEmployeesCount !== undefined && stats.todayEmployeesCount > 0
+        ? stats.todayEmployeesCount
+        : activeCount;
+    const finishedCount =
+      stats.finishedEmployeesCount !== undefined
+        ? stats.finishedEmployeesCount
+        : Math.max(0, todayCount - activeCount);
     const idleCount = Math.max(0, totalDrivers - activeCount);
-    const attendanceRate = totalDrivers > 0 ? Math.round((activeCount / totalDrivers) * 100) : 0;
+    const attendanceRate = totalDrivers > 0 ? Math.round((todayCount / totalDrivers) * 100) : 0;
 
     // Fleet & Plates stats
     let assignedBikes = 0;
@@ -148,6 +159,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return {
       totalDrivers,
       activeCount,
+      todayCount,
+      finishedCount,
       idleCount,
       attendanceRate,
       assignedBikes,
@@ -174,12 +187,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     { title: 'التقارير والسلف', sub: 'رفع تقرير مشرف', icon: 'document-text-outline', color: '#ec4899', onPress: () => onOpenReportModal?.('list') },
   ];
 
-  const displayedOrdersCount =
+  const rawOrdersCount =
     approvedOrdersCount !== undefined ? approvedOrdersCount : (stats.todayOrdersCount || 0);
-  const displayedKmCount =
+  const rawKmCount =
     approvedKmCount !== undefined ? approvedKmCount : analyticsData.pendingKmSum;
-  const displayedFuelCount =
+  const rawFuelCount =
     approvedFuelCount !== undefined ? approvedFuelCount : 0;
+
+  const displayedOrdersCount = Number(rawOrdersCount || 0);
+  const displayedKmCount =
+    Number(rawKmCount || 0) % 1 === 0 ? String(Number(rawKmCount || 0)) : Number(rawKmCount || 0).toFixed(1);
+  const displayedFuelCount = Number(rawFuelCount || 0).toFixed(2);
 
   return (
     <>
@@ -234,18 +252,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
           <View style={[styles.heroBottomStats, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={styles.heroStatItem}>
-              <Text style={styles.heroStatVal}>{analyticsData.totalDrivers}</Text>
-              <Text style={styles.heroStatLbl}>إجمالي المناديب</Text>
+              <Text style={styles.heroStatVal}>{analyticsData.todayCount}</Text>
+              <Text style={styles.heroStatLbl}>مناديب اليوم</Text>
             </View>
             <View style={styles.heroDivider} />
             <View style={styles.heroStatItem}>
               <Text style={[styles.heroStatVal, { color: '#4ade80' }]}>{analyticsData.activeCount}</Text>
-              <Text style={styles.heroStatLbl}>في الميدان الآن</Text>
+              <Text style={styles.heroStatLbl}>يعملون الآن</Text>
             </View>
             <View style={styles.heroDivider} />
             <View style={styles.heroStatItem}>
-              <Text style={[styles.heroStatVal, { color: '#fca5a5' }]}>{analyticsData.idleCount}</Text>
-              <Text style={styles.heroStatLbl}>خارج الدوام</Text>
+              <Text style={[styles.heroStatVal, { color: '#fbbf24' }]}>{analyticsData.finishedCount}</Text>
+              <Text style={styles.heroStatLbl}>أنهوا الشفت</Text>
             </View>
           </View>
         </View>
