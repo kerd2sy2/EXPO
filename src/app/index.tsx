@@ -1730,9 +1730,48 @@ export default function DelegateApp() {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
+  const currentDay = now.getDate();
 
   // All supervisor-approved completed sessions in current month (across branch or personal history)
   const sessionsSourceForAnalytics = branchSessions.length > 0 ? branchSessions : historySessions;
+
+  const isSessionFromToday = (s: WorkSession): boolean => {
+    const rawDate = s.end_time || s.start_time || (s as any).created_at;
+    if (!rawDate) return true;
+    try {
+      const sDate = new Date(rawDate);
+      return (
+        sDate.getFullYear() === currentYear &&
+        sDate.getMonth() === currentMonth &&
+        sDate.getDate() === currentDay
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  const todayApprovedSessions = sessionsSourceForAnalytics.filter((s) => {
+    const isCompleted = s.status === 'COMPLETED' || !!s.end_time;
+    if (!isCompleted) return false;
+    if (s.is_reviewed !== true) return false;
+    return isSessionFromToday(s);
+  });
+
+  const todayApprovedOrdersCount = todayApprovedSessions
+    .reduce((acc, s) => acc + (Number(s.orders_count ?? (s as any).total_orders) || 0), 0);
+
+  const todayApprovedDistance = todayApprovedSessions
+    .reduce((acc, s) => {
+      const explicitDist = Number((s as any).total_km ?? s.distance ?? 0);
+      if (explicitDist > 0) return acc + explicitDist;
+      const startKm = Number(s.start_km ?? 0);
+      const endKm = Number(s.end_km ?? 0);
+      if (endKm > startKm) return acc + (endKm - startKm);
+      return acc;
+    }, 0);
+
+  const todayApprovedFuel = todayApprovedSessions
+    .reduce((acc, s) => acc + (Number(s.fuel_cost) || 0), 0);
 
   const currentMonthApprovedSessions = sessionsSourceForAnalytics.filter((s) => {
     const isCompleted = s.status === 'COMPLETED' || !!s.end_time;
@@ -1864,9 +1903,9 @@ export default function DelegateApp() {
       totalCount: effectiveTotal,
       notStartedCount: notStarted,
       pendingApprovalsCount: pendingShifts,
-      todayOrdersCount: totalApprovedOrdersCount,
+      todayOrdersCount: todayApprovedOrdersCount,
     };
-  }, [branchScopedDelegates, branchScopedWorkingDelegates, pendingSessions.length, sessionsSourceForAnalytics, totalApprovedOrdersCount]);
+  }, [branchScopedDelegates, branchScopedWorkingDelegates, pendingSessions.length, sessionsSourceForAnalytics, todayApprovedOrdersCount]);
   const calculatedDistance =
     endKm && activeSession?.start_km && Number(endKm) >= Number(activeSession.start_km)
       ? Number(endKm) - Number(activeSession.start_km)
@@ -2106,9 +2145,9 @@ export default function DelegateApp() {
                 allDelegates={branchScopedDelegates}
                 pendingSessions={pendingSessions}
                 vehicles={vehicles}
-                approvedOrdersCount={totalApprovedOrdersCount}
-                approvedKmCount={totalApprovedDistance}
-                approvedFuelCount={totalApprovedFuel}
+                approvedOrdersCount={todayApprovedOrdersCount}
+                approvedKmCount={todayApprovedDistance}
+                approvedFuelCount={todayApprovedFuel}
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}

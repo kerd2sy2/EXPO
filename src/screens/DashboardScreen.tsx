@@ -285,11 +285,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
         {/* 3. Analytical KPI Grid (4 Focused Operational Indicators) */}
         <Text style={[styles.sectionHeader, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-          المؤشرات الرقمية للفرع والأسطول
+          مؤشرات اليوم للفرع والأسطول
         </Text>
 
         <View style={[styles.kpiGrid, { direction: isRTL ? 'rtl' : 'ltr' }]}>
-          {/* 1. طلبات */}
+          {/* 1. طلبات اليوم */}
           <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.kpiIconBox, { backgroundColor: '#10b98118' }]}>
               <Ionicons name="bag-check" size={22} color="#10b981" />
@@ -297,10 +297,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
               {displayedOrdersCount}
             </Text>
-            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>طلبات</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>طلبات اليوم</Text>
           </View>
 
-          {/* 2. الكيلومترات */}
+          {/* 2. كيلومترات اليوم */}
           <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.kpiIconBox, { backgroundColor: '#0284c718' }]}>
               <Ionicons name="speedometer" size={22} color="#0284c7" />
@@ -308,10 +308,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <Text style={[styles.kpiNumber, { color: colors.textPrimary }]}>
               {displayedKmCount} كم
             </Text>
-            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>الكيلومترات</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>كيلومترات اليوم</Text>
           </View>
 
-          {/* 3. البنزين (مع شعار الريال السعودي) */}
+          {/* 3. بنزين اليوم (مع شعار الريال السعودي) */}
           <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.kpiIconBox, { backgroundColor: '#f59e0b18' }]}>
               <Ionicons name="flame" size={22} color="#f59e0b" />
@@ -326,7 +326,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 {displayedFuelCount}
               </Text>
             </View>
-            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>البنزين</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>بنزين اليوم</Text>
           </View>
 
           {/* 4. الدبابات اللى محتاجة تغير زيت */}
