@@ -170,6 +170,9 @@ export const refreshAuthToken = async (): Promise<string | null> => {
       if (!rToken) {
         rToken = await loadStoredRefreshToken();
       }
+      if (!rToken) {
+        rToken = storedToken || (await loadStoredToken());
+      }
 
       if (!rToken) {
         console.log('[Auth] No refresh token available to refresh session');

@@ -17,15 +17,55 @@ export interface VehicleItem {
   id: string;
   plate_number: string;
   type?: string;
+  vehicle_type?: string;
+  brand?: string;
   model?: string;
+  model_year?: string;
   year?: string;
   vin?: string;
-  status: 'ACTIVE' | 'MAINTENANCE' | 'OUT_OF_SERVICE' | 'INACTIVE';
+  status: 'ACTIVE' | 'MAINTENANCE' | 'OUT_OF_SERVICE' | 'INACTIVE' | 'AVAILABLE' | 'IN_USE';
   current_km?: number;
+  last_oil_change_km?: number;
+  total_distance?: number;
+  is_odometer_broken?: boolean;
+  needs_oil_change?: boolean;
+  remaining_oil_km?: number;
   key_number?: string;
   branch_id?: string;
   created_at?: string;
 }
+
+// Helper to normalize vehicle item whether backend returns { vehicle: {...}, needs_oil_change, remaining_oil_km } or flat Vehicle
+export const normalizeVehicle = (item: any): VehicleItem => {
+  if (!item) return {} as VehicleItem;
+  if (item.vehicle && typeof item.vehicle === 'object') {
+    return {
+      ...item.vehicle,
+      needs_oil_change: item.needs_oil_change ?? item.vehicle.needs_oil_change,
+      remaining_oil_km: item.remaining_oil_km ?? item.vehicle.remaining_oil_km,
+    };
+  }
+  return item as VehicleItem;
+};
+
+// Helper to determine if a vehicle requires an oil change
+export const isVehicleOilDue = (v: any): boolean => {
+  if (!v) return false;
+  if (typeof v.needs_oil_change === 'boolean') {
+    return v.needs_oil_change;
+  }
+  const curr = Number(v.current_km || 0);
+  const last = Number(v.last_oil_change_km || 0);
+  const totalDist = Number(v.total_distance || 0);
+  const interval = String(v.vehicle_type || v.type || '').toLowerCase() === 'car' ? 10000 : 950;
+  if (last > 0 && curr >= last) {
+    return curr - last >= interval;
+  }
+  if (totalDist > 0) {
+    return totalDist >= interval;
+  }
+  return false;
+};
 
 export interface DispenseOilParams {
   motorcycleNumber: string;
@@ -88,14 +128,18 @@ export const operationsApi = {
   },
 
   // 3. Get all vehicles in supervisor branch
-  getVehicles: async (): Promise<VehicleItem[]> => {
+  getVehicles: async (branchId?: string): Promise<VehicleItem[]> => {
     try {
-      const resp = await apiRequest<{ data?: VehicleItem[] } | VehicleItem[]>('/vehicles', {
-        timeoutMs: 8000,
+      const q = branchId ? `&branch_id=${encodeURIComponent(branchId)}` : '';
+      const resp = await apiRequest<{ data?: any[] } | any[]>(`/vehicles?limit=500${q}`, {
+        timeoutMs: 10000,
       });
-      if (Array.isArray(resp)) return resp;
-      if (resp && Array.isArray((resp as any).data)) return (resp as any).data;
-      return [];
+      const rawList = Array.isArray(resp)
+        ? resp
+        : resp && Array.isArray((resp as any).data)
+        ? (resp as any).data
+        : [];
+      return rawList.map(normalizeVehicle).filter((v) => Boolean(v && v.plate_number));
     } catch (err) {
       console.warn('[operationsApi] getVehicles error:', err);
       return [];

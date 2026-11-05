@@ -20,7 +20,7 @@ import {
   PendingMaintenanceRequest,
   PendingAdvanceRequest,
 } from '../services/supervisor';
-import { VehicleItem } from '../services/operations';
+import { VehicleItem, isVehicleOilDue } from '../services/operations';
 
 const READ_NOTIFS_KEY = '@eshraf_read_notifications_v1';
 
@@ -161,13 +161,13 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       });
     });
 
-    // 3. Vehicles Due For Oil Change (> 1000 km)
+    // 3. Vehicles Due For Oil Change
     vehicles.forEach((v) => {
-      const curr = Number(v.current_km || 0);
-      const last = Number((v as any).last_oil_change_km || 0);
-      if (curr > 0 && last > 0 && curr - last >= 1000) {
+      if (isVehicleOilDue(v)) {
+        const curr = Number(v.current_km || 0);
+        const last = Number(v.last_oil_change_km || 0);
         const plate = v.plate_number || (v as any).motorcycle_number || String(v.id).slice(0, 8);
-        const overKm = curr - last;
+        const overKm = curr > last && last > 0 ? curr - last : Number(v.total_distance || curr);
         items.push({
           id: `oil_due_${v.id}`,
           category: 'VEHICLE',

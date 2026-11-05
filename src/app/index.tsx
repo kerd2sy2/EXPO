@@ -87,6 +87,7 @@ import {
   operationsApi,
   InventoryItem,
   VehicleItem,
+  isVehicleOilDue,
 } from '../services/operations';
 import { getMyViolationsApi, DelegateViolation } from '../services/api';
 
@@ -173,6 +174,7 @@ export default function DelegateApp() {
   const [workingDelegates, setWorkingDelegates] = useState<DelegateWithStatus[]>([]);
   const [pendingMaintenance, setPendingMaintenance] = useState<PendingMaintenanceRequest[]>([]);
   const [pendingSessions, setPendingSessions] = useState<WorkSession[]>([]);
+  const [branchSessions, setBranchSessions] = useState<WorkSession[]>([]);
   const [pendingAdvances, setPendingAdvances] = useState<PendingAdvanceRequest[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportInitialMode, setReportInitialMode] = useState<'list' | 'create'>('list');
@@ -192,9 +194,10 @@ export default function DelegateApp() {
       if (!isSilent) {
         setLoadingOperationsData(true);
       }
+      const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
       const [items, vehs] = await Promise.all([
         operationsApi.getInventoryItems(),
-        operationsApi.getVehicles(),
+        operationsApi.getVehicles(branchId),
       ]);
       setInventoryItems(items);
       setVehicles(vehs);
@@ -205,24 +208,27 @@ export default function DelegateApp() {
         setLoadingOperationsData(false);
       }
     }
-  }, []);
+  }, [employee?.branch_id]);
 
   const [loadingApprovalsOnly, setLoadingApprovalsOnly] = useState(false);
 
   const refreshApprovalsOnly = useCallback(async () => {
     try {
       setLoadingApprovalsOnly(true);
+      const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
       await Promise.all([
         supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
+        supervisorApi.getBranchSessions(500).then(setBranchSessions).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
+        operationsApi.getVehicles(branchId).then(setVehicles).catch(() => {}),
       ]);
     } catch (e) {
       console.warn('[Eshraf] Error refreshing approvals only:', e);
     } finally {
       setLoadingApprovalsOnly(false);
     }
-  }, []);
+  }, [employee?.branch_id]);
 
   const fetchSupervisorData = useCallback(async (isSilent = false) => {
     try {
@@ -233,11 +239,13 @@ export default function DelegateApp() {
       // Stream state updates progressively as each API call finishes
       await Promise.all([
         supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
+        supervisorApi.getBranchSessions(500).then(setBranchSessions).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
         supervisorApi.getWorkingDelegates(branchId).then(setWorkingDelegates).catch(() => {}),
         supervisorApi.getAllBranchDelegates(branchId).then(setBranchDelegates).catch(() => {}),
         supervisorApi.getAllEmployees(branchId).then(setAllBranchEmployees).catch(() => {}),
+        operationsApi.getVehicles(branchId).then(setVehicles).catch(() => {}),
       ]);
     } catch (e) {
       console.warn('[Eshraf] Error fetching supervisor data:', e);
@@ -921,7 +929,8 @@ export default function DelegateApp() {
         currentTab === 'add-vehicle' ||
         currentTab === 'accident-report' ||
         currentTab === 'employees' ||
-        currentTab === 'dashboard'
+        currentTab === 'dashboard' ||
+        currentTab === 'home'
       ) {
         fetchOperationsData(!isInitial);
       }
@@ -1722,9 +1731,12 @@ export default function DelegateApp() {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
 
-  // All supervisor-approved completed sessions in current month
-  const currentMonthApprovedSessions = historySessions.filter((s) => {
-    if (s.status !== 'COMPLETED' || !s.end_time) return false;
+  // All supervisor-approved completed sessions in current month (across branch or personal history)
+  const sessionsSourceForAnalytics = branchSessions.length > 0 ? branchSessions : historySessions;
+
+  const currentMonthApprovedSessions = sessionsSourceForAnalytics.filter((s) => {
+    const isCompleted = s.status === 'COMPLETED' || !!s.end_time;
+    if (!isCompleted) return false;
     if (s.is_reviewed !== true) return false;
     if (!s.start_time) return true;
     try {
@@ -1736,8 +1748,9 @@ export default function DelegateApp() {
   });
 
   // All pending completed sessions waiting for supervisor approval in current month
-  const currentMonthPendingSessions = historySessions.filter((s) => {
-    if (s.status !== 'COMPLETED' || !s.end_time) return false;
+  const currentMonthPendingSessions = sessionsSourceForAnalytics.filter((s) => {
+    const isCompleted = s.status === 'COMPLETED' || !!s.end_time;
+    if (!isCompleted) return false;
     if (s.is_reviewed === true) return false;
     if (!s.start_time) return true;
     try {
@@ -1750,22 +1763,21 @@ export default function DelegateApp() {
 
   // Total orders approved by supervisor this month:
   const totalApprovedOrdersCount = currentMonthApprovedSessions
-    .reduce((acc, s) => acc + (Number(s.orders_count) || 0), 0);
+    .reduce((acc, s) => acc + (Number(s.orders_count ?? (s as any).total_orders) || 0), 0);
 
   // Total pending orders waiting for supervisor approval:
   const totalPendingOrdersCount = currentMonthPendingSessions
-    .reduce((acc, s) => acc + (Number(s.orders_count) || 0), 0);
+    .reduce((acc, s) => acc + (Number(s.orders_count ?? (s as any).total_orders) || 0), 0);
 
   const totalApprovedDistance = currentMonthApprovedSessions
-    .reduce(
-      (acc, s) =>
-        acc +
-        (Number(s.distance) ||
-          (s.end_km && s.start_km && Number(s.end_km) >= Number(s.start_km)
-            ? Number(s.end_km) - Number(s.start_km)
-            : 0)),
-      0
-    );
+    .reduce((acc, s) => {
+      const explicitDist = Number((s as any).total_km ?? s.distance ?? 0);
+      if (explicitDist > 0) return acc + explicitDist;
+      const startKm = Number(s.start_km ?? 0);
+      const endKm = Number(s.end_km ?? 0);
+      if (endKm > startKm) return acc + (endKm - startKm);
+      return acc;
+    }, 0);
 
   const totalApprovedFuel = currentMonthApprovedSessions
     .reduce((acc, s) => acc + (Number(s.fuel_cost) || 0), 0);
@@ -1841,9 +1853,12 @@ export default function DelegateApp() {
     const working = branchScopedWorkingDelegates.length;
     const effectiveTotal = Math.max(total, working);
     const notStarted = Math.max(0, effectiveTotal - working);
-    const pendingShifts = historySessions.filter(
-      (s) => s.status === 'COMPLETED' && !s.is_reviewed
-    ).length;
+    const pendingShifts =
+      pendingSessions.length > 0
+        ? pendingSessions.length
+        : sessionsSourceForAnalytics.filter(
+            (s) => (s.status === 'COMPLETED' || !!s.end_time) && !s.is_reviewed
+          ).length;
     return {
       workingCount: working,
       totalCount: effectiveTotal,
@@ -1851,7 +1866,7 @@ export default function DelegateApp() {
       pendingApprovalsCount: pendingShifts,
       todayOrdersCount: totalApprovedOrdersCount,
     };
-  }, [branchScopedDelegates, branchScopedWorkingDelegates, historySessions, totalApprovedOrdersCount]);
+  }, [branchScopedDelegates, branchScopedWorkingDelegates, pendingSessions.length, sessionsSourceForAnalytics, totalApprovedOrdersCount]);
   const calculatedDistance =
     endKm && activeSession?.start_km && Number(endKm) >= Number(activeSession.start_km)
       ? Number(endKm) - Number(activeSession.start_km)
@@ -1864,11 +1879,7 @@ export default function DelegateApp() {
     const shiftCount = pendingSessions.length;
     const maintCount = pendingMaintenance.length;
     const advCount = pendingAdvances.length;
-    const oilCount = vehicles.filter((v) => {
-      const curr = Number(v.current_km || 0);
-      const last = Number((v as any).last_oil_change_km || 0);
-      return curr > 0 && last > 0 && curr - last >= 1000;
-    }).length;
+    const oilCount = vehicles.filter((v) => isVehicleOilDue(v)).length;
     return shiftCount + maintCount + advCount + oilCount;
   }, [pendingSessions, pendingMaintenance, pendingAdvances, vehicles]);
 
