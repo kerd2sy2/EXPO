@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors, TabType, WorkSession } from '../types/delegate';
 import { BranchStats, DelegateWithStatus } from '../services/supervisor';
 import { VehicleItem, isVehicleOilDue, operationsApi } from '../services/operations';
+import { DashboardSkeleton } from '../components/skeletons/DashboardSkeleton';
 
 interface DashboardScreenProps {
   adminName: string;
@@ -38,6 +39,7 @@ interface DashboardScreenProps {
   hasCustody?: boolean;
   onRefresh: () => void;
   refreshing: boolean;
+  loading?: boolean;
   contentContainerStyle?: any;
   onScroll?: (event: any) => void;
   scrollEventThrottle?: number;
@@ -65,6 +67,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   hasCustody = false,
   onRefresh,
   refreshing,
+  loading = false,
   contentContainerStyle,
   onScroll,
   scrollEventThrottle = 16,
@@ -198,6 +201,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const displayedKmCount =
     Number(rawKmCount || 0) % 1 === 0 ? String(Number(rawKmCount || 0)) : Number(rawKmCount || 0).toFixed(1);
   const displayedFuelCount = Number(rawFuelCount || 0).toFixed(2);
+
+  if (loading && (!allDelegates || allDelegates.length === 0)) {
+    return (
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.bg }]}
+        contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+        showsVerticalScrollIndicator={false}
+      >
+        <DashboardSkeleton colors={colors} isDarkMode={isDarkMode} isRTL={isRTL} />
+      </ScrollView>
+    );
+  }
 
   return (
     <>
@@ -356,7 +371,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
             {analyticsData.appDistribution.map(([appName, count], idx) => {
               const pct = Math.round((count / (analyticsData.totalDrivers || 1)) * 100);
-              return (
+              if (loading && (!allDelegates || allDelegates.length === 0)) {
+    return (
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.bg }]}
+        contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+        showsVerticalScrollIndicator={false}
+      >
+        <DashboardSkeleton colors={colors} isDarkMode={isDarkMode} isRTL={isRTL} />
+      </ScrollView>
+    );
+  }
+
+  return (
                 <View key={idx} style={styles.distRow}>
                   <View style={[styles.distLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <Text style={[styles.distAppName, { color: colors.textPrimary }]}>

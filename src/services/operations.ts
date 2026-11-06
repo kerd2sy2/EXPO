@@ -64,7 +64,7 @@ export const isVehicleOilDue = (v: any): boolean => {
       const lastDate = new Date(lastDateStr).getTime();
       const now = Date.now();
       const diffDays = (now - lastDate) / (1000 * 60 * 60 * 24);
-      return diffDays >= 4; // كل 4 أو 5 أيام يظهر؛ وإذا صُرف له زيت يختفي فوراً
+      return diffDays >= 5; // دورية إلزامية كل 5 أيام للدبابات ذات العداد المعطل
     }
     return true;
   }

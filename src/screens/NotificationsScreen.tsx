@@ -224,11 +224,16 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           parsedTime = Date.now() - 86400000;
         }
 
+        const isBroken = Boolean(v.is_odometer_broken) || plate.includes('7569') || plate.includes('8043');
+        const notifMsg = isBroken
+          ? `الدباب (${plate}) عداده معطل وتجاوز 5 أيام منذ آخر غيار زيت ويحتاج صيانة وتغيير زيت فوري`
+          : `الدباب (${plate}) قطع ${overKm} كم بعد آخر تغيير زيت ويحتاج صيانة فورية`;
+
         items.push({
           id: `oil_due_${v.id}`,
           category: 'VEHICLE',
-          title: 'دباب يحتاج تغيير زيت',
-          message: `الدباب (${plate}) قطع ${overKm} كم بعد آخر تغيير زيت ويحتاج صيانة فورية`,
+          title: isBroken ? 'دباب (عداد معطل) مستحق تغيير الزيت' : 'دباب يحتاج تغيير زيت',
+          message: notifMsg,
           timestamp: 'عاجل',
           rawDate: parsedTime,
           iconName: 'construct-outline',

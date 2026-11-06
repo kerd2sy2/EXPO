@@ -210,7 +210,7 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
               {isBroken ? 'الدورية' : 'المسافة المقطوعة'}
             </Text>
             <Text style={[styles.metricValue, { color: '#ef4444' }]}>
-              {isBroken ? 'كل 4-5 أيام' : `${drivenSinceOil.toLocaleString('en-US')} كم`}
+              {isBroken ? 'كل 5 أيام' : `${drivenSinceOil.toLocaleString('en-US')} كم`}
             </Text>
           </View>
         </View>

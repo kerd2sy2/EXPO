@@ -257,8 +257,8 @@ export const FleetOilScreen: React.FC<FleetOilScreenProps> = ({
       if (lastDate) {
         const diffMs = Date.now() - new Date(lastDate).getTime();
         brokenDaysSince = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-        brokenDaysLeft = 4 - brokenDaysSince;
-        isOverdue = brokenDaysSince >= 4;
+        brokenDaysLeft = 5 - brokenDaysSince;
+        isOverdue = brokenDaysSince >= 5;
       } else {
         isOverdue = true;
       }
@@ -361,7 +361,7 @@ export const FleetOilScreen: React.FC<FleetOilScreenProps> = ({
               >
                 {isOverdue
                   ? `عداد عاطل - مستحق الغيار فوراً (منذ ${brokenDaysSince} أيام)`
-                  : `عداد عاطل - باقي ${Math.max(0, brokenDaysLeft)} أيام لتغيير الزيت (كل 4-5 أيام)`}
+                  : `عداد عاطل - باقي ${Math.max(0, brokenDaysLeft)} أيام لتغيير الزيت (دورية كل 5 أيام)`}
               </Text>
             ) : isOverdue ? (
               <Text style={[styles.oilStatusMainText, { color: '#ef4444' }]}>

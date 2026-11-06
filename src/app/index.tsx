@@ -183,7 +183,7 @@ export default function DelegateApp() {
   const [reportInitialMode, setReportInitialMode] = useState<'list' | 'create'>('list');
   const [advanceInitialMode, setAdvanceInitialMode] = useState<'list' | 'create'>('list');
   const [showOperationVideoModal, setShowOperationVideoModal] = useState(false);
-  const [loadingSupervisorData, setLoadingSupervisorData] = useState(false);
+  const [loadingSupervisorData, setLoadingSupervisorData] = useState(true);
   const [ordersDatePickerOpen, setOrdersDatePickerOpen] = useState(false);
   const [readNotifIds, setReadNotifIds] = useState<Set<string>>(new Set());
   const notifHeaderActionsRef = useRef<{ markAll: () => void; openClearModal: () => void } | null>(null);
@@ -2237,6 +2237,7 @@ export default function DelegateApp() {
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
+                loading={loadingSupervisorData}
                 onNavigateToTab={(tab) => {
                   if (tab === 'dashboard') {
                     setCurrentTab('home');
