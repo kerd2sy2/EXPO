@@ -45,6 +45,49 @@ export const FleetOilScreen: React.FC<FleetOilScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleItem | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [dispensingVehicleId, setDispensingVehicleId] = useState<string | null>(null);
+
+  // Direct dispense handler
+  const handleDirectDispense = useCallback(
+    async (vehicle: VehicleItem, currKm: number) => {
+      const plate = vehicle.plate_number || (vehicle as any).motorcycle_number || '';
+      if (!plate) {
+        showBottomAlert({
+          type: 'warning',
+          title: 'تنبيه',
+          message: 'رقم اللوحة غير متوفر للدباب.',
+        });
+        return;
+      }
+
+      try {
+        setDispensingVehicleId(vehicle.id);
+        await operationsApi.dispenseOil({
+          motorcycleNumber: plate,
+          currentKm: currKm || Number(vehicle.current_km) || 0,
+          quantity: 1,
+          notes: `صرف زيت مباشر بواسطة ${adminName}`,
+        });
+
+        showBottomAlert({
+          type: 'success',
+          title: 'تم الصرف بنجاح',
+          message: `تم صرف جركن زيت وتسجيل غيار الزيت للدباب (${plate}) بنجاح.`,
+        });
+
+        onRefresh?.();
+      } catch (err: any) {
+        showBottomAlert({
+          type: 'error',
+          title: 'فشل الصرف',
+          message: err?.response?.data?.error || err?.message || 'تعذر تسجيل صرف الزيت.',
+        });
+      } finally {
+        setDispensingVehicleId(null);
+      }
+    },
+    [adminName, onRefresh]
+  );
 
   // Form states for modal
   const [editLastKm, setEditLastKm] = useState('');
@@ -230,11 +273,13 @@ export const FleetOilScreen: React.FC<FleetOilScreenProps> = ({
       ? new Date(lastDateStr).toLocaleDateString('ar-SA')
       : 'غير مسجل';
 
+    const isDispensing = dispensingVehicleId === v.id;
+
     return (
       <TouchableOpacity
-        activeOpacity={0.85}
+        activeOpacity={0.9}
+        delayLongPress={450}
         onLongPress={() => handleOpenEditModal(v)}
-        onPress={() => handleOpenEditModal(v)}
         style={[
           styles.card,
           {
@@ -273,14 +318,16 @@ export const FleetOilScreen: React.FC<FleetOilScreenProps> = ({
           </View>
 
           {/* Quick Edit Icon */}
-          <View
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => handleOpenEditModal(v)}
             style={[
               styles.editIconCircle,
               { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: colors.border },
             ]}
           >
             <Ionicons name="create-outline" size={16} color={colors.primary} />
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Primary Status Banner: فاضل كام كيلو ويتغير الزيت */}
@@ -365,11 +412,34 @@ export const FleetOilScreen: React.FC<FleetOilScreenProps> = ({
           </View>
         </View>
 
+        {/* Change Oil Now Action Button */}
+        <TouchableOpacity
+          activeOpacity={0.82}
+          disabled={isDispensing}
+          style={[
+            styles.dispenseBtn,
+            {
+              backgroundColor: isDispensing ? '#64748b' : isOverdue ? '#ef4444' : '#0284c7',
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            },
+          ]}
+          onPress={() => handleDirectDispense(v, currKm)}
+        >
+          {isDispensing ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <>
+              <Ionicons name="construct-outline" size={17} color="#ffffff" />
+              <Text style={styles.dispenseBtnText}>غير زيت الآن</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
         {/* Interactive Long Press Hint */}
         <View style={[styles.hintRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Ionicons name="hand-right-outline" size={13} color={colors.textSecondary} />
           <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-            اضغط مطولاً لتعديل قراءة وتاريخ آخر غيار زيت
+            اضغط مطولاً على الكرت لتعديل قراءة وتاريخ آخر غيار زيت
           </Text>
         </View>
       </TouchableOpacity>
@@ -759,6 +829,19 @@ const styles = StyleSheet.create({
   cellDivider: {
     width: 1,
     height: 22,
+  },
+  dispenseBtn: {
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  dispenseBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
   },
   hintRow: {
     alignItems: 'center',
