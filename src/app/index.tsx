@@ -1774,8 +1774,8 @@ export default function DelegateApp() {
   const sessionsSourceForAnalytics = branchSessions.length > 0 ? branchSessions : historySessions;
 
   const isSessionFromToday = (s: WorkSession): boolean => {
-    const rawDate = s.end_time || s.start_time || (s as any).created_at;
-    if (!rawDate) return true;
+    const rawDate = s.start_time || (s as any).created_at;
+    if (!rawDate) return false;
     try {
       const sDate = new Date(rawDate);
       return (
@@ -1811,20 +1811,20 @@ export default function DelegateApp() {
   const computedTodayFuel = todayApprovedSessions
     .reduce((acc, s) => acc + (Number(s.fuel_cost) || 0), 0);
 
-  const todayApprovedOrdersCount = Math.max(
-    Number(serverDashboardStats?.today_orders || 0),
-    Number(computedTodayOrdersCount || 0)
-  );
+  const todayApprovedOrdersCount =
+    serverDashboardStats?.today_orders !== undefined
+      ? Number(serverDashboardStats.today_orders)
+      : computedTodayOrdersCount;
 
-  const todayApprovedDistance = Math.max(
-    Number(serverDashboardStats?.today_distance || 0),
-    Number(computedTodayDistance || 0)
-  );
+  const todayApprovedDistance =
+    serverDashboardStats?.today_distance !== undefined
+      ? Number(serverDashboardStats.today_distance)
+      : computedTodayDistance;
 
-  const todayApprovedFuel = Math.max(
-    Number(serverDashboardStats?.today_fuel_cost || 0),
-    Number(computedTodayFuel || 0)
-  );
+  const todayApprovedFuel =
+    serverDashboardStats?.today_fuel_cost !== undefined
+      ? Number(serverDashboardStats.today_fuel_cost)
+      : computedTodayFuel;
 
   const currentMonthApprovedSessions = sessionsSourceForAnalytics.filter((s) => {
     const isCompleted = s.status === 'COMPLETED' || !!s.end_time;

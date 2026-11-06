@@ -193,17 +193,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   ];
 
   const rawOrdersCount =
-    approvedOrdersCount !== undefined && approvedOrdersCount > 0
+    approvedOrdersCount !== undefined
       ? approvedOrdersCount
       : (stats.todayOrdersCount || 0);
   const rawKmCount =
-    approvedKmCount !== undefined && Number(approvedKmCount) > 0
+    approvedKmCount !== undefined
       ? approvedKmCount
-      : analyticsData.pendingKmSum;
+      : 0;
   const rawFuelCount =
-    approvedFuelCount !== undefined && Number(approvedFuelCount) > 0
+    approvedFuelCount !== undefined
       ? approvedFuelCount
-      : analyticsData.pendingFuelSum;
+      : 0;
 
   const displayedOrdersCount = Number(rawOrdersCount || 0);
   const displayedKmCount =
