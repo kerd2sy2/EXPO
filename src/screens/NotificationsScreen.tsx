@@ -413,24 +413,15 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Clean Modern Top Summary Strip */}
-      <View style={[styles.topControlArea, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <View style={[styles.markReadRow, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-          <View style={[styles.notifTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <Text style={[styles.notifPageTitle, { color: colors.textPrimary }]}>التنبيهات الميدانية</Text>
-            <Text style={[styles.unreadSummaryText, { color: unreadCount > 0 ? '#ef4444' : colors.textSecondary }]}>
-              {unreadCount > 0 ? `${unreadCount} تنبيهات غير مقروءة` : 'جميع التنبيهات مقروءة'}
-            </Text>
-          </View>
-        </View>
-      </View>
-
       {/* Notifications List */}
       <FlatList
         data={notificationsList}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          notificationsList.length === 0 && styles.listContentEmpty,
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           onRefresh ? (
@@ -448,10 +439,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
               <Ionicons name="notifications-off-outline" size={38} color={colors.textSecondary} />
             </View>
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              لا توجد تنبيهات جديدة
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              تظهر هنا تحديثات انتهاء الشفتات، استلام وتغيير الدبابات، وطلبات الصيانة فور ورودها في الميدان.
+              لا توجد تنبيهات
             </Text>
           </View>
         }
@@ -558,8 +546,14 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 40,
-    paddingTop: 4,
+    paddingTop: 8,
     gap: 12,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 120,
   },
   notificationCard: {
     borderRadius: 16,

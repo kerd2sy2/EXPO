@@ -92,6 +92,7 @@ export type TabType =
   | 'profile'
   | 'violations'
   | 'oil-change'
+  | 'fleet-oil'
   | 'add-vehicle'
   | 'accident-report'
   | 'supervisor-report'

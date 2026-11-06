@@ -32,6 +32,9 @@ export interface VehicleItem {
   remaining_oil_km?: number;
   key_number?: string;
   branch_id?: string;
+  notes?: string;
+  last_oil_change_date?: string;
+  last_oil_change_at?: string;
   created_at?: string;
 }
 
@@ -202,6 +205,23 @@ export const operationsApi = {
     return apiRequest(`/vehicles/${id}`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
+    });
+  },
+
+  // 7. Update vehicle details (last oil change KM, current KM, date, notes)
+  updateVehicle: async (
+    id: string,
+    params: {
+      last_oil_change_km?: number;
+      current_km?: number;
+      key_number?: string;
+      last_oil_change_date?: string;
+      notes?: string;
+    }
+  ): Promise<any> => {
+    return apiRequest(`/vehicles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(params),
     });
   },
 };

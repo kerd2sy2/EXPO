@@ -40,7 +40,6 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
   adminName = 'المشرف',
   onNavigateToTab,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
   const [dispensingVehicleId, setDispensingVehicleId] = useState<string | null>(null);
 
   // Map drivers by plate and key
@@ -58,27 +57,10 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
     return { driverByPlate: byPlate, driverByKey: byKey };
   }, [delegates]);
 
-  // Filter vehicles that require oil change
+  // Filter ONLY vehicles that require oil change
   const oilDueVehicles = useMemo(() => {
     return vehicles.filter((v) => isVehicleOilDue(v));
   }, [vehicles]);
-
-  // Filter with search query
-  const filteredVehicles = useMemo(() => {
-    const q = toEnglishDigits(searchQuery.trim()).toLowerCase();
-    if (!q) return oilDueVehicles;
-
-    return oilDueVehicles.filter((v) => {
-      const plate = toEnglishDigits(v.plate_number || '').toLowerCase();
-      const key = toEnglishDigits(v.key_number || '').toLowerCase();
-      const assigned =
-        (plate && driverByPlate.get(plate)) ||
-        (key && driverByKey.get(key));
-      const driverName = (assigned?.name || '').toLowerCase();
-
-      return plate.includes(q) || key.includes(q) || driverName.includes(q);
-    });
-  }, [oilDueVehicles, searchQuery, driverByPlate, driverByKey]);
 
   // Direct oil dispense handler
   const handleDirectDispense = useCallback(
@@ -261,70 +243,15 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Top Header Summary Strip */}
-      <View
-        style={[
-          styles.headerStrip,
-          {
-            backgroundColor: colors.card,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
-        <View style={[styles.headerTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.headerInfoGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-              الدبابات التي تحتاج تغيير زيت
-            </Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              إجمالي الدبابات المستحقة: {oilDueVehicles.length} دباب
-            </Text>
-          </View>
-
-          <View style={[styles.countBadge, { backgroundColor: '#ef444418' }]}>
-            <Text style={styles.countBadgeText}>{oilDueVehicles.length}</Text>
-          </View>
-        </View>
-
-        {/* Search Bar */}
-        <View
-          style={[
-            styles.searchBox,
-            {
-              backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-              borderColor: colors.border,
-              flexDirection: isRTL ? 'row-reverse' : 'row',
-            },
-          ]}
-        >
-          <Ionicons name="search" size={18} color={colors.textSecondary} />
-          <TextInput
-            style={[
-              styles.searchInput,
-              {
-                color: colors.textPrimary,
-                textAlign: isRTL ? 'right' : 'left',
-              },
-            ]}
-            placeholder="بحث برقم اللوحة، المندوب، أو المفتاح..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
       {/* Main List */}
       <FlatList
-        data={filteredVehicles}
+        data={oilDueVehicles}
         keyExtractor={(item, index) => item.id || String(index)}
         renderItem={renderVehicleCard}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          oilDueVehicles.length === 0 && styles.listContentEmpty,
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           onRefresh ? (
@@ -339,15 +266,13 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <View style={[styles.emptyIconCircle, { backgroundColor: '#10b98118' }]}>
-              <Ionicons name="checkmark-done-circle" size={52} color="#10b981" />
+              <Ionicons name="checkmark-done-circle" size={48} color="#10b981" />
             </View>
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              {searchQuery ? 'لا توجد نتائج مطابقة للبحث' : 'جميع الدبابات بحالة زيت جيدة'}
+              لا توجد دبابات تحتاج تغيير زيت
             </Text>
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              {searchQuery
-                ? 'جرب البحث برقم لوحة أو اسم آخر.'
-                : 'لا توجد دبابات في الفرع متجاوزة لحد تغيير الزيت حالياً.'}
+              جميع دبابات الفرع بحالة زيت ممتازة ومطابقة للمسافات المحددة.
             </Text>
           </View>
         }
@@ -411,6 +336,12 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 14,
     paddingBottom: 36,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 120,
   },
   card: {
     borderRadius: 16,

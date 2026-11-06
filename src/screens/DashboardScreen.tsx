@@ -182,7 +182,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     { title: 'مركز الموافقات', sub: `${analyticsData.completedPendingCount} بانتظارك`, icon: 'checkmark-done-circle-outline', color: '#f59e0b', onPress: () => onNavigateToTab('approvals') },
     { title: 'مراجعة الطلبات', sub: 'السجل التنازلي', icon: 'list-circle-outline', color: '#0284c7', onPress: () => onNavigateToTab('orders-review') },
     { title: 'متابعة الميدان', sub: `${analyticsData.activeCount} نشط الآن`, icon: 'radio-outline', color: '#10b981', onPress: () => onNavigateToTab('field') },
-    { title: 'تغيير الزيت', sub: 'بحث سريع باللوحة', icon: 'construct-outline', color: '#8b5cf6', onPress: () => onNavigateToTab('oil-change') },
+    { title: 'تغيير الزيت', sub: 'مرتب برقم المفتاح', icon: 'construct-outline', color: '#8b5cf6', onPress: () => onNavigateToTab('fleet-oil') },
     { title: 'التقارير والسلف', sub: 'رفع تقرير مشرف', icon: 'document-text-outline', color: '#ec4899', onPress: () => onOpenReportModal?.('list') },
     { title: 'إدارة الموظفين', sub: 'مرتب بالمفاتيح', icon: 'people-outline', color: '#6366f1', onPress: () => onNavigateToTab('employees') },
   ];

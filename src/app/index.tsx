@@ -64,6 +64,7 @@ import { HistoryScreen, getCurrentMonthInfo } from '../screens/HistoryScreen';
 import { ViolationsScreen } from '../screens/ViolationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { OilChangeScreen } from '../screens/OilChangeScreen';
+import { FleetOilScreen } from '../screens/FleetOilScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { FieldScreen } from '../screens/FieldScreen';
 import { ApprovalsScreen } from '../screens/ApprovalsScreen';
@@ -2119,7 +2120,9 @@ export default function DelegateApp() {
                   : currentTab === 'operations'
                   ? 'إدارة العمليات والأسطول'
                   : currentTab === 'oil-change'
-                  ? 'تغيير زيت الدبابات'
+                  ? 'الدبابات المستحقة لتغيير الزيت'
+                  : currentTab === 'fleet-oil'
+                  ? 'متابعة زيوت الدبابات'
                   : currentTab === 'add-vehicle'
                   ? 'إضافة مركبة جديدة'
                   : currentTab === 'accident-report'
@@ -2352,6 +2355,22 @@ export default function DelegateApp() {
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <ModuleErrorBoundary moduleName="تغيير زيت" colors={colors} onReset={fetchOperationsData}>
               <OilChangeScreen
+                vehicles={vehicles}
+                delegates={branchScopedDelegates}
+                colors={colors}
+                isDarkMode={isDarkMode}
+                isRTL={isRTL}
+                loading={loadingOperationsData}
+                onRefresh={fetchOperationsData}
+                adminName={employee?.name || 'المشرف'}
+                onNavigateToTab={handleNavigateToTab}
+              />
+            </ModuleErrorBoundary>
+          </View>
+        ) : currentTab === 'fleet-oil' ? (
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <ModuleErrorBoundary moduleName="متابعة زيوت الدبابات" colors={colors} onReset={fetchOperationsData}>
+              <FleetOilScreen
                 vehicles={vehicles}
                 delegates={branchScopedDelegates}
                 colors={colors}
