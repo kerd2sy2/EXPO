@@ -184,6 +184,22 @@ export default function DelegateApp() {
   const [showOperationVideoModal, setShowOperationVideoModal] = useState(false);
   const [loadingSupervisorData, setLoadingSupervisorData] = useState(false);
   const [ordersDatePickerOpen, setOrdersDatePickerOpen] = useState(false);
+  const [readNotifIds, setReadNotifIds] = useState<Set<string>>(new Set());
+
+  // Load read notification IDs from storage on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem('@eshraf_read_notifications_v1');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setReadNotifIds(new Set(parsed));
+          }
+        }
+      } catch {}
+    })();
+  }, []);
 
 
   // Operations & Fleet States
@@ -1945,12 +1961,25 @@ export default function DelegateApp() {
 
   // Unread operational alerts counter for Bell in HomeHeader
   const unreadNotificationsCount = useMemo(() => {
-    const shiftCount = pendingSessions.length;
-    const maintCount = pendingMaintenance.length;
-    const advCount = pendingAdvances.length;
-    const oilCount = vehicles.filter((v) => isVehicleOilDue(v)).length;
-    return shiftCount + maintCount + advCount + oilCount;
-  }, [pendingSessions, pendingMaintenance, pendingAdvances, vehicles]);
+    let count = 0;
+    pendingSessions.forEach((s) => {
+      if (!readNotifIds.has(`shift_end_${s.id}`)) count++;
+    });
+    branchScopedWorkingDelegates.forEach((d) => {
+      const bike = d.active_motorcycle || d.motorcycle_number || 'بدون لوحة';
+      if (!readNotifIds.has(`working_shift_${d.id}_${bike}`)) count++;
+    });
+    vehicles.forEach((v) => {
+      if (isVehicleOilDue(v) && !readNotifIds.has(`oil_due_${v.id}`)) count++;
+    });
+    pendingMaintenance.forEach((m) => {
+      if (!readNotifIds.has(`maintenance_${m.id}`)) count++;
+    });
+    pendingAdvances.forEach((adv) => {
+      if (!readNotifIds.has(`advance_${adv.id}`)) count++;
+    });
+    return count;
+  }, [pendingSessions, branchScopedWorkingDelegates, vehicles, pendingMaintenance, pendingAdvances, readNotifIds]);
 
   const rawEmpPhoto = useMemo(() => {
     const direct =
@@ -2389,6 +2418,7 @@ export default function DelegateApp() {
                 isRTL={isRTL}
                 onRefresh={fetchSupervisorData}
                 loading={loadingSupervisorData}
+                onReadStatusChange={(ids) => setReadNotifIds(new Set(ids))}
               />
             </ModuleErrorBoundary>
           </View>

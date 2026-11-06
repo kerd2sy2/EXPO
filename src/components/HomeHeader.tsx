@@ -86,14 +86,24 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
 
       <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <TouchableOpacity
-          style={styles.headerBellBtn}
+          style={[
+            styles.headerBellBtn,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
           onPress={onPressNotifications}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
+          <Ionicons
+            name={(unreadCount || 0) > 0 ? 'notifications' : 'notifications-outline'}
+            size={22}
+            color={(unreadCount || 0) > 0 ? colors.primary : colors.textPrimary}
+          />
           {(unreadCount || 0) > 0 && (
-            <View style={styles.bellBadge}>
+            <View style={[styles.bellBadge, { borderColor: colors.card }]}>
               <Text style={styles.bellBadgeText}>
                 {(unreadCount || 0) > 99 ? '99+' : unreadCount}
               </Text>
@@ -162,28 +172,36 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerBellBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
-    borderWidth: 0,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   bellBadge: {
     position: 'absolute',
-    top: -3,
-    right: -3,
+    top: -2,
+    right: -2,
     backgroundColor: '#ef4444',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    minWidth: 19,
+    height: 19,
+    borderRadius: 9.5,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: '#ffffff',
+    borderWidth: 2,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 3,
   },
   bellBadgeText: {
     color: '#ffffff',

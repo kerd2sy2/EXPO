@@ -8,11 +8,13 @@ import {
   TouchableOpacity,
   RefreshControl,
   Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors, TabType, WorkSession } from '../types/delegate';
 import { BranchStats, DelegateWithStatus } from '../services/supervisor';
-import { VehicleItem, isVehicleOilDue } from '../services/operations';
+import { VehicleItem, isVehicleOilDue, operationsApi } from '../services/operations';
 
 interface DashboardScreenProps {
   adminName: string;
@@ -69,6 +71,33 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   progressViewOffset = 0,
 }) => {
   const [showOilDueModal, setShowOilDueModal] = useState(false);
+  const [dispensingVehicleId, setDispensingVehicleId] = useState<string | null>(null);
+
+  const handleDirectOilDispense = async (vehicle: VehicleItem, currKm: number) => {
+    const plate = vehicle.plate_number || (vehicle as any).motorcycle_number || '';
+    if (!plate) {
+      Alert.alert('تنبيه', 'رقم اللوحة غير متوفر للدباب.');
+      return;
+    }
+
+    try {
+      setDispensingVehicleId(vehicle.id);
+      await operationsApi.dispenseOil({
+        motorcycleNumber: plate,
+        currentKm: currKm || Number(vehicle.current_km) || 0,
+        quantity: 1,
+        notes: 'صرف زيت فوري معتمد من شاشة الإشراف',
+      });
+      Alert.alert('تم بنجاح', `تم صرف وتسجيل تغيير الزيت للدباب (${plate}) بنجاح.`);
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (err: any) {
+      Alert.alert('فشل الصرف', err?.message || 'تعذر تسجيل صرف الزيت للدباب.');
+    } finally {
+      setDispensingVehicleId(null);
+    }
+  };
 
   // Format supervisor name to display first and second name only
   const getFirstTwoNames = (fullName?: string) => {
@@ -231,12 +260,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
               <Text style={styles.heroBranchBadge}>{branchName}</Text>
               <Text style={styles.heroTitle}>مؤشرات الأداء والتشغيل</Text>
-              <Text style={styles.heroSubtitle}>مشرف الفرع: {getFirstTwoNames(adminName)}</Text>
             </View>
 
-            <View style={styles.attendanceCircle}>
-              <Text style={styles.attendancePctText}>{analyticsData.attendanceRate}%</Text>
-              <Text style={styles.attendanceSubText}>نسبة التشغيل</Text>
+            {/* Modern Operational Rate Badge (استبدال الدائرة القديمة ببادج عصري أنيق) */}
+            <View style={[styles.modernRateBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="speedometer-outline" size={16} color="#38bdf8" />
+              <Text style={styles.modernRateLabel}>نسبة التشغيل</Text>
+              <Text style={styles.modernRateValue}>{analyticsData.attendanceRate}%</Text>
             </View>
           </View>
 
@@ -250,9 +280,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             />
           </View>
 
+          {/* Four Stats: إجمالي المناديب -> مناديب اليوم -> يعملون -> أنهوا الشفت */}
           <View style={[styles.heroBottomStats, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={styles.heroStatItem}>
-              <Text style={styles.heroStatVal}>{analyticsData.todayCount}</Text>
+              <Text style={[styles.heroStatVal, { color: '#ffffff' }]}>{analyticsData.totalDrivers}</Text>
+              <Text style={styles.heroStatLbl}>إجمالي المناديب</Text>
+            </View>
+            <View style={styles.heroDivider} />
+            <View style={styles.heroStatItem}>
+              <Text style={[styles.heroStatVal, { color: '#38bdf8' }]}>{analyticsData.todayCount}</Text>
               <Text style={styles.heroStatLbl}>مناديب اليوم</Text>
             </View>
             <View style={styles.heroDivider} />
@@ -646,14 +682,24 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
                       <TouchableOpacity
                         activeOpacity={0.82}
-                        style={[styles.oilDispenseActionBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                        onPress={() => {
-                          setShowOilDueModal(false);
-                          onNavigateToTab('oil-change');
-                        }}
+                        disabled={dispensingVehicleId === v.id}
+                        style={[
+                          styles.oilDispenseActionBtn,
+                          {
+                            backgroundColor: dispensingVehicleId === v.id ? '#64748b' : '#0284c7',
+                            flexDirection: isRTL ? 'row-reverse' : 'row',
+                          },
+                        ]}
+                        onPress={() => handleDirectOilDispense(v, currKm)}
                       >
-                        <Ionicons name="construct-outline" size={16} color="#ffffff" />
-                        <Text style={styles.oilDispenseActionText}>صرف وتغيير الزيت للدباب</Text>
+                        {dispensingVehicleId === v.id ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <>
+                            <Ionicons name="construct-outline" size={16} color="#ffffff" />
+                            <Text style={styles.oilDispenseActionText}>صرف وتغيير الزيت فوراً</Text>
+                          </>
+                        )}
                       </TouchableOpacity>
                     </View>
                   );
@@ -717,6 +763,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
+  },
+  modernRateBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    alignItems: 'center',
+    gap: 6,
+  },
+  modernRateLabel: {
+    color: '#bae6fd',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modernRateValue: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '900',
   },
   attendanceCircle: {
     width: 74,

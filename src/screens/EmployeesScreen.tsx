@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '@shared/theme';
 import { SaudiPlateView } from '@shared/components';
 import { parsePlateComponents, toEnglishDigits } from '@shared/utils/plateUtils';
-import { DelegateWithStatus, isDeliveryDelegate } from '../services/supervisor';
+import { DelegateWithStatus, isDeliveryDelegate, supervisorApi } from '../services/supervisor';
 import { VehicleItem } from '../services/operations';
 import { EditEmployeeModal } from '../components/modals/EditEmployeeModal';
 import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
@@ -61,12 +61,62 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
   const [selectedEmpForEdit, setSelectedEmpForEdit] = useState<DelegateWithStatus | null>(null);
+  const [remoteResults, setRemoteResults] = useState<DelegateWithStatus[]>([]);
+  const [searchingRemote, setSearchingRemote] = useState(false);
+
+  // Search across all branches if query is typed
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q || q.length < 2) {
+      setRemoteResults([]);
+      setSearchingRemote(false);
+      return;
+    }
+
+    let isMounted = true;
+    setSearchingRemote(true);
+    const timer = setTimeout(async () => {
+      try {
+        const found = await supervisorApi.searchDelegates(q);
+        if (isMounted) {
+          setRemoteResults(found);
+        }
+      } catch (err) {
+        console.warn('Search delegates error:', err);
+      } finally {
+        if (isMounted) {
+          setSearchingRemote(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
 
   // Filter & Sort Employees by Key Number Ascending (ترتيب المفاتيح 1, 2, 3...)
   const filteredEmployees = useMemo(() => {
     const q = toEnglishDigits(searchQuery.trim()).toLowerCase();
 
-    const filtered = employees.filter((emp) => {
+    // Combine local branch employees with any remote employees found across all branches
+    const combinedMap = new Map<string, DelegateWithStatus>();
+    employees.forEach((emp) => {
+      if (emp && emp.id) combinedMap.set(String(emp.id), emp);
+    });
+
+    if (q && remoteResults.length > 0) {
+      remoteResults.forEach((rem) => {
+        if (rem && rem.id && !combinedMap.has(String(rem.id))) {
+          combinedMap.set(String(rem.id), rem);
+        }
+      });
+    }
+
+    const allCandidates = Array.from(combinedMap.values());
+
+    const filtered = allCandidates.filter((emp) => {
       // Exclude supervisors and administrators completely from the delegates list
       if (!isDriverOnly(emp)) return false;
       if (roleFilter === 'WORKING' && !emp.is_working) return false;
@@ -81,8 +131,9 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       const plateMatch = toEnglishDigits(emp.motorcycle_number || '').toLowerCase().includes(q);
       const keyMatch = toEnglishDigits(emp.key_number || '').toLowerCase().includes(q);
       const appIdMatch = toEnglishDigits(emp.application_id || '').toLowerCase().includes(q);
+      const branchMatch = emp.branch_name?.toLowerCase().includes(q);
 
-      return nameMatch || codeMatch || idMatch || phoneMatch || plateMatch || keyMatch || appIdMatch;
+      return nameMatch || codeMatch || idMatch || phoneMatch || plateMatch || keyMatch || appIdMatch || branchMatch;
     });
 
     return filtered.sort((a, b) => {
@@ -99,7 +150,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       }
       return (a.name || '').localeCompare(b.name || '', 'ar');
     });
-  }, [employees, searchQuery, roleFilter]);
+  }, [employees, remoteResults, searchQuery, roleFilter]);
 
   // Quick Stats
   const stats = useMemo(() => {
@@ -242,6 +293,14 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                   <View style={[styles.appBadge, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}>
                     <Text style={[styles.appBadgeText, { color: colors.textSecondary }]}>
                       {emp.application_type} {emp.application_id ? `#${emp.application_id}` : ''}
+                    </Text>
+                  </View>
+                )}
+
+                {!!emp.branch_name && (
+                  <View style={[styles.appBadge, { backgroundColor: '#0284c718' }]}>
+                    <Text style={[styles.appBadgeText, { color: '#0284c7', fontWeight: '700' }]}>
+                      {emp.branch_name}
                     </Text>
                   </View>
                 )}

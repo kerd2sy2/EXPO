@@ -52,6 +52,7 @@ export interface NotificationsScreenProps {
   isRTL: boolean;
   onRefresh?: () => void;
   loading?: boolean;
+  onReadStatusChange?: (readIds: string[]) => void;
 }
 
 type FilterCategory = 'ALL' | 'SHIFT' | 'VEHICLE' | 'ADVANCE';
@@ -83,8 +84,8 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   isRTL,
   onRefresh,
   loading = false,
+  onReadStatusChange,
 }) => {
-  const [filter, setFilter] = useState<FilterCategory>('ALL');
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
   // Load read notifications from storage
@@ -95,19 +96,23 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
-            setReadIds(new Set(parsed));
+            const setObj = new Set<string>(parsed);
+            setReadIds(setObj);
+            onReadStatusChange?.(parsed);
           }
         }
       } catch (err) {
         console.log('[NotificationsScreen] Error loading read notifs:', err);
       }
     })();
-  }, []);
+  }, [onReadStatusChange]);
 
   const saveReadIds = async (updated: Set<string>) => {
     setReadIds(updated);
+    const arr = Array.from(updated);
     try {
-      await AsyncStorage.setItem(READ_NOTIFS_KEY, JSON.stringify(Array.from(updated)));
+      await AsyncStorage.setItem(READ_NOTIFS_KEY, JSON.stringify(arr));
+      onReadStatusChange?.(arr);
     } catch {}
   };
 
@@ -244,14 +249,6 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     [readIds, onNavigateToTab]
   );
 
-  const filteredNotifications = useMemo(() => {
-    if (filter === 'ALL') return notificationsList;
-    if (filter === 'SHIFT') return notificationsList.filter((n) => n.category === 'SHIFT');
-    if (filter === 'VEHICLE') return notificationsList.filter((n) => n.category === 'VEHICLE');
-    if (filter === 'ADVANCE') return notificationsList.filter((n) => n.category === 'ADVANCE');
-    return notificationsList;
-  }, [notificationsList, filter]);
-
   const unreadCount = useMemo(() => {
     return notificationsList.filter((n) => !readIds.has(n.id)).length;
   }, [notificationsList, readIds]);
@@ -337,89 +334,41 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Top Controls: Category Filter Chips + Mark All as Read */}
-      <View style={styles.topControlArea}>
+      {/* Clean Modern Top Header with Action Button */}
+      <View style={[styles.topControlArea, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <View style={[styles.markReadRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <Text style={[styles.unreadSummaryText, { color: colors.textPrimary }]}>
-            {unreadCount > 0 ? `${unreadCount} تنبيهات غير مقروءة` : 'جميع التنبيهات مقروءة'}
-          </Text>
-          {unreadCount > 0 && (
-            <TouchableOpacity
-              style={[styles.markReadBtn, { backgroundColor: colors.primary + '18' }]}
-              onPress={handleMarkAllAsRead}
-              activeOpacity={0.7}
+          <View style={[styles.notifTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.notifPageTitle, { color: colors.textPrimary }]}>التنبيهات الميدانية</Text>
+            <Text style={[styles.unreadSummaryText, { color: unreadCount > 0 ? '#ef4444' : colors.textSecondary }]}>
+              {unreadCount > 0 ? `${unreadCount} تنبيهات غير مقروءة` : 'جميع التنبيهات مقروءة'}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.markReadHeaderBtn,
+              {
+                backgroundColor: unreadCount > 0 ? colors.primary : (isDarkMode ? '#334155' : '#e2e8f0'),
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+                opacity: unreadCount > 0 ? 1 : 0.65,
+              },
+            ]}
+            disabled={unreadCount === 0}
+            onPress={handleMarkAllAsRead}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="checkmark-done-circle"
+              size={18}
+              color={unreadCount > 0 ? '#ffffff' : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.markReadHeaderBtnText,
+                { color: unreadCount > 0 ? '#ffffff' : colors.textSecondary },
+              ]}
             >
-              <Ionicons name="checkmark-done" size={14} color={colors.primary} />
-              <Text style={[styles.markReadBtnText, { color: colors.primary }]}>
-                تحديد الكل كمقروء
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Filter Chips */}
-        <View style={[styles.filterChipsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor: filter === 'ALL' ? colors.primary : colors.card,
-                borderColor: filter === 'ALL' ? colors.primary : colors.border,
-              },
-            ]}
-            onPress={() => setFilter('ALL')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.filterChipText, { color: filter === 'ALL' ? '#fff' : colors.textPrimary }]}>
-              الكل ({notificationsList.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor: filter === 'SHIFT' ? '#10b981' : colors.card,
-                borderColor: filter === 'SHIFT' ? '#10b981' : colors.border,
-              },
-            ]}
-            onPress={() => setFilter('SHIFT')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.filterChipText, { color: filter === 'SHIFT' ? '#fff' : colors.textPrimary }]}>
-              الشفتات
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor: filter === 'VEHICLE' ? '#f59e0b' : colors.card,
-                borderColor: filter === 'VEHICLE' ? '#f59e0b' : colors.border,
-              },
-            ]}
-            onPress={() => setFilter('VEHICLE')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.filterChipText, { color: filter === 'VEHICLE' ? '#fff' : colors.textPrimary }]}>
-              الدبابات والصيانة
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor: filter === 'ADVANCE' ? '#8b5cf6' : colors.card,
-                borderColor: filter === 'ADVANCE' ? '#8b5cf6' : colors.border,
-              },
-            ]}
-            onPress={() => setFilter('ADVANCE')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.filterChipText, { color: filter === 'ADVANCE' ? '#fff' : colors.textPrimary }]}>
-              السلف والطلبات
+              قراءة الكل
             </Text>
           </TouchableOpacity>
         </View>
@@ -427,7 +376,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
       {/* Notifications List */}
       <FlatList
-        data={filteredNotifications}
+        data={notificationsList}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
@@ -466,43 +415,40 @@ const styles = StyleSheet.create({
   },
   topControlArea: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
-    gap: 10,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    marginBottom: 8,
   },
   markReadRow: {
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  notifTitleGroup: {
+    gap: 3,
+  },
+  notifPageTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
   unreadSummaryText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
-  markReadBtn: {
-    flexDirection: 'row',
+  markReadHeaderBtn: {
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  markReadBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  filterChipsRow: {
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: '700',
+  markReadHeaderBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
   listContent: {
     paddingHorizontal: 16,

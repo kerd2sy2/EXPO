@@ -11,8 +11,9 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  SafeAreaView,
+  StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
@@ -67,6 +68,9 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
   isDarkMode,
   isRTL = true,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0);
+
   const [archiveVideos, setArchiveVideos] = useState<OperationVideo[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -259,16 +263,16 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+      <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: topPadding }]}>
         {/* Header */}
         <View style={[styles.headerRow, { backgroundColor: colors.card, borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity style={styles.backBtn} onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={24} color={colors.textPrimary} />
+          <TouchableOpacity style={[styles.backBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]} onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={colors.textPrimary} />
           </TouchableOpacity>
 
           <View style={[styles.titleCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>مراجعة وفيديوهات التوثيق</Text>
-            <Text style={[styles.headerSub, { color: colors.textSecondary }]}>أرشيف الفيديوهات السحابي • حفظ 60 يوماً</Text>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>توثيق ومراجعة الفيديوهات</Text>
+            <Text style={[styles.headerSub, { color: colors.textSecondary }]}>أرشيف التوثيق الميداني السحابي</Text>
           </View>
 
           <TouchableOpacity
@@ -529,7 +533,7 @@ export const OperationVideoModal: React.FC<OperationVideoModalProps> = ({
             </View>
           </View>
         </Modal>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
@@ -540,36 +544,42 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     alignItems: 'center',
     gap: 12,
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   titleCol: {
     flex: 1,
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '900',
   },
   headerSub: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    marginTop: 1,
+    marginTop: 2,
   },
   recordBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
   },
   recordBtnText: {
     color: '#ffffff',
