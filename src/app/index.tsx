@@ -2118,7 +2118,7 @@ export default function DelegateApp() {
                   : currentTab === 'approvals'
                   ? 'مركز الموافقات'
                   : currentTab === 'operations'
-                  ? 'إدارة العمليات والأسطول'
+                  ? 'المخزن والعمليات'
                   : currentTab === 'oil-change'
                   ? 'الدبابات المستحقة لتغيير الزيت'
                   : currentTab === 'fleet-oil'

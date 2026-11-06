@@ -181,9 +181,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const shortcuts = [
     { title: 'مركز الموافقات', sub: `${analyticsData.completedPendingCount} بانتظارك`, icon: 'checkmark-done-circle-outline', color: '#f59e0b', onPress: () => onNavigateToTab('approvals') },
     { title: 'مراجعة الطلبات', sub: 'السجل التنازلي', icon: 'list-circle-outline', color: '#0284c7', onPress: () => onNavigateToTab('orders-review') },
-    { title: 'متابعة الميدان', sub: `${analyticsData.activeCount} نشط الآن`, icon: 'radio-outline', color: '#10b981', onPress: () => onNavigateToTab('field') },
     { title: 'تغيير الزيت', sub: 'مرتب برقم المفتاح', icon: 'construct-outline', color: '#8b5cf6', onPress: () => onNavigateToTab('fleet-oil') },
     { title: 'التقارير والسلف', sub: 'رفع تقرير مشرف', icon: 'document-text-outline', color: '#ec4899', onPress: () => onOpenReportModal?.('list') },
+    { title: 'المخزن', sub: 'المخزون والعهد', icon: 'cube-outline', color: '#10b981', onPress: () => onNavigateToTab('operations') },
     { title: 'إدارة الموظفين', sub: 'مرتب بالمفاتيح', icon: 'people-outline', color: '#6366f1', onPress: () => onNavigateToTab('employees') },
   ];
 
@@ -217,8 +217,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           />
         }
       >
-        {/* 1. Executive Branch Status Hero Card */}
-        <View
+        {/* 1. Executive Branch Status Hero Card (Long press opens field tracking) */}
+        <TouchableOpacity
+          activeOpacity={0.92}
+          delayLongPress={450}
+          onLongPress={() => onNavigateToTab('field')}
           style={[
             styles.heroCard,
             {
@@ -269,7 +272,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <Text style={styles.heroStatLbl}>أنهوا الشفت</Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* 3. Analytical KPI Grid (4 Focused Operational Indicators) */}
         <Text style={[styles.sectionHeader, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
