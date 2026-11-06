@@ -184,6 +184,7 @@ export default function DelegateApp() {
   const [advanceInitialMode, setAdvanceInitialMode] = useState<'list' | 'create'>('list');
   const [showOperationVideoModal, setShowOperationVideoModal] = useState(false);
   const [loadingSupervisorData, setLoadingSupervisorData] = useState(true);
+  const [isInitialSupervisorLoading, setIsInitialSupervisorLoading] = useState(true);
   const [ordersDatePickerOpen, setOrdersDatePickerOpen] = useState(false);
   const [readNotifIds, setReadNotifIds] = useState<Set<string>>(new Set());
   const notifHeaderActionsRef = useRef<{ markAll: () => void; openClearModal: () => void } | null>(null);
@@ -275,6 +276,7 @@ export default function DelegateApp() {
       if (!isSilent) {
         setLoadingSupervisorData(false);
       }
+      setIsInitialSupervisorLoading(false);
     }
   }, [employee?.branch_id]);
 
@@ -383,20 +385,34 @@ export default function DelegateApp() {
   const HOME_HEADER_HEIGHT = 72;
   const headerTranslateY = useRef(new Animated.Value(0)).current;
   const lastScrollY = useRef(0);
+  const savedHomeScrollY = useRef(0);
+  const dashboardScrollRef = useRef<ScrollView>(null);
   const isHeaderHidden = useRef(false);
   const scrollDelta = useRef(0);
 
   useEffect(() => {
     headerTranslateY.setValue(0);
     isHeaderHidden.current = false;
-    lastScrollY.current = 0;
-    scrollDelta.current = 0;
+    if (currentTab === 'home') {
+      lastScrollY.current = savedHomeScrollY.current;
+      if (savedHomeScrollY.current > 0) {
+        requestAnimationFrame(() => {
+          dashboardScrollRef.current?.scrollTo({
+            y: savedHomeScrollY.current,
+            animated: false,
+          });
+        });
+      }
+    } else {
+      scrollDelta.current = 0;
+    }
   }, [currentTab]);
 
   const handleHomeScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (currentTab !== 'home') return;
 
     const currentY = event.nativeEvent.contentOffset.y;
+    savedHomeScrollY.current = currentY;
     const diff = currentY - lastScrollY.current;
     lastScrollY.current = currentY;
 
@@ -1795,20 +1811,20 @@ export default function DelegateApp() {
   const computedTodayFuel = todayApprovedSessions
     .reduce((acc, s) => acc + (Number(s.fuel_cost) || 0), 0);
 
-  const todayApprovedOrdersCount =
-    serverDashboardStats?.today_orders !== undefined
-      ? Number(serverDashboardStats.today_orders)
-      : computedTodayOrdersCount;
+  const todayApprovedOrdersCount = Math.max(
+    Number(serverDashboardStats?.today_orders || 0),
+    Number(computedTodayOrdersCount || 0)
+  );
 
-  const todayApprovedDistance =
-    serverDashboardStats?.today_distance !== undefined
-      ? Number(serverDashboardStats.today_distance)
-      : computedTodayDistance;
+  const todayApprovedDistance = Math.max(
+    Number(serverDashboardStats?.today_distance || 0),
+    Number(computedTodayDistance || 0)
+  );
 
-  const todayApprovedFuel =
-    serverDashboardStats?.today_fuel_cost !== undefined
-      ? Number(serverDashboardStats.today_fuel_cost)
-      : computedTodayFuel;
+  const todayApprovedFuel = Math.max(
+    Number(serverDashboardStats?.today_fuel_cost || 0),
+    Number(computedTodayFuel || 0)
+  );
 
   const currentMonthApprovedSessions = sessionsSourceForAnalytics.filter((s) => {
     const isCompleted = s.status === 'COMPLETED' || !!s.end_time;
@@ -2197,7 +2213,66 @@ export default function DelegateApp() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {currentTab === 'violations' ? (
+        {/* Persistent Home/Dashboard Screen to preserve exact scroll position */}
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.bg,
+            display: (currentTab === 'dashboard' || currentTab === 'home') ? 'flex' : 'none',
+          }}
+        >
+          <ModuleErrorBoundary moduleName="لوحة المؤشرات" colors={colors} onReset={fetchSupervisorData}>
+            <DashboardScreen
+              scrollRef={dashboardScrollRef}
+              adminName={employee?.name || 'المشرف'}
+              branchName={employee?.branch_name || 'فرع الإشراف'}
+              stats={branchStats}
+              workingDelegates={branchScopedWorkingDelegates}
+              allDelegates={branchScopedDelegates}
+              pendingSessions={pendingSessions}
+              vehicles={vehicles}
+              approvedOrdersCount={todayApprovedOrdersCount}
+              approvedKmCount={todayApprovedDistance}
+              approvedFuelCount={todayApprovedFuel}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              isRTL={isRTL}
+              loading={isInitialSupervisorLoading}
+              onNavigateToTab={(tab) => {
+                if (tab === 'dashboard') {
+                  setCurrentTab('home');
+                } else {
+                  handleNavigateToTab(tab);
+                }
+              }}
+              onOpenOverrideModal={() => setCurrentTab('field')}
+              onOpenReportModal={(prefMode) => {
+                if (prefMode === 'create') {
+                  setReportInitialMode('create');
+                  setAdvanceInitialMode('create');
+                } else {
+                  setReportInitialMode('list');
+                  setAdvanceInitialMode('list');
+                }
+                setShowReportModal(true);
+              }}
+              onOpenOperationVideosModal={() => setShowOperationVideoModal(true)}
+              onOpenOhdaApp={openOhdaApp}
+              hasCustody={hasCustodyPermission(employee)}
+              onRefresh={fetchSupervisorData}
+              refreshing={loadingSupervisorData}
+              contentContainerStyle={{
+                paddingTop: topInset + HOME_HEADER_HEIGHT + 8,
+                paddingBottom: 40,
+              }}
+              onScroll={handleHomeScroll}
+              scrollEventThrottle={16}
+              progressViewOffset={topInset + HOME_HEADER_HEIGHT}
+            />
+          </ModuleErrorBoundary>
+        </View>
+
+        {currentTab === 'dashboard' || currentTab === 'home' ? null : currentTab === 'violations' ? (
           <ModuleErrorBoundary
             moduleName="المخالفات والجزاءات"
             colors={colors}
@@ -2220,57 +2295,6 @@ export default function DelegateApp() {
               lang={lang}
             />
           </ModuleErrorBoundary>
-        ) : currentTab === 'dashboard' || currentTab === 'home' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="لوحة المؤشرات" colors={colors} onReset={fetchSupervisorData}>
-              <DashboardScreen
-                adminName={employee?.name || 'المشرف'}
-                branchName={employee?.branch_name || 'فرع الإشراف'}
-                stats={branchStats}
-                workingDelegates={branchScopedWorkingDelegates}
-                allDelegates={branchScopedDelegates}
-                pendingSessions={pendingSessions}
-                vehicles={vehicles}
-                approvedOrdersCount={todayApprovedOrdersCount}
-                approvedKmCount={todayApprovedDistance}
-                approvedFuelCount={todayApprovedFuel}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-                loading={loadingSupervisorData}
-                onNavigateToTab={(tab) => {
-                  if (tab === 'dashboard') {
-                    setCurrentTab('home');
-                  } else {
-                    handleNavigateToTab(tab);
-                  }
-                }}
-                onOpenOverrideModal={() => setCurrentTab('field')}
-                onOpenReportModal={(prefMode) => {
-                  if (prefMode === 'create') {
-                    setReportInitialMode('create');
-                    setAdvanceInitialMode('create');
-                  } else {
-                    setReportInitialMode('list');
-                    setAdvanceInitialMode('list');
-                  }
-                  setShowReportModal(true);
-                }}
-                onOpenOperationVideosModal={() => setShowOperationVideoModal(true)}
-                onOpenOhdaApp={openOhdaApp}
-                hasCustody={hasCustodyPermission(employee)}
-                onRefresh={fetchSupervisorData}
-                refreshing={loadingSupervisorData}
-                contentContainerStyle={{
-                  paddingTop: currentTab === 'home' ? topInset + HOME_HEADER_HEIGHT + 8 : 12,
-                  paddingBottom: 40,
-                }}
-                onScroll={currentTab === 'home' ? handleHomeScroll : undefined}
-                scrollEventThrottle={16}
-                progressViewOffset={currentTab === 'home' ? topInset + HOME_HEADER_HEIGHT : 0}
-              />
-            </ModuleErrorBoundary>
-          </View>
         ) : currentTab === 'field' ? (
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <ModuleErrorBoundary moduleName="إدارة الميدان" colors={colors} onReset={fetchSupervisorData}>

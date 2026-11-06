@@ -44,6 +44,7 @@ interface DashboardScreenProps {
   onScroll?: (event: any) => void;
   scrollEventThrottle?: number;
   progressViewOffset?: number;
+  scrollRef?: any;
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
@@ -72,6 +73,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onScroll,
   scrollEventThrottle = 16,
   progressViewOffset = 0,
+  scrollRef,
 }) => {
   // Format supervisor name to display first and second name only
   const getFirstTwoNames = (fullName?: string) => {
@@ -191,20 +193,27 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   ];
 
   const rawOrdersCount =
-    approvedOrdersCount !== undefined ? approvedOrdersCount : (stats.todayOrdersCount || 0);
+    approvedOrdersCount !== undefined && approvedOrdersCount > 0
+      ? approvedOrdersCount
+      : (stats.todayOrdersCount || 0);
   const rawKmCount =
-    approvedKmCount !== undefined ? approvedKmCount : analyticsData.pendingKmSum;
+    approvedKmCount !== undefined && Number(approvedKmCount) > 0
+      ? approvedKmCount
+      : analyticsData.pendingKmSum;
   const rawFuelCount =
-    approvedFuelCount !== undefined ? approvedFuelCount : 0;
+    approvedFuelCount !== undefined && Number(approvedFuelCount) > 0
+      ? approvedFuelCount
+      : analyticsData.pendingFuelSum;
 
   const displayedOrdersCount = Number(rawOrdersCount || 0);
   const displayedKmCount =
     Number(rawKmCount || 0) % 1 === 0 ? String(Number(rawKmCount || 0)) : Number(rawKmCount || 0).toFixed(1);
   const displayedFuelCount = Number(rawFuelCount || 0).toFixed(2);
 
-  if (loading && (!allDelegates || allDelegates.length === 0)) {
+  if (loading) {
     return (
       <ScrollView
+        ref={scrollRef}
         style={[styles.container, { backgroundColor: colors.bg }]}
         contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
         showsVerticalScrollIndicator={false}
@@ -217,6 +226,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   return (
     <>
       <ScrollView
+        ref={scrollRef}
         style={[styles.container, { backgroundColor: colors.bg }]}
         contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
         showsVerticalScrollIndicator={false}
@@ -371,19 +381,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
             {analyticsData.appDistribution.map(([appName, count], idx) => {
               const pct = Math.round((count / (analyticsData.totalDrivers || 1)) * 100);
-              if (loading && (!allDelegates || allDelegates.length === 0)) {
-    return (
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.bg }]}
-        contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
-        showsVerticalScrollIndicator={false}
-      >
-        <DashboardSkeleton colors={colors} isDarkMode={isDarkMode} isRTL={isRTL} />
-      </ScrollView>
-    );
-  }
-
-  return (
+              return (
                 <View key={idx} style={styles.distRow}>
                   <View style={[styles.distLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <Text style={[styles.distAppName, { color: colors.textPrimary }]}>
