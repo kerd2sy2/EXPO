@@ -214,13 +214,20 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
     ({ item: d }: { item: DelegateWithStatus }) => {
       const hasKey = Boolean(d.key_number && d.key_number.trim());
       const plate = d.active_motorcycle || d.motorcycle_number || 'بدون لوحة';
-      const elapsed = d.is_working ? calcLiveElapsed(d.shift_start_time) : '';
-      const startTimeFormatted = d.shift_start_time
-        ? new Date(d.shift_start_time).toLocaleTimeString('ar-SA', {
+      const rawStartTime = d.shift_start_time || d.active_session?.start_time;
+      const elapsed = d.is_working && rawStartTime ? calcLiveElapsed(rawStartTime) : '';
+      const startTimeFormatted = rawStartTime
+        ? new Date(rawStartTime).toLocaleTimeString('ar-SA', {
             hour: '2-digit',
             minute: '2-digit',
           })
         : '--:--';
+      const startKmVal =
+        d.start_km !== undefined && d.start_km !== null
+          ? d.start_km
+          : d.active_session?.start_km !== undefined && d.active_session?.start_km !== null
+          ? d.active_session.start_km
+          : 0;
 
       return (
         <View
@@ -322,7 +329,7 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
                 <View style={styles.infoCell}>
                   <Text style={[styles.infoCellLabel, { color: colors.textSecondary }]}>كيلو البداية</Text>
                   <Text style={[styles.infoCellValue, { color: colors.textPrimary }]}>
-                    {d.start_km ?? 0} كم
+                    {startKmVal} كم
                   </Text>
                 </View>
               </>

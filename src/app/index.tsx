@@ -185,6 +185,7 @@ export default function DelegateApp() {
   const [loadingSupervisorData, setLoadingSupervisorData] = useState(false);
   const [ordersDatePickerOpen, setOrdersDatePickerOpen] = useState(false);
   const [readNotifIds, setReadNotifIds] = useState<Set<string>>(new Set());
+  const notifHeaderActionsRef = useRef<{ markAll: () => void; openClearModal: () => void } | null>(null);
 
   // Load read notification IDs from storage on mount
   useEffect(() => {
@@ -2108,7 +2109,7 @@ export default function DelegateApp() {
             <View style={[styles.subPageTitleContainer, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
               <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
                 {currentTab === 'notifications'
-                  ? 'مركز الإشعارات والتنبيهات'
+                  ? 'مركز الإشعارات'
                   : currentTab === 'dashboard'
                   ? 'لوحة مؤشرات الفرع'
                   : currentTab === 'field'
@@ -2160,6 +2161,29 @@ export default function DelegateApp() {
               activeOpacity={0.7}
             >
               <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+
+          {currentTab === 'notifications' && (
+            <TouchableOpacity
+              style={[
+                styles.headerCalendarBtn,
+                {
+                  backgroundColor: colors.primary + '18',
+                  borderRadius: 12,
+                  width: 40,
+                  height: 40,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                },
+              ]}
+              onPress={() => notifHeaderActionsRef.current?.markAll()}
+              onLongPress={() => notifHeaderActionsRef.current?.openClearModal()}
+              delayLongPress={450}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="checkmark-done-circle-outline" size={22} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -2247,10 +2271,35 @@ export default function DelegateApp() {
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <ModuleErrorBoundary moduleName="إدارة الميدان" colors={colors} onReset={fetchSupervisorData}>
               <FieldScreen
-                delegates={branchScopedDelegates.map((d) => ({
+                delegates={branchScopedDelegates.map((d) => {
+                  const workingInfo = branchScopedWorkingDelegates.find((w) => w.id === d.id);
+                  const activeSess = branchSessions.find(
+                    (s) => s.employee_id === d.id && (s.status === 'ACTIVE' || !s.end_time)
+                  );
+                  const isWorking = !!workingInfo || !!activeSess || !!d.is_working;
+                  const shiftStartTime =
+                    activeSess?.start_time || workingInfo?.shift_start_time || d.shift_start_time;
+                  const startKm =
+                    activeSess?.start_km !== undefined && activeSess?.start_km !== null
+                      ? Number(activeSess.start_km)
+                      : workingInfo?.start_km !== undefined && workingInfo?.start_km !== null
+                      ? Number(workingInfo.start_km)
+                      : d.start_km;
+                  const activeBike =
+                    activeSess?.motorcycle_number ||
+                    workingInfo?.active_motorcycle ||
+                    d.active_motorcycle ||
+                    d.motorcycle_number;
+
+                  return {
                     ...d,
-                    is_working: branchScopedWorkingDelegates.some((w) => w.id === d.id),
-                  }))}
+                    ...(workingInfo || {}),
+                    is_working: isWorking,
+                    shift_start_time: shiftStartTime,
+                    start_km: startKm,
+                    active_motorcycle: activeBike,
+                  };
+                })}
                 loading={loadingSupervisorData}
                 onRefresh={fetchSupervisorData}
                 colors={colors}
@@ -2419,6 +2468,9 @@ export default function DelegateApp() {
                 onRefresh={fetchSupervisorData}
                 loading={loadingSupervisorData}
                 onReadStatusChange={(ids) => setReadNotifIds(new Set(ids))}
+                onRegisterHeaderActions={(actions) => {
+                  notifHeaderActionsRef.current = actions;
+                }}
               />
             </ModuleErrorBoundary>
           </View>

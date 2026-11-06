@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
+  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ import {
 import { VehicleItem, isVehicleOilDue } from '../services/operations';
 
 const READ_NOTIFS_KEY = '@eshraf_read_notifications_v1';
+const CLEARED_NOTIFS_KEY = '@eshraf_cleared_notifications_v1';
 
 export interface NotificationItem {
   id: string;
@@ -53,6 +55,7 @@ export interface NotificationsScreenProps {
   onRefresh?: () => void;
   loading?: boolean;
   onReadStatusChange?: (readIds: string[]) => void;
+  onRegisterHeaderActions?: (actions: { markAll: () => void; openClearModal: () => void }) => void;
 }
 
 type FilterCategory = 'ALL' | 'SHIFT' | 'VEHICLE' | 'ADVANCE';
@@ -85,10 +88,13 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   onRefresh,
   loading = false,
   onReadStatusChange,
+  onRegisterHeaderActions,
 }) => {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [clearedIds, setClearedIds] = useState<Set<string>>(new Set());
+  const [showClearModal, setShowClearModal] = useState(false);
 
-  // Load read notifications from storage
+  // Load read notifications and cleared notifications from storage
   useEffect(() => {
     (async () => {
       try {
@@ -103,6 +109,18 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         }
       } catch (err) {
         console.log('[NotificationsScreen] Error loading read notifs:', err);
+      }
+
+      try {
+        const clearedStored = await AsyncStorage.getItem(CLEARED_NOTIFS_KEY);
+        if (clearedStored) {
+          const parsedCleared = JSON.parse(clearedStored);
+          if (Array.isArray(parsedCleared)) {
+            setClearedIds(new Set<string>(parsedCleared));
+          }
+        }
+      } catch (err) {
+        console.log('[NotificationsScreen] Error loading cleared notifs:', err);
       }
     })();
   }, [onReadStatusChange]);
@@ -122,7 +140,18 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
     // 1. Shift End Notifications (from pending unreviewed sessions)
     pendingSessions.forEach((s) => {
-      const parsedTime = s.end_time ? new Date(s.end_time).getTime() : Date.now();
+      let parsedTime = 0;
+      if (s.end_time) {
+        parsedTime = new Date(s.end_time).getTime();
+      } else if ((s as any).created_at) {
+        parsedTime = new Date((s as any).created_at).getTime();
+      } else if (s.start_time) {
+        parsedTime = new Date(s.start_time).getTime();
+      }
+      if (!parsedTime || Number.isNaN(parsedTime)) {
+        parsedTime = Date.now() - 3600000;
+      }
+
       const bikePlate = s.motorcycle_number || (s as any).plate_number || 'بدون لوحة';
       const orders = s.orders_count || (s as any).total_orders || 0;
       const km = (s as any).total_km ?? s.distance ?? 0;
@@ -147,7 +176,18 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
     // 2. Shift Start / Active Delegates in Field (Bike Assignment)
     workingDelegates.forEach((d) => {
-      const parsedTime = d.shift_start_time ? new Date(d.shift_start_time).getTime() : Date.now();
+      let parsedTime = 0;
+      if (d.shift_start_time) {
+        parsedTime = new Date(d.shift_start_time).getTime();
+      } else if (d.active_session?.start_time) {
+        parsedTime = new Date(d.active_session.start_time).getTime();
+      } else if ((d as any).created_at) {
+        parsedTime = new Date((d as any).created_at).getTime();
+      }
+      if (!parsedTime || Number.isNaN(parsedTime)) {
+        parsedTime = Date.now() - 7200000;
+      }
+
       const bike = d.active_motorcycle || d.motorcycle_number || 'بدون لوحة';
       items.push({
         id: `working_shift_${d.id}_${bike}`,
@@ -173,13 +213,24 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         const last = Number(v.last_oil_change_km || 0);
         const plate = v.plate_number || (v as any).motorcycle_number || String(v.id).slice(0, 8);
         const overKm = curr > last && last > 0 ? curr - last : Number(v.total_distance || curr);
+        let parsedTime = 0;
+        const lastOilDate = (v as any).last_oil_change_date || (v as any).last_oil_change_at;
+        if (lastOilDate) {
+          parsedTime = new Date(lastOilDate).getTime();
+        } else if ((v as any).created_at) {
+          parsedTime = new Date((v as any).created_at).getTime();
+        }
+        if (!parsedTime || Number.isNaN(parsedTime)) {
+          parsedTime = Date.now() - 86400000;
+        }
+
         items.push({
           id: `oil_due_${v.id}`,
           category: 'VEHICLE',
           title: 'دباب يحتاج تغيير زيت',
           message: `الدباب (${plate}) قطع ${overKm} كم بعد آخر تغيير زيت ويحتاج صيانة فورية`,
           timestamp: 'عاجل',
-          rawDate: Date.now() + 5000,
+          rawDate: parsedTime,
           iconName: 'construct-outline',
           iconColor: '#ef4444',
           iconBg: '#ef444418',
@@ -191,7 +242,8 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
     // 4. Pending Bike Maintenance Requests
     pendingMaintenance.forEach((m) => {
-      const parsedTime = m.created_at ? new Date(m.created_at).getTime() : Date.now();
+      let parsedTime = m.created_at ? new Date(m.created_at).getTime() : 0;
+      if (!parsedTime || Number.isNaN(parsedTime)) parsedTime = Date.now() - 3600000;
       items.push({
         id: `maintenance_${m.id}`,
         category: 'VEHICLE',
@@ -210,7 +262,8 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
     // 5. Advance & Investigation Requests
     pendingAdvances.forEach((adv) => {
-      const parsedTime = adv.created_at ? new Date(adv.created_at).getTime() : Date.now();
+      let parsedTime = adv.created_at ? new Date(adv.created_at).getTime() : 0;
+      if (!parsedTime || Number.isNaN(parsedTime)) parsedTime = Date.now() - 3600000;
       const amount = adv.amount || (adv as any).requested_amount || 0;
       items.push({
         id: `advance_${adv.id}`,
@@ -228,14 +281,40 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       });
     });
 
-    return items.sort((a, b) => b.rawDate - a.rawDate);
-  }, [pendingSessions, workingDelegates, vehicles, pendingMaintenance, pendingAdvances]);
+    // Filter out cleared notifications and sort newest first
+    return items
+      .filter((n) => !clearedIds.has(n.id))
+      .sort((a, b) => b.rawDate - a.rawDate);
+  }, [pendingSessions, workingDelegates, vehicles, pendingMaintenance, pendingAdvances, clearedIds]);
 
   const handleMarkAllAsRead = useCallback(async () => {
     const allIds = new Set(readIds);
     notificationsList.forEach((n) => allIds.add(n.id));
     await saveReadIds(allIds);
   }, [readIds, notificationsList]);
+
+  const handleClearAllNotifications = useCallback(async () => {
+    const updatedCleared = new Set(clearedIds);
+    notificationsList.forEach((n) => updatedCleared.add(n.id));
+    setClearedIds(updatedCleared);
+    setShowClearModal(false);
+    try {
+      await AsyncStorage.setItem(CLEARED_NOTIFS_KEY, JSON.stringify(Array.from(updatedCleared)));
+    } catch {}
+    const allRead = new Set(readIds);
+    notificationsList.forEach((n) => allRead.add(n.id));
+    await saveReadIds(allRead);
+  }, [clearedIds, notificationsList, readIds]);
+
+  // Register header actions for single tap (mark read) and long press (clean/delete)
+  useEffect(() => {
+    if (onRegisterHeaderActions) {
+      onRegisterHeaderActions({
+        markAll: handleMarkAllAsRead,
+        openClearModal: () => setShowClearModal(true),
+      });
+    }
+  }, [onRegisterHeaderActions, handleMarkAllAsRead]);
 
   const handleNotificationPress = useCallback(
     async (item: NotificationItem) => {
@@ -334,43 +413,15 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Clean Modern Top Header with Action Button */}
+      {/* Clean Modern Top Summary Strip */}
       <View style={[styles.topControlArea, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <View style={[styles.markReadRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.markReadRow, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <View style={[styles.notifTitleGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
             <Text style={[styles.notifPageTitle, { color: colors.textPrimary }]}>التنبيهات الميدانية</Text>
             <Text style={[styles.unreadSummaryText, { color: unreadCount > 0 ? '#ef4444' : colors.textSecondary }]}>
               {unreadCount > 0 ? `${unreadCount} تنبيهات غير مقروءة` : 'جميع التنبيهات مقروءة'}
             </Text>
           </View>
-
-          <TouchableOpacity
-            style={[
-              styles.markReadHeaderBtn,
-              {
-                backgroundColor: unreadCount > 0 ? colors.primary : (isDarkMode ? '#334155' : '#e2e8f0'),
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-                opacity: unreadCount > 0 ? 1 : 0.65,
-              },
-            ]}
-            disabled={unreadCount === 0}
-            onPress={handleMarkAllAsRead}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="checkmark-done-circle"
-              size={18}
-              color={unreadCount > 0 ? '#ffffff' : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.markReadHeaderBtnText,
-                { color: unreadCount > 0 ? '#ffffff' : colors.textSecondary },
-              ]}
-            >
-              قراءة الكل
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -405,6 +456,60 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           </View>
         }
       />
+
+      {/* Clear/Clean All Notifications Bottom Sheet Modal */}
+      <Modal
+        visible={showClearModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowClearModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowClearModal(false)}
+        >
+          <View
+            style={[
+              styles.clearSheet,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.clearSheetHandle} />
+            <View style={[styles.clearSheetIconCircle, { backgroundColor: '#ef444418' }]}>
+              <Ionicons name="trash-outline" size={28} color="#ef4444" />
+            </View>
+            <Text style={[styles.clearSheetTitle, { color: colors.textPrimary }]}>
+              حذف وتنظيف صفحة الإشعارات
+            </Text>
+            <Text style={[styles.clearSheetDesc, { color: colors.textSecondary }]}>
+              هل تريد بالتأكيد تفريغ وحذف جميع التنبيهات المعروضة في صفحة الإشعارات؟
+            </Text>
+
+            <View style={[styles.clearSheetBtnRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity
+                style={[styles.clearSheetConfirmBtn, { backgroundColor: '#ef4444' }]}
+                onPress={handleClearAllNotifications}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="trash" size={18} color="#ffffff" />
+                <Text style={styles.clearSheetConfirmText}>تنظيف الكل</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.clearSheetCancelBtn, { backgroundColor: isDarkMode ? '#334155' : '#f1f5f9', borderColor: colors.border }]}
+                onPress={() => setShowClearModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.clearSheetCancelText, { color: colors.textPrimary }]}>إلغاء</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -554,5 +659,76 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  clearSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+  },
+  clearSheetHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#94a3b860',
+    marginBottom: 8,
+  },
+  clearSheetIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  clearSheetTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  clearSheetDesc: {
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  clearSheetBtnRow: {
+    width: '100%',
+    gap: 10,
+    marginTop: 6,
+  },
+  clearSheetConfirmBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  clearSheetConfirmText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  clearSheetCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearSheetCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

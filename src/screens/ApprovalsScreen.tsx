@@ -297,23 +297,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Clean Orders Review Summary Strip */}
-      <View style={[styles.topTabsWrapper, { backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="bag-check" size={20} color={colors.primary} />
-            <Text style={{ fontSize: 15, fontWeight: '800', color: colors.textPrimary }}>
-              مراجعة واعتماد الطلبات
-            </Text>
-          </View>
-          <View style={{ backgroundColor: colors.primary + '18', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-            <Text style={{ fontSize: 12, fontWeight: '800', color: colors.primary }}>
-              {sortedCompletedPendingSessions.length} شفت بانتظار الاعتماد
-            </Text>
-          </View>
-        </View>
-      </View>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}

@@ -51,6 +51,21 @@ export const normalizeVehicle = (item: any): VehicleItem => {
 // Helper to determine if a vehicle requires an oil change
 export const isVehicleOilDue = (v: any): boolean => {
   if (!v) return false;
+
+  const plate = String(v.plate_number || v.motorcycle_number || '');
+  const isBroken = Boolean(v.is_odometer_broken) || plate.includes('7569') || plate.includes('8043');
+
+  if (isBroken) {
+    const lastDateStr = v.last_oil_change_date || v.last_oil_change_at;
+    if (lastDateStr) {
+      const lastDate = new Date(lastDateStr).getTime();
+      const now = Date.now();
+      const diffDays = (now - lastDate) / (1000 * 60 * 60 * 24);
+      return diffDays >= 4; // كل 4 أو 5 أيام يظهر؛ وإذا صُرف له زيت يختفي فوراً
+    }
+    return true;
+  }
+
   if (typeof v.needs_oil_change === 'boolean') {
     return v.needs_oil_change;
   }

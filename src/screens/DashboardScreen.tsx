@@ -208,12 +208,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   }, [allDelegates, workingDelegates, stats, pendingSessions, vehicles]);
 
   const shortcuts = [
-    { title: 'متابعة الميدان', sub: `${analyticsData.activeCount} نشط الآن`, icon: 'radio-outline', color: '#10b981', onPress: () => onNavigateToTab('field') },
     { title: 'مركز الموافقات', sub: `${analyticsData.completedPendingCount} بانتظارك`, icon: 'checkmark-done-circle-outline', color: '#f59e0b', onPress: () => onNavigateToTab('approvals') },
     { title: 'مراجعة الطلبات', sub: 'السجل التنازلي', icon: 'list-circle-outline', color: '#0284c7', onPress: () => onNavigateToTab('orders-review') },
-    { title: 'إدارة الموظفين', sub: 'مرتب بالمفاتيح', icon: 'people-outline', color: '#6366f1', onPress: () => onNavigateToTab('employees') },
+    { title: 'متابعة الميدان', sub: `${analyticsData.activeCount} نشط الآن`, icon: 'radio-outline', color: '#10b981', onPress: () => onNavigateToTab('field') },
     { title: 'تغيير الزيت', sub: 'بحث سريع باللوحة', icon: 'construct-outline', color: '#8b5cf6', onPress: () => onNavigateToTab('oil-change') },
     { title: 'التقارير والسلف', sub: 'رفع تقرير مشرف', icon: 'document-text-outline', color: '#ec4899', onPress: () => onOpenReportModal?.('list') },
+    { title: 'إدارة الموظفين', sub: 'مرتب بالمفاتيح', icon: 'people-outline', color: '#6366f1', onPress: () => onNavigateToTab('employees') },
   ];
 
   const rawOrdersCount =
@@ -300,39 +300,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </View>
         </View>
 
-        {/* 2. Urgent Alert Banner if Completed Shifts are Waiting Approval */}
-        {analyticsData.completedPendingCount > 0 && (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => onNavigateToTab('approvals')}
-            style={[
-              styles.urgentBanner,
-              {
-                backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb',
-                borderColor: '#f59e0b',
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-              },
-            ]}
-          >
-            <View style={styles.urgentIconCircle}>
-              <Ionicons name="notifications" size={20} color="#d97706" />
-            </View>
-            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-              <Text style={[styles.urgentTitle, { color: isDarkMode ? '#fcd34d' : '#92400e' }]}>
-                يوجد {analyticsData.completedPendingCount} شفتات منتهية بانتظار اعتمادك
-              </Text>
-              <Text style={[styles.urgentSub, { color: isDarkMode ? '#fde68a' : '#b45309' }]}>
-                إجمالي {analyticsData.pendingOrdersSum} طلب • {analyticsData.pendingKmSum} كم • اضغط للمراجعة الفورية
-              </Text>
-            </View>
-            <Ionicons
-              name={isRTL ? 'chevron-back' : 'chevron-forward'}
-              size={20}
-              color="#d97706"
-            />
-          </TouchableOpacity>
-        )}
-
         {/* 3. Analytical KPI Grid (4 Focused Operational Indicators) */}
         <Text style={[styles.sectionHeader, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
           مؤشرات اليوم للفرع والأسطول
@@ -382,7 +349,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           {/* 4. الدبابات اللى محتاجة تغير زيت */}
           <TouchableOpacity
             activeOpacity={0.78}
-            onPress={() => setShowOilDueModal(true)}
+            onPress={() => onNavigateToTab('oil-change')}
             style={[
               styles.kpiCard,
               {
