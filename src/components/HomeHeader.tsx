@@ -86,24 +86,18 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
 
       <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <TouchableOpacity
-          style={[
-            styles.headerBellBtn,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
-          ]}
+          style={styles.headerBellBtn}
           onPress={onPressNotifications}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons
             name={(unreadCount || 0) > 0 ? 'notifications' : 'notifications-outline'}
-            size={22}
+            size={24}
             color={(unreadCount || 0) > 0 ? colors.primary : colors.textPrimary}
           />
           {(unreadCount || 0) > 0 && (
-            <View style={[styles.bellBadge, { borderColor: colors.card }]}>
+            <View style={[styles.bellBadge, { borderColor: colors.bg }]}>
               <Text style={styles.bellBadgeText}>
                 {(unreadCount || 0) > 99 ? '99+' : unreadCount}
               </Text>
@@ -172,18 +166,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerBellBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 1,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   bellBadge: {
     position: 'absolute',

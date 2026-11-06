@@ -256,17 +256,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             },
           ]}
         >
-          <View style={[styles.heroTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-              <Text style={styles.heroBranchBadge}>{branchName}</Text>
-              <Text style={styles.heroTitle}>مؤشرات الأداء والتشغيل</Text>
-            </View>
+          <View style={[styles.heroTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center' }]}>
+            <Text style={styles.heroTitle}>مؤشرات الأداء والتشغيل</Text>
 
-            {/* Modern Operational Rate Badge (استبدال الدائرة القديمة ببادج عصري أنيق) */}
-            <View style={[styles.modernRateBadge, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            {/* الأيقونة والرقم في المية فقط على نفس السطر بدون نصوص إضافية */}
+            <View style={[styles.ratePill, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Ionicons name="speedometer-outline" size={16} color="#38bdf8" />
-              <Text style={styles.modernRateLabel}>نسبة التشغيل</Text>
-              <Text style={styles.modernRateValue}>{analyticsData.attendanceRate}%</Text>
+              <Text style={styles.ratePillValue}>{analyticsData.attendanceRate}%</Text>
             </View>
           </View>
 
@@ -707,18 +703,20 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               )}
             </ScrollView>
 
-            {/* Footer Button */}
+            {/* Footer Close Button */}
             <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
               <TouchableOpacity
                 activeOpacity={0.85}
-                style={[styles.modalPrimaryBtn, { backgroundColor: colors.primary, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                onPress={() => {
-                  setShowOilDueModal(false);
-                  onNavigateToTab('oil-change');
-                }}
+                style={[
+                  styles.modalPrimaryBtn,
+                  {
+                    backgroundColor: isDarkMode ? '#334155' : '#e2e8f0',
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+                onPress={() => setShowOilDueModal(false)}
               >
-                <Ionicons name="construct" size={18} color="#ffffff" />
-                <Text style={styles.modalPrimaryBtnText}>فتح صفحة صرف وتغيير الزيت</Text>
+                <Text style={[styles.modalPrimaryBtnText, { color: colors.textPrimary }]}>إغلاق</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -755,7 +753,22 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: '#ffffff',
-    fontSize: 20,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  ratePill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ratePillValue: {
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: '900',
   },
   heroSubtitle: {
