@@ -1,322 +1,357 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  RefreshControl,
   ActivityIndicator,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import LottieView from 'lottie-react-native';
-import * as Haptics from 'expo-haptics';
-import { ThemeColors, Language } from '../types/delegate';
+import { ThemeColors } from '../types/delegate';
+import { DelegateWithStatus } from '../services/supervisor';
+import { VehicleItem, isVehicleOilDue, operationsApi } from '../services/operations';
+import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
+import { toEnglishDigits } from '@shared/utils/plateUtils';
 
 export interface OilChangeScreenProps {
-  motorcycleNumber?: string;
-  distanceSinceOil?: number;
-  remainingOilKm?: number;
+  vehicles: VehicleItem[];
+  delegates: DelegateWithStatus[];
   colors: ThemeColors;
   isDarkMode?: boolean;
   isRTL?: boolean;
-  lang?: Language;
-  t: any;
-  onRecheck: () => Promise<boolean | void>;
-  onScanAnother: () => void;
-  onBackToHome: () => void;
+  loading?: boolean;
+  onRefresh?: () => void;
+  adminName?: string;
+  onNavigateToTab?: (tab: any) => void;
 }
 
 export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
-  motorcycleNumber,
-  distanceSinceOil,
+  vehicles,
+  delegates,
   colors,
   isDarkMode = false,
   isRTL = true,
-  lang = 'ar',
-  t,
-  onRecheck,
-  onScanAnother,
-  onBackToHome,
+  loading = false,
+  onRefresh,
+  adminName = 'المشرف',
+  onNavigateToTab,
 }) => {
-  const [isRechecking, setIsRechecking] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dispensingVehicleId, setDispensingVehicleId] = useState<string | null>(null);
 
-  const handleRecheckPress = async () => {
-    if (isRechecking) return;
-    setIsRechecking(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    try {
-      await onRecheck();
-    } finally {
-      setIsRechecking(false);
-    }
-  };
+  // Map drivers by plate and key
+  const { driverByPlate, driverByKey } = useMemo(() => {
+    const byPlate = new Map<string, DelegateWithStatus>();
+    const byKey = new Map<string, DelegateWithStatus>();
 
-  const alertMessage =
-    lang === 'ar'
-      ? 'الدباب يحتاج الى تغير زيت ارجع لى المشرف لصرف زيت للدباب'
-      : lang === 'ur'
-      ? 'موٹر سائیکل کو تیل تبدیل کرنے کی ضرورت ہے، آئل کے لیے سپروائزر سے رجوع کریں'
-      : lang === 'bn'
-      ? 'বাইকে তেল পরিবর্তন প্রয়োজন, তেল পাওয়ার জন্য সুপারভাইজারের সাথে যোগাযোগ করুন'
-      : 'Motorcycle requires an oil change. Please return to supervisor to dispense oil.';
+    delegates.forEach((d) => {
+      const p = (d.active_motorcycle || d.motorcycle_number || '').trim().toLowerCase();
+      const k = (d.key_number || '').trim().toLowerCase();
+      if (p && !byPlate.has(p)) byPlate.set(p, d);
+      if (k && !byKey.has(k)) byKey.set(k, d);
+    });
 
-  const screenTitle =
-    lang === 'ar'
-      ? 'تغيير زيت الدباب مطلوب'
-      : lang === 'ur'
-      ? 'تیل کی تبدیلی ضروری ہے'
-      : lang === 'bn'
-      ? 'তেল পরিবর্তন প্রয়োজন'
-      : 'Oil Change Required';
+    return { driverByPlate: byPlate, driverByKey: byKey };
+  }, [delegates]);
 
-  const subDescription =
-    lang === 'ar'
-      ? 'تم إيقاف بدء الدوام مؤقتاً لحماية محرك الدباب من التلف. يرجى التوجه لمشرف الفرع لصرف وتغيير الزيت ثم إعادة الفحص.'
-      : lang === 'ur'
-      ? 'انجن کی حفاظت کے لیے شفٹ شروع کرنا عارضی طور پر روک دیا گیا ہے۔ برائے مہربانی سپروائزر سے تیل تبدیل کروا کر دوبارہ چیک کریں۔'
-      : lang === 'bn'
-      ? 'ইঞ্জিনের সুরক্ষার জন্য শিফট শুরু সাময়িকভাবে বন্ধ রয়েছে। তেল পরিবর্তন করে আবার যাচাই করুন।'
-      : 'Shift start is paused to protect the engine. Please contact the supervisor to dispense oil and then recheck.';
+  // Filter vehicles that require oil change
+  const oilDueVehicles = useMemo(() => {
+    return vehicles.filter((v) => isVehicleOilDue(v));
+  }, [vehicles]);
 
-  const intervalNotice =
-    lang === 'ar'
-      ? 'معلومة: يتم تغيير الزيت كل 950 كم للمحافظة على محرك الدباب'
-      : lang === 'ur'
-      ? 'معلومات: موٹر سائیکل کا انجن محفوظ رکھنے کے لیے ہر 950 کلومیٹر پر تیل تبدیل ہوتا ہے'
-      : lang === 'bn'
-      ? 'তথ্য: ইঞ্জিন সুরক্ষার জন্য প্রতি ৯৫০ কিমিতে তেল পরিবর্তন করা হয়'
-      : 'Note: Oil change is required every 950 km to maintain motorcycle engine health';
+  // Filter with search query
+  const filteredVehicles = useMemo(() => {
+    const q = toEnglishDigits(searchQuery.trim()).toLowerCase();
+    if (!q) return oilDueVehicles;
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Top Banner & Lottie Animation */}
+    return oilDueVehicles.filter((v) => {
+      const plate = toEnglishDigits(v.plate_number || '').toLowerCase();
+      const key = toEnglishDigits(v.key_number || '').toLowerCase();
+      const assigned =
+        (plate && driverByPlate.get(plate)) ||
+        (key && driverByKey.get(key));
+      const driverName = (assigned?.name || '').toLowerCase();
+
+      return plate.includes(q) || key.includes(q) || driverName.includes(q);
+    });
+  }, [oilDueVehicles, searchQuery, driverByPlate, driverByKey]);
+
+  // Direct oil dispense handler
+  const handleDirectDispense = useCallback(
+    async (vehicle: VehicleItem, currKm: number) => {
+      const plate = vehicle.plate_number || (vehicle as any).motorcycle_number || '';
+      if (!plate) {
+        showBottomAlert({
+          type: 'warning',
+          title: 'تنبيه',
+          message: 'رقم اللوحة غير متوفر للدباب.',
+        });
+        return;
+      }
+
+      try {
+        setDispensingVehicleId(vehicle.id);
+        await operationsApi.dispenseOil({
+          motorcycleNumber: plate,
+          currentKm: currKm || Number(vehicle.current_km) || 0,
+          quantity: 1,
+          notes: `صرف زيت مباشر من قائمة مستحقي الزيت بواسطة ${adminName}`,
+        });
+
+        showBottomAlert({
+          type: 'success',
+          title: 'تم صرف الزيت بنجاح',
+          message: `تم صرف جركن زيت وتسجيل غيار الزيت للدباب (${plate}) بنجاح.`,
+        });
+
+        onRefresh?.();
+      } catch (err: any) {
+        showBottomAlert({
+          type: 'error',
+          title: 'فشل العملية',
+          message: err?.response?.data?.error || err?.message || 'تعذر تسجيل صرف الزيت.',
+        });
+      } finally {
+        setDispensingVehicleId(null);
+      }
+    },
+    [adminName, onRefresh]
+  );
+
+  const renderVehicleCard = ({ item: v }: { item: VehicleItem }) => {
+    const plateClean = (v.plate_number || '').trim().toLowerCase();
+    const keyClean = (v.key_number || '').trim().toLowerCase();
+    const assignedDriver =
+      (plateClean && driverByPlate.get(plateClean)) ||
+      (keyClean && driverByKey.get(keyClean));
+    const keyDisplay = v.key_number || assignedDriver?.key_number || '';
+    const currKm = Number(v.current_km || 0);
+    const lastOilKm = Number(v.last_oil_change_km || 0);
+    const isBroken = Boolean(v.is_odometer_broken) || String(v.plate_number).includes('7569') || String(v.plate_number).includes('8043');
+
+    const drivenSinceOil =
+      lastOilKm > 0 && currKm >= lastOilKm
+        ? currKm - lastOilKm
+        : Number(v.total_distance || 0);
+
+    const isDispensing = dispensingVehicleId === v.id;
+
+    return (
       <View
         style={[
-          styles.lottieCard,
+          styles.card,
           {
-            backgroundColor: isDarkMode ? '#171f30' : '#ffffff',
-            borderColor: isDarkMode ? 'rgba(2, 132, 199, 0.25)' : '#fed7aa',
+            backgroundColor: colors.card,
+            borderColor: isDarkMode ? '#ef444440' : '#fca5a5',
           },
         ]}
       >
-        <View style={styles.glowAura}>
-          <LottieView
-            source={require('../../assets/Lottie/LCKboLMu6C.lottie')}
-            autoPlay
-            loop
-            style={styles.lottieAnim}
-            resizeMode="contain"
-          />
-        </View>
-
-        {motorcycleNumber ? (
-          <View
-            style={[
-              styles.bikeTag,
-              {
-                backgroundColor: isDarkMode ? 'rgba(2, 132, 199, 0.18)' : '#f0f9ff',
-                borderColor: isDarkMode ? 'rgba(2, 132, 199, 0.4)' : '#fdba74',
-              },
-            ]}
-          >
-            <Ionicons name="bicycle" size={16} color="#0284c7" />
-            <Text style={[styles.bikeTagText, { color: isDarkMode ? '#38bdf8' : '#c2410c' }]}>
-              {lang === 'ar'
-                ? `دباب رقم: ${motorcycleNumber}`
-                : `Bike: ${motorcycleNumber}`}
-            </Text>
-          </View>
-        ) : null}
-
-        <Text style={[styles.title, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
-          {screenTitle}
-        </Text>
-
-        {/* Main User Requested Alert Box */}
-        <View
-          style={[
-            styles.alertBox,
-            {
-              backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
-              borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.35)' : '#fecaca',
-            },
-          ]}
-        >
-          <Ionicons name="alert-circle" size={24} color="#ef4444" style={{ marginTop: 2 }} />
-          <Text
-            style={[
-              styles.alertText,
-              {
-                color: isDarkMode ? '#fca5a5' : '#b91c1c',
-                textAlign: isRTL ? 'right' : 'left',
-              },
-            ]}
-          >
-            {alertMessage}
-          </Text>
-        </View>
-
-        <Text
-          style={[
-            styles.subDesc,
-            { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: 'center' },
-          ]}
-        >
-          {subDescription}
-        </Text>
-      </View>
-
-      {/* Oil & Distance Metric Card */}
-      <View
-        style={[
-          styles.infoCard,
-          {
-            backgroundColor: isDarkMode ? '#171f30' : '#ffffff',
-            borderColor: isDarkMode ? '#334155' : '#e2e8f0',
-          },
-        ]}
-      >
-        <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={styles.metricIconWrap}>
-            <Ionicons name="speedometer-outline" size={20} color="#0284c7" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.metricLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: isRTL ? 'right' : 'left' }]}>
-              {lang === 'ar' ? 'المعيار المعتمد لتغيير الزيت' : 'Oil Change Interval'}
-            </Text>
-            <Text style={[styles.metricValue, { color: isDarkMode ? '#f8fafc' : '#0f172a', textAlign: isRTL ? 'right' : 'left' }]}>
-              {lang === 'ar' ? 'كل 950 كم' : 'Every 950 KM'}
-            </Text>
-          </View>
-        </View>
-
-        {distanceSinceOil !== undefined && distanceSinceOil > 0 ? (
-          <View
-            style={[
-              styles.infoRow,
-              styles.infoRowBorder,
-              {
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-                borderColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-              },
-            ]}
-          >
-            <View style={styles.metricIconWrap}>
-              <Ionicons name="trail-sign-outline" size={20} color="#3b82f6" />
+        {/* Top Header Row */}
+        <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.plateGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.bikeIconBox, { backgroundColor: '#ef444415' }]}>
+              <Ionicons name="bicycle" size={22} color="#ef4444" />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.metricLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', textAlign: isRTL ? 'right' : 'left' }]}>
-                {lang === 'ar' ? 'آخر قراءة عداد مسجلة' : 'Last Recorded Odometer'}
-              </Text>
-              <Text style={[styles.metricValue, { color: isDarkMode ? '#f8fafc' : '#0f172a', textAlign: isRTL ? 'right' : 'left' }]}>
-                {`${distanceSinceOil} كم`}
+
+            <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+              <View style={[styles.plateRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={[styles.plateText, { color: colors.textPrimary }]}>
+                  {v.plate_number}
+                </Text>
+
+                {!!keyDisplay && (
+                  <View
+                    style={[
+                      styles.keyPill,
+                      {
+                        backgroundColor: '#f59e0b18',
+                        borderColor: '#f59e0b40',
+                        flexDirection: isRTL ? 'row-reverse' : 'row',
+                      },
+                    ]}
+                  >
+                    <Ionicons name="key" size={12} color="#d97706" />
+                    <Text style={styles.keyPillText}>مفتاح {keyDisplay}</Text>
+                  </View>
+                )}
+              </View>
+
+              <Text style={[styles.driverNameText, { color: colors.textSecondary }]}>
+                المندوب: {assignedDriver?.name || 'غير معين'}
               </Text>
             </View>
           </View>
-        ) : null}
 
-        {/* Interval hint badge */}
+          <View style={[styles.warningBadge, { backgroundColor: '#ef444418' }]}>
+            <Ionicons name="alert-circle" size={13} color="#ef4444" />
+            <Text style={styles.warningBadgeText}>
+              {isBroken ? 'تغيير دوري' : 'يحتاج تغيير'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Metrics Strip */}
         <View
           style={[
-            styles.hintBadge,
+            styles.metricsStrip,
             {
-              backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-              borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+              backgroundColor: isDarkMode ? '#1e293b50' : '#f8fafc',
+              borderColor: colors.border,
               flexDirection: isRTL ? 'row-reverse' : 'row',
             },
           ]}
         >
-          <Ionicons name="information-circle-outline" size={16} color="#0ea5e9" />
-          <Text
-            style={[
-              styles.hintBadgeText,
-              { color: isDarkMode ? '#38bdf8' : '#0284c7', textAlign: isRTL ? 'right' : 'left' },
-            ]}
-          >
-            {intervalNotice}
-          </Text>
-        </View>
-      </View>
+          <View style={styles.metricItem}>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>العداد الحالي</Text>
+            <Text style={[styles.metricValue, { color: colors.textPrimary }]}>
+              {isBroken ? 'معطل' : `${currKm.toLocaleString('en-US')} كم`}
+            </Text>
+          </View>
 
-      {/* Action Buttons */}
-      <View style={styles.actionsContainer}>
-        {/* Re-check Oil Button */}
+          <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
+
+          <View style={styles.metricItem}>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>آخر غيار زيت</Text>
+            <Text style={[styles.metricValue, { color: colors.textPrimary }]}>
+              {lastOilKm > 0 ? `${lastOilKm.toLocaleString('en-US')} كم` : 'مسجل'}
+            </Text>
+          </View>
+
+          <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
+
+          <View style={styles.metricItem}>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>
+              {isBroken ? 'الدورية' : 'المسافة المقطوعة'}
+            </Text>
+            <Text style={[styles.metricValue, { color: '#ef4444' }]}>
+              {isBroken ? 'كل 4-5 أيام' : `${drivenSinceOil.toLocaleString('en-US')} كم`}
+            </Text>
+          </View>
+        </View>
+
+        {/* Direct Dispense Button */}
         <TouchableOpacity
-          style={[styles.actionBtn, styles.primaryBtn, { backgroundColor: '#0284c7' }]}
-          onPress={handleRecheckPress}
-          disabled={isRechecking}
-          activeOpacity={0.85}
+          activeOpacity={0.82}
+          disabled={isDispensing}
+          style={[
+            styles.dispenseBtn,
+            {
+              backgroundColor: isDispensing ? '#64748b' : '#0284c7',
+              flexDirection: isRTL ? 'row-reverse' : 'row',
+            },
+          ]}
+          onPress={() => handleDirectDispense(v, currKm)}
         >
-          {isRechecking ? (
-            <ActivityIndicator color="#ffffff" size="small" />
+          {isDispensing ? (
+            <ActivityIndicator size="small" color="#ffffff" />
           ) : (
             <>
-              <Ionicons
-                name="refresh"
-                size={20}
-                color="#ffffff"
-                style={{ marginHorizontal: 6 }}
-              />
-              <Text style={styles.primaryBtnText}>
-                {lang === 'ar'
-                  ? 'إعادة الفحص والتحقق'
-                  : lang === 'ur'
-                  ? 'دوبارہ تصدیق کریں'
-                  : lang === 'bn'
-                  ? 'পুনরায় পরীক্ষা করুন'
-                  : 'Re-check Oil Status'}
-              </Text>
+              <Ionicons name="construct-outline" size={18} color="#ffffff" />
+              <Text style={styles.dispenseBtnText}>صرف وتغيير الزيت فوراً</Text>
             </>
           )}
         </TouchableOpacity>
+      </View>
+    );
+  };
 
-        {/* Scan Another Bike Button */}
-        <TouchableOpacity
+  return (
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      {/* Top Header Summary Strip */}
+      <View
+        style={[
+          styles.headerStrip,
+          {
+            backgroundColor: colors.card,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
+        <View style={[styles.headerTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.headerInfoGroup, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+              الدبابات التي تحتاج تغيير زيت
+            </Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+              إجمالي الدبابات المستحقة: {oilDueVehicles.length} دباب
+            </Text>
+          </View>
+
+          <View style={[styles.countBadge, { backgroundColor: '#ef444418' }]}>
+            <Text style={styles.countBadgeText}>{oilDueVehicles.length}</Text>
+          </View>
+        </View>
+
+        {/* Search Bar */}
+        <View
           style={[
-            styles.actionBtn,
-            styles.secondaryBtn,
+            styles.searchBox,
             {
-              backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-              borderColor: isDarkMode ? '#334155' : '#cbd5e1',
+              backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
+              borderColor: colors.border,
+              flexDirection: isRTL ? 'row-reverse' : 'row',
             },
           ]}
-          onPress={onScanAnother}
-          activeOpacity={0.75}
         >
-          <Ionicons
-            name="camera-outline"
-            size={19}
-            color={colors.textPrimary}
-            style={{ marginHorizontal: 6 }}
+          <Ionicons name="search" size={18} color={colors.textSecondary} />
+          <TextInput
+            style={[
+              styles.searchInput,
+              {
+                color: colors.textPrimary,
+                textAlign: isRTL ? 'right' : 'left',
+              },
+            ]}
+            placeholder="بحث برقم اللوحة، المندوب، أو المفتاح..."
+            placeholderTextColor={colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-          <Text style={[styles.secondaryBtnText, { color: colors.textPrimary }]}>
-            {lang === 'ar'
-              ? 'تصوير لوحة دباب آخر'
-              : lang === 'ur'
-              ? 'دوسری موٹر سائیکل اسکین کریں'
-              : lang === 'bn'
-              ? 'অন্য বাইক স্ক্যান করুন'
-              : 'Scan Another Bike Plate'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Return to Home */}
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.tertiaryBtn]}
-          onPress={onBackToHome}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="home-outline"
-            size={18}
-            color={isDarkMode ? '#94a3b8' : '#64748b'}
-            style={{ marginHorizontal: 6 }}
-          />
-          <Text style={[styles.tertiaryBtnText, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
-            {lang === 'ar' ? 'الرجوع إلى الرئيسية' : 'Return to Home'}
-          </Text>
-        </TouchableOpacity>
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
+
+      {/* Main List */}
+      <FlatList
+        data={filteredVehicles}
+        keyExtractor={(item, index) => item.id || String(index)}
+        renderItem={renderVehicleCard}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          ) : undefined
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIconCircle, { backgroundColor: '#10b98118' }]}>
+              <Ionicons name="checkmark-done-circle" size={52} color="#10b981" />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+              {searchQuery ? 'لا توجد نتائج مطابقة للبحث' : 'جميع الدبابات بحالة زيت جيدة'}
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+              {searchQuery
+                ? 'جرب البحث برقم لوحة أو اسم آخر.'
+                : 'لا توجد دبابات في الفرع متجاوزة لحد تغيير الزيت حالياً.'}
+            </Text>
+          </View>
+        }
+      />
     </View>
   );
 };
@@ -324,162 +359,192 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  headerStrip: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 28,
-  },
-  lottieCard: {
-    borderRadius: 24,
-    borderWidth: 1.5,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    marginBottom: 14,
-    shadowColor: '#0284c7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  glowAura: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  lottieAnim: {
-    width: 130,
-    height: 130,
-  },
-  bikeTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginBottom: 10,
-    gap: 6,
-  },
-  bikeTagText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  alertBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    width: '100%',
-    marginBottom: 10,
-    gap: 10,
-  },
-  alertText: {
-    fontSize: 15,
-    fontWeight: '800',
-    lineHeight: 22,
-    flexShrink: 1,
-  },
-  subDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    paddingHorizontal: 8,
-    marginTop: 4,
-  },
-  infoCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 16,
-  },
-  infoRow: {
-    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
     gap: 12,
-    paddingVertical: 8,
   },
-  infoRowBorder: {
-    borderTopWidth: 1,
-    marginTop: 6,
-    paddingTop: 10,
-  },
-  metricIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(2, 132, 199, 0.12)',
+  headerTopRow: {
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  metricLabel: {
+  headerInfoGroup: {
+    gap: 2,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  headerSubtitle: {
     fontSize: 12,
     fontWeight: '600',
-    marginBottom: 2,
   },
-  metricValue: {
-    fontSize: 15,
-    fontWeight: '800',
+  countBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  hintBadge: {
-    marginTop: 10,
-    padding: 10,
+  countBadgeText: {
+    color: '#ef4444',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  searchBox: {
+    height: 44,
     borderRadius: 12,
     borderWidth: 1,
+    paddingHorizontal: 12,
     alignItems: 'center',
     gap: 8,
   },
-  hintBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
-    flexShrink: 1,
-  },
-  actionsContainer: {
-    gap: 10,
-    marginTop: 4,
-  },
-  actionBtn: {
-    height: 50,
-    borderRadius: 14,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-  },
-  primaryBtn: {
-    shadowColor: '#0284c7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  primaryBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  secondaryBtn: {
-    borderWidth: 1.5,
-  },
-  secondaryBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  tertiaryBtn: {
-    backgroundColor: 'transparent',
-    height: 42,
-  },
-  tertiaryBtnText: {
+  searchInput: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '600',
+  },
+  listContent: {
+    padding: 16,
+    gap: 14,
+    paddingBottom: 36,
+  },
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  cardTopRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  plateGroup: {
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  bikeIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  plateRow: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  plateText: {
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  keyPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  keyPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#d97706',
+  },
+  driverNameText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  warningBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  warningBadgeText: {
+    color: '#ef4444',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  metricsStrip: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  metricItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  metricValue: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  metricDivider: {
+    width: 1,
+    height: 24,
+  },
+  dispenseBtn: {
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dispenseBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

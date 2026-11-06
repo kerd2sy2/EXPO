@@ -2119,7 +2119,7 @@ export default function DelegateApp() {
                   : currentTab === 'operations'
                   ? 'إدارة العمليات والأسطول'
                   : currentTab === 'oil-change'
-                  ? 'تغيير زيت'
+                  ? 'تغيير زيت الدبابات'
                   : currentTab === 'add-vehicle'
                   ? 'إضافة مركبة جديدة'
                   : currentTab === 'accident-report'
@@ -2351,16 +2351,16 @@ export default function DelegateApp() {
         ) : currentTab === 'oil-change' ? (
           <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <ModuleErrorBoundary moduleName="تغيير زيت" colors={colors} onReset={fetchOperationsData}>
-              <OperationsScreen
-                mode="oil"
-                inventoryItems={inventoryItems}
+              <OilChangeScreen
                 vehicles={vehicles}
-                employees={branchScopedDelegates}
-                loading={loadingOperationsData}
-                onRefresh={fetchOperationsData}
+                delegates={branchScopedDelegates}
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
+                loading={loadingOperationsData}
+                onRefresh={fetchOperationsData}
+                adminName={employee?.name || 'المشرف'}
+                onNavigateToTab={handleNavigateToTab}
               />
             </ModuleErrorBoundary>
           </View>
