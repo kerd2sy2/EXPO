@@ -225,6 +225,9 @@ export const workApi = {
     registration_image?: string;
     needs_oil_change?: boolean;
     remaining_oil_km?: number;
+    distance_since_oil?: number;
+    remaining_days?: number;
+    oil_status_message?: string;
   } | null> => {
     try {
       const url = motorcycleNumber
@@ -237,6 +240,9 @@ export const workApi = {
         registration_image?: string;
         needs_oil_change?: boolean;
         remaining_oil_km?: number;
+        distance_since_oil?: number;
+        remaining_days?: number;
+        oil_status_message?: string;
       }>(url);
       return data;
     } catch {
@@ -254,6 +260,10 @@ export const workApi = {
     distance_since_oil?: number;
     oil_change_interval?: number;
     vehicle_type?: string;
+    is_odometer_broken?: boolean;
+    remaining_days?: number;
+    remaining_distance?: number;
+    oil_status_message?: string;
   } | null> => {
     try {
       const params = new URLSearchParams();

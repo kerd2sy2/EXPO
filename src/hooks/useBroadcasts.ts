@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notificationService, BroadcastNotificationItem } from '../services/notificationService';
 import { EmployeeProfile } from '../types/delegate';
+import { workApi } from '../services/work';
 
 export function useBroadcasts(employee: EmployeeProfile | null) {
   const [activeBroadcast, setActiveBroadcast] = useState<BroadcastNotificationItem | null>(null);
@@ -13,18 +14,89 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
   const [loadingBroadcastHistory, setLoadingBroadcastHistory] = useState(false);
   const lastDismissedBroadcastId = useRef<string | null>(null);
 
+  // Helper to fetch dynamic oil change status notification for the delegate's motorcycle
+  const fetchOilNotification = useCallback(async (): Promise<BroadcastNotificationItem | null> => {
+    if (!employee?.id) return null;
+    const bike = employee.motorcycle_number;
+    if (!bike) return null;
+
+    try {
+      const oilData = await workApi.getLastKM(employee.id, bike);
+      if (!oilData) return null;
+
+      const isBroken = Boolean(oilData.is_odometer_broken) || bike.includes('7569') || bike.includes('8043');
+      const needsOil = Boolean(oilData.needs_oil_change);
+      const remainingDays = typeof oilData.remaining_days === 'number' ? oilData.remaining_days : 0;
+      const remainingKm = typeof oilData.remaining_oil_km === 'number' ? Math.round(oilData.remaining_oil_km) : 0;
+
+      let title = 'تنبيه موعد تغيير الزيت';
+      let body = '';
+      let isLastDayOrDue = false;
+
+      if (isBroken) {
+        if (needsOil || remainingDays <= 1) {
+          isLastDayOrDue = true;
+          title = 'اليوم موعد تغيير الزيت للدباب';
+          body = `تنبيه عاجل: اليوم هو موعد تغيير زيت الدباب الخاص بك (${bike}) بعد إتمام دورة 5 أيام. يرجى مراجعة المشرف لصرف الزيت وتغييره فوراً.`;
+        } else {
+          title = 'تنبيه غيار زيت الدباب';
+          body = `دبابك (${bike}): فاضل ${remainingDays} أيام لتغيير الزيت (دورية كل 5 أيام).`;
+        }
+      } else {
+        if (needsOil || remainingKm <= 0) {
+          isLastDayOrDue = true;
+          title = 'اليوم موعد تغيير الزيت للدباب';
+          body = `تنبيه عاجل: تم الوصول لحد غيار الزيت للدباب (${bike}). اليوم يجب تغيير الزيت لدى مشرف الفرع.`;
+        } else {
+          title = 'متابعة غيار زيت الدباب';
+          body = `دبابك (${bike}): فاضل ${remainingKm.toLocaleString('en-US')} كم لتغيير الزيت.`;
+        }
+      }
+
+      return {
+        id: `oil_notif_${bike}_${isLastDayOrDue ? 'due' : 'upcoming'}`,
+        title,
+        body,
+        title_ar: title,
+        body_ar: body,
+        target: 'DRIVER',
+        created_by: 'النظام الإشرافي',
+        sent_count: 1,
+        has_poll: isLastDayOrDue,
+        poll_question: isLastDayOrDue ? 'هل راجعت المشرف لتغيير زيت الدباب اليوم؟' : undefined,
+        poll_question_ar: isLastDayOrDue ? 'هل راجعت المشرف لتغيير زيت الدباب اليوم؟' : undefined,
+        agree_count: 0,
+        disagree_count: 0,
+        created_at: new Date().toISOString(),
+        is_read: false,
+      };
+    } catch {
+      return null;
+    }
+  }, [employee?.id, employee?.motorcycle_number]);
+
   const checkUnreadBroadcasts = useCallback(async () => {
     if (!employee?.id) return;
     try {
       const unread = await notificationService.getUnreadBroadcasts(employee.id);
-      setUnreadBroadcastsCount(unread.length);
-      if (unread.length > 0) {
-        let dismissedIds: string[] = [];
-        try {
-          const raw = await AsyncStorage.getItem('@aams_dismissed_broadcasts');
-          if (raw) dismissedIds = JSON.parse(raw);
-        } catch {}
+      const oilNotif = await fetchOilNotification();
+      
+      let dismissedIds: string[] = [];
+      try {
+        const raw = await AsyncStorage.getItem('@aams_dismissed_broadcasts');
+        if (raw) dismissedIds = JSON.parse(raw);
+      } catch {}
 
+      // If oil notification is due today / last day, show it as an interactive modal/approval
+      if (oilNotif && oilNotif.has_poll && !dismissedIds.includes(oilNotif.id) && oilNotif.id !== lastDismissedBroadcastId.current) {
+        setActiveBroadcast(oilNotif);
+        setShowBroadcastModal(true);
+      }
+
+      const totalUnread = unread.length + (oilNotif ? 1 : 0);
+      setUnreadBroadcastsCount(totalUnread);
+
+      if (unread.length > 0 && !showBroadcastModal) {
         const pendingPoll = unread.find(
           (b) =>
             b.has_poll &&
@@ -40,7 +112,7 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
     } catch (e) {
       console.log('[useBroadcasts] Error checking broadcasts:', e);
     }
-  }, [employee?.id]);
+  }, [employee?.id, fetchOilNotification, showBroadcastModal]);
 
   useEffect(() => {
     if (employee?.id) {
@@ -118,8 +190,10 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
     setLoadingBroadcastHistory(true);
     try {
       const list = await notificationService.getAllBroadcasts(employee.id);
-      setAllBroadcasts(list);
-      const unread = list.filter((b) => !b.is_read).length;
+      const oilNotif = await fetchOilNotification();
+      const combined = oilNotif ? [oilNotif, ...list] : list;
+      setAllBroadcasts(combined);
+      const unread = combined.filter((b) => !b.is_read).length;
       setUnreadBroadcastsCount(unread);
     } catch (e) {
       console.log('[useBroadcasts] Error opening history:', e);
@@ -132,8 +206,10 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
     if (!employee?.id) return;
     try {
       const list = await notificationService.getAllBroadcasts(employee.id);
-      setAllBroadcasts(list);
-      const unread = list.filter((b) => !b.is_read).length;
+      const oilNotif = await fetchOilNotification();
+      const combined = oilNotif ? [oilNotif, ...list] : list;
+      setAllBroadcasts(combined);
+      const unread = combined.filter((b) => !b.is_read).length;
       setUnreadBroadcastsCount(unread);
     } catch (e) {
       console.log('[useBroadcasts] Error refreshing history:', e);
