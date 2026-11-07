@@ -222,12 +222,6 @@ export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
         reviewNotes: reviewNotes.trim() || 'تمت المراجعة والاعتماد',
       });
 
-      const empName =
-        selectedSession.employee_name ||
-        selectedSession.employee?.name ||
-        employeeMap.get(String(selectedSession.employee_id))?.name ||
-        'المندوب';
-
       setSessions((prev) =>
         prev.map((s) =>
           s.id === selectedSession.id
@@ -244,13 +238,6 @@ export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
         )
       );
       setSelectedSession(null);
-      setTimeout(() => {
-        showBottomAlert({
-          type: 'success',
-          title: 'تم الحفظ والاعتماد',
-          message: `تم تحديث واعتماد طلبات (${empName}) بنجاح.`,
-        });
-      }, 150);
     } catch (e: any) {
       showBottomAlert({
         type: 'error',

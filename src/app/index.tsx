@@ -290,11 +290,6 @@ export default function DelegateApp() {
         reviewNotes: notes || 'معتمد بواسطة المشرف',
       });
       setPendingSessions((prev) => prev.filter((s) => s.id !== session.id));
-      setAlertConfig({
-        type: 'success',
-        title: 'تم بنجاح',
-        message: `تم تأكيد وردية وطلبات (${session.employee_name || session.employee?.name || 'المندوب'}) بنجاح.`,
-      });
       fetchSupervisorData();
     } catch (err: any) {
       setAlertConfig({
@@ -1786,16 +1781,12 @@ export default function DelegateApp() {
       let endWindow: Date;
 
       if (now.getHours() < cutoff) {
-        // Today is early morning before 10 AM (e.g. 3 AM) -> belongs to yesterday's operational day
+        // Today is early morning before 10 AM (e.g. 3 AM) -> belongs to yesterday's operational day (yesterday 00:00 to today 10:00 AM)
         const yDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-        if (yDate.getFullYear() === 2026 && yDate.getMonth() === 10 && yDate.getDate() === 6) {
-          startWindow = new Date(yDate.getFullYear(), yDate.getMonth(), yDate.getDate(), 0, 0, 0, 0);
-        } else {
-          startWindow = new Date(yDate.getFullYear(), yDate.getMonth(), yDate.getDate(), cutoff, 0, 0, 0);
-        }
+        startWindow = new Date(yDate.getFullYear(), yDate.getMonth(), yDate.getDate(), 0, 0, 0, 0);
         endWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), cutoff, 0, 0, 0);
       } else {
-        startWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), cutoff, 0, 0, 0);
+        startWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
         endWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, cutoff, 0, 0, 0);
       }
 
@@ -1959,10 +1950,10 @@ export default function DelegateApp() {
   // Supervisor Live Branch Stats
   const branchStats: BranchStats = useMemo(() => {
     const total = branchScopedDelegates.length;
-    const working =
-      serverDashboardStats?.working_employees !== undefined
-        ? Number(serverDashboardStats.working_employees)
-        : branchScopedWorkingDelegates.length;
+    const working = Math.max(
+      branchScopedWorkingDelegates.length,
+      Number(serverDashboardStats?.working_employees || 0)
+    );
     const effectiveTotal = Math.max(total, working);
     const notStarted = Math.max(0, effectiveTotal - working);
     const pendingShifts =
@@ -1979,7 +1970,7 @@ export default function DelegateApp() {
       todayOrdersCount: todayApprovedOrdersCount,
       todayEmployeesCount:
         serverDashboardStats?.today_employees !== undefined
-          ? Number(serverDashboardStats.today_employees)
+          ? Math.max(Number(serverDashboardStats.today_employees), working)
           : working,
       finishedEmployeesCount:
         serverDashboardStats?.finished_employees !== undefined

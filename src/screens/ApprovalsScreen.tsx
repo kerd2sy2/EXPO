@@ -370,21 +370,8 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         applicationId: editedAppId.trim(),
         reviewNotes: reviewNotes.trim() || 'تمت المراجعة والاعتماد من المشرف',
       });
-      const empName =
-        selectedSession.employee_name ||
-        selectedSession.employee?.name ||
-        employeeMap.get(String(selectedSession.employee_id))?.name ||
-        'المندوب';
       setSelectedSession(null);
       onRefresh();
-      setTimeout(() => {
-        showBottomAlert({
-          type: 'success',
-          title: 'تم الاعتماد بنجاح',
-          message: `تم اعتماد شفت وطلبات المندوب (${empName}) بنجاح.`,
-          autoCloseMs: 800,
-        });
-      }, 150);
     } catch (e: any) {
       showBottomAlert({
         type: 'error',
@@ -408,18 +395,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         endKm: Number(session.end_km ?? 0),
         reviewNotes: 'اعتماد سريع من المشرف',
       });
-      const empName =
-        session.employee_name ||
-        session.employee?.name ||
-        employeeMap.get(String(session.employee_id))?.name ||
-        'المندوب';
       onRefresh();
-      showBottomAlert({
-        type: 'success',
-        title: 'تم الاعتماد',
-        message: `تم اعتماد وردية (${empName}) بنجاح.`,
-        autoCloseMs: 800,
-      });
     } catch (e: any) {
       showBottomAlert({
         type: 'error',

@@ -91,16 +91,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     });
 
     const totalDrivers = driversOnly.length || stats.totalCount || 0;
-    const activeCount =
-      stats.workingCount !== undefined
-        ? stats.workingCount
-        : workingDelegates.filter((d) => {
-            const role = (d.job_role || (d as any).role_name || 'DRIVER').toUpperCase();
-            return !role.includes('SUPERVISOR') && !role.includes('ADMIN');
-          }).length;
+    const actualWorkingDelegatesCount = workingDelegates.filter((d) => {
+      const role = (d.job_role || (d as any).role_name || 'DRIVER').toUpperCase();
+      return !role.includes('SUPERVISOR') && !role.includes('ADMIN');
+    }).length;
+    const activeCount = Math.max(
+      actualWorkingDelegatesCount,
+      stats.workingCount ?? 0
+    );
     const todayCount =
       stats.todayEmployeesCount !== undefined && stats.todayEmployeesCount > 0
-        ? stats.todayEmployeesCount
+        ? Math.max(stats.todayEmployeesCount, activeCount)
         : activeCount;
     const finishedCount =
       stats.finishedEmployeesCount !== undefined
