@@ -355,7 +355,12 @@ export default function DelegateApp() {
     handleCloseBroadcast,
     handleRefreshNotificationsHistory,
     handleMarkAllAsRead,
-  } = useBroadcasts(employee);
+  } = useBroadcasts(employee, lang, (bike) => {
+    setOilChangeModalState({
+      visible: true,
+      bikeNumber: bike || enteredMotorcycle || employee?.motorcycle_number || '',
+    });
+  });
 
   // 9. Push Notifications Micro-Module
   usePushNotifications({

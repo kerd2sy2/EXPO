@@ -264,8 +264,8 @@ export const bn: Record<TranslationKeys, string> = {
   confirmAssignedBikeNo: 'না, ক্যামেরা দিয়ে অন্য বাইক স্ক্যান করুন',
 
   // Oil Change Alert
-  oilChangeAlertTitle: 'বাইকের যত্ন নিন এবং তেল পরিবর্তন করুন',
-  oilChangeAlertMessage: '',
-  oilChangeAlertBtn: 'বাইকের যত্ন নিন এবং তেল পরিবর্তন করুন',
+  oilChangeAlertTitle: 'এখন তেল পরিবর্তন করা প্রয়োজন',
+  oilChangeAlertMessage: 'এখন তেল পরিবর্তন করতে সুপারভাইজারের কাছে যান',
+  oilChangeAlertBtn: 'ঠিক আছে, বুঝেছি',
   oilChangeScreenTitle: 'তেল পরিবর্তন',
 };

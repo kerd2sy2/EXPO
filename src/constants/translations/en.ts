@@ -264,8 +264,8 @@ export const en: Record<TranslationKeys, string> = {
   confirmAssignedBikeNo: 'No, scan another with camera',
 
   // Oil Change Alert
-  oilChangeAlertTitle: 'Protect your motorcycle and change the oil',
-  oilChangeAlertMessage: '',
-  oilChangeAlertBtn: 'Protect your motorcycle and change the oil',
+  oilChangeAlertTitle: 'Oil Change Required Now',
+  oilChangeAlertMessage: 'Please go to the supervisor to change the oil now',
+  oilChangeAlertBtn: 'OK, Understood',
   oilChangeScreenTitle: 'Oil Change',
 };

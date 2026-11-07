@@ -262,9 +262,9 @@ export const ar = {
   confirmAssignedBikeNo: 'لا، مسح دباب آخر بالماسح',
 
   // Oil Change Alert
-  oilChangeAlertTitle: 'حافظ على الدباب وغير زيت',
-  oilChangeAlertMessage: '',
-  oilChangeAlertBtn: 'حافظ على الدباب وغير زيت',
+  oilChangeAlertTitle: 'يجب تغيير زيت الآن',
+  oilChangeAlertMessage: 'يجب التوجه إلى المشرف لتغيير زيت الآن',
+  oilChangeAlertBtn: 'حسناً، فهمت',
   oilChangeScreenTitle: 'تغيير زيت الدباب',
 };
 

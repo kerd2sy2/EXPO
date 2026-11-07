@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
-import { ThemeColors } from '../../types/delegate';
+import { ThemeColors, Language } from '../../types/delegate';
 
 export interface OilChangeBottomSheetProps {
   visible: boolean;
@@ -19,6 +19,7 @@ export interface OilChangeBottomSheetProps {
   colors?: ThemeColors;
   isDarkMode?: boolean;
   isRTL?: boolean;
+  lang?: Language;
   onClose: () => void;
   title?: string;
   message?: string;
@@ -33,6 +34,7 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
   colors,
   isDarkMode = false,
   isRTL = true,
+  lang = 'ar',
   onClose,
   title,
   message,
@@ -95,9 +97,36 @@ export const OilChangeBottomSheet: React.FC<OilChangeBottomSheetProps> = ({
     });
   };
 
-  const displayTitle = title || (isRTL ? 'حافظ على الدباب وغير زيت' : 'Protect your motorcycle and change the oil');
-  const displayMessage = message || '';
-  const displayBtnText = buttonText || (isRTL ? 'حافظ على الدباب وغير زيت' : 'Protect your motorcycle and change the oil');
+  const defaultTitle =
+    lang === 'ar'
+      ? 'يجب تغيير زيت الآن'
+      : lang === 'ur'
+      ? 'ابھی تیل تبدیل کرنا ضروری ہے'
+      : lang === 'bn'
+      ? 'এখন তেল পরিবর্তন করা প্রয়োজন'
+      : 'Oil Change Required Now';
+
+  const defaultMessage =
+    lang === 'ar'
+      ? 'يجب التوجه إلى المشرف لتغيير زيت الآن'
+      : lang === 'ur'
+      ? 'تیل تبدیل کرنے کے لیے ابھی سپروائزر کے پاس جائیں'
+      : lang === 'bn'
+      ? 'এখন তেল পরিবর্তন করতে সুপারভাইজারের কাছে যান'
+      : 'Please go to the supervisor to change the oil now';
+
+  const defaultBtnText =
+    lang === 'ar'
+      ? 'حسناً، فهمت'
+      : lang === 'ur'
+      ? 'ٹھیک ہے، سمجھ گیا'
+      : lang === 'bn'
+      ? 'ঠিক আছে, বুঝেছি'
+      : 'OK, Understood';
+
+  const displayTitle = title || defaultTitle;
+  const displayMessage = message || defaultMessage;
+  const displayBtnText = buttonText || defaultBtnText;
 
   return (
     <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>

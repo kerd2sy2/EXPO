@@ -2,10 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notificationService, BroadcastNotificationItem } from '../services/notificationService';
-import { EmployeeProfile } from '../types/delegate';
+import { EmployeeProfile, Language } from '../types/delegate';
 import { workApi } from '../services/work';
 
-export function useBroadcasts(employee: EmployeeProfile | null) {
+export function useBroadcasts(
+  employee: EmployeeProfile | null,
+  lang: Language = 'ar',
+  onOpenOilModal?: (bike: string) => void
+) {
   const [activeBroadcast, setActiveBroadcast] = useState<BroadcastNotificationItem | null>(null);
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [showBroadcastHistory, setShowBroadcastHistory] = useState(false);
@@ -13,9 +17,10 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
   const [unreadBroadcastsCount, setUnreadBroadcastsCount] = useState(0);
   const [loadingBroadcastHistory, setLoadingBroadcastHistory] = useState(false);
   const lastDismissedBroadcastId = useRef<string | null>(null);
+  const oilAlertShownRef = useRef<boolean>(false);
 
   // Helper to fetch dynamic oil change status notification for the delegate's motorcycle
-  const fetchOilNotification = useCallback(async (): Promise<BroadcastNotificationItem | null> => {
+  const fetchOilNotification = useCallback(async (): Promise<{ notif: BroadcastNotificationItem; isDue: boolean } | null> => {
     if (!employee?.id) return null;
     const bike = employee.motorcycle_number;
     if (!bike) return null;
@@ -29,57 +34,99 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
       const remainingDays = typeof oilData.remaining_days === 'number' ? oilData.remaining_days : 0;
       const remainingKm = typeof oilData.remaining_oil_km === 'number' ? Math.round(oilData.remaining_oil_km) : 0;
 
-      let title = 'تنبيه موعد تغيير الزيت';
-      let body = '';
       let isLastDayOrDue = false;
+
+      let titleAr = 'تنبيه غيار زيت الدباب';
+      let bodyAr = '';
+      let titleEn = 'Motorcycle Oil Reminder';
+      let bodyEn = '';
+      let titleUr = 'موٹر سائیکل کے تیل کی یاد دہانی';
+      let bodyUr = '';
+      let titleBn = 'মোটরসাইকেলের তেল অনুস্মারক';
+      let bodyBn = '';
 
       if (isBroken) {
         if (needsOil || remainingDays <= 1) {
           isLastDayOrDue = true;
-          title = 'اليوم موعد تغيير الزيت للدباب';
-          body = `تنبيه عاجل: اليوم هو موعد تغيير زيت الدباب الخاص بك (${bike}) بعد إتمام دورة 5 أيام. يرجى مراجعة المشرف لصرف الزيت وتغييره فوراً.`;
+          titleAr = 'يجب تغيير زيت الآن';
+          bodyAr = `يجب التوجه إلى المشرف لتغيير زيت الآن (الدباب: ${bike})`;
+          titleEn = 'Oil Change Required Now';
+          bodyEn = `Please go to the supervisor to change the oil now (Bike: ${bike})`;
+          titleUr = 'ابھی تیل تبدیل کرنا ضروری ہے';
+          bodyUr = `تیل تبدیل کرنے کے لیے ابھی سپروائزر کے پاس جائیں (موٹر سائیکل: ${bike})`;
+          titleBn = 'এখন তেল পরিবর্তন করা প্রয়োজন';
+          bodyBn = `এখন তেল পরিবর্তন করতে সুপারভাইজারের কাছে যান (বাইক: ${bike})`;
         } else {
-          title = 'تنبيه غيار زيت الدباب';
-          body = `دبابك (${bike}): فاضل ${remainingDays} أيام لتغيير الزيت (دورية كل 5 أيام).`;
+          titleAr = 'متابعة غيار زيت الدباب';
+          bodyAr = `دبابك (${bike}): فاضل ${remainingDays} أيام لتغيير الزيت (دورية كل 5 أيام).`;
+          titleEn = 'Motorcycle Oil Tracking';
+          bodyEn = `Bike (${bike}): ${remainingDays} days remaining for oil change.`;
+          titleUr = 'تیل کی تبدیلی کی معلومات';
+          bodyUr = `موٹر سائیکل (${bike}): تیل تبدیل کرنے میں ${remainingDays} دن باقی ہیں۔`;
+          titleBn = 'তেল পরিবর্তনের তথ্য';
+          bodyBn = `বাইক (${bike}): তেল পরিবর্তনের জন্য ${remainingDays} দিন বাকি।`;
         }
       } else {
         if (needsOil || remainingKm <= 0) {
           isLastDayOrDue = true;
-          title = 'اليوم موعد تغيير الزيت للدباب';
-          body = `تنبيه عاجل: تم الوصول لحد غيار الزيت للدباب (${bike}). اليوم يجب تغيير الزيت لدى مشرف الفرع.`;
+          titleAr = 'يجب تغيير زيت الآن';
+          bodyAr = `يجب التوجه إلى المشرف لتغيير زيت الآن (الدباب: ${bike})`;
+          titleEn = 'Oil Change Required Now';
+          bodyEn = `Please go to the supervisor to change the oil now (Bike: ${bike})`;
+          titleUr = 'ابھی تیل تبدیل کرنا ضروری ہے';
+          bodyUr = `تیل تبدیل کرنے کے لیے ابھی سپروائزر کے پاس جائیں (موٹر سائیکل: ${bike})`;
+          titleBn = 'এখন তেল পরিবর্তন করা প্রয়োজন';
+          bodyBn = `এখন তেল পরিবর্তন করতে সুপারভাইজারের কাছে যান (বাইক: ${bike})`;
         } else {
-          title = 'متابعة غيار زيت الدباب';
-          body = `دبابك (${bike}): فاضل ${remainingKm.toLocaleString('en-US')} كم لتغيير الزيت.`;
+          titleAr = 'متابعة غيار زيت الدباب';
+          bodyAr = `دبابك (${bike}): فاضل ${remainingKm.toLocaleString('en-US')} كم لتغيير الزيت.`;
+          titleEn = 'Motorcycle Oil Tracking';
+          bodyEn = `Bike (${bike}): ${remainingKm.toLocaleString('en-US')} KM remaining for oil change.`;
+          titleUr = 'تیل کی تبدیلی کی معلومات';
+          bodyUr = `موٹر سائیکل (${bike}): تیل تبدیل کرنے کے لیے ${remainingKm.toLocaleString('en-US')} کلومیٹر باقی ہیں۔`;
+          titleBn = 'তেল পরিবর্তনের তথ্য';
+          bodyBn = `বাইক (${bike}): তেল পরিবর্তনের জন্য ${remainingKm.toLocaleString('en-US')} কিমি বাকি।`;
         }
       }
 
-      return {
+      const activeTitle =
+        lang === 'en' ? titleEn : lang === 'ur' ? titleUr : lang === 'bn' ? titleBn : titleAr;
+      const activeBody =
+        lang === 'en' ? bodyEn : lang === 'ur' ? bodyUr : lang === 'bn' ? bodyBn : bodyAr;
+
+      const notifItem: BroadcastNotificationItem = {
         id: `oil_notif_${bike}_${isLastDayOrDue ? 'due' : 'upcoming'}`,
-        title,
-        body,
-        title_ar: title,
-        body_ar: body,
+        title: activeTitle,
+        body: activeBody,
+        title_ar: titleAr,
+        body_ar: bodyAr,
+        title_en: titleEn,
+        body_en: bodyEn,
+        title_bn: titleBn,
+        body_bn: bodyBn,
         target: 'DRIVER',
         created_by: 'النظام الإشرافي',
         sent_count: 1,
-        has_poll: isLastDayOrDue,
-        poll_question: isLastDayOrDue ? 'هل راجعت المشرف لتغيير زيت الدباب اليوم؟' : undefined,
-        poll_question_ar: isLastDayOrDue ? 'هل راجعت المشرف لتغيير زيت الدباب اليوم؟' : undefined,
+        has_poll: false, // Oil change is NOT a survey/poll
         agree_count: 0,
         disagree_count: 0,
         created_at: new Date().toISOString(),
         is_read: false,
       };
+
+      return { notif: notifItem, isDue: isLastDayOrDue };
     } catch {
       return null;
     }
-  }, [employee?.id, employee?.motorcycle_number]);
+  }, [employee?.id, employee?.motorcycle_number, lang]);
 
   const checkUnreadBroadcasts = useCallback(async () => {
     if (!employee?.id) return;
     try {
       const unread = await notificationService.getUnreadBroadcasts(employee.id);
-      const oilNotif = await fetchOilNotification();
+      const oilResult = await fetchOilNotification();
+      const oilNotif = oilResult?.notif;
+      const isDue = Boolean(oilResult?.isDue);
       
       let dismissedIds: string[] = [];
       try {
@@ -87,10 +134,13 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
         if (raw) dismissedIds = JSON.parse(raw);
       } catch {}
 
-      // If oil notification is due today / last day, show it as an interactive modal/approval
-      if (oilNotif && oilNotif.has_poll && !dismissedIds.includes(oilNotif.id) && oilNotif.id !== lastDismissedBroadcastId.current) {
-        setActiveBroadcast(oilNotif);
-        setShowBroadcastModal(true);
+      // If oil is due, show dedicated Oil Change Bottom Sheet in the user's language (NEVER as a survey poll!)
+      if (oilNotif && isDue && !dismissedIds.includes(oilNotif.id) && !oilAlertShownRef.current) {
+        oilAlertShownRef.current = true;
+        const bike = employee.motorcycle_number || '';
+        onOpenOilModal?.(bike);
+        // Also show system tray push notification for the courier
+        notificationService.showSystemTrayNotification(oilNotif);
       }
 
       const totalUnread = unread.length + (oilNotif ? 1 : 0);
@@ -112,7 +162,7 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
     } catch (e) {
       console.log('[useBroadcasts] Error checking broadcasts:', e);
     }
-  }, [employee?.id, fetchOilNotification, showBroadcastModal]);
+  }, [employee?.id, employee?.motorcycle_number, fetchOilNotification, onOpenOilModal, showBroadcastModal]);
 
   useEffect(() => {
     if (employee?.id) {
@@ -190,8 +240,8 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
     setLoadingBroadcastHistory(true);
     try {
       const list = await notificationService.getAllBroadcasts(employee.id);
-      const oilNotif = await fetchOilNotification();
-      const combined = oilNotif ? [oilNotif, ...list] : list;
+      const oilResult = await fetchOilNotification();
+      const combined = oilResult?.notif ? [oilResult.notif, ...list] : list;
       setAllBroadcasts(combined);
       const unread = combined.filter((b) => !b.is_read).length;
       setUnreadBroadcastsCount(unread);
@@ -206,8 +256,8 @@ export function useBroadcasts(employee: EmployeeProfile | null) {
     if (!employee?.id) return;
     try {
       const list = await notificationService.getAllBroadcasts(employee.id);
-      const oilNotif = await fetchOilNotification();
-      const combined = oilNotif ? [oilNotif, ...list] : list;
+      const oilResult = await fetchOilNotification();
+      const combined = oilResult?.notif ? [oilResult.notif, ...list] : list;
       setAllBroadcasts(combined);
       const unread = combined.filter((b) => !b.is_read).length;
       setUnreadBroadcastsCount(unread);

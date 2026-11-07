@@ -236,6 +236,7 @@ export const DelegateModalsPortal: React.FC<DelegateModalsPortalProps> = ({
           colors={colors}
           isDarkMode={isDarkMode}
           isRTL={isRTL}
+          lang={lang}
           title={t.oilChangeAlertTitle}
           message={t.oilChangeAlertMessage}
           buttonText={t.oilChangeAlertBtn}

@@ -264,8 +264,8 @@ export const ur: Record<TranslationKeys, string> = {
   confirmAssignedBikeNo: 'نہیں، کیمرے سے دوسری اسکین کریں',
 
   // Oil Change Alert
-  oilChangeAlertTitle: 'موٹر سائیکل کی حفاظت کریں اور تیل تبدیل کریں',
-  oilChangeAlertMessage: '',
-  oilChangeAlertBtn: 'موٹر سائیکل کی حفاظت کریں اور تیل تبدیل کریں',
+  oilChangeAlertTitle: 'ابھی تیل تبدیل کرنا ضروری ہے',
+  oilChangeAlertMessage: 'تیل تبدیل کرنے کے لیے ابھی سپروائزر کے پاس جائیں',
+  oilChangeAlertBtn: 'ٹھیک ہے، سمجھ گیا',
   oilChangeScreenTitle: 'تیل کی تبدیلی',
 };
