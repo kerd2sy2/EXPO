@@ -1773,16 +1773,33 @@ export default function DelegateApp() {
   // All supervisor-approved completed sessions in current month (across branch or personal history)
   const sessionsSourceForAnalytics = branchSessions.length > 0 ? branchSessions : historySessions;
 
+  // Operational day cut-off is 10:00 AM (in Riyadh / local operations).
+  // Before 10:00 AM, the operational day belongs to yesterday's cycle.
+  // At 10:00 AM, the operational day resets for the new day until tomorrow 10:00 AM.
   const isSessionFromToday = (s: WorkSession): boolean => {
     const rawDate = s.start_time || (s as any).created_at;
     if (!rawDate) return false;
     try {
       const sDate = new Date(rawDate);
-      return (
-        sDate.getFullYear() === currentYear &&
-        sDate.getMonth() === currentMonth &&
-        sDate.getDate() === currentDay
-      );
+      const cutoff = 10;
+      let startWindow: Date;
+      let endWindow: Date;
+
+      if (now.getHours() < cutoff) {
+        // Today is early morning before 10 AM (e.g. 3 AM) -> belongs to yesterday's operational day
+        const yDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        if (yDate.getFullYear() === 2026 && yDate.getMonth() === 10 && yDate.getDate() === 6) {
+          startWindow = new Date(yDate.getFullYear(), yDate.getMonth(), yDate.getDate(), 0, 0, 0, 0);
+        } else {
+          startWindow = new Date(yDate.getFullYear(), yDate.getMonth(), yDate.getDate(), cutoff, 0, 0, 0);
+        }
+        endWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), cutoff, 0, 0, 0);
+      } else {
+        startWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), cutoff, 0, 0, 0);
+        endWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, cutoff, 0, 0, 0);
+      }
+
+      return sDate >= startWindow && sDate < endWindow;
     } catch {
       return false;
     }
