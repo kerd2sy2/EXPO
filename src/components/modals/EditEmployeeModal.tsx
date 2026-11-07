@@ -38,9 +38,6 @@ const DELIVERY_APPS = [
   { key: 'keeta', label: 'كيتا (Keeta)', color: '#0284c7', icon: 'bicycle-outline' },
   { key: 'ninja', label: 'نينجا (Ninja)', color: '#10b981', icon: 'flash-outline' },
   { key: 'hungerstation', label: 'هنقرستيشن (HungerStation)', color: '#f59e0b', icon: 'fast-food-outline' },
-  { key: 'jahez', label: 'جاهز (Jahez)', color: '#ef4444', icon: 'restaurant-outline' },
-  { key: 'toyou', label: 'تو يو (ToYou)', color: '#8b5cf6', icon: 'cube-outline' },
-  { key: 'mrsool', label: 'مرسول (Mrsool)', color: '#06b6d4', icon: 'paper-plane-outline' },
 ];
 
 export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
@@ -149,40 +146,112 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
     });
   }, [vehicles, plateSearchText]);
 
-  // Filtered identifiers for modal picker
+  // Filtered and deduplicated identifiers for modal picker (Keeta, Ninja, Hungerstation only)
   const filteredIdentifiers = useMemo(() => {
-    const activeApp = modalAppFilter !== 'ALL' ? modalAppFilter : null;
+    const activeApp = modalAppFilter !== 'ALL' ? modalAppFilter.toLowerCase() : null;
     const q = toEnglishDigits(identifierSearchText.trim()).toLowerCase();
 
-    return allIdentifiers.filter((item) => {
-      // 1. App filter
-      if (activeApp) {
-        const itemApp = (item.app_name || '').toLowerCase();
-        const targetApp = activeApp.toLowerCase();
-        const isMatch =
-          (targetApp.includes('ninja') || targetApp.includes('نينجا'))
-            ? (itemApp.includes('ninja') || itemApp.includes('نينجا'))
-            : (targetApp.includes('keeta') || targetApp.includes('كيتا'))
-            ? (itemApp.includes('keeta') || itemApp.includes('كيتا'))
-            : (targetApp.includes('hunger') || targetApp.includes('هنقر'))
-            ? (itemApp.includes('hunger') || itemApp.includes('هنقر'))
-            : (targetApp.includes('jahez') || targetApp.includes('جاهز'))
-            ? (itemApp.includes('jahez') || itemApp.includes('جاهز'))
-            : (targetApp.includes('toyou') || targetApp.includes('تويو'))
-            ? (itemApp.includes('toyou') || itemApp.includes('تويو'))
-            : (targetApp.includes('mrsool') || targetApp.includes('مرسول'))
-            ? (itemApp.includes('mrsool') || itemApp.includes('مرسول'))
-            : itemApp.includes(targetApp);
+    // 1. Normalize items and separate code vs driver name
+    const normalized: Array<{
+      id: string;
+      code: string;
+      driverName: string;
+      appKey: 'keeta' | 'ninja' | 'hungerstation';
+      appNameAr: string;
+      branch?: string;
+    }> = [];
 
-        if (!isMatch) return false;
+    allIdentifiers.forEach((item) => {
+      const rawApp = (item.app_name || '').toLowerCase();
+      let appKey: 'keeta' | 'ninja' | 'hungerstation' | null = null;
+      let appNameAr = '';
+
+      if (rawApp.includes('keeta') || rawApp.includes('كيتا')) {
+        appKey = 'keeta';
+        appNameAr = 'كيتا (Keeta)';
+      } else if (rawApp.includes('ninja') || rawApp.includes('نينجا')) {
+        appKey = 'ninja';
+        appNameAr = 'نينجا (Ninja)';
+      } else if (rawApp.includes('hunger') || rawApp.includes('هنقر')) {
+        appKey = 'hungerstation';
+        appNameAr = 'هنقرستيشن';
       }
 
-      // 2. Search query filter
+      // Ignore apps other than the 3 active apps
+      if (!appKey) return;
+
+      const rawName = (item.name || '').trim();
+      const rawCode = (item.code || '').trim();
+      const rawDriver = (item.driver_name || '').trim();
+
+      const isNameNumeric = /^\d+$/.test(toEnglishDigits(rawName));
+      const isCodeNumeric = /^\d+$/.test(toEnglishDigits(rawCode));
+
+      let code = '';
+      let driverName = '';
+
+      if (isCodeNumeric) {
+        code = toEnglishDigits(rawCode);
+        driverName = rawDriver || (!isNameNumeric ? rawName : '');
+      } else if (isNameNumeric) {
+        code = toEnglishDigits(rawName);
+        driverName = rawDriver || rawCode;
+      } else {
+        driverName = rawName || rawDriver;
+        code = rawCode;
+      }
+
+      if (driverName.startsWith('كابتن ') && /^\d+$/.test(driverName.replace('كابتن ', '').trim())) {
+        driverName = '';
+      }
+
+      normalized.push({
+        id: item.id,
+        code,
+        driverName,
+        appKey,
+        appNameAr,
+        branch: item.branch,
+      });
+    });
+
+    // 2. Deduplicate: coded items take priority over uncoded text-only items
+    const codedDriversSet = new Set<string>();
+    const seenCodes = new Set<string>();
+    const deduped: typeof normalized = [];
+
+    // Push coded items first
+    normalized.filter((x) => x.code !== '').forEach((it) => {
+      const codeKey = `${it.appKey}_${it.code}`;
+      if (!seenCodes.has(codeKey)) {
+        seenCodes.add(codeKey);
+        if (it.driverName) {
+          codedDriversSet.add(`${it.appKey}_${it.driverName.toLowerCase()}`);
+        }
+        deduped.push(it);
+      }
+    });
+
+    // Push uncoded items only if not already represented in a coded item
+    normalized.filter((x) => !x.code).forEach((it) => {
+      const nameKey = `${it.appKey}_${it.driverName.toLowerCase()}`;
+      if (!codedDriversSet.has(nameKey) && !seenCodes.has(nameKey)) {
+        seenCodes.add(nameKey);
+        deduped.push(it);
+      }
+    });
+
+    // 3. Filter by active app and search query
+    return deduped.filter((it) => {
+      if (activeApp && it.appKey !== activeApp) {
+        return false;
+      }
+
       if (q) {
-        const nameMatch = toEnglishDigits(item.name || '').toLowerCase().includes(q);
-        const codeMatch = toEnglishDigits(item.code || '').toLowerCase().includes(q);
-        const appMatch = (item.app_name || '').toLowerCase().includes(q);
-        if (!nameMatch && !codeMatch && !appMatch) return false;
+        const codeMatch = it.code.toLowerCase().includes(q);
+        const nameMatch = it.driverName.toLowerCase().includes(q);
+        const appMatch = it.appNameAr.toLowerCase().includes(q) || it.appKey.includes(q);
+        if (!codeMatch && !nameMatch && !appMatch) return false;
       }
 
       return true;
@@ -1243,9 +1312,6 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
                       { key: 'keeta', label: 'كيتا (Keeta)' },
                       { key: 'ninja', label: 'نينجا (Ninja)' },
                       { key: 'hungerstation', label: 'هنقرستيشن' },
-                      { key: 'jahez', label: 'جاهز' },
-                      { key: 'toyou', label: 'تويو' },
-                      { key: 'mrsool', label: 'مرسول' },
                     ].map((p) => {
                       const isSelected = modalAppFilter.toLowerCase() === p.key.toLowerCase();
                       return (
@@ -1335,9 +1401,8 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
                     </View>
                   ) : (
                     filteredIdentifiers.map((item) => {
-                      const identifierVal = item.name || item.code || item.id;
-                      const isSelected = applicationId === item.name || (item.code && applicationId === item.code);
-                      const appName = item.app_name || '';
+                      const selectedVal = item.code || item.driverName;
+                      const isSelected = applicationId === selectedVal || (item.code && applicationId === item.code) || (item.driverName && applicationId === item.driverName);
                       return (
                         <TouchableOpacity
                           key={item.id}
@@ -1354,43 +1419,54 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
                             },
                           ]}
                           onPress={() => {
-                            setApplicationId(identifierVal);
-                            // Auto-select platform if matched
-                            const appLow = appName.toLowerCase();
-                            if (appLow.includes('ninja') || appLow.includes('نينجا')) {
-                              setApplicationType('ninja');
-                            } else if (appLow.includes('keeta') || appLow.includes('كيتا')) {
-                              setApplicationType('keeta');
-                            } else if (appLow.includes('hunger') || appLow.includes('هنقر')) {
-                              setApplicationType('hungerstation');
-                            } else if (appLow.includes('jahez') || appLow.includes('جاهز')) {
-                              setApplicationType('jahez');
-                            } else if (appLow.includes('toyou') || appLow.includes('تويو')) {
-                              setApplicationType('toyou');
-                            } else if (appLow.includes('mrsool') || appLow.includes('مرسول')) {
-                              setApplicationType('mrsool');
-                            }
+                            setApplicationId(item.code || item.driverName);
+                            setApplicationType(item.appKey);
                             setIsIdentifierModalOpen(false);
                           }}
                           activeOpacity={0.7}
                         >
                           <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
                             <Text style={[styles.idCardCodeText, { color: colors.textPrimary }]}>
-                              {item.name || item.code || item.id}
+                              {item.code ? item.code : item.driverName}
                             </Text>
+
                             <View style={[styles.cardMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                              {appName ? (
-                                <View style={[styles.miniMetaBadge, { backgroundColor: '#10b98120' }]}>
-                                  <Text style={[styles.miniMetaText, { color: '#10b981' }]}>
-                                    {appName}
-                                  </Text>
-                                </View>
-                              ) : null}
-                              {item.code ? (
-                                <Text style={[styles.plateKmText, { color: colors.textSecondary }]}>
-                                  كود: {item.code}
+                              <View
+                                style={[
+                                  styles.miniMetaBadge,
+                                  {
+                                    backgroundColor:
+                                      item.appKey === 'ninja'
+                                        ? '#10b98120'
+                                        : item.appKey === 'keeta'
+                                        ? '#0284c720'
+                                        : '#f59e0b20',
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.miniMetaText,
+                                    {
+                                      color:
+                                        item.appKey === 'ninja'
+                                          ? '#10b981'
+                                          : item.appKey === 'keeta'
+                                          ? '#0284c7'
+                                          : '#f59e0b',
+                                    },
+                                  ]}
+                                >
+                                  {item.appNameAr}
+                                </Text>
+                              </View>
+
+                              {item.code && item.driverName ? (
+                                <Text style={[styles.plateKmText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                  المندوب: {item.driverName}
                                 </Text>
                               ) : null}
+
                               {item.branch ? (
                                 <Text style={[styles.plateKmText, { color: colors.textSecondary }]}>
                                   فرع {item.branch}

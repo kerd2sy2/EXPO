@@ -47,6 +47,7 @@ export interface IdentifierPerformance {
   app_name?: string;
   branch?: string;
   code?: string;
+  driver_name?: string;
   today_orders: number;
   week_orders: number;
   month_orders: number;
