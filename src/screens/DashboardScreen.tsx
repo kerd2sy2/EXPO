@@ -208,7 +208,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const displayedOrdersCount = Number(rawOrdersCount || 0);
   const displayedKmCount =
     Number(rawKmCount || 0) % 1 === 0 ? String(Number(rawKmCount || 0)) : Number(rawKmCount || 0).toFixed(1);
-  const displayedFuelCount = Number(rawFuelCount || 0).toFixed(2);
+  const displayedFuelCount = String(Math.round(Number(rawFuelCount || 0)));
 
   if (loading) {
     return (
