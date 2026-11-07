@@ -33,6 +33,7 @@ export interface AlertModalConfig {
   onPrimaryPress?: () => void;
   onSecondaryPress?: () => void;
   iconName?: string;
+  autoCloseMs?: number;
 }
 
 type GlobalAlertListener = (config: AlertModalConfig | null) => void;
@@ -66,6 +67,7 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
 
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const autoCloseTimerRef = useRef<any>(null);
 
   useEffect(() => {
     globalAlertListener = (nextConfig) => {
@@ -77,6 +79,11 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
   }, []);
 
   useEffect(() => {
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+
     if (activeConfig) {
       sheetTranslateY.setValue(SCREEN_HEIGHT);
       backdropAnim.setValue(0);
@@ -92,7 +99,15 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
           speed: 14,
           useNativeDriver: true,
         }),
-      ]).start();
+      ]).start(() => {
+        if (activeConfig.autoCloseMs && activeConfig.autoCloseMs > 0) {
+          autoCloseTimerRef.current = setTimeout(() => {
+            handleClose(() => {
+              if (activeConfig.onPrimaryPress) activeConfig.onPrimaryPress();
+            });
+          }, activeConfig.autoCloseMs);
+        }
+      });
     } else {
       Animated.parallel([
         Animated.timing(backdropAnim, {
@@ -107,6 +122,13 @@ export const ActionAlertBottomSheet: React.FC<ActionAlertBottomSheetProps> = ({
         }),
       ]).start();
     }
+
+    return () => {
+      if (autoCloseTimerRef.current) {
+        clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
+    };
   }, [activeConfig]);
 
   if (!activeConfig) return null;

@@ -24,6 +24,7 @@ import {
 import { formatImageUrl } from '../services/api';
 import { toEnglishDigits } from '@shared/utils/plateUtils';
 import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
+import { DatePickerBottomSheet } from '../components/modals/DatePickerBottomSheet';
 
 interface ApprovalsScreenProps {
   pendingSessions: WorkSession[];
@@ -87,6 +88,45 @@ const calcShiftHours = (startIso?: string, endIso?: string) => {
   }
 };
 
+const toDateStr = (iso?: string): string => {
+  if (!iso) return new Date().toISOString().split('T')[0];
+  try {
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+};
+
+const toTimeStr = (iso?: string): string => {
+  if (!iso) return '00:00';
+  try {
+    const d = new Date(iso);
+    const h = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${h}:${min}`;
+  } catch {
+    return '00:00';
+  }
+};
+
+const combineDateTimeIso = (dateStr: string, timeStr: string): string => {
+  try {
+    const cleanDate = (dateStr || '').trim() || new Date().toISOString().split('T')[0];
+    let cleanTime = (timeStr || '').trim() || '00:00';
+    if (!cleanTime.includes(':')) cleanTime = `${cleanTime}:00`;
+    const [h, m] = cleanTime.split(':');
+    const [year, month, day] = cleanDate.split('-').map(Number);
+    const d = new Date(year, month - 1, day, Number(h) || 0, Number(m) || 0, 0);
+    return d.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+};
+
 export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   pendingSessions,
   pendingAdvances,
@@ -108,8 +148,15 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   const [editedFuel, setEditedFuel] = useState('');
   const [editedStartKm, setEditedStartKm] = useState('');
   const [editedEndKm, setEditedEndKm] = useState('');
+  const [editedStartDate, setEditedStartDate] = useState('');
+  const [editedStartTime, setEditedStartTime] = useState('');
+  const [editedEndDate, setEditedEndDate] = useState('');
+  const [editedEndTime, setEditedEndTime] = useState('');
+  const [editedAppId, setEditedAppId] = useState('');
   const [reviewNotes, setReviewNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string | null>(null);
+  const [datePickerTarget, setDatePickerTarget] = useState<'START' | 'END' | null>(null);
 
   // Employee lookup map for Application ID (المعرف) & Key Number (مفتاح رقم)
   const employeeMap = useMemo(() => {
@@ -131,33 +178,44 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
       });
   }, [pendingSessions]);
 
-  // Auto-open review modal when navigated from a push notification
+  // When navigated from a push notification, filter by that specific employee without auto-opening a modal
   useEffect(() => {
-    if (!targetSessionId && !targetEmployeeId) return;
-    if (sortedCompletedPendingSessions.length === 0) return;
-
-    let match = targetSessionId
-      ? sortedCompletedPendingSessions.find((s) => String(s.id) === String(targetSessionId))
-      : undefined;
-
-    if (!match && targetEmployeeId) {
-      match = sortedCompletedPendingSessions.find(
-        (s) => String(s.employee_id) === String(targetEmployeeId)
-      );
+    if (targetEmployeeId) {
+      setSelectedEmployeeFilter(String(targetEmployeeId));
+    } else if (targetSessionId) {
+      const match = pendingSessions.find((s) => String(s.id) === String(targetSessionId));
+      if (match && match.employee_id) {
+        setSelectedEmployeeFilter(String(match.employee_id));
+      }
     }
+  }, [targetSessionId, targetEmployeeId, pendingSessions]);
 
-    if (match) {
-      openSessionModal(match);
-      onClearTargetSession?.();
-    }
-  }, [targetSessionId, targetEmployeeId, sortedCompletedPendingSessions]);
+  // Filter sessions shown on page (restricted to the target employee if navigated from notification)
+  const displaySessions = useMemo(() => {
+    if (!selectedEmployeeFilter) return sortedCompletedPendingSessions;
+    return sortedCompletedPendingSessions.filter(
+      (s) => String(s.employee_id) === String(selectedEmployeeFilter)
+    );
+  }, [sortedCompletedPendingSessions, selectedEmployeeFilter]);
 
   const openSessionModal = (session: WorkSession) => {
+    const empRecord = employeeMap.get(String(session.employee_id));
+    const currentAppId =
+      (session as any).application_id ||
+      (session.employee as any)?.application_id ||
+      empRecord?.application_id ||
+      '';
+
     setSelectedSession(session);
     setEditedOrders(String(session.orders_count ?? 0));
     setEditedFuel(String(session.fuel_cost ?? 0));
     setEditedStartKm(String(session.start_km ?? 0));
     setEditedEndKm(String(session.end_km ?? 0));
+    setEditedStartDate(toDateStr(session.start_time));
+    setEditedStartTime(toTimeStr(session.start_time));
+    setEditedEndDate(toDateStr(session.end_time || session.start_time));
+    setEditedEndTime(toTimeStr(session.end_time || session.start_time));
+    setEditedAppId(String(currentAppId));
     setReviewNotes(session.review_notes || '');
   };
 
@@ -171,12 +229,16 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         type: 'warning',
         title: 'تنبيه قراءة العداد',
         message: 'كيلو النهاية لا يمكن أن يكون أقل من كيلو البداية.',
+        autoCloseMs: 2500,
       });
       return;
     }
 
     try {
       setSubmitting(true);
+      const isoStart = combineDateTimeIso(editedStartDate, editedStartTime);
+      const isoEnd = combineDateTimeIso(editedEndDate, editedEndTime);
+
       await supervisorApi.reviewSession({
         sessionId: selectedSession.id,
         isReviewed: true,
@@ -184,6 +246,9 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         fuelCost: Number(toEnglishDigits(editedFuel)) || 0,
         startKm: startVal,
         endKm: endVal,
+        startTime: isoStart,
+        endTime: isoEnd,
+        applicationId: editedAppId.trim(),
         reviewNotes: reviewNotes.trim() || 'تمت المراجعة والاعتماد من المشرف',
       });
       const empName =
@@ -198,6 +263,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           type: 'success',
           title: 'تم الاعتماد بنجاح',
           message: `تم اعتماد شفت وطلبات المندوب (${empName}) بنجاح.`,
+          autoCloseMs: 800,
         });
       }, 150);
     } catch (e: any) {
@@ -233,6 +299,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
         type: 'success',
         title: 'تم الاعتماد',
         message: `تم اعتماد وردية (${empName}) بنجاح.`,
+        autoCloseMs: 800,
       });
     } catch (e: any) {
       showBottomAlert({
@@ -309,70 +376,119 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           />
         }
       >
-        {/* COMPLETED SHIFTS FOR ORDERS APPROVAL */}
-        {sortedCompletedPendingSessions.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.emptyIconCircle, { backgroundColor: '#10b98118' }]}>
-                  <Ionicons name="checkmark-done-outline" size={38} color="#10b981" />
-                </View>
-                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                  تم اعتماد جميع الشفتات المنتهية
-                </Text>
-                <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-                  لا توجد ورديات منتهية بانتظار المراجعة حالياً
+        {/* Active Employee Filter Banner (when navigated from a notification) */}
+        {Boolean(selectedEmployeeFilter) && (
+          <View
+            style={[
+              styles.filterBanner,
+              {
+                backgroundColor: colors.primary + '14',
+                borderColor: colors.primary + '35',
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+              },
+            ]}
+          >
+            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+              <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="person-circle" size={20} color={colors.primary} />
+                <Text style={[styles.filterTitle, { color: colors.textPrimary }]}>
+                  ورديات المندوب: {employeeMap.get(String(selectedEmployeeFilter))?.name || displaySessions[0]?.employee_name || 'المندوب'}
                 </Text>
               </View>
-            ) : (
-              sortedCompletedPendingSessions.map((session) => {
-                const empRecord = employeeMap.get(String(session.employee_id));
-                const empName =
-                  session.employee_name ||
-                  session.employee?.name ||
-                  empRecord?.name ||
-                  'مندوب';
-                const keyNum =
-                  (session as any).key_number ||
-                  (session.employee as any)?.key_number ||
-                  empRecord?.key_number ||
-                  '';
-                const appId =
-                  (session as any).application_id ||
-                  (session.employee as any)?.application_id ||
-                  empRecord?.application_id ||
-                  '---';
-                const startKmVal = Number(session.start_km ?? 0);
-                const endKmVal = Number(session.end_km ?? 0);
-                const distanceKm =
-                  endKmVal >= startKmVal && endKmVal > 0
-                    ? endKmVal - startKmVal
-                    : Number((session as any).total_km ?? session.distance ?? 0);
-                const hoursLabel = calcShiftHours(session.start_time, session.end_time);
+              <Text style={[styles.filterSubtitle, { color: colors.textSecondary }]}>
+                تم التصفية تلقائياً من الإشعار • عدد الورديات ({displaySessions.length})
+              </Text>
+            </View>
 
-                // The 9 ordered metrics requested by user:
-                // 1. وقت البداية | 2. كيلو البداية | 3. وقت النهاية | 4. كيلو النهاية | 5. عدد الكيلوات | 6. الطلبات | 7. الساعات | 8. بنزين | 9. المعرف
-                const orderedMetrics = [
-                  { label: '1. وقت البداية', value: formatTimeOnly(session.start_time), icon: 'play-circle-outline', color: '#0284c7' },
-                  { label: '2. كيلو البداية', value: `${startKmVal} كم`, icon: 'speedometer-outline', color: '#0284c7' },
-                  { label: '3. وقت النهاية', value: formatTimeOnly(session.end_time), icon: 'stop-circle-outline', color: '#6366f1' },
-                  { label: '4. كيلو النهاية', value: `${endKmVal} كم`, icon: 'flag-outline', color: '#6366f1' },
-                  { label: '5. عدد الكيلوات', value: `${distanceKm} كم`, icon: 'analytics-outline', color: '#0d9488' },
-                  { label: '6. الطلبات', value: `${session.orders_count ?? 0} طلب`, icon: 'bag-check-outline', color: '#10b981', highlight: true },
-                  { label: '7. الساعات', value: hoursLabel, icon: 'time-outline', color: '#8b5cf6' },
-                  { label: '8. بنزين', value: `${Math.round(Number(session.fuel_cost ?? 0))} ر.س`, icon: 'flame-outline', color: '#f59e0b' },
-                  { label: '9. المعرف', value: String(appId), icon: 'id-card-outline', color: '#ec4899' },
-                ];
+            <TouchableOpacity
+              style={[
+                styles.clearFilterBtn,
+                {
+                  backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                  borderColor: colors.border,
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+              onPress={() => {
+                setSelectedEmployeeFilter(null);
+                onClearTargetSession?.();
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close-circle-outline" size={16} color={colors.textSecondary} />
+              <Text style={[styles.clearFilterText, { color: colors.textPrimary }]}>
+                عرض الكل
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-                return (
-                  <View
-                    key={session.id}
-                    style={[
-                      styles.approvalCard,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
+        {/* COMPLETED SHIFTS FOR ORDERS APPROVAL */}
+        {displaySessions.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.emptyIconCircle, { backgroundColor: '#10b98118' }]}>
+              <Ionicons name="checkmark-done-outline" size={38} color="#10b981" />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+              تم اعتماد جميع الشفتات المنتهية
+            </Text>
+            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+              {selectedEmployeeFilter ? 'لا توجد شفتات منتهية لهذا المندوب حالياً' : 'لا توجد ورديات منتهية بانتظار المراجعة حالياً'}
+            </Text>
+          </View>
+        ) : (
+          displaySessions.map((session) => {
+            const empRecord = employeeMap.get(String(session.employee_id));
+            const empName =
+              session.employee_name ||
+              session.employee?.name ||
+              empRecord?.name ||
+              'مندوب';
+            const keyNum =
+              (session as any).key_number ||
+              (session.employee as any)?.key_number ||
+              empRecord?.key_number ||
+              '';
+            const appId =
+              (session as any).application_id ||
+              (session.employee as any)?.application_id ||
+              empRecord?.application_id ||
+              '---';
+            const startKmVal = Number(session.start_km ?? 0);
+            const endKmVal = Number(session.end_km ?? 0);
+            const distanceKm =
+              endKmVal >= startKmVal && endKmVal > 0
+                ? endKmVal - startKmVal
+                : Number((session as any).total_km ?? session.distance ?? 0);
+            const hoursLabel = calcShiftHours(session.start_time, session.end_time);
+
+            // The 9 ordered metrics requested by user:
+            // 1. وقت البداية | 2. كيلو البداية | 3. وقت النهاية | 4. كيلو النهاية | 5. عدد الكيلوات | 6. الطلبات | 7. الساعات | 8. بنزين | 9. المعرف
+            const orderedMetrics = [
+              { label: '1. وقت البداية', value: formatTimeOnly(session.start_time), icon: 'play-circle-outline', color: '#0284c7' },
+              { label: '2. كيلو البداية', value: `${startKmVal} كم`, icon: 'speedometer-outline', color: '#0284c7' },
+              { label: '3. وقت النهاية', value: formatTimeOnly(session.end_time), icon: 'stop-circle-outline', color: '#6366f1' },
+              { label: '4. كيلو النهاية', value: `${endKmVal} كم`, icon: 'flag-outline', color: '#6366f1' },
+              { label: '5. عدد الكيلوات', value: `${distanceKm} كم`, icon: 'analytics-outline', color: '#0d9488' },
+              { label: '6. الطلبات', value: `${session.orders_count ?? 0} طلب`, icon: 'bag-check-outline', color: '#10b981', highlight: true },
+              { label: '7. الساعات', value: hoursLabel, icon: 'time-outline', color: '#8b5cf6' },
+              { label: '8. بنزين', value: `${Math.round(Number(session.fuel_cost ?? 0))} ر.س`, icon: 'flame-outline', color: '#f59e0b' },
+              { label: '9. المعرف', value: String(appId), icon: 'id-card-outline', color: '#ec4899' },
+            ];
+
+            return (
+              <TouchableOpacity
+                key={session.id}
+                activeOpacity={0.92}
+                onPress={() => openSessionModal(session)}
+                style={[
+                  styles.approvalCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                     {/* Header: Courier Name, Key Badge, Completion Timestamp */}
                     <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                       <View style={[styles.empBadgeCircle, { backgroundColor: colors.primary + '18' }]}>
@@ -512,7 +628,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                         </Text>
                       </TouchableOpacity>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}
@@ -565,11 +681,41 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   </Text>
                 </View>
 
-                {/* Editable KM Row */}
+                {/* 1. Start Details (تاريخ، وقت، وكيلو البدء) */}
+                <View style={[styles.sectionTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="play-circle-outline" size={16} color="#0284c7" />
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>بيانات البداية (Start)</Text>
+                </View>
+
                 <View style={[styles.modalDualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <View style={{ flex: 1 }}>
+                  {/* تاريخ البدء */}
+                  <View style={{ flex: 1.2 }}>
                     <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      كيلو البداية
+                      تاريخ البدء
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.datePickerBtn,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.inputBorder,
+                          flexDirection: isRTL ? 'row-reverse' : 'row',
+                        },
+                      ]}
+                      onPress={() => setDatePickerTarget('START')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="calendar-outline" size={17} color={colors.primary} />
+                      <Text style={[styles.datePickerBtnText, { color: colors.textPrimary }]}>
+                        {editedStartDate || 'اختر التاريخ'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* وقت البدء */}
+                  <View style={{ flex: 0.9 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      وقت البدء (س:د)
                     </Text>
                     <TextInput
                       style={[
@@ -579,6 +725,30 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                           borderColor: colors.inputBorder,
                           color: colors.textPrimary,
                           textAlign: 'center',
+                          fontWeight: '700',
+                        },
+                      ]}
+                      placeholder="08:00"
+                      placeholderTextColor={colors.textSecondary}
+                      value={editedStartTime}
+                      onChangeText={(v) => setEditedStartTime(toEnglishDigits(v))}
+                    />
+                  </View>
+
+                  {/* كيلو البدء */}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      كيلو البدء
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.inputBorder,
+                          color: colors.textPrimary,
+                          textAlign: 'center',
+                          fontWeight: '700',
                         },
                       ]}
                       keyboardType="numeric"
@@ -586,7 +756,63 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                       onChangeText={(v) => setEditedStartKm(toEnglishDigits(v))}
                     />
                   </View>
+                </View>
 
+                {/* 2. End Details (تاريخ، وقت، وكيلو الانتهاء) */}
+                <View style={[styles.sectionTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="stop-circle-outline" size={16} color="#6366f1" />
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>بيانات النهاية (End)</Text>
+                </View>
+
+                <View style={[styles.modalDualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {/* تاريخ الانهاء */}
+                  <View style={{ flex: 1.2 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      تاريخ الانهاء
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.datePickerBtn,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.inputBorder,
+                          flexDirection: isRTL ? 'row-reverse' : 'row',
+                        },
+                      ]}
+                      onPress={() => setDatePickerTarget('END')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="calendar-outline" size={17} color={colors.primary} />
+                      <Text style={[styles.datePickerBtnText, { color: colors.textPrimary }]}>
+                        {editedEndDate || 'اختر التاريخ'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* وقت الانهاء */}
+                  <View style={{ flex: 0.9 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      وقت الانهاء (س:د)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.inputBorder,
+                          color: colors.textPrimary,
+                          textAlign: 'center',
+                          fontWeight: '700',
+                        },
+                      ]}
+                      placeholder="16:00"
+                      placeholderTextColor={colors.textSecondary}
+                      value={editedEndTime}
+                      onChangeText={(v) => setEditedEndTime(toEnglishDigits(v))}
+                    />
+                  </View>
+
+                  {/* كيلو الانهاء */}
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                       كيلو النهاية
@@ -599,6 +825,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                           borderColor: colors.inputBorder,
                           color: colors.textPrimary,
                           textAlign: 'center',
+                          fontWeight: '700',
                         },
                       ]}
                       keyboardType="numeric"
@@ -608,8 +835,14 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   </View>
                 </View>
 
-                {/* Editable Orders & Fuel Row */}
+                {/* 3. Performance & Courier ID (الطلبات، البنزين، والمعرف) */}
+                <View style={[styles.sectionTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="analytics-outline" size={16} color="#10b981" />
+                  <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>الطلبات، البنزين والمعرف</Text>
+                </View>
+
                 <View style={[styles.modalDualRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {/* عدد الطلبات */}
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
                       عدد الطلبات
@@ -622,6 +855,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                           borderColor: colors.primary,
                           color: colors.textPrimary,
                           textAlign: 'center',
+                          fontWeight: '800',
                         },
                       ]}
                       keyboardType="numeric"
@@ -630,9 +864,10 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                     />
                   </View>
 
+                  {/* تكلفة البنزين */}
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                      تكلفة البنزين (ر.س)
+                      قيمة البنزين (ر.س)
                     </Text>
                     <TextInput
                       style={[
@@ -642,11 +877,35 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                           borderColor: colors.inputBorder,
                           color: colors.textPrimary,
                           textAlign: 'center',
+                          fontWeight: '700',
                         },
                       ]}
                       keyboardType="numeric"
                       value={editedFuel}
                       onChangeText={(v) => setEditedFuel(toEnglishDigits(v))}
+                    />
+                  </View>
+
+                  {/* المعرف */}
+                  <View style={{ flex: 1.2 }}>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                      المعرف (كود التطبيق)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.inputBg,
+                          borderColor: colors.inputBorder,
+                          color: colors.textPrimary,
+                          textAlign: 'center',
+                          fontWeight: '700',
+                        },
+                      ]}
+                      placeholder="المعرف"
+                      placeholderTextColor={colors.textSecondary}
+                      value={editedAppId}
+                      onChangeText={setEditedAppId}
                     />
                   </View>
                 </View>
@@ -689,11 +948,81 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Date Picker Bottom Sheet for Start/End Date */}
+      <DatePickerBottomSheet
+        visible={Boolean(datePickerTarget)}
+        selectedDate={datePickerTarget === 'START' ? editedStartDate : editedEndDate}
+        onSelectDate={(dateStr) => {
+          if (datePickerTarget === 'START') {
+            setEditedStartDate(dateStr);
+          } else if (datePickerTarget === 'END') {
+            setEditedEndDate(dateStr);
+          }
+          setDatePickerTarget(null);
+        }}
+        onClose={() => setDatePickerTarget(null)}
+        colors={colors}
+        isDarkMode={isDarkMode}
+        isRTL={isRTL}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  filterBanner: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 14,
+    alignItems: 'center',
+    gap: 10,
+  },
+  filterTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  filterSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  clearFilterBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 5,
+  },
+  clearFilterText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sectionTitleRow: {
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  datePickerBtn: {
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  datePickerBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   container: {
     flex: 1,
   },

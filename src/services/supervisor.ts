@@ -70,6 +70,9 @@ export interface ReviewSessionParams {
   startKm?: number;
   fuelCost?: number;
   reviewVideoUrl?: string;
+  startTime?: string;
+  endTime?: string;
+  applicationId?: string;
 }
 
 export interface OperationVideo {
@@ -377,6 +380,9 @@ export const supervisorApi = {
       start_km: params.startKm,
       fuel_cost: params.fuelCost,
       review_video_url: params.reviewVideoUrl,
+      start_time: params.startTime,
+      end_time: params.endTime,
+      application_id: params.applicationId,
     };
 
     const resp = await apiRequest<WorkSession>(`/work/sessions/${params.sessionId}/review`, {
