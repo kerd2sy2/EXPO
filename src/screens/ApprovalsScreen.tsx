@@ -358,7 +358,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   { label: '5. عدد الكيلوات', value: `${distanceKm} كم`, icon: 'analytics-outline', color: '#0d9488' },
                   { label: '6. الطلبات', value: `${session.orders_count ?? 0} طلب`, icon: 'bag-check-outline', color: '#10b981', highlight: true },
                   { label: '7. الساعات', value: hoursLabel, icon: 'time-outline', color: '#8b5cf6' },
-                  { label: '8. بنزين', value: `${session.fuel_cost ?? 0} ر.س`, icon: 'flame-outline', color: '#f59e0b' },
+                  { label: '8. بنزين', value: `${Math.round(Number(session.fuel_cost ?? 0))} ر.س`, icon: 'flame-outline', color: '#f59e0b' },
                   { label: '9. المعرف', value: String(appId), icon: 'id-card-outline', color: '#ec4899' },
                 ];
 

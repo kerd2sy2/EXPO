@@ -245,7 +245,7 @@ export const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                       color="#d97706"
                     />
                     <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
-                      {session.fuel_cost || 0}
+                      {Math.round(Number(session.fuel_cost || 0))}
                     </Text>
                     <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>
                       {t.fuelCostLabel || 'البنزين (ر.س)'}
