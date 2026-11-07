@@ -233,7 +233,11 @@ export function useShiftController({
         if (res?.registration_image) {
           setActiveBikeRegistrationImage(res.registration_image);
         }
-        if (res && res.last_end_km > 0) {
+        const broken = Boolean(res?.is_odometer_broken) || bikeToCheck.includes('7569') || bikeToCheck.includes('8043');
+        if (broken) {
+          setStartKm('0');
+          setAutoKmFetched(false);
+        } else if (res && res.last_end_km > 0) {
           setStartKm(String(res.last_end_km));
           setAutoKmFetched(true);
         }
@@ -286,7 +290,11 @@ export function useShiftController({
         if (res?.registration_image) {
           setActiveBikeRegistrationImage(res.registration_image);
         }
-        if (res && res.last_end_km > 0) {
+        const broken = Boolean(res?.is_odometer_broken) || bikeNumber.includes('7569') || bikeNumber.includes('8043');
+        if (broken) {
+          setStartKm('0');
+          setAutoKmFetched(false);
+        } else if (res && res.last_end_km > 0) {
           setStartKm(String(res.last_end_km));
           setAutoKmFetched(true);
         }

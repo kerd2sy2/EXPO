@@ -78,20 +78,19 @@ export function useShiftWorkflow(
 
         setNeedsOilChange(Boolean(res?.needs_oil_change));
 
-        if (enteredMotorcycle.trim()) {
-          if (res?.is_odometer_broken) {
-            setIsOdometerBroken(true);
-            setStartKm("0");
-            setAutoKmFetched(false);
+        const broken = Boolean(res?.is_odometer_broken) || bike.includes('7569') || bike.includes('8043');
+        if (broken) {
+          setIsOdometerBroken(true);
+          setStartKm("0");
+          setAutoKmFetched(false);
+        } else {
+          setIsOdometerBroken(false);
+          if (res && res.last_end_km > 0) {
+            setStartKm(String(res.last_end_km));
+            setAutoKmFetched(true);
           } else {
-            setIsOdometerBroken(false);
-            if (res && res.last_end_km > 0) {
-              setStartKm(String(res.last_end_km));
-              setAutoKmFetched(true);
-            } else {
-              setStartKm("");
-              setAutoKmFetched(false);
-            }
+            setStartKm("");
+            setAutoKmFetched(false);
           }
         }
       } catch (err) {
