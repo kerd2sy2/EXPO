@@ -151,12 +151,12 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
 
   // Filtered identifiers for modal picker
   const filteredIdentifiers = useMemo(() => {
-    const activeApp = modalAppFilter !== 'ALL' ? modalAppFilter : applicationType;
-    const q = identifierSearchText.trim().toLowerCase();
+    const activeApp = modalAppFilter !== 'ALL' ? modalAppFilter : null;
+    const q = toEnglishDigits(identifierSearchText.trim()).toLowerCase();
 
     return allIdentifiers.filter((item) => {
       // 1. App filter
-      if (activeApp && activeApp !== 'ALL') {
+      if (activeApp) {
         const itemApp = (item.app_name || '').toLowerCase();
         const targetApp = activeApp.toLowerCase();
         const isMatch =
@@ -179,15 +179,15 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
 
       // 2. Search query filter
       if (q) {
-        const nameMatch = (item.name || '').toLowerCase().includes(q);
-        const codeMatch = (item.code || '').toLowerCase().includes(q);
+        const nameMatch = toEnglishDigits(item.name || '').toLowerCase().includes(q);
+        const codeMatch = toEnglishDigits(item.code || '').toLowerCase().includes(q);
         const appMatch = (item.app_name || '').toLowerCase().includes(q);
         if (!nameMatch && !codeMatch && !appMatch) return false;
       }
 
       return true;
     });
-  }, [allIdentifiers, modalAppFilter, applicationType, identifierSearchText]);
+  }, [allIdentifiers, modalAppFilter, identifierSearchText]);
 
   const plateComponents = useMemo(() => {
     return parsePlateComponents(motorcycleNumber || '');
@@ -860,7 +860,6 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
                         {
                           color: applicationId ? colors.textPrimary : colors.textSecondary,
                           fontWeight: applicationId ? '800' : '500',
-                          fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
                         },
                       ]}
                       numberOfLines={1}
@@ -974,483 +973,492 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
         </KeyboardAvoidingView>
 
         {/* ========================================================================= */}
-        {/* Sub-Modal 1: Motorcycle Plate Picker                                     */}
+        {/* Sub-Overlay 1: Motorcycle Plate Picker                                    */}
         {/* ========================================================================= */}
-        <Modal
-          visible={isPlateModalOpen}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setIsPlateModalOpen(false)}
-        >
-          <View style={styles.modalBackdrop}>
-            <View
-              style={[
-                styles.pickerModalCard,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                },
-              ]}
+        {isPlateModalOpen && (
+          <View style={styles.overlayContainer}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.modalBackdrop}
             >
-              {/* Header */}
+              <TouchableOpacity
+                style={styles.backdropDismiss}
+                activeOpacity={1}
+                onPress={() => setIsPlateModalOpen(false)}
+              />
               <View
                 style={[
-                  styles.pickerModalHeader,
+                  styles.pickerModalCard,
                   {
-                    borderBottomColor: colors.border,
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
                   },
                 ]}
               >
-                <View style={[styles.modalHeaderIconCircle, { backgroundColor: colors.primary + '18' }]}>
-                  <Ionicons name="bicycle" size={20} color={colors.primary} />
-                </View>
-                <View style={[styles.pickerModalTitleWrap, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.pickerModalTitle, { color: colors.textPrimary }]}>
-                    اختيار لوحة الدباب
-                  </Text>
-                  <Text style={[styles.pickerModalSubtitle, { color: colors.textSecondary }]}>
-                    ابحث برقم اللوحة أو رقم المفتاح
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setIsPlateModalOpen(false)}
-                  style={[styles.modalCloseCircle, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
-                >
-                  <Ionicons name="close" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Search Bar */}
-              <View style={styles.pickerModalSearchWrap}>
+                {/* Header */}
                 <View
                   style={[
-                    styles.searchBarInner,
+                    styles.pickerModalHeader,
                     {
-                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderColor: colors.border,
+                      borderBottomColor: colors.border,
                       flexDirection: isRTL ? 'row-reverse' : 'row',
                     },
                   ]}
                 >
-                  <Ionicons name="search" size={18} color={colors.textSecondary} />
-                  <TextInput
-                    style={[
-                      styles.pickerModalSearchInput,
-                      {
-                        color: colors.textPrimary,
-                        textAlign: isRTL ? 'right' : 'left',
-                      },
-                    ]}
-                    value={plateSearchText}
-                    onChangeText={setPlateSearchText}
-                    placeholder="ابحث برقم اللوحة أو رقم المفتاح..."
-                    placeholderTextColor={colors.textSecondary}
-                    autoFocus={false}
-                  />
-                  {plateSearchText ? (
-                    <TouchableOpacity onPress={() => setPlateSearchText('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              </View>
-
-              {/* Vehicles List */}
-              <ScrollView
-                style={styles.pickerModalScroll}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={true}
-              >
-                {filteredVehicles.length === 0 ? (
-                  <View style={styles.emptySearchWrap}>
-                    <Ionicons name="search-outline" size={36} color={colors.textSecondary} />
-                    <Text style={[styles.emptySearchTitle, { color: colors.textPrimary }]}>
-                      لا توجد دبابات مطابقة للبحث
+                  <View style={[styles.modalHeaderIconCircle, { backgroundColor: colors.primary + '18' }]}>
+                    <Ionicons name="bicycle" size={20} color={colors.primary} />
+                  </View>
+                  <View style={[styles.pickerModalTitleWrap, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                    <Text style={[styles.pickerModalTitle, { color: colors.textPrimary }]}>
+                      اختيار لوحة الدباب
                     </Text>
-                    <Text style={[styles.emptySearchSub, { color: colors.textSecondary }]}>
-                      يمكنك كتابة رقم اللوحة يدويًا بالأسفل
+                    <Text style={[styles.pickerModalSubtitle, { color: colors.textSecondary }]}>
+                      ابحث برقم اللوحة أو رقم المفتاح
                     </Text>
                   </View>
-                ) : (
-                  filteredVehicles.map((v) => {
-                    const isSelected = motorcycleNumber === v.plate_number;
-                    return (
-                      <TouchableOpacity
-                        key={v.id || v.plate_number}
-                        style={[
-                          styles.pickerCardItem,
-                          {
-                            backgroundColor: isSelected
-                              ? colors.primary + '12'
-                              : isDarkMode
-                              ? '#1e293b60'
-                              : '#f8fafc',
-                            borderColor: isSelected ? colors.primary : colors.border,
-                            flexDirection: isRTL ? 'row-reverse' : 'row',
-                          },
-                        ]}
-                        onPress={() => {
-                          setMotorcycleNumber(v.plate_number);
-                          if (v.key_number) setKeyNumber(toEnglishDigits(v.key_number));
-                          setIsPlateModalOpen(false);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                          <Text style={[styles.plateCardText, { color: colors.textPrimary }]}>
-                            {v.plate_number}
-                          </Text>
-                          <View style={[styles.cardMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                            {v.key_number ? (
-                              <View style={[styles.miniMetaBadge, { backgroundColor: '#f59e0b20' }]}>
-                                <Text style={[styles.miniMetaText, { color: '#f59e0b' }]}>
-                                  مفتاح {v.key_number}
-                                </Text>
-                              </View>
-                            ) : null}
-                            <Text style={[styles.plateKmText, { color: colors.textSecondary }]}>
-                              {v.current_km || (v as any).starting_km || 0} كم
-                            </Text>
-                          </View>
-                        </View>
-                        <View
-                          style={[
-                            styles.checkCircle,
-                            {
-                              backgroundColor: isSelected ? colors.primary : 'transparent',
-                              borderWidth: isSelected ? 0 : 1.5,
-                              borderColor: isSelected ? colors.primary : colors.border,
-                            },
-                          ]}
-                        >
-                          {isSelected && <Ionicons name="checkmark" size={16} color="#ffffff" />}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
-              </ScrollView>
+                  <TouchableOpacity
+                    onPress={() => setIsPlateModalOpen(false)}
+                    style={[styles.modalCloseCircle, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
+                  >
+                    <Ionicons name="close" size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
 
-              {/* Manual Input Footer */}
-              <View style={[styles.pickerModalFooter, { borderTopColor: colors.border }]}>
-                <Text style={[styles.manualSectionLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  أو إدخال لوحة غير مسجلة بالأسطول يدويًا:
-                </Text>
-                <View style={[styles.manualInputRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <TextInput
+                {/* Search Bar */}
+                <View style={styles.pickerModalSearchWrap}>
+                  <View
                     style={[
-                      styles.manualInput,
+                      styles.searchBarInner,
                       {
                         backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
                         borderColor: colors.border,
-                        color: colors.textPrimary,
-                        textAlign: isRTL ? 'right' : 'left',
+                        flexDirection: isRTL ? 'row-reverse' : 'row',
                       },
                     ]}
-                    value={manualPlateInput}
-                    onChangeText={setManualPlateInput}
-                    placeholder="مثلاً: 1234 أ ب ج"
-                    placeholderTextColor={colors.textSecondary}
-                  />
-                  <TouchableOpacity
-                    style={[
-                      styles.manualApplyBtn,
-                      {
-                        backgroundColor: manualPlateInput.trim() ? colors.primary : colors.border,
-                        opacity: manualPlateInput.trim() ? 1 : 0.6,
-                      },
-                    ]}
-                    disabled={!manualPlateInput.trim()}
-                    onPress={() => {
-                      setMotorcycleNumber(manualPlateInput.trim());
-                      setIsPlateModalOpen(false);
-                    }}
                   >
-                    <Text style={styles.manualApplyBtnText}>تطبيق اللوحة</Text>
-                  </TouchableOpacity>
+                    <Ionicons name="search" size={18} color={colors.textSecondary} />
+                    <TextInput
+                      style={[
+                        styles.pickerModalSearchInput,
+                        {
+                          color: colors.textPrimary,
+                          textAlign: isRTL ? 'right' : 'left',
+                        },
+                      ]}
+                      value={plateSearchText}
+                      onChangeText={setPlateSearchText}
+                      placeholder="ابحث برقم اللوحة أو رقم المفتاح..."
+                      placeholderTextColor={colors.textSecondary}
+                      autoFocus={false}
+                    />
+                    {plateSearchText ? (
+                      <TouchableOpacity onPress={() => setPlateSearchText('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+
+                {/* Vehicles List */}
+                <ScrollView
+                  style={styles.pickerModalScroll}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={true}
+                >
+                  {filteredVehicles.length === 0 ? (
+                    <View style={styles.emptySearchWrap}>
+                      <Ionicons name="search-outline" size={36} color={colors.textSecondary} />
+                      <Text style={[styles.emptySearchTitle, { color: colors.textPrimary }]}>
+                        لا توجد دبابات مطابقة للبحث
+                      </Text>
+                      <Text style={[styles.emptySearchSub, { color: colors.textSecondary }]}>
+                        يمكنك كتابة رقم اللوحة يدويًا بالأسفل
+                      </Text>
+                    </View>
+                  ) : (
+                    filteredVehicles.map((v) => {
+                      const isSelected = motorcycleNumber === v.plate_number;
+                      return (
+                        <TouchableOpacity
+                          key={v.id || v.plate_number}
+                          style={[
+                            styles.pickerCardItem,
+                            {
+                              backgroundColor: isSelected
+                                ? colors.primary + '12'
+                                : isDarkMode
+                                ? '#1e293b60'
+                                : '#f8fafc',
+                              borderColor: isSelected ? colors.primary : colors.border,
+                              flexDirection: isRTL ? 'row-reverse' : 'row',
+                            },
+                          ]}
+                          onPress={() => {
+                            setMotorcycleNumber(v.plate_number);
+                            if (v.key_number) setKeyNumber(toEnglishDigits(v.key_number));
+                            setIsPlateModalOpen(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                            <Text style={[styles.plateCardText, { color: colors.textPrimary }]}>
+                              {v.plate_number}
+                            </Text>
+                            <View style={[styles.cardMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                              {v.key_number ? (
+                                <View style={[styles.miniMetaBadge, { backgroundColor: '#f59e0b20' }]}>
+                                  <Text style={[styles.miniMetaText, { color: '#f59e0b' }]}>
+                                    مفتاح {v.key_number}
+                                  </Text>
+                                </View>
+                              ) : null}
+                              <Text style={[styles.plateKmText, { color: colors.textSecondary }]}>
+                                {v.current_km || (v as any).starting_km || 0} كم
+                              </Text>
+                            </View>
+                          </View>
+                          <View
+                            style={[
+                              styles.checkCircle,
+                              {
+                                backgroundColor: isSelected ? colors.primary : 'transparent',
+                                borderWidth: isSelected ? 0 : 1.5,
+                                borderColor: isSelected ? colors.primary : colors.border,
+                              },
+                            ]}
+                          >
+                            {isSelected && <Ionicons name="checkmark" size={16} color="#ffffff" />}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </ScrollView>
+
+                {/* Manual Input Footer */}
+                <View style={[styles.pickerModalFooter, { borderTopColor: colors.border }]}>
+                  <Text style={[styles.manualSectionLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    أو إدخال لوحة غير مسجلة بالأسطول يدويًا:
+                  </Text>
+                  <View style={[styles.manualInputRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <TextInput
+                      style={[
+                        styles.manualInput,
+                        {
+                          backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                          borderColor: colors.border,
+                          color: colors.textPrimary,
+                          textAlign: isRTL ? 'right' : 'left',
+                        },
+                      ]}
+                      value={manualPlateInput}
+                      onChangeText={setManualPlateInput}
+                      placeholder="مثلاً: 1234 أ ب ج"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.manualApplyBtn,
+                        {
+                          backgroundColor: manualPlateInput.trim() ? colors.primary : colors.border,
+                          opacity: manualPlateInput.trim() ? 1 : 0.6,
+                        },
+                      ]}
+                      disabled={!manualPlateInput.trim()}
+                      onPress={() => {
+                        setMotorcycleNumber(manualPlateInput.trim());
+                        setIsPlateModalOpen(false);
+                      }}
+                    >
+                      <Text style={styles.manualApplyBtnText}>تطبيق اللوحة</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-            </View>
+            </KeyboardAvoidingView>
           </View>
-        </Modal>
+        )}
 
         {/* ========================================================================= */}
-        {/* Sub-Modal 2: Platform Identifier Picker                                  */}
+        {/* Sub-Overlay 2: Platform Identifier Picker                                 */}
         {/* ========================================================================= */}
-        <Modal
-          visible={isIdentifierModalOpen}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setIsIdentifierModalOpen(false)}
-        >
-          <View style={styles.modalBackdrop}>
-            <View
-              style={[
-                styles.pickerModalCard,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                },
-              ]}
+        {isIdentifierModalOpen && (
+          <View style={styles.overlayContainer}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.modalBackdrop}
             >
-              {/* Header */}
+              <TouchableOpacity
+                style={styles.backdropDismiss}
+                activeOpacity={1}
+                onPress={() => setIsIdentifierModalOpen(false)}
+              />
               <View
                 style={[
-                  styles.pickerModalHeader,
+                  styles.pickerModalCard,
                   {
-                    borderBottomColor: colors.border,
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
                   },
                 ]}
               >
-                <View style={[styles.modalHeaderIconCircle, { backgroundColor: '#10b98118' }]}>
-                  <Ionicons name="id-card" size={20} color="#10b981" />
-                </View>
-                <View style={[styles.pickerModalTitleWrap, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <Text style={[styles.pickerModalTitle, { color: colors.textPrimary }]}>
-                    اختيار معرف المندوب
-                  </Text>
-                  <Text style={[styles.pickerModalSubtitle, { color: colors.textSecondary }]}>
-                    ابحث بالرقم أو الاسم لاختيار المعرف المسجل
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setIsIdentifierModalOpen(false)}
-                  style={[styles.modalCloseCircle, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
-                >
-                  <Ionicons name="close" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Platform Selector Filter Chips */}
-              <View style={[styles.modalPlatformChipsWrap, { borderBottomColor: colors.border }]}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={[styles.modalPlatformScroll, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                >
-                  {[
-                    { key: 'ALL', label: 'الكل' },
-                    { key: 'keeta', label: 'كيتا (Keeta)' },
-                    { key: 'ninja', label: 'نينجا (Ninja)' },
-                    { key: 'hungerstation', label: 'هنقرستيشن' },
-                    { key: 'jahez', label: 'جاهز' },
-                    { key: 'toyou', label: 'تويو' },
-                    { key: 'mrsool', label: 'مرسول' },
-                  ].map((p) => {
-                    const isSelected = modalAppFilter.toLowerCase() === p.key.toLowerCase();
-                    return (
-                      <TouchableOpacity
-                        key={p.key}
-                        style={[
-                          styles.miniFilterChip,
-                          {
-                            backgroundColor: isSelected ? '#10b981' : isDarkMode ? '#1e293b' : '#f1f5f9',
-                            borderColor: isSelected ? '#10b981' : colors.border,
-                          },
-                        ]}
-                        onPress={() => setModalAppFilter(p.key)}
-                        activeOpacity={0.7}
-                      >
-                        <Text
-                          style={[
-                            styles.miniFilterChipText,
-                            { color: isSelected ? '#ffffff' : colors.textPrimary },
-                          ]}
-                        >
-                          {p.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-
-              {/* Search Bar */}
-              <View style={styles.pickerModalSearchWrap}>
+                {/* Header */}
                 <View
                   style={[
-                    styles.searchBarInner,
+                    styles.pickerModalHeader,
                     {
-                      backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-                      borderColor: colors.border,
+                      borderBottomColor: colors.border,
                       flexDirection: isRTL ? 'row-reverse' : 'row',
                     },
                   ]}
                 >
-                  <Ionicons name="search" size={18} color={colors.textSecondary} />
-                  <TextInput
-                    style={[
-                      styles.pickerModalSearchInput,
-                      {
-                        color: colors.textPrimary,
-                        textAlign: isRTL ? 'right' : 'left',
-                      },
-                    ]}
-                    value={identifierSearchText}
-                    onChangeText={setIdentifierSearchText}
-                    placeholder="ابحث برقم المعرف أو الاسم..."
-                    placeholderTextColor={colors.textSecondary}
-                    autoFocus={false}
-                  />
-                  {identifierSearchText ? (
-                    <TouchableOpacity onPress={() => setIdentifierSearchText('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                  ) : null}
+                  <View style={[styles.modalHeaderIconCircle, { backgroundColor: '#10b98118' }]}>
+                    <Ionicons name="id-card" size={20} color="#10b981" />
+                  </View>
+                  <View style={[styles.pickerModalTitleWrap, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                    <Text style={[styles.pickerModalTitle, { color: colors.textPrimary }]}>
+                      اختيار معرف المندوب
+                    </Text>
+                    <Text style={[styles.pickerModalSubtitle, { color: colors.textSecondary }]}>
+                      اختر المعرف بالاسم أو ابحث بالرقم
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setIsIdentifierModalOpen(false)}
+                    style={[styles.modalCloseCircle, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
+                  >
+                    <Ionicons name="close" size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
                 </View>
-              </View>
 
-              {/* Identifiers List */}
-              <ScrollView
-                style={styles.pickerModalScroll}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={true}
-              >
-                {loadingIdentifiers ? (
-                  <View style={styles.emptySearchWrap}>
-                    <ActivityIndicator size="small" color="#10b981" />
-                    <Text style={[styles.emptySearchSub, { color: colors.textSecondary, marginTop: 8 }]}>
-                      جاري تحميل المعرفات...
-                    </Text>
-                  </View>
-                ) : filteredIdentifiers.length === 0 ? (
-                  <View style={styles.emptySearchWrap}>
-                    <Ionicons name="folder-open-outline" size={36} color={colors.textSecondary} />
-                    <Text style={[styles.emptySearchTitle, { color: colors.textPrimary }]}>
-                      لا توجد معرفات مسجلة لهذه المنصة
-                    </Text>
-                    <Text style={[styles.emptySearchSub, { color: colors.textSecondary }]}>
-                      يمكنك إدخال رقم المعرف يدويًا بالأسفل
-                    </Text>
-                  </View>
-                ) : (
-                  filteredIdentifiers.map((item) => {
-                    const identifierVal = item.code || item.id;
-                    const isSelected = applicationId === identifierVal;
-                    const appName = item.app_name || '';
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[
-                          styles.pickerCardItem,
-                          {
-                            backgroundColor: isSelected
-                              ? '#10b98112'
-                              : isDarkMode
-                              ? '#1e293b60'
-                              : '#f8fafc',
-                            borderColor: isSelected ? '#10b981' : colors.border,
-                            flexDirection: isRTL ? 'row-reverse' : 'row',
-                          },
-                        ]}
-                        onPress={() => {
-                          setApplicationId(identifierVal);
-                          // Auto-select platform if matched
-                          const appLow = appName.toLowerCase();
-                          if (appLow.includes('ninja') || appLow.includes('نينجا')) {
-                            setApplicationType('ninja');
-                          } else if (appLow.includes('keeta') || appLow.includes('كيتا')) {
-                            setApplicationType('keeta');
-                          } else if (appLow.includes('hunger') || appLow.includes('هنقر')) {
-                            setApplicationType('hungerstation');
-                          } else if (appLow.includes('jahez') || appLow.includes('جاهز')) {
-                            setApplicationType('jahez');
-                          } else if (appLow.includes('toyou') || appLow.includes('تويو')) {
-                            setApplicationType('toyou');
-                          } else if (appLow.includes('mrsool') || appLow.includes('مرسول')) {
-                            setApplicationType('mrsool');
-                          }
-                          setIsIdentifierModalOpen(false);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                          <Text style={[styles.idCardCodeText, { color: colors.textPrimary }]}>
-                            {identifierVal}
-                          </Text>
-                          <View style={[styles.cardMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                            {appName ? (
-                              <View style={[styles.miniMetaBadge, { backgroundColor: '#10b98120' }]}>
-                                <Text style={[styles.miniMetaText, { color: '#10b981' }]}>
-                                  {appName}
-                                </Text>
-                              </View>
-                            ) : null}
-                            {item.name && item.name !== identifierVal ? (
-                              <Text style={[styles.plateKmText, { color: colors.textSecondary }]} numberOfLines={1}>
-                                {item.name}
-                              </Text>
-                            ) : null}
-                            {item.branch ? (
-                              <Text style={[styles.plateKmText, { color: colors.textSecondary }]}>
-                                {item.branch}
-                              </Text>
-                            ) : null}
-                          </View>
-                        </View>
-                        <View
+                {/* Platform Selector Filter Chips */}
+                <View style={[styles.modalPlatformChipsWrap, { borderBottomColor: colors.border }]}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[styles.modalPlatformScroll, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                  >
+                    {[
+                      { key: 'ALL', label: 'الكل' },
+                      { key: 'keeta', label: 'كيتا (Keeta)' },
+                      { key: 'ninja', label: 'نينجا (Ninja)' },
+                      { key: 'hungerstation', label: 'هنقرستيشن' },
+                      { key: 'jahez', label: 'جاهز' },
+                      { key: 'toyou', label: 'تويو' },
+                      { key: 'mrsool', label: 'مرسول' },
+                    ].map((p) => {
+                      const isSelected = modalAppFilter.toLowerCase() === p.key.toLowerCase();
+                      return (
+                        <TouchableOpacity
+                          key={p.key}
                           style={[
-                            styles.checkCircle,
+                            styles.miniFilterChip,
                             {
-                              backgroundColor: isSelected ? '#10b981' : 'transparent',
-                              borderWidth: isSelected ? 0 : 1.5,
+                              backgroundColor: isSelected ? '#10b981' : isDarkMode ? '#1e293b' : '#f1f5f9',
                               borderColor: isSelected ? '#10b981' : colors.border,
                             },
                           ]}
+                          onPress={() => setModalAppFilter(p.key)}
+                          activeOpacity={0.7}
                         >
-                          {isSelected && <Ionicons name="checkmark" size={16} color="#ffffff" />}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
-              </ScrollView>
+                          <Text
+                            style={[
+                              styles.miniFilterChipText,
+                              { color: isSelected ? '#ffffff' : colors.textPrimary },
+                            ]}
+                          >
+                            {p.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
 
-              {/* Manual Input Footer */}
-              <View style={[styles.pickerModalFooter, { borderTopColor: colors.border }]}>
-                <Text style={[styles.manualSectionLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
-                  أو إدخال رقم المعرف يدويًا:
-                </Text>
-                <View style={[styles.manualInputRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <TextInput
+                {/* Search Bar */}
+                <View style={styles.pickerModalSearchWrap}>
+                  <View
                     style={[
-                      styles.manualInput,
+                      styles.searchBarInner,
                       {
                         backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
                         borderColor: colors.border,
-                        color: colors.textPrimary,
-                        textAlign: isRTL ? 'right' : 'left',
-                        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+                        flexDirection: isRTL ? 'row-reverse' : 'row',
                       },
                     ]}
-                    value={manualIdInput}
-                    onChangeText={setManualIdInput}
-                    placeholder="أدخل رقم المعرف يدويًا..."
-                    placeholderTextColor={colors.textSecondary}
-                  />
-                  <TouchableOpacity
-                    style={[
-                      styles.manualApplyBtn,
-                      {
-                        backgroundColor: manualIdInput.trim() ? '#10b981' : colors.border,
-                        opacity: manualIdInput.trim() ? 1 : 0.6,
-                      },
-                    ]}
-                    disabled={!manualIdInput.trim()}
-                    onPress={() => {
-                      setApplicationId(toEnglishDigits(manualIdInput.trim()));
-                      setIsIdentifierModalOpen(false);
-                    }}
                   >
-                    <Text style={styles.manualApplyBtnText}>تطبيق المعرف</Text>
-                  </TouchableOpacity>
+                    <Ionicons name="search" size={18} color={colors.textSecondary} />
+                    <TextInput
+                      style={[
+                        styles.pickerModalSearchInput,
+                        {
+                          color: colors.textPrimary,
+                          textAlign: isRTL ? 'right' : 'left',
+                        },
+                      ]}
+                      value={identifierSearchText}
+                      onChangeText={setIdentifierSearchText}
+                      placeholder="ابحث بالاسم أو رقم المعرف..."
+                      placeholderTextColor={colors.textSecondary}
+                      autoFocus={false}
+                    />
+                    {identifierSearchText ? (
+                      <TouchableOpacity onPress={() => setIdentifierSearchText('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+
+                {/* Identifiers List */}
+                <ScrollView
+                  style={styles.pickerModalScroll}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={true}
+                >
+                  {loadingIdentifiers ? (
+                    <View style={styles.emptySearchWrap}>
+                      <ActivityIndicator size="small" color="#10b981" />
+                      <Text style={[styles.emptySearchSub, { color: colors.textSecondary, marginTop: 8 }]}>
+                        جاري تحميل المعرفات...
+                      </Text>
+                    </View>
+                  ) : filteredIdentifiers.length === 0 ? (
+                    <View style={styles.emptySearchWrap}>
+                      <Ionicons name="folder-open-outline" size={36} color={colors.textSecondary} />
+                      <Text style={[styles.emptySearchTitle, { color: colors.textPrimary }]}>
+                        لا توجد معرفات مسجلة لهذه المنصة
+                      </Text>
+                      <Text style={[styles.emptySearchSub, { color: colors.textSecondary }]}>
+                        يمكنك إدخال اسم أو رقم المعرف يدويًا بالأسفل
+                      </Text>
+                    </View>
+                  ) : (
+                    filteredIdentifiers.map((item) => {
+                      const identifierVal = item.name || item.code || item.id;
+                      const isSelected = applicationId === item.name || (item.code && applicationId === item.code);
+                      const appName = item.app_name || '';
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={[
+                            styles.pickerCardItem,
+                            {
+                              backgroundColor: isSelected
+                                ? '#10b98112'
+                                : isDarkMode
+                                ? '#1e293b60'
+                                : '#f8fafc',
+                              borderColor: isSelected ? '#10b981' : colors.border,
+                              flexDirection: isRTL ? 'row-reverse' : 'row',
+                            },
+                          ]}
+                          onPress={() => {
+                            setApplicationId(identifierVal);
+                            // Auto-select platform if matched
+                            const appLow = appName.toLowerCase();
+                            if (appLow.includes('ninja') || appLow.includes('نينجا')) {
+                              setApplicationType('ninja');
+                            } else if (appLow.includes('keeta') || appLow.includes('كيتا')) {
+                              setApplicationType('keeta');
+                            } else if (appLow.includes('hunger') || appLow.includes('هنقر')) {
+                              setApplicationType('hungerstation');
+                            } else if (appLow.includes('jahez') || appLow.includes('جاهز')) {
+                              setApplicationType('jahez');
+                            } else if (appLow.includes('toyou') || appLow.includes('تويو')) {
+                              setApplicationType('toyou');
+                            } else if (appLow.includes('mrsool') || appLow.includes('مرسول')) {
+                              setApplicationType('mrsool');
+                            }
+                            setIsIdentifierModalOpen(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                            <Text style={[styles.idCardCodeText, { color: colors.textPrimary }]}>
+                              {item.name || item.code || item.id}
+                            </Text>
+                            <View style={[styles.cardMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                              {appName ? (
+                                <View style={[styles.miniMetaBadge, { backgroundColor: '#10b98120' }]}>
+                                  <Text style={[styles.miniMetaText, { color: '#10b981' }]}>
+                                    {appName}
+                                  </Text>
+                                </View>
+                              ) : null}
+                              {item.code ? (
+                                <Text style={[styles.plateKmText, { color: colors.textSecondary }]}>
+                                  كود: {item.code}
+                                </Text>
+                              ) : null}
+                              {item.branch ? (
+                                <Text style={[styles.plateKmText, { color: colors.textSecondary }]}>
+                                  فرع {item.branch}
+                                </Text>
+                              ) : null}
+                            </View>
+                          </View>
+                          <View
+                            style={[
+                              styles.checkCircle,
+                              {
+                                backgroundColor: isSelected ? '#10b981' : 'transparent',
+                                borderWidth: isSelected ? 0 : 1.5,
+                                borderColor: isSelected ? '#10b981' : colors.border,
+                              },
+                            ]}
+                          >
+                            {isSelected && <Ionicons name="checkmark" size={16} color="#ffffff" />}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </ScrollView>
+
+                {/* Manual Input Footer */}
+                <View style={[styles.pickerModalFooter, { borderTopColor: colors.border }]}>
+                  <Text style={[styles.manualSectionLabel, { color: colors.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}>
+                    أو إدخال رقم المعرف يدويًا:
+                  </Text>
+                  <View style={[styles.manualInputRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                    <TextInput
+                      style={[
+                        styles.manualInput,
+                        {
+                          backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
+                          borderColor: colors.border,
+                          color: colors.textPrimary,
+                          textAlign: isRTL ? 'right' : 'left',
+                        },
+                      ]}
+                      value={manualIdInput}
+                      onChangeText={setManualIdInput}
+                      placeholder="أدخل اسم أو رقم المعرف يدويًا..."
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.manualApplyBtn,
+                        {
+                          backgroundColor: manualIdInput.trim() ? '#10b981' : colors.border,
+                          opacity: manualIdInput.trim() ? 1 : 0.6,
+                        },
+                      ]}
+                      disabled={!manualIdInput.trim()}
+                      onPress={() => {
+                        setApplicationId(manualIdInput.trim());
+                        setIsIdentifierModalOpen(false);
+                      }}
+                    >
+                      <Text style={styles.manualApplyBtnText}>تطبيق المعرف</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-            </View>
+            </KeyboardAvoidingView>
           </View>
-        </Modal>
+        )}
       </SafeAreaView>
     </Modal>
   );
@@ -1712,10 +1720,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  overlayContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+    elevation: 9999,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'flex-end',
+  },
+  backdropDismiss: {
+    flex: 1,
   },
   pickerModalCard: {
     borderTopLeftRadius: 24,

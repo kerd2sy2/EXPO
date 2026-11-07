@@ -289,10 +289,11 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
                   </View>
                 )}
 
-                {!!emp.application_type && (
+                {(!!emp.application_id || !!emp.application_type) && (
                   <View style={[styles.appBadge, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}>
                     <Text style={[styles.appBadgeText, { color: colors.textSecondary }]}>
-                      {emp.application_type} {emp.application_id ? `#${emp.application_id}` : ''}
+                      {emp.application_type ? `${emp.application_type} ` : ''}
+                      {emp.application_id ? `(${emp.application_id})` : ''}
                     </Text>
                   </View>
                 )}
@@ -386,68 +387,8 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* Top Fixed Header: Summary Chips + Search Input */}
+      {/* Top Fixed Header: Search Input */}
       <View style={styles.topHeaderArea}>
-        {/* Quick Filter Chips */}
-        <View style={[styles.statsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity
-            style={[
-              styles.statChip,
-              {
-                backgroundColor: roleFilter === 'ALL' ? colors.primary : colors.card,
-                borderColor: roleFilter === 'ALL' ? colors.primary : colors.border,
-              },
-            ]}
-            onPress={() => setRoleFilter('ALL')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.statNum, { color: roleFilter === 'ALL' ? '#fff' : colors.textPrimary }]}>
-              {stats.total}
-            </Text>
-            <Text style={[styles.statLbl, { color: roleFilter === 'ALL' ? '#e0f2fe' : colors.textSecondary }]}>
-              الكل (مرتب بالمفاتيح)
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.statChip,
-              {
-                backgroundColor: roleFilter === 'WORKING' ? '#10b981' : colors.card,
-                borderColor: roleFilter === 'WORKING' ? '#10b981' : colors.border,
-              },
-            ]}
-            onPress={() => setRoleFilter('WORKING')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.statNum, { color: roleFilter === 'WORKING' ? '#fff' : '#10b981' }]}>
-              {stats.working}
-            </Text>
-            <Text style={[styles.statLbl, { color: roleFilter === 'WORKING' ? '#dcfce7' : colors.textSecondary }]}>
-              يعمل الآن
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.statChip,
-              {
-                backgroundColor: roleFilter === 'NO_PLATE' ? '#ef4444' : colors.card,
-                borderColor: roleFilter === 'NO_PLATE' ? '#ef4444' : colors.border,
-              },
-            ]}
-            onPress={() => setRoleFilter('NO_PLATE')}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.statNum, { color: roleFilter === 'NO_PLATE' ? '#fff' : '#ef4444' }]}>
-              {stats.noPlate}
-            </Text>
-            <Text style={[styles.statLbl, { color: roleFilter === 'NO_PLATE' ? '#fee2e2' : colors.textSecondary }]}>
-              بدون لوحة
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Search Input */}
         <View
           style={[
