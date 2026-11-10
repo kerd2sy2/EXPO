@@ -10,17 +10,103 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
-import { ThemeColors } from '../../types/delegate';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ThemeColors, Language } from '../../types/delegate';
+
+export type VerificationLanguage = 'ar' | 'en' | 'ur' | 'bn';
 
 export interface HumanVerificationModalProps {
   visible: boolean;
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL?: boolean;
+  lang?: Language | VerificationLanguage | string;
   appName?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }
+
+const modalTranslations: Record<
+  VerificationLanguage,
+  {
+    badge: string;
+    title: string;
+    subtitle: (appName: string) => string;
+    slideAction: string;
+    verified: string;
+    footerNote: string;
+  }
+> = {
+  ar: {
+    badge: 'حماية أمنية ذكية',
+    title: 'تأكيد أمان تسجيل الدخول',
+    subtitle: (appName: string) => `يرجى سحب المؤشر لتأكيد هويتك وحماية ${appName} من الوصول المؤتمت`,
+    slideAction: 'اسحب المؤشر لليمين للتحقق 👉',
+    verified: 'تم التحقق بنجاح ✓',
+    footerNote: 'اتصال مشفر ومحمي بواسطة جدار الحماية',
+  },
+  en: {
+    badge: 'Smart Security Shield',
+    title: 'Confirm Login Security',
+    subtitle: (appName: string) => `Please slide to confirm your identity and protect ${appName} from bots`,
+    slideAction: 'Slide to verify 👉',
+    verified: 'Verified successfully ✓',
+    footerNote: 'Encrypted connection protected by firewall',
+  },
+  ur: {
+    badge: 'سمارٹ سیکیورٹی شیلڈ',
+    title: 'لاگ ان سیکیورٹی کی تصدیق',
+    subtitle: (appName: string) => `براہ کرم اپنی شناخت کی تصدیق اور ${appName} کو خودکار بوٹس سے بچانے کیلئے سلائیڈ کریں`,
+    slideAction: 'تصدیق کے لیے سلائیڈ کریں 👉',
+    verified: 'کامیابی سے تصدیق ہو گئی ✓',
+    footerNote: 'فائر وال کے ذریعے محفوظ اور انکرپٹڈ کنکشن',
+  },
+  bn: {
+    badge: 'স্মার্ট নিরাপত্তা সুরক্ষা',
+    title: 'লগইন নিরাপত্তা নিশ্চিত করুন',
+    subtitle: (appName: string) => `আপনার পরিচয় নিশ্চিত করতে এবং ${appName}-কে বট থেকে রক্ষা করতে স্লাইড করুন`,
+    slideAction: 'যাচাই করতে স্লাইড করুন 👉',
+    verified: 'সফলভাবে যাচাই করা হয়েছে ✓',
+    footerNote: 'ফায়ারওয়াল দ্বারা সুরক্ষিত এনক্রিপ্ট করা সংযোগ',
+  },
+};
+
+const getLocalizedAppName = (rawName: string, lang: VerificationLanguage): string => {
+  const normalized = (rawName || '').trim().toLowerCase();
+  if (normalized.includes('إشراف') || normalized.includes('اشراف') || normalized.includes('supervis')) {
+    switch (lang) {
+      case 'en': return 'Supervision';
+      case 'ur': return 'نگرانی';
+      case 'bn': return 'তত্ত্বাবধান';
+      default: return 'الإشراف';
+    }
+  }
+  if (normalized.includes('مناديب') || normalized.includes('مندوب') || normalized.includes('delegat')) {
+    switch (lang) {
+      case 'en': return 'Delegates';
+      case 'ur': return 'ڈیلیگیٹس';
+      case 'bn': return 'প্রতিনিধিরা';
+      default: return 'المناديب';
+    }
+  }
+  if (normalized.includes('عهدة') || normalized.includes('عهده') || normalized.includes('custody') || normalized.includes('ahda')) {
+    switch (lang) {
+      case 'en': return 'Custody';
+      case 'ur': return 'تحویل';
+      case 'bn': return 'হেফাজত';
+      default: return 'العهدة';
+    }
+  }
+  if (normalized.includes('إدارة') || normalized.includes('ادارة') || normalized.includes('manag') || normalized.includes('admin')) {
+    switch (lang) {
+      case 'en': return 'Management';
+      case 'ur': return 'انتظامیہ';
+      case 'bn': return 'প্রশাসন';
+      default: return 'الإدارة';
+    }
+  }
+  return rawName;
+};
 
 const TRACK_WIDTH = 270;
 const KNOB_SIZE = 48;
@@ -30,15 +116,47 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
   visible,
   colors,
   isDarkMode,
+  isRTL: propIsRTL,
+  lang: propLang,
   appName = 'العهدة',
   onSuccess,
   onCancel,
 }) => {
+  const [currentLang, setCurrentLang] = useState<VerificationLanguage>(
+    (propLang as VerificationLanguage) || (propIsRTL ? 'ar' : 'ar')
+  );
   const [verified, setVerified] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const lottieRef = useRef<any>(null);
+
+  // Sync propLang if passed
+  useEffect(() => {
+    if (propLang && ['ar', 'en', 'ur', 'bn'].includes(propLang as string)) {
+      setCurrentLang(propLang as VerificationLanguage);
+    }
+  }, [propLang]);
+
+  // Load language from storage if not explicitly provided as prop
+  useEffect(() => {
+    if (!propLang && visible) {
+      (async () => {
+        try {
+          const stored =
+            (await AsyncStorage.getItem('@aams_app_language')) ||
+            (await AsyncStorage.getItem('aams_app_language'));
+          if (stored && ['ar', 'en', 'ur', 'bn'].includes(stored)) {
+            setCurrentLang(stored as VerificationLanguage);
+          }
+        } catch (_) {}
+      })();
+    }
+  }, [propLang, visible]);
+
+  const isRTL = currentLang === 'ar' || currentLang === 'ur';
+  const t = modalTranslations[currentLang] || modalTranslations.ar;
+  const localizedAppName = getLocalizedAppName(appName, currentLang);
 
   // Reset state on open
   useEffect(() => {
@@ -169,7 +287,14 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
         >
           {/* Close button */}
           <TouchableOpacity
-            style={[styles.closeBtn, { backgroundColor: isDarkMode ? '#334155' : '#f1f5f9' }]}
+            style={[
+              styles.closeBtn,
+              {
+                backgroundColor: isDarkMode ? '#334155' : '#f1f5f9',
+                left: isRTL ? 14 : undefined,
+                right: isRTL ? undefined : 14,
+              },
+            ]}
             onPress={onCancel}
             activeOpacity={0.7}
           >
@@ -190,17 +315,25 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
 
           {/* Security Badge & Title */}
           <View style={styles.titleContainer}>
-            <View style={[styles.badge, { backgroundColor: `${colors.primary}18` }]}>
+            <View
+              style={[
+                styles.badge,
+                {
+                  backgroundColor: `${colors.primary}18`,
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+            >
               <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
               <Text style={[styles.badgeText, { color: colors.primary }]}>
-                حماية أمنية ذكية
+                {t.badge}
               </Text>
             </View>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
-              تأكيد أمان تسجيل الدخول
+              {t.title}
             </Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              يرجى سحب المؤشر لتأكيد هويتك وحماية {appName} من الوصول المؤتمت
+              {t.subtitle(localizedAppName)}
             </Text>
           </View>
 
@@ -248,7 +381,7 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
               ]}
               numberOfLines={1}
             >
-              {verified ? 'تم التحقق بنجاح ✓' : 'اسحب المؤشر لليمين للتحقق 👉'}
+              {verified ? t.verified : t.slideAction}
             </Text>
 
             {/* Draggable Knob */}
@@ -273,10 +406,10 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
           </View>
 
           {/* Security note */}
-          <View style={styles.footerNote}>
+          <View style={[styles.footerNote, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <Ionicons name="lock-closed-outline" size={13} color={colors.textSecondary} />
             <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-              اتصال مشفر ومحمي بواسطة جدار الحماية
+              {t.footerNote}
             </Text>
           </View>
         </Animated.View>
@@ -312,7 +445,6 @@ const styles = StyleSheet.create({
   closeBtn: {
     position: 'absolute',
     top: 14,
-    left: 14,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -338,7 +470,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   badge: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 10,
@@ -401,7 +532,6 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   footerNote: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 5,
     marginTop: 18,
