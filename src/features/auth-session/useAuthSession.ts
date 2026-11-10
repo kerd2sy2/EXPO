@@ -157,11 +157,9 @@ export function useAuthSession({
             if (!isSilentBackground) {
               // Keep full Home Screen Skeleton visible during initial server verification
               setIsSessionSyncing(true);
-              if (cachedActive) {
-                setTimeout(() => {
-                  setIsSessionSyncing(false);
-                }, 1200);
-              }
+              setTimeout(() => {
+                setIsSessionSyncing(false);
+              }, 800);
             }
 
             if (rawHistory) {
