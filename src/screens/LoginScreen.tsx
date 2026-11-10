@@ -207,6 +207,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           isDarkMode={isDarkMode}
           appName="الإشراف"
           isRTL={isRTL}
+          lang={lang}
+          onSetLang={onSetLang}
           onVerify={() => onLogin(pendingCredentials.phone, pendingCredentials.pass)}
           onBack={() => setScreenStep('form')}
         />
