@@ -150,9 +150,20 @@ export default function AhdaApp() {
               cachedUser.admin?.branch_id ||
               cachedUser.employee?.branch_id ||
               cachedUser.user?.branch_id;
+
+            // If user has an assigned branch in database (Single-branch user like Ibrahim Kerdasy),
+            // strictly lock active branch to their assigned branch and overwrite any stale storage.
             if (userBranchId) {
-              const bName = cachedUser.branch_name || storedBranch?.name || 'الفرع الأول';
+              const bName =
+                cachedUser.branch_name ||
+                (userBranchId === '33b1e65f-074c-4c51-af38-32e13c1fb9a6' ? 'الفرع الثاني' : 'الفرع الأول');
               await setActiveBranch(userBranchId, bName);
+            } else if (storedBranch?.id) {
+              // Only unassigned multi-branch managers preserve their previously chosen branch
+              const matchedName =
+                storedBranch.name ||
+                (storedBranch.id === '33b1e65f-074c-4c51-af38-32e13c1fb9a6' ? 'الفرع الثاني' : 'الفرع الأول');
+              await setActiveBranch(storedBranch.id, matchedName);
             }
 
             setCurrentUser(cachedUser);
@@ -235,7 +246,7 @@ export default function AhdaApp() {
       if (AppState.currentState === 'active') {
         syncProfile();
       }
-    }, 2500);
+    }, 60000);
 
     return () => {
       unsubRefresh();

@@ -36,6 +36,7 @@ import {
   hasAddCustodyPermission,
   hasAddExpensePermission,
   hasDeleteCustodyPermission,
+  hasCustodyPermission,
 } from '../services/custodyService';
 import { AhdaBranchSelectorModal } from '../components/modals/AhdaBranchSelectorModal';
 import {
@@ -164,12 +165,14 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   }, [currentUser]);
 
   const initialBranchName = useMemo(() => {
+    if (initialBranchId === '33b1e65f-074c-4c51-af38-32e13c1fb9a6') return 'الفرع الثاني';
+    if (initialBranchId === '0b52c83c-4a37-4950-8040-fcb00fa718b3') return 'الفرع الأول';
     return (
-      currentUser?.branch_name ||
       getActiveBranchName() ||
+      currentUser?.branch_name ||
       null
     );
-  }, [currentUser]);
+  }, [currentUser, initialBranchId]);
 
   const [activeBranch, setActiveBranchState] = useState<{ id: string | null; name: string | null }>({
     id: initialBranchId,
@@ -177,6 +180,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   });
   const [showBranchModal, setShowBranchModal] = useState<boolean>(false);
   const [mustSelectBranch, setMustSelectBranch] = useState<boolean>(false);
+  const branchesInitializedRef = useRef<boolean>(false);
 
   const canSwitchBranch = useMemo(() => {
     if (!currentUser) return false;
@@ -185,35 +189,23 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       currentUser.admin?.branch_id ||
       currentUser.employee?.branch_id ||
       currentUser.user?.branch_id;
-    // Strict rule: If user is assigned to a specific branch, they belong to that branch ONLY and CANNOT switch branches
+
+    // Strict rule: If user is assigned to a specific branch in database/profile,
+    // they belong to that branch ONLY. The dropdown arrow must NOT appear,
+    // and they CANNOT switch branches under any circumstances.
     if (userBranchId) {
+      // Only allow switching if explicitly assigned to multiple branches
+      if (Array.isArray(currentUser.branch_ids) && currentUser.branch_ids.length > 1) {
+        return true;
+      }
+      if (Array.isArray(currentUser.branches) && currentUser.branches.length > 1) {
+        return true;
+      }
       return false;
     }
-    const role = (currentUser.role || currentUser.job_role || currentUser.role_name || '').toUpperCase();
-    let permissions: string[] = [];
-    if (Array.isArray(currentUser.permissions)) {
-      permissions = currentUser.permissions;
-    } else if (typeof currentUser.permissions === 'string' && currentUser.permissions.trim() !== '') {
-      try {
-        const parsed = JSON.parse(currentUser.permissions);
-        if (Array.isArray(parsed)) permissions = parsed;
-        else permissions = [currentUser.permissions];
-      } catch {
-        permissions = currentUser.permissions.split(',').map((s: string) => s.trim()).filter(Boolean);
-      }
-    }
 
-    const hasAllBranchesPermission =
-      permissions.includes('all_branches') ||
-      permissions.includes('manage_branches') ||
-      permissions.includes('view_all_branches') ||
-      permissions.includes('branches:all') ||
-      permissions.includes('custody:all_branches') ||
-      permissions.includes('*');
-
-    const isSuperAdmin = role === 'SUPER_ADMIN' || role === 'SUPERADMIN';
-
-    return isSuperAdmin || hasAllBranchesPermission;
+    // Only accounts without an assigned branch (branch_id == null) can switch branches
+    return true;
   }, [currentUser]);
 
   const canAddCustody = useMemo(() => {
@@ -297,9 +289,10 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
   }, []);
 
   const handlePressBranchSelector = useCallback(() => {
+    if (!canSwitchBranch) return;
     setMustSelectBranch(false);
     setShowBranchModal(true);
-  }, []);
+  }, [canSwitchBranch]);
 
   // Date Navigator Modal (Calendar Month Bottom sheet)
   const [showDatePickerModal, setShowDatePickerModal] = useState<boolean>(false);
@@ -446,36 +439,82 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
 
         const fetched = await fetchBranches();
         if (isMounted) {
-          setBranches(fetched);
+          if (!canSwitchBranch && userBranchId) {
+            const userOnly = fetched.filter(
+              (b) => b.id.toLowerCase() === userBranchId.toLowerCase()
+            );
+            setBranches(
+              userOnly.length > 0
+                ? userOnly
+                : [
+                    {
+                      id: userBranchId,
+                      name: currentUser?.branch_name || (userBranchId === '33b1e65f-074c-4c51-af38-32e13c1fb9a6' ? 'الفرع الثاني' : 'الفرع الأول'),
+                    },
+                  ]
+            );
+          } else {
+            setBranches(fetched);
+          }
         }
 
-        // 1. If user has an assigned branch (Single branch user):
-        if (userBranchId) {
-          const matchingBranch = fetched.find((b) => b.id === userBranchId);
-          const bName = matchingBranch?.name || currentUser?.branch_name || 'الفرع الأول';
-          if (activeBranch.id !== userBranchId || activeBranch.name !== bName) {
-            await setActiveBranch(userBranchId, bName);
+        // Prevent background profile refreshes from resetting active branch or closing open modal
+        if (branchesInitializedRef.current) {
+          return;
+        }
+
+        const stored = await loadActiveBranch();
+
+        // 1. If user is authorized to switch branches (multi-branch user):
+        if (canSwitchBranch) {
+          let chosenId = stored.id;
+          let chosenName = stored.name;
+
+          // If no stored branch yet, default to user's assigned branch or first available branch
+          if (!chosenId) {
+            chosenId = userBranchId || (fetched.length > 0 ? fetched[0].id : null);
+          }
+
+          if (chosenId) {
+            const matchingBranch = fetched.find((b) => b.id.toLowerCase() === chosenId!.toLowerCase());
+            chosenName = matchingBranch?.name || (chosenId === '33b1e65f-074c-4c51-af38-32e13c1fb9a6' ? 'الفرع الثاني' : 'الفرع الأول');
+            await setActiveBranch(chosenId, chosenName);
             if (isMounted) {
-              setActiveBranchState({ id: userBranchId, name: bName });
+              setActiveBranchState({ id: chosenId, name: chosenName });
               setMustSelectBranch(false);
-              setShowBranchModal(false);
+              branchesInitializedRef.current = true;
+            }
+          } else {
+            // Need user to pick a branch
+            if (isMounted) {
+              setMustSelectBranch(true);
+              setShowBranchModal(true);
+              branchesInitializedRef.current = true;
             }
           }
           return;
         }
 
-        // 2. For multi-branch users without a designated branch (Super Admins):
-        const stored = await loadActiveBranch();
+        // 2. Single-branch only user: strictly lock to user's assigned branch
+        if (userBranchId) {
+          const matchingBranch = fetched.find((b) => b.id.toLowerCase() === userBranchId.toLowerCase());
+          const bName = matchingBranch?.name || currentUser?.branch_name || (userBranchId === '33b1e65f-074c-4c51-af38-32e13c1fb9a6' ? 'الفرع الثاني' : 'الفرع الأول');
+          await setActiveBranch(userBranchId, bName);
+          if (isMounted) {
+            setActiveBranchState({ id: userBranchId, name: bName });
+            setMustSelectBranch(false);
+            setShowBranchModal(false);
+            branchesInitializedRef.current = true;
+          }
+          return;
+        }
+
+        // 3. Fallback for unassigned user
         if (stored.id) {
           if (isMounted && activeBranch.id !== stored.id) {
             setActiveBranchState(stored);
             setMustSelectBranch(false);
-          }
-        } else if (canSwitchBranch) {
-          // No branch stored yet: show bottom sheet modal to choose branch!
-          if (isMounted) {
-            setMustSelectBranch(true);
-            setShowBranchModal(true);
+            branchesInitializedRef.current = true;
           }
         }
       } catch (err) {
@@ -531,9 +570,22 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
     };
   }, [selectedDate, dateInitialized, activeBranch.id]);
 
+  const lastCustodyFetchRef = useRef<number>(0);
+  const isCustodyFetchingRef = useRef<boolean>(false);
+
   // 2. Fetch all days and logs for current date (Stale-While-Revalidate)
   const loadCustodyData = useCallback(
-    async (silent = false, targetBranchId?: string) => {
+    async (silent = false, targetBranchId?: string, force = false) => {
+      const now = Date.now();
+      if (!force && now - lastCustodyFetchRef.current < 15000 && days.length > 0) {
+        if (!silent) setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+      if (isCustodyFetchingRef.current) return;
+      isCustodyFetchingRef.current = true;
+      lastCustodyFetchRef.current = now;
+
       if (!silent && days.length === 0) {
         setLoading(true);
       }
@@ -541,7 +593,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       try {
         const [daysData, logsData] = await Promise.all([
           custodyService.getDays(bId),
-          custodyService.getLogs(selectedDate),
+          custodyService.getLogs(selectedDate, bId),
         ]);
         let finalDaysData = daysData;
         if (Array.isArray(daysData)) {
@@ -582,11 +634,12 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       } catch (err: any) {
         console.error('Error fetching custody data:', err);
       } finally {
+        isCustodyFetchingRef.current = false;
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [selectedDate, days.length, activeBranch.id]
+    [selectedDate, days.length, activeBranch.id, activeStoredLedger]
   );
 
   // Handler for selecting branch from modal
@@ -598,6 +651,18 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
       setActiveBranchState({ id: branch.id, name: branch.name });
       setDays([]);
       setDayLogs([]);
+
+      // Preload cached days for the newly selected branch if available
+      try {
+        const cachedDaysStr = await AsyncStorage.getItem(getDaysCacheKey(branch.id));
+        if (cachedDaysStr) {
+          const parsed = JSON.parse(cachedDaysStr);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDays(parsed);
+          }
+        }
+      } catch (_) {}
+
       loadCustodyData(false, branch.id);
     },
     [loadCustodyData]

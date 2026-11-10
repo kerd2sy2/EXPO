@@ -121,9 +121,11 @@ export const custodyService = {
   },
 
   // 6. Get logs
-  getLogs: async (date?: string): Promise<{ data: CustodyLogItem[]; total: number }> => {
+  getLogs: async (date?: string, branchId?: string): Promise<{ data: CustodyLogItem[]; total: number }> => {
     const t = Date.now();
-    const query = date ? `?date=${date}&limit=50&_t=${t}` : `?limit=50&_t=${t}`;
+    let query = `?limit=50&_t=${t}`;
+    if (date) query += `&date=${date}`;
+    if (branchId) query += `&branch_id=${branchId}`;
     const res = await apiRequest(`/custody/logs${query}`, { method: 'GET' });
     return {
       data: res?.data || [],

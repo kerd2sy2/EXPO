@@ -5,10 +5,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal,
-  Platform,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { ThemeColors } from '../../types/delegate';
 import { BranchItem } from '../../services/api';
 
@@ -33,6 +34,15 @@ export const AhdaBranchSelectorModal: React.FC<AhdaBranchSelectorModalProps> = (
   onSelectBranch,
   onClose,
 }) => {
+  const insets = useSafeAreaInsets();
+
+  const handleSelect = (branch: BranchItem) => {
+    try {
+      Haptics.selectionAsync();
+    } catch (_) {}
+    onSelectBranch(branch);
+  };
+
   return (
     <Modal
       visible={visible}
@@ -58,27 +68,32 @@ export const AhdaBranchSelectorModal: React.FC<AhdaBranchSelectorModalProps> = (
             {
               backgroundColor: colors.card,
               borderColor: colors.border,
-              zIndex: 10,
+              paddingBottom: Math.max(insets.bottom, 20) + 12,
             },
           ]}
         >
-          {/* Handle bar indicator */}
-          <View style={styles.sheetIndicator} />
+          {/* Drag Handle Indicator */}
+          <View style={[styles.sheetIndicator, { backgroundColor: isDarkMode ? '#475569' : '#cbd5e1' }]} />
 
           {/* Header */}
           <View style={styles.sheetHeader}>
             <View style={styles.titleGroup}>
-              <View style={[styles.headerIconCircle, { backgroundColor: isDarkMode ? '#1e293b' : '#ecfdf5' }]}>
+              <View
+                style={[
+                  styles.headerIconCircle,
+                  { backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5' },
+                ]}
+              >
                 <Ionicons name="business" size={20} color="#047857" />
               </View>
-              <View>
+              <View style={styles.titleTextCol}>
                 <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
-                  {mustSelect ? 'اختر الفرع للبدء' : 'تغيير فرع العهدة'}
+                  {mustSelect ? 'اختر الفرع للبدء' : 'تبديل فرع العهدة'}
                 </Text>
                 <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
                   {mustSelect
-                    ? 'يرجى تحديد الفرع أولاً لعزل حركات العهدة والمصروفات بدقة'
-                    : 'التبديل بين فروع المؤسسة المسجلة بالنظام'}
+                    ? 'يرجى تحديد الفرع لبدء إدارة حركات العهدة'
+                    : 'حدد الفرع لعرض وتسجيل حركات العهدة والمصروفات'}
                 </Text>
               </View>
             </View>
@@ -86,37 +101,26 @@ export const AhdaBranchSelectorModal: React.FC<AhdaBranchSelectorModalProps> = (
             {!mustSelect && (
               <TouchableOpacity
                 onPress={onClose}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.7}
+                style={[
+                  styles.closeBtn,
+                  { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' },
+                ]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close-circle-outline" size={26} color={colors.textSecondary} />
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
-          </View>
-
-          {/* Strict Isolation Notice Card */}
-          <View
-            style={[
-              styles.noticeCard,
-              {
-                backgroundColor: isDarkMode ? '#1e293b' : '#f0fdf4',
-                borderColor: isDarkMode ? '#065f46' : '#bbf7d0',
-              },
-            ]}
-          >
-            <Ionicons name="shield-checkmark" size={18} color="#047857" style={{ marginTop: 2 }} />
-            <Text style={[styles.noticeText, { color: isDarkMode ? '#86efac' : '#166534' }]}>
-              🔒 نظام العزل المالي التام: لن تختلط مبالغ ولا فواتير الفرع الأول مع الفرع الثاني تحت أي ظرف.
-            </Text>
           </View>
 
           {/* Branches List */}
           <ScrollView
             style={styles.branchesList}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={styles.branchesContent}
             showsVerticalScrollIndicator={false}
           >
             {branches.map((branch) => {
-              const isSelected = selectedBranchId === branch.id;
+              const isSelected = selectedBranchId?.toLowerCase() === branch.id.toLowerCase();
               return (
                 <TouchableOpacity
                   key={branch.id}
@@ -126,64 +130,81 @@ export const AhdaBranchSelectorModal: React.FC<AhdaBranchSelectorModalProps> = (
                       backgroundColor: isSelected
                         ? isDarkMode
                           ? '#064e3b'
-                          : '#ecfdf5'
+                          : '#f0fdf4'
                         : isDarkMode
                         ? '#1e293b'
-                        : '#ffffff',
-                      borderColor: isSelected ? '#047857' : colors.border,
+                        : '#f8fafc',
+                      borderColor: isSelected
+                        ? '#047857'
+                        : isDarkMode
+                        ? '#334155'
+                        : '#e2e8f0',
                       borderWidth: isSelected ? 2 : 1,
                     },
                   ]}
-                  activeOpacity={0.8}
-                  onPress={() => onSelectBranch(branch)}
+                  activeOpacity={0.75}
+                  onPress={() => handleSelect(branch)}
                 >
-                  <View style={styles.branchCardRight}>
-                    <View
-                      style={[
-                        styles.branchIconWrapper,
-                        {
-                          backgroundColor: isSelected
-                            ? '#047857'
-                            : isDarkMode
-                            ? '#334155'
-                            : '#f1f5f9',
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="storefront-outline"
-                        size={20}
-                        color={isSelected ? '#ffffff' : colors.textSecondary}
-                      />
-                    </View>
-                    <View style={styles.branchInfo}>
+                  {/* Left: Radio checkmark circle */}
+                  <View
+                    style={[
+                      styles.radioCircle,
+                      {
+                        borderColor: isSelected ? '#047857' : isDarkMode ? '#64748b' : '#cbd5e1',
+                        backgroundColor: isSelected ? '#047857' : 'transparent',
+                      },
+                    ]}
+                  >
+                    {isSelected && <Ionicons name="checkmark" size={14} color="#ffffff" />}
+                  </View>
+
+                  {/* Center: Branch Info */}
+                  <View style={styles.branchInfo}>
+                    <View style={styles.branchNameRow}>
                       <Text
                         style={[
                           styles.branchName,
                           {
-                            color: isSelected ? '#047857' : colors.textPrimary,
+                            color: isSelected ? (isDarkMode ? '#6ee7b7' : '#047857') : colors.textPrimary,
                             fontWeight: isSelected ? '800' : '700',
                           },
                         ]}
                       >
                         {branch.name}
                       </Text>
-                      <Text style={[styles.branchDesc, { color: colors.textSecondary }]}>
-                        سجلات العهدة، المصروفات، وباقي الأمس الخاص بالفرع
-                      </Text>
+                      {isSelected && (
+                        <View style={[styles.activeBadge, { backgroundColor: isDarkMode ? '#065f46' : '#dcfce7' }]}>
+                          <Text style={[styles.activeBadgeText, { color: isDarkMode ? '#a7f3d0' : '#15803d' }]}>
+                            الفرع الحالي
+                          </Text>
+                        </View>
+                      )}
                     </View>
+                    <Text style={[styles.branchDesc, { color: colors.textSecondary }]}>
+                      {isSelected
+                        ? 'يتم عرض وإدارة سجلات ومصروفات هذا الفرع الآن'
+                        : 'اضغط للتبديل والاطلاع على عهدة هذا الفرع'}
+                    </Text>
                   </View>
 
+                  {/* Right: Branch Icon */}
                   <View
                     style={[
-                      styles.radioCircle,
+                      styles.branchIconWrapper,
                       {
-                        borderColor: isSelected ? '#047857' : colors.border,
-                        backgroundColor: isSelected ? '#047857' : 'transparent',
+                        backgroundColor: isSelected
+                          ? '#047857'
+                          : isDarkMode
+                          ? '#334155'
+                          : '#e2e8f0',
                       },
                     ]}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={14} color="#ffffff" />}
+                    <Ionicons
+                      name="storefront"
+                      size={20}
+                      color={isSelected ? '#ffffff' : colors.textSecondary}
+                    />
                   </View>
                 </TouchableOpacity>
               );
@@ -207,28 +228,27 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    paddingTop: 10,
+    paddingTop: 12,
     paddingHorizontal: 20,
-    maxHeight: '80%',
+    maxHeight: '75%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowRadius: 14,
+    elevation: 12,
   },
   sheetIndicator: {
     width: 44,
     height: 5,
-    backgroundColor: '#cbd5e1',
     borderRadius: 3,
     alignSelf: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   sheetHeader: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 18,
   },
   titleGroup: {
     flexDirection: 'row-reverse',
@@ -237,11 +257,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  titleTextCol: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
   sheetTitle: {
     fontSize: 18,
@@ -254,63 +278,68 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'right',
   },
-  noticeCard: {
-    flexDirection: 'row-reverse',
-    alignItems: 'flex-start',
-    gap: 8,
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  noticeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 18,
-    flex: 1,
-    textAlign: 'right',
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   branchesList: {
-    marginTop: 4,
+    marginTop: 2,
+  },
+  branchesContent: {
+    paddingBottom: 8,
   },
   branchCard: {
     flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 18,
     marginBottom: 12,
   },
-  branchCardRight: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
   branchIconWrapper: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 12,
   },
   branchInfo: {
     flex: 1,
     alignItems: 'flex-end',
+    marginRight: 12,
+  },
+  branchNameRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
   },
   branchName: {
-    fontSize: 15,
-    marginBottom: 3,
+    fontSize: 16,
     textAlign: 'right',
+  },
+  activeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  activeBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   branchDesc: {
     fontSize: 11,
     textAlign: 'right',
+    lineHeight: 16,
   },
   radioCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
