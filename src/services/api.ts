@@ -421,7 +421,7 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit & { timeoutMs?: number; retries?: number } = {}
 ): Promise<T> {
-  const { timeoutMs = 30000, retries = 1, ...fetchOptions } = options;
+  const { timeoutMs = 12000, retries = 1, ...fetchOptions } = options;
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   let lastError: any = null;

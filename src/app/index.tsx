@@ -209,8 +209,15 @@ export default function DelegateApp() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [vehicles, setVehicles] = useState<VehicleItem[]>([]);
   const [loadingOperationsData, setLoadingOperationsData] = useState(false);
+  const lastOperationsFetchRef = useRef<number>(0);
 
-  const fetchOperationsData = useCallback(async (isSilent = false) => {
+  const fetchOperationsData = useCallback(async (isSilent = false, force = false) => {
+    const now = Date.now();
+    if (!force && now - lastOperationsFetchRef.current < 25000) {
+      return;
+    }
+    lastOperationsFetchRef.current = now;
+
     try {
       if (!isSilent) {
         setLoadingOperationsData(true);
@@ -239,7 +246,7 @@ export default function DelegateApp() {
       const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
       await Promise.all([
         supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
-        supervisorApi.getBranchSessions(500).then(setBranchSessions).catch(() => {}),
+        supervisorApi.getBranchSessions(300).then(setBranchSessions).catch(() => {}),
         supervisorApi.getDashboardStats(branchId).then((ds) => { if (ds) setServerDashboardStats(ds); }).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
@@ -252,7 +259,23 @@ export default function DelegateApp() {
     }
   }, [employee?.branch_id]);
 
-  const fetchSupervisorData = useCallback(async (isSilent = false) => {
+  const lastSupervisorFetchRef = useRef<number>(0);
+  const isSupervisorFetchingRef = useRef<boolean>(false);
+
+  const fetchSupervisorData = useCallback(async (isSilent = false, force = false) => {
+    const now = Date.now();
+    // Cache TTL: if fetched less than 25s ago and not forced, return immediately
+    if (!force && now - lastSupervisorFetchRef.current < 25000 && hasLoadedSupervisorInitialRef.current) {
+      if (!isSilent) {
+        setLoadingSupervisorData(false);
+      }
+      setIsInitialSupervisorLoading(false);
+      return;
+    }
+    if (isSupervisorFetchingRef.current) return;
+    isSupervisorFetchingRef.current = true;
+    lastSupervisorFetchRef.current = now;
+
     try {
       if (!isSilent) {
         setLoadingSupervisorData(true);
@@ -261,18 +284,23 @@ export default function DelegateApp() {
       // Stream state updates progressively as each API call finishes
       await Promise.all([
         supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
-        supervisorApi.getBranchSessions(500).then(setBranchSessions).catch(() => {}),
+        supervisorApi.getBranchSessions(300).then(setBranchSessions).catch(() => {}),
         supervisorApi.getDashboardStats(branchId).then((ds) => { if (ds) setServerDashboardStats(ds); }).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
         supervisorApi.getWorkingDelegates(branchId).then(setWorkingDelegates).catch(() => {}),
-        supervisorApi.getAllBranchDelegates(branchId).then(setBranchDelegates).catch(() => {}),
-        supervisorApi.getAllEmployees(branchId).then(setAllBranchEmployees).catch(() => {}),
+        supervisorApi.getAllBranchDelegates(branchId).then((emps) => {
+          if (Array.isArray(emps)) {
+            setBranchDelegates(emps);
+            setAllBranchEmployees(emps);
+          }
+        }).catch(() => {}),
         operationsApi.getVehicles(branchId).then(setVehicles).catch(() => {}),
       ]);
     } catch (e) {
       console.warn('[Eshraf] Error fetching supervisor data:', e);
     } finally {
+      isSupervisorFetchingRef.current = false;
       if (!isSilent) {
         setLoadingSupervisorData(false);
       }
@@ -600,7 +628,7 @@ export default function DelegateApp() {
       if (AppState.currentState === 'active' && !isTakingPhotoRef.current && employee?.id) {
         checkSession(true);
       }
-    }, 2500);
+    }, 60000);
 
     return () => {
       sub.remove();
@@ -836,9 +864,11 @@ export default function DelegateApp() {
           if (merged.motorcycle_number && activeSession) {
             setEnteredMotorcycle(merged.motorcycle_number);
           }
-          fetchActiveSession(merged.id);
-          fetchHistory(merged.id);
-          fetchViolations(merged.id);
+          if (!cached?.id || cached.id !== merged.id) {
+            fetchActiveSession(merged.id);
+            fetchHistory(merged.id);
+            fetchViolations(merged.id);
+          }
         }
       }).catch(async (err) => {
         console.log('Background session refresh notice:', err);
@@ -853,6 +883,10 @@ export default function DelegateApp() {
             message: 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.',
             primaryButtonText: 'حسناً',
           });
+        }
+      }).finally(() => {
+        if (!isSilentBackground) {
+          setLoading(false);
         }
       });
 
