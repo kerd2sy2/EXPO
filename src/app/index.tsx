@@ -245,12 +245,16 @@ export default function DelegateApp() {
       setLoadingApprovalsOnly(true);
       const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
       await Promise.all([
-        supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
-        supervisorApi.getBranchSessions(300).then(setBranchSessions).catch(() => {}),
-        supervisorApi.getDashboardStats(branchId).then((ds) => { if (ds) setServerDashboardStats(ds); }).catch(() => {}),
+        supervisorApi.getPendingSessions().then((sessions) => {
+          if (Array.isArray(sessions)) {
+            setPendingSessions(sessions);
+            AsyncStorage.setItem(CACHED_PENDING_SESSIONS_KEY, JSON.stringify(sessions)).catch(() => {});
+          }
+        }).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
-        operationsApi.getVehicles(branchId).then(setVehicles).catch(() => {}),
+        supervisorApi.getWorkingDelegates(branchId).then(setWorkingDelegates).catch(() => {}),
+        supervisorApi.getDashboardStats(branchId).then((ds) => { if (ds) setServerDashboardStats(ds); }).catch(() => {}),
       ]);
     } catch (e) {
       console.warn('[Eshraf] Error refreshing approvals only:', e);
@@ -262,17 +266,34 @@ export default function DelegateApp() {
   const lastSupervisorFetchRef = useRef<number>(0);
   const isSupervisorFetchingRef = useRef<boolean>(false);
 
+  // Cached pending sessions key for instant 0ms cold-start
+  const CACHED_PENDING_SESSIONS_KEY = '@aams_cached_pending_sessions';
+
+  // Load cached pending sessions on mount so Approvals tab never opens blank
+  useEffect(() => {
+    AsyncStorage.getItem(CACHED_PENDING_SESSIONS_KEY).then((raw) => {
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPendingSessions((prev) => (prev.length === 0 ? parsed : prev));
+          }
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
+
   const fetchSupervisorData = useCallback(async (isSilent = false, force = false) => {
     const now = Date.now();
-    // Cache TTL: if fetched less than 25s ago and not forced, return immediately
-    if (!force && now - lastSupervisorFetchRef.current < 25000 && hasLoadedSupervisorInitialRef.current) {
+    // Cache TTL: Only debounce non-forced background calls by 4 seconds (down from 25s!)
+    if (!force && now - lastSupervisorFetchRef.current < 4000 && hasLoadedSupervisorInitialRef.current) {
       if (!isSilent) {
         setLoadingSupervisorData(false);
       }
       setIsInitialSupervisorLoading(false);
       return;
     }
-    if (isSupervisorFetchingRef.current) return;
+    if (isSupervisorFetchingRef.current && !force) return;
     isSupervisorFetchingRef.current = true;
     lastSupervisorFetchRef.current = now;
 
@@ -281,14 +302,32 @@ export default function DelegateApp() {
         setLoadingSupervisorData(true);
       }
       const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
-      // Stream state updates progressively as each API call finishes
+
+      // Tier 1 (Ultra High Priority - Urgent < 200ms):
+      // Approvals, Active working delegates & Dashboard counters update instantly!
       await Promise.all([
-        supervisorApi.getPendingSessions().then(setPendingSessions).catch(() => {}),
-        supervisorApi.getBranchSessions(300).then(setBranchSessions).catch(() => {}),
-        supervisorApi.getDashboardStats(branchId).then((ds) => { if (ds) setServerDashboardStats(ds); }).catch(() => {}),
+        supervisorApi.getPendingSessions().then((sessions) => {
+          if (Array.isArray(sessions)) {
+            setPendingSessions(sessions);
+            AsyncStorage.setItem(CACHED_PENDING_SESSIONS_KEY, JSON.stringify(sessions)).catch(() => {});
+          }
+        }).catch(() => {}),
+        supervisorApi.getWorkingDelegates(branchId).then((working) => {
+          if (Array.isArray(working)) {
+            setWorkingDelegates(working);
+          }
+        }).catch(() => {}),
+        supervisorApi.getDashboardStats(branchId).then((ds) => {
+          if (ds) setServerDashboardStats(ds);
+        }).catch(() => {}),
+      ]);
+
+      // Tier 2 (Secondary / Background Data):
+      // Fetch branch history, employees roster, maintenance, investigations and vehicles
+      await Promise.all([
+        supervisorApi.getBranchSessions(150).then(setBranchSessions).catch(() => {}),
         supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
         supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
-        supervisorApi.getWorkingDelegates(branchId).then(setWorkingDelegates).catch(() => {}),
         supervisorApi.getAllBranchDelegates(branchId).then((emps) => {
           if (Array.isArray(emps)) {
             setBranchDelegates(emps);
@@ -524,9 +563,11 @@ export default function DelegateApp() {
     onSelectApprovalSession: (sessionId, employeeId) => {
       setTargetApprovalSessionId(sessionId || null);
       setTargetApprovalEmployeeId(employeeId || null);
-      fetchSupervisorData();
+      fetchSupervisorData(false, true);
     },
-    onRefreshSupervisor: fetchSupervisorData,
+    onRefreshSupervisor: () => {
+      fetchSupervisorData(true, true);
+    },
   });
 
   // Emergency Accident Shake Detection (Impact & Shake Sensor)
@@ -620,6 +661,10 @@ export default function DelegateApp() {
       if (nextAppState === 'active') {
         if (!isTakingPhotoRef.current) {
           checkSession(true);
+          if (employee?.id) {
+            // Immediately sync supervisor approvals, active delegates & stats when opening app
+            fetchSupervisorData(true, true);
+          }
         }
       }
     });
@@ -627,14 +672,16 @@ export default function DelegateApp() {
     const timer = setInterval(() => {
       if (AppState.currentState === 'active' && !isTakingPhotoRef.current && employee?.id) {
         checkSession(true);
+        // Periodic background pulse every 30s to keep ended shifts & approvals in live sync
+        fetchSupervisorData(true, true);
       }
-    }, 60000);
+    }, 30000);
 
     return () => {
       sub.remove();
       clearInterval(timer);
     };
-  }, [employee?.id]);
+  }, [employee?.id, fetchSupervisorData]);
 
 
 
@@ -954,7 +1001,7 @@ export default function DelegateApp() {
           fetchActiveSession(employee.id),
           fetchHistory(employee.id),
           fetchViolations(employee.id),
-          fetchSupervisorData(),
+          fetchSupervisorData(false, true),
           fetchOperationsData(),
         ]);
       } else {
@@ -975,6 +1022,9 @@ export default function DelegateApp() {
       const isInitial = !hasLoadedSupervisorInitialRef.current;
       hasLoadedSupervisorInitialRef.current = true;
 
+      // Always force-fetch when switching directly to Approvals or Dashboard so newly ended shifts appear with 0 delay
+      const shouldForce = currentTab === 'approvals' || currentTab === 'dashboard';
+
       if (
         currentTab === 'dashboard' ||
         currentTab === 'field' ||
@@ -988,7 +1038,7 @@ export default function DelegateApp() {
         currentTab === 'oil-change' ||
         currentTab === 'accident-report'
       ) {
-        fetchSupervisorData(!isInitial);
+        fetchSupervisorData(!isInitial, shouldForce);
       }
       if (
         currentTab === 'operations' ||
