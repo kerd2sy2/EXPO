@@ -19,6 +19,7 @@ import { DelegateWithStatus } from '../services/supervisor';
 import { VehicleItem, operationsApi } from '../services/operations';
 import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
 import { toEnglishDigits } from '@shared/utils/plateUtils';
+import * as Haptics from 'expo-haptics';
 
 export interface FleetOilScreenProps {
   vehicles: VehicleItem[];
@@ -30,6 +31,7 @@ export interface FleetOilScreenProps {
   onRefresh?: () => void;
   adminName?: string;
   onNavigateToTab?: (tab: TabType) => void;
+  onVehicleDispensed?: (vehicleId: string, currentKm: number) => void;
 }
 
 export const FleetOilScreen: React.FC<FleetOilScreenProps> = ({
@@ -41,13 +43,14 @@ export const FleetOilScreen: React.FC<FleetOilScreenProps> = ({
   loading = false,
   onRefresh,
   adminName = 'المشرف',
+  onVehicleDispensed,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleItem | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [dispensingVehicleId, setDispensingVehicleId] = useState<string | null>(null);
 
-  // Direct dispense handler
+  // Direct dispense handler with 0ms optimistic UI update
   const handleDirectDispense = useCallback(
     async (vehicle: VehicleItem, currKm: number) => {
       const plate = vehicle.plate_number || (vehicle as any).motorcycle_number || '';
@@ -60,33 +63,37 @@ export const FleetOilScreen: React.FC<FleetOilScreenProps> = ({
         return;
       }
 
+      const kmToSave = currKm || Number(vehicle.current_km) || 0;
+
+      // 1. Instant Optimistic State Update (0ms)
+      onVehicleDispensed?.(vehicle.id, kmToSave);
+
       try {
-        setDispensingVehicleId(vehicle.id);
-        await operationsApi.dispenseOil({
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      } catch {}
+
+      showBottomAlert({
+        type: 'success',
+        title: 'تم الصرف بنجاح',
+        message: `تم صرف جركن زيت وتسجيل غيار الزيت للدباب (${plate}) فوراً.`,
+      });
+
+      // 2. Background Dispatch with Offline Queue Resilience
+      operationsApi
+        .dispenseOil({
           motorcycleNumber: plate,
-          currentKm: currKm || Number(vehicle.current_km) || 0,
+          currentKm: kmToSave,
           quantity: 1,
           notes: `صرف زيت مباشر بواسطة ${adminName}`,
+        })
+        .then(() => {
+          onRefresh?.();
+        })
+        .catch((err: any) => {
+          console.warn('[FleetOilScreen handleDirectDispense] background notice:', err);
         });
-
-        showBottomAlert({
-          type: 'success',
-          title: 'تم الصرف بنجاح',
-          message: `تم صرف جركن زيت وتسجيل غيار الزيت للدباب (${plate}) بنجاح.`,
-        });
-
-        onRefresh?.();
-      } catch (err: any) {
-        showBottomAlert({
-          type: 'error',
-          title: 'فشل الصرف',
-          message: err?.response?.data?.error || err?.message || 'تعذر تسجيل صرف الزيت.',
-        });
-      } finally {
-        setDispensingVehicleId(null);
-      }
     },
-    [adminName, onRefresh]
+    [adminName, onRefresh, onVehicleDispensed]
   );
 
   // Form states for modal

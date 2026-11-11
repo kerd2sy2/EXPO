@@ -1,4 +1,5 @@
 import { apiRequest } from './api';
+import { offlineQueue } from './offlineQueue';
 
 export interface InventoryItem {
   id: string;
@@ -127,7 +128,7 @@ export const operationsApi = {
     }
   },
 
-  // 2. Dispense oil for a motorcycle and update vehicle KM
+  // 2. Dispense oil for a motorcycle and update vehicle KM (with offline queue resilience)
   dispenseOil: async (params: DispenseOilParams): Promise<any> => {
     const payload: Record<string, any> = {
       plate_number: params.motorcycleNumber.trim(),
@@ -139,10 +140,38 @@ export const operationsApi = {
       payload.item_id = params.oilItemId;
     }
 
-    return apiRequest('/inventory/dispense-oil', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+    try {
+      return await apiRequest('/inventory/dispense-oil', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        timeoutMs: 15000,
+        retries: 2,
+      });
+    } catch (err: any) {
+      const errMsg = (err?.message || '').toLowerCase();
+      const isNetwork =
+        err?.name === 'AbortError' ||
+        errMsg.includes('timeout') ||
+        errMsg.includes('تعذر الاتصال') ||
+        errMsg.includes('network') ||
+        errMsg.includes('failed');
+
+      if (isNetwork) {
+        console.warn('[dispenseOil] Network issue, enqueuing offline action:', payload);
+        await offlineQueue.enqueue({
+          url: '/inventory/dispense-oil',
+          method: 'POST',
+          body: payload,
+          actionType: 'OTHER',
+        });
+        return {
+          success: true,
+          offline: true,
+          message: 'تم حفظ صرف الزيت محلياً وستُرفع تلقائياً عند استقرار الاتصال',
+        };
+      }
+      throw err;
+    }
   },
 
   // 3. Get all vehicles in supervisor branch

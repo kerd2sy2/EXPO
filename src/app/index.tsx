@@ -91,7 +91,8 @@ import {
   VehicleItem,
   isVehicleOilDue,
 } from '../services/operations';
-import { getMyViolationsApi, DelegateViolation } from '../services/api';
+import { getMyViolationsApi, DelegateViolation, apiRequest } from '../services/api';
+import { offlineQueue } from '../services/offlineQueue';
 
 // Modals
 import { SuccessShiftModal } from '../components/modals/SuccessShiftModal';
@@ -205,15 +206,65 @@ export default function DelegateApp() {
   }, []);
 
 
-  // Operations & Fleet States
+  // Operations & Fleet States & Instant Local Storage Cache
+  const CACHED_VEHICLES_KEY = '@aams_cached_vehicles';
+  const CACHED_INVENTORY_KEY = '@aams_cached_inventory';
+
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [vehicles, setVehicles] = useState<VehicleItem[]>([]);
   const [loadingOperationsData, setLoadingOperationsData] = useState(false);
   const lastOperationsFetchRef = useRef<number>(0);
 
+  // Restore cached vehicles and inventory on mount for 0ms cold-start
+  useEffect(() => {
+    Promise.all([
+      AsyncStorage.getItem(CACHED_VEHICLES_KEY),
+      AsyncStorage.getItem(CACHED_INVENTORY_KEY),
+    ]).then(([rawVehicles, rawInventory]) => {
+      if (rawVehicles) {
+        try {
+          const parsedV = JSON.parse(rawVehicles);
+          if (Array.isArray(parsedV) && parsedV.length > 0) {
+            setVehicles((prev) => (prev.length === 0 ? parsedV : prev));
+          }
+        } catch {}
+      }
+      if (rawInventory) {
+        try {
+          const parsedI = JSON.parse(rawInventory);
+          if (Array.isArray(parsedI) && parsedI.length > 0) {
+            setInventoryItems((prev) => (prev.length === 0 ? parsedI : prev));
+          }
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Instant optimistic update when oil is dispensed: updates state and local storage in 0ms!
+  const handleVehicleDispensedOptimistic = useCallback((vehicleId: string, currentKm: number) => {
+    setVehicles((prev) => {
+      const nowIso = new Date().toISOString();
+      const updated = prev.map((v) => {
+        if (v.id === vehicleId) {
+          return {
+            ...v,
+            last_oil_change_km: currentKm,
+            last_oil_change_date: nowIso,
+            last_oil_change_at: nowIso,
+            oil_change_required: false,
+          };
+        }
+        return v;
+      });
+      AsyncStorage.setItem(CACHED_VEHICLES_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
+
   const fetchOperationsData = useCallback(async (isSilent = false, force = false) => {
     const now = Date.now();
-    if (!force && now - lastOperationsFetchRef.current < 25000) {
+    // Cache TTL: Only debounce non-forced background calls by 4 seconds (down from 25s!)
+    if (!force && now - lastOperationsFetchRef.current < 4000) {
       return;
     }
     lastOperationsFetchRef.current = now;
@@ -227,8 +278,14 @@ export default function DelegateApp() {
         operationsApi.getInventoryItems(),
         operationsApi.getVehicles(branchId),
       ]);
-      setInventoryItems(items);
-      setVehicles(vehs);
+      if (Array.isArray(items)) {
+        setInventoryItems(items);
+        AsyncStorage.setItem(CACHED_INVENTORY_KEY, JSON.stringify(items)).catch(() => {});
+      }
+      if (Array.isArray(vehs)) {
+        setVehicles(vehs);
+        AsyncStorage.setItem(CACHED_VEHICLES_KEY, JSON.stringify(vehs)).catch(() => {});
+      }
     } catch (e) {
       console.warn('[Eshraf] Error fetching operations data:', e);
     } finally {
@@ -664,6 +721,8 @@ export default function DelegateApp() {
           if (employee?.id) {
             // Immediately sync supervisor approvals, active delegates & stats when opening app
             fetchSupervisorData(true, true);
+            // Process any offline queued actions (e.g. oil dispenses, shift actions)
+            offlineQueue.processQueue(apiRequest).catch(() => {});
           }
         }
       }
@@ -674,6 +733,8 @@ export default function DelegateApp() {
         checkSession(true);
         // Periodic background pulse every 30s to keep ended shifts & approvals in live sync
         fetchSupervisorData(true, true);
+        // Background offline queue flush
+        offlineQueue.processQueue(apiRequest).catch(() => {});
       }
     }, 30000);
 
@@ -2481,6 +2542,7 @@ export default function DelegateApp() {
                 onRefresh={fetchOperationsData}
                 adminName={employee?.name || 'المشرف'}
                 onNavigateToTab={handleNavigateToTab}
+                onVehicleDispensed={handleVehicleDispensedOptimistic}
               />
             </ModuleErrorBoundary>
           </View>
@@ -2497,6 +2559,7 @@ export default function DelegateApp() {
                 onRefresh={fetchOperationsData}
                 adminName={employee?.name || 'المشرف'}
                 onNavigateToTab={handleNavigateToTab}
+                onVehicleDispensed={handleVehicleDispensedOptimistic}
               />
             </ModuleErrorBoundary>
           </View>

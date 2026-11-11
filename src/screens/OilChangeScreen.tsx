@@ -16,6 +16,7 @@ import { DelegateWithStatus } from '../services/supervisor';
 import { VehicleItem, isVehicleOilDue, operationsApi } from '../services/operations';
 import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
 import { toEnglishDigits } from '@shared/utils/plateUtils';
+import * as Haptics from 'expo-haptics';
 
 export interface OilChangeScreenProps {
   vehicles: VehicleItem[];
@@ -27,6 +28,7 @@ export interface OilChangeScreenProps {
   onRefresh?: () => void;
   adminName?: string;
   onNavigateToTab?: (tab: any) => void;
+  onVehicleDispensed?: (vehicleId: string, currentKm: number) => void;
 }
 
 export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
@@ -39,8 +41,11 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
   onRefresh,
   adminName = 'المشرف',
   onNavigateToTab,
+  onVehicleDispensed,
 }) => {
   const [dispensingVehicleId, setDispensingVehicleId] = useState<string | null>(null);
+  // Optimistic tracking: Vehicle IDs dispensed in this session disappear immediately (0ms)
+  const [dispensedVehicleIds, setDispensedVehicleIds] = useState<Set<string>>(new Set());
 
   // Map drivers by plate and key
   const { driverByPlate, driverByKey } = useMemo(() => {
@@ -57,12 +62,14 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
     return { driverByPlate: byPlate, driverByKey: byKey };
   }, [delegates]);
 
-  // Filter ONLY vehicles that require oil change
+  // Filter ONLY vehicles that require oil change AND haven't been dispensed in this session
   const oilDueVehicles = useMemo(() => {
-    return vehicles.filter((v) => isVehicleOilDue(v));
-  }, [vehicles]);
+    return vehicles
+      .filter((v) => !dispensedVehicleIds.has(v.id))
+      .filter((v) => isVehicleOilDue(v));
+  }, [vehicles, dispensedVehicleIds]);
 
-  // Direct oil dispense handler
+  // Direct oil dispense handler - 0ms instant optimistic update
   const handleDirectDispense = useCallback(
     async (vehicle: VehicleItem, currKm: number) => {
       const plate = vehicle.plate_number || (vehicle as any).motorcycle_number || '';
@@ -75,33 +82,39 @@ export const OilChangeScreen: React.FC<OilChangeScreenProps> = ({
         return;
       }
 
+      const kmToSave = currKm || Number(vehicle.current_km) || 0;
+
+      // 1. INSTANT OPTIMISTIC DISAPPEARANCE (0ms)
+      setDispensedVehicleIds((prev) => new Set(prev).add(vehicle.id));
+      onVehicleDispensed?.(vehicle.id, kmToSave);
+
       try {
-        setDispensingVehicleId(vehicle.id);
-        await operationsApi.dispenseOil({
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      } catch {}
+
+      showBottomAlert({
+        type: 'success',
+        title: 'تم صرف الزيت بنجاح',
+        message: `تم صرف جركن زيت وتسجيل غيار الزيت للدباب (${plate}) فوراً.`,
+      });
+
+      // 2. BACKGROUND SERVER SYNC & OFFLINE QUEUE
+      operationsApi
+        .dispenseOil({
           motorcycleNumber: plate,
-          currentKm: currKm || Number(vehicle.current_km) || 0,
+          currentKm: kmToSave,
           quantity: 1,
           notes: `صرف زيت مباشر من قائمة مستحقي الزيت بواسطة ${adminName}`,
+        })
+        .then(() => {
+          // Silent background sync without freezing UI
+          onRefresh?.();
+        })
+        .catch((err: any) => {
+          console.warn('[handleDirectDispense] background notice:', err);
         });
-
-        showBottomAlert({
-          type: 'success',
-          title: 'تم صرف الزيت بنجاح',
-          message: `تم صرف جركن زيت وتسجيل غيار الزيت للدباب (${plate}) بنجاح.`,
-        });
-
-        onRefresh?.();
-      } catch (err: any) {
-        showBottomAlert({
-          type: 'error',
-          title: 'فشل العملية',
-          message: err?.response?.data?.error || err?.message || 'تعذر تسجيل صرف الزيت.',
-        });
-      } finally {
-        setDispensingVehicleId(null);
-      }
     },
-    [adminName, onRefresh]
+    [adminName, onRefresh, onVehicleDispensed]
   );
 
   const renderVehicleCard = ({ item: v }: { item: VehicleItem }) => {
