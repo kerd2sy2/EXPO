@@ -81,6 +81,8 @@ export const custodyService = {
     const res = await apiRequest('/custody', {
       method: 'POST',
       body: JSON.stringify(payload),
+      timeoutMs: 30000,
+      retries: 2,
     });
     return res?.data || res;
   },
@@ -90,6 +92,8 @@ export const custodyService = {
     const res = await apiRequest('/custody/add-amount', {
       method: 'POST',
       body: JSON.stringify(payload),
+      timeoutMs: 30000,
+      retries: 2,
     });
     return res?.data || res;
   },
@@ -99,6 +103,8 @@ export const custodyService = {
     const res = await apiRequest(`/custody/${dayId}/expenses`, {
       method: 'POST',
       body: JSON.stringify(payload),
+      timeoutMs: 35000,
+      retries: 2,
     });
     return res?.data || res;
   },
@@ -108,6 +114,8 @@ export const custodyService = {
     const res = await apiRequest(`/custody/expenses/${expenseId}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
+      timeoutMs: 30000,
+      retries: 2,
     });
     return res?.data || res;
   },
@@ -116,6 +124,8 @@ export const custodyService = {
   deleteExpense: async (expenseId: string): Promise<CustodyDayData> => {
     const res = await apiRequest(`/custody/expenses/${expenseId}`, {
       method: 'DELETE',
+      timeoutMs: 25000,
+      retries: 2,
     });
     return res?.data || res;
   },
@@ -149,27 +159,35 @@ export const custodyService = {
     }
     const cleanUrl = `${API_BASE_URL}/upload`;
 
-    // 1. Native Android & iOS upload via expo-file-system
+    // 1. Native Android & iOS upload via expo-file-system (with 1 automatic retry on failure)
     if (Platform.OS !== 'web' && typeof FileSystem.uploadAsync === 'function') {
-      try {
-        const uploadResult = await FileSystem.uploadAsync(cleanUrl, uri, {
-          httpMethod: 'POST',
-          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-          fieldName: 'image',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+      let lastUploadErr: any = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const uploadResult = await FileSystem.uploadAsync(cleanUrl, uri, {
+            httpMethod: 'POST',
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            fieldName: 'image',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
 
-        if (uploadResult.status >= 200 && uploadResult.status < 300) {
-          const json = JSON.parse(uploadResult.body);
-          return json?.url || json?.file_url || json?.data?.url || json?.data?.file_url || '';
-        } else {
-          console.warn(`FileSystem upload failed (${uploadResult.status}):`, uploadResult.body);
-          throw new Error(`Upload failed (${uploadResult.status}): ${uploadResult.body}`);
+          if (uploadResult.status >= 200 && uploadResult.status < 300) {
+            const json = JSON.parse(uploadResult.body);
+            return json?.url || json?.file_url || json?.data?.url || json?.data?.file_url || '';
+          } else {
+            console.warn(`FileSystem upload failed (${uploadResult.status}):`, uploadResult.body);
+            throw new Error(`Upload failed (${uploadResult.status}): ${uploadResult.body}`);
+          }
+        } catch (nativeErr: any) {
+          lastUploadErr = nativeErr;
+          if (attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            continue;
+          }
         }
-      } catch (nativeErr: any) {
-        console.error('FileSystem.uploadAsync error:', nativeErr);
-        throw nativeErr;
       }
+      console.error('FileSystem.uploadAsync error after retry:', lastUploadErr);
+      throw lastUploadErr;
     }
 
     // 2. Web fallback

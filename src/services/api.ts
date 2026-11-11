@@ -673,7 +673,8 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit & { timeoutMs?: number; retries?: number } = {}
 ): Promise<T> {
-  const { timeoutMs = 12000, retries = 1, ...fetchOptions } = options;
+  // Resilient mobile networking: 22s timeout, 2 automatic retries with backoff
+  const { timeoutMs = 22000, retries = 2, ...fetchOptions } = options;
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   let lastError: any = null;
@@ -775,8 +776,9 @@ export async function apiRequest<T = any>(
         errMsg.includes('network request failed');
 
       if (attempt < retries && isNetworkOrAbort) {
-        // Brief pause before retry
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        // Smart progressive backoff: 800ms on first retry, 1600ms on second retry
+        const backoffMs = (attempt + 1) * 800;
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
         continue;
       }
 
