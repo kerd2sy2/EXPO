@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   StatusBar,
   Dimensions,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,8 +23,8 @@ export interface HumanVerificationScreenProps {
   isDarkMode: boolean;
   appName: string;
   isRTL?: boolean;
-  lang?: Language | VerificationLanguage;
-  onSetLang?: (lang: Language | VerificationLanguage) => void;
+  lang?: Language | VerificationLanguage | string;
+  onSetLang?: (lang: any) => void;
   onVerify: () => Promise<void>;
   onBack?: () => void;
 }
@@ -44,8 +43,6 @@ export const verificationTranslations: Record<
     genericError: string;
     permissionError: string;
     back: string;
-    selectLanguage: string;
-    cancel: string;
   }
 > = {
   ar: {
@@ -60,8 +57,6 @@ export const verificationTranslations: Record<
     genericError: 'فشل تسجيل الدخول، يرجى التأكد من صحة البيانات',
     permissionError: 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة',
     back: 'رجوع',
-    selectLanguage: 'اختر اللغة',
-    cancel: 'إلغاء',
   },
   en: {
     title: 'Human Verification',
@@ -75,8 +70,6 @@ export const verificationTranslations: Record<
     genericError: 'Sign in failed, please check your credentials',
     permissionError: 'You do not have access permission for this app, please contact administration',
     back: 'Back',
-    selectLanguage: 'Select Language',
-    cancel: 'Cancel',
   },
   ur: {
     title: 'انسانی تصدیق',
@@ -90,8 +83,6 @@ export const verificationTranslations: Record<
     genericError: 'لاگ ان ناکام رہا، براہ کرم معلومات کی درستگی چیک کریں',
     permissionError: 'آپ کے پاس اس ایپ تک رسائی کی اجازت نہیں ہے، براہ کرم انتظامیہ سے رابطہ کریں',
     back: 'واپس',
-    selectLanguage: 'زبان منتخب کریں',
-    cancel: 'منسوخ کریں',
   },
   bn: {
     title: 'মানুষ যাচাইকরণ',
@@ -105,8 +96,6 @@ export const verificationTranslations: Record<
     genericError: 'সাইন ইন ব্যর্থ হয়েছে, অনুগ্রহ করে তথ্য সঠিক কিনা পরীক্ষা করুন',
     permissionError: 'আপনার এই অ্যাপে প্রবেশের অনুমতি নেই, অনুগ্রহ করে প্রশাসনের সাথে যোগাযোগ করুন',
     back: 'ফিরে যান',
-    selectLanguage: 'ভাষা নির্বাচন করুন',
-    cancel: 'বাতিল',
   },
 };
 
@@ -147,13 +136,6 @@ export const getLocalizedAppName = (rawName: string, lang: VerificationLanguage)
   return rawName;
 };
 
-const LANGUAGES_LIST: { code: VerificationLanguage; name: string; nativeName: string; flag: string }[] = [
-  { code: 'ar', name: 'Arabic', nativeName: 'العربية', flag: '🇸🇦' },
-  { code: 'en', name: 'English', nativeName: 'English', flag: '🇬🇧' },
-  { code: 'ur', name: 'Urdu', nativeName: 'اردو', flag: '🇵🇰' },
-  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', flag: '🇧🇩' },
-];
-
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TRACK_WIDTH = Math.min(SCREEN_WIDTH - 48, 330);
 const KNOB_SIZE = 50;
@@ -165,21 +147,19 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
   appName,
   isRTL: propIsRTL,
   lang: propLang,
-  onSetLang,
   onVerify,
   onBack,
 }) => {
   const [currentLang, setCurrentLang] = useState<VerificationLanguage>(
     (propLang as VerificationLanguage) || (propIsRTL ? 'ar' : 'ar')
   );
-  const [showLangModal, setShowLangModal] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Sync propLang if it changes externally
   useEffect(() => {
-    if (propLang && ['ar', 'en', 'ur', 'bn'].includes(propLang)) {
+    if (propLang && ['ar', 'en', 'ur', 'bn'].includes(propLang as string)) {
       setCurrentLang(propLang as VerificationLanguage);
     }
   }, [propLang]);
@@ -203,20 +183,6 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
   const isRTL = currentLang === 'ar' || currentLang === 'ur';
   const t = verificationTranslations[currentLang] || verificationTranslations.ar;
   const localizedAppName = getLocalizedAppName(appName, currentLang);
-  const currentLangItem = useMemo(
-    () => LANGUAGES_LIST.find((l) => l.code === currentLang) || LANGUAGES_LIST[0],
-    [currentLang]
-  );
-
-  const handleSelectLanguage = async (newLang: VerificationLanguage) => {
-    setCurrentLang(newLang);
-    setShowLangModal(false);
-    onSetLang?.(newLang as any);
-    try {
-      await AsyncStorage.setItem('@aams_app_language', newLang);
-      await AsyncStorage.setItem('aams_app_language', newLang);
-    } catch (_) {}
-  };
 
   // Mutable refs to prevent stale closures and block multi-triggers / freeze
   const isProcessingRef = useRef(false);
@@ -371,9 +337,9 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Top Header Bar: Back & Language Switcher */}
-      <View style={[styles.topNavRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        {onBack ? (
+      {/* Top Header Bar: Back Button */}
+      {onBack && (
+        <View style={[styles.topNavRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <TouchableOpacity
             onPress={onBack}
             style={[
@@ -385,42 +351,19 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
               },
             ]}
             activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons
               name={isRTL ? 'arrow-forward' : 'arrow-back'}
-              size={16}
+              size={18}
               color={colors.textPrimary}
             />
             <Text style={[styles.navBtnText, { color: colors.textPrimary }]}>
               {t.back}
             </Text>
           </TouchableOpacity>
-        ) : (
-          <View style={{ width: 40 }} />
-        )}
-
-        {/* Language Switcher Pill */}
-        <TouchableOpacity
-          onPress={() => setShowLangModal(true)}
-          style={[
-            styles.langPill,
-            {
-              backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-              borderColor: isDarkMode ? '#334155' : '#e2e8f0',
-              flexDirection: isRTL ? 'row-reverse' : 'row',
-            },
-          ]}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="globe-outline" size={15} color={colors.primary} />
-          <Text style={[styles.langPillText, { color: colors.textPrimary }]}>
-            {currentLangItem?.flag} {currentLangItem?.nativeName}
-          </Text>
-          <Ionicons name="chevron-down" size={13} color={colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
+        </View>
+      )}
 
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         {/* Upper Section: Lottie Animation */}
@@ -567,102 +510,6 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
           </Text>
         </View>
       </Animated.View>
-
-      {/* Language Selection Bottom Sheet Modal */}
-      <Modal
-        visible={showLangModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLangModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowLangModal(false)}
-        >
-          <View
-            style={[
-              styles.modalSheet,
-              {
-                backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <View style={styles.modalHeaderRow}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                {t.selectLanguage}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowLangModal(false)}
-                style={styles.modalCloseBtn}
-              >
-                <Ionicons name="close" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.langList}>
-              {LANGUAGES_LIST.map((langItem) => {
-                const isSelected = currentLang === langItem.code;
-                return (
-                  <TouchableOpacity
-                    key={langItem.code}
-                    onPress={() => handleSelectLanguage(langItem.code)}
-                    style={[
-                      styles.langOptionBtn,
-                      {
-                        backgroundColor: isSelected
-                          ? `${colors.primary}15`
-                          : isDarkMode
-                          ? '#0f172a'
-                          : '#f8fafc',
-                        borderColor: isSelected ? colors.primary : colors.border,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.langOptionLeft}>
-                      <Text style={styles.langFlag}>{langItem.flag}</Text>
-                      <View>
-                        <Text
-                          style={[
-                            styles.langNativeText,
-                            {
-                              color: isSelected ? colors.primary : colors.textPrimary,
-                              fontWeight: isSelected ? '700' : '600',
-                            },
-                          ]}
-                        >
-                          {langItem.nativeName}
-                        </Text>
-                        <Text style={[styles.langSubText, { color: colors.textSecondary }]}>
-                          {langItem.name}
-                        </Text>
-                      </View>
-                    </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <TouchableOpacity
-              onPress={() => setShowLangModal(false)}
-              style={[
-                styles.modalCancelBtn,
-                { backgroundColor: isDarkMode ? '#334155' : '#f1f5f9' },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.modalCancelText, { color: colors.textPrimary }]}>
-                {t.cancel}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -675,32 +522,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 4,
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   navBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     gap: 6,
   },
   navBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-  },
-  langPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  langPillText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   container: {
     flex: 1,
@@ -820,67 +654,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     textAlign: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    padding: 24,
-    paddingBottom: 36,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  modalCloseBtn: {
-    padding: 4,
-  },
-  langList: {
-    gap: 10,
-    marginBottom: 16,
-  },
-  langOptionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
-  },
-  langOptionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  langFlag: {
-    fontSize: 24,
-  },
-  langNativeText: {
-    fontSize: 15,
-  },
-  langSubText: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  modalCancelBtn: {
-    paddingVertical: 13,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontSize: 14,
-    fontWeight: '700',
   },
 });
