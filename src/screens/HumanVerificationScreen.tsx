@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Animated,
   PanResponder,
-  TouchableOpacity,
   ActivityIndicator,
   StatusBar,
   Dimensions,
@@ -38,11 +37,9 @@ export const verificationTranslations: Record<
     verifying: string;
     verified: string;
     trustFooter: string;
-    editCredentials: string;
     timeoutError: string;
     genericError: string;
     permissionError: string;
-    back: string;
   }
 > = {
   ar: {
@@ -52,11 +49,9 @@ export const verificationTranslations: Record<
     verifying: 'جاري التحقق وتسجيل الدخول...',
     verified: 'تم التحقق بنجاح',
     trustFooter: 'نظام حماية أمني مشفر ومحمي ضد برامج التخمين الآلية',
-    editCredentials: 'تعديل البيانات',
     timeoutError: 'انتهت مهلة الاتصال بالخادم، يرجى المحاولة مجدداً',
     genericError: 'فشل تسجيل الدخول، يرجى التأكد من صحة البيانات',
     permissionError: 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة',
-    back: 'رجوع',
   },
   en: {
     title: 'Human Verification',
@@ -65,11 +60,9 @@ export const verificationTranslations: Record<
     verifying: 'Verifying and signing in...',
     verified: 'Verified successfully',
     trustFooter: 'Encrypted security system protected against automated bots',
-    editCredentials: 'Edit Credentials',
     timeoutError: 'Server connection timed out, please try again',
     genericError: 'Sign in failed, please check your credentials',
     permissionError: 'You do not have access permission for this app, please contact administration',
-    back: 'Back',
   },
   ur: {
     title: 'انسانی تصدیق',
@@ -78,11 +71,9 @@ export const verificationTranslations: Record<
     verifying: 'تصدیق اور لاگ ان ہو رہا ہے...',
     verified: 'کامیابی سے تصدیق ہو گئی',
     trustFooter: 'خودکار بوٹس کے خلاف محفوظ اور انکرپٹڈ سیکیورٹی سسٹم',
-    editCredentials: 'معلومات تبدیل کریں',
     timeoutError: 'سرور کنکشن کا وقت ختم ہو گیا، براہ کرم دوبارہ کوشش کریں',
     genericError: 'لاگ ان ناکام رہا، براہ کرم معلومات کی درستگی چیک کریں',
     permissionError: 'آپ کے پاس اس ایپ تک رسائی کی اجازت نہیں ہے، براہ کرم انتظامیہ سے رابطہ کریں',
-    back: 'واپس',
   },
   bn: {
     title: 'মানুষ যাচাইকরণ',
@@ -91,11 +82,9 @@ export const verificationTranslations: Record<
     verifying: 'যাচাই এবং সাইন ইন করা হচ্ছে...',
     verified: 'সফলভাবে যাচাই করা হয়েছে',
     trustFooter: 'স্বয়ংক্রিয় বট থেকে সুরক্ষিত এনক্রিপ্ট করা নিরাপত্তা ব্যবস্থা',
-    editCredentials: 'তথ্য পরিবর্তন করুন',
     timeoutError: 'সার্ভার সংযোগের সময় শেষ, অনুগ্রহ করে আবার চেষ্টা করুন',
     genericError: 'সাইন ইন ব্যর্থ হয়েছে, অনুগ্রহ করে তথ্য সঠিক কিনা পরীক্ষা করুন',
     permissionError: 'আপনার এই অ্যাপে প্রবেশের অনুমতি নেই, অনুগ্রহ করে প্রশাসনের সাথে যোগাযোগ করুন',
-    back: 'ফিরে যান',
   },
 };
 
@@ -105,7 +94,7 @@ export const getLocalizedAppName = (rawName: string, lang: VerificationLanguage)
     switch (lang) {
       case 'en': return 'Supervision';
       case 'ur': return 'نگرانی';
-      case 'bn': return 'তত্ত্বাবধান';
+      case 'bn': return 'তত্ত্বابধান';
       default: return 'الإشراف';
     }
   }
@@ -148,7 +137,6 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
   isRTL: propIsRTL,
   lang: propLang,
   onVerify,
-  onBack,
 }) => {
   const [currentLang, setCurrentLang] = useState<VerificationLanguage>(
     (propLang as VerificationLanguage) || (propIsRTL ? 'ar' : 'ar')
@@ -337,34 +325,6 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Top Header Bar: Back Button */}
-      {onBack && (
-        <View style={[styles.topNavRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity
-            onPress={onBack}
-            style={[
-              styles.navBtn,
-              {
-                backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-                borderColor: isDarkMode ? '#334155' : '#e2e8f0',
-                flexDirection: isRTL ? 'row-reverse' : 'row',
-              },
-            ]}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name={isRTL ? 'arrow-forward' : 'arrow-back'}
-              size={18}
-              color={colors.textPrimary}
-            />
-            <Text style={[styles.navBtnText, { color: colors.textPrimary }]}>
-              {t.back}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         {/* Upper Section: Lottie Animation */}
         <View style={styles.animationSection}>
@@ -390,7 +350,7 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
             {t.subtitle(localizedAppName)}
           </Text>
 
-          {/* Error Banner with back button to edit credentials if failed */}
+          {/* Error Banner if failed */}
           {errorMessage ? (
             <View
               style={[
@@ -407,22 +367,6 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
                   {errorMessage}
                 </Text>
               </View>
-              {onBack ? (
-                <TouchableOpacity
-                  onPress={onBack}
-                  style={[styles.errorBackBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.errorBackBtnText, { color: colors.primary }]}>
-                    {t.editCredentials}
-                  </Text>
-                  <Ionicons
-                    name={isRTL ? 'arrow-forward' : 'arrow-back'}
-                    size={13}
-                    color={colors.primary}
-                  />
-                </TouchableOpacity>
-              ) : null}
             </View>
           ) : null}
 
@@ -518,29 +462,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  topNavRow: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  navBtn: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  navBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
   container: {
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
+    paddingTop: 16,
     paddingBottom: 20,
   },
   animationSection: {
@@ -591,19 +518,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 18,
-  },
-  errorBackBtn: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
-    marginTop: 8,
-    paddingTop: 6,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#fca5a550',
-  },
-  errorBackBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
   },
   sliderSection: {
     alignItems: 'center',
