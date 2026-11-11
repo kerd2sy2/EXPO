@@ -250,6 +250,7 @@ export default function DelegateApp() {
     handleProcessPlateScan,
     handleStartShift,
     handleEndShift,
+    handleCheckEndKmDistance,
   } = useShiftController({
     employee,
     setEmployee,
@@ -838,6 +839,7 @@ export default function DelegateApp() {
                   isScanningPlate={isScanningPlate}
                   onStartShift={handleStartShift}
                   onEndShift={handleEndShift}
+                  onCheckHighDistance={handleCheckEndKmDistance}
                   activeBikeRegistrationImage={activeBikeRegistrationImage}
                   needsOilChange={needsOilChange}
                   onOpenOilChangeModal={() =>

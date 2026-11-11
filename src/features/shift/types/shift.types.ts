@@ -34,6 +34,7 @@ export interface ShiftScreenProps {
   isScanningPlate?: boolean;
   onStartShift: () => Promise<void>;
   onEndShift: () => Promise<void>;
+  onCheckHighDistance?: (val?: string) => void;
   activeBikeRegistrationImage?: string | null;
   needsOilChange?: boolean;
   onOpenOilChangeModal?: () => void;

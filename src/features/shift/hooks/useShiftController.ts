@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -532,6 +532,89 @@ export function useShiftController({
     }
   };
 
+  const confirmedHighDistanceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    confirmedHighDistanceRef.current = null;
+  }, [endKm]);
+
+  const getDistanceAlertMsg = (dist: number) => {
+    switch (lang) {
+      case 'en':
+        return `You entered the odometer reading incorrectly, did you really travel ${dist} km?`;
+      case 'ur':
+        return `آپ نے اوڈومیٹر غلط درج کیا ہے، کیا آپ نے واقعی ${dist} کلومیٹر کا فاصلہ طے کیا ہے؟`;
+      case 'bn':
+        return `আপনি ওডোমিটার ভুল লিখেছেন, আপনি কি সত্যিই ${dist} কিমি পথ অতিক্রম করেছেন?`;
+      default:
+        return `لقد كتبت العداد خطأ، هل أنت قطعت ${dist} كم؟`;
+    }
+  };
+
+  const getDistanceAlertTitle = () => {
+    switch (lang) {
+      case 'en':
+        return 'Odometer Reading Alert';
+      case 'ur':
+        return 'اوڈومیٹر ریڈنگ الرٹ';
+      case 'bn':
+        return 'ওডোমিটার সতর্কতা';
+      default:
+        return 'تنبيه في قراءة العداد';
+    }
+  };
+
+  const getConfirmBtnText = (dist: number) => {
+    switch (lang) {
+      case 'en':
+        return `Yes, traveled ${dist} km`;
+      case 'ur':
+        return `ہاں، میں نے ${dist} کلومیٹر سفر کیا`;
+      case 'bn':
+        return `হ্যাঁ, ${dist} কিমি গিয়েছি`;
+      default:
+        return `نعم، قطعت ${dist} كم`;
+    }
+  };
+
+  const getEditBtnText = () => {
+    switch (lang) {
+      case 'en':
+        return 'Edit Odometer';
+      case 'ur':
+        return 'اوڈومیٹر تبدیل کریں';
+      case 'bn':
+        return 'ওডোমিটার সংশোধন করুন';
+      default:
+        return 'تعديل العداد';
+    }
+  };
+
+  const handleCheckEndKmDistance = (rawEndKm?: string) => {
+    const val = rawEndKm !== undefined ? Number(rawEndKm) : Number(endKm);
+    const startVal = Number(activeSession?.start_km || 0);
+    const isExempt = isOdometerBroken || (startVal === 0 && !activeSession?.start_km_image);
+    if (isExempt || isNaN(val) || val <= startVal) return;
+
+    const dist = val - startVal;
+    if (dist > 600 && confirmedHighDistanceRef.current !== dist) {
+      setAlertConfig({
+        type: 'confirm',
+        title: getDistanceAlertTitle(),
+        message: getDistanceAlertMsg(dist),
+        primaryButtonText: getConfirmBtnText(dist),
+        secondaryButtonText: getEditBtnText(),
+        onPrimaryPress: () => {
+          confirmedHighDistanceRef.current = dist;
+          setAlertConfig(null);
+        },
+        onSecondaryPress: () => {
+          setAlertConfig(null);
+        },
+      });
+    }
+  };
+
   const handleEndShift = async () => {
     if (!employee || !activeSession) return;
 
@@ -562,6 +645,40 @@ export function useShiftController({
             lang === 'ar'
               ? `عداد النهاية (${endVal}) لا يمكن أن يكون أقل من عداد البداية (${startVal})`
               : `End KM (${endVal}) cannot be less than Start KM (${startVal})`,
+        });
+        return;
+      }
+
+      if (distanceVal > 600 && confirmedHighDistanceRef.current !== distanceVal) {
+        setAlertConfig({
+          type: 'confirm',
+          title: getDistanceAlertTitle(),
+          message: getDistanceAlertMsg(distanceVal),
+          primaryButtonText: getConfirmBtnText(distanceVal),
+          secondaryButtonText: getEditBtnText(),
+          onPrimaryPress: () => {
+            confirmedHighDistanceRef.current = distanceVal;
+            if (countVal < 1) {
+              setAlertConfig({
+                type: 'confirm',
+                title: lang === 'ar' ? 'تأكيد عدد الطلبات' : 'Confirm Orders Count',
+                message:
+                  lang === 'ar'
+                    ? 'هل أنت متأكد أن عدد الطلبات هو 0؟'
+                    : 'Are you sure the orders count is 0?',
+                primaryButtonText: lang === 'ar' ? 'نعم، تأكيد إنهاء الدوام' : 'Yes, End Shift',
+                secondaryButtonText: lang === 'ar' ? 'تعديل عدد الطلبات' : 'Edit Orders',
+                onPrimaryPress: () => {
+                  proceedEndShift(endVal, distanceVal, countVal, fuelVal, photoUri, isExemptOdometer);
+                },
+              });
+              return;
+            }
+            proceedEndShift(endVal, distanceVal, countVal, fuelVal, photoUri, isExemptOdometer);
+          },
+          onSecondaryPress: () => {
+            setAlertConfig(null);
+          },
         });
         return;
       }
@@ -608,6 +725,7 @@ export function useShiftController({
     handleProcessPlateScan,
     handleStartShift,
     handleEndShift,
+    handleCheckEndKmDistance,
   };
 }
 

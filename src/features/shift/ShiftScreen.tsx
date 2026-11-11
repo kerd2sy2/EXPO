@@ -37,6 +37,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
   onScanPlate,
   onStartShift,
   onEndShift,
+  onCheckHighDistance,
   activeBikeRegistrationImage,
   needsOilChange,
   onOpenOilChangeModal,
@@ -169,6 +170,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
               submitting={submitting}
               onTakeOdometerPhoto={onTakeOdometerPhoto}
               onEndShift={onEndShift}
+              onCheckHighDistance={onCheckHighDistance}
               onPreviewPhoto={onPreviewPhoto}
               onScrollToInput={onScrollToInput}
               colors={colors}

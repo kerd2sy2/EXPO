@@ -28,6 +28,7 @@ interface EndShiftSectionProps {
   submitting: boolean;
   onTakeOdometerPhoto: (type: 'start' | 'end') => Promise<void>;
   onEndShift: () => Promise<void>;
+  onCheckHighDistance?: (val?: string) => void;
   onPreviewPhoto: (photo: PreviewPhotoData) => void;
   onScrollToInput?: (yOffset: number) => void;
   colors: ThemeColors;
@@ -53,6 +54,7 @@ export const EndShiftSection: React.FC<EndShiftSectionProps> = ({
   submitting,
   onTakeOdometerPhoto,
   onEndShift,
+  onCheckHighDistance,
   onPreviewPhoto,
   onScrollToInput,
   colors,
@@ -108,7 +110,11 @@ export const EndShiftSection: React.FC<EndShiftSectionProps> = ({
               }}
               keyboardType="numeric"
               returnKeyType="next"
-              onSubmitEditing={() => ordersInputRef.current?.focus()}
+              onBlur={() => onCheckHighDistance?.(endKm)}
+              onSubmitEditing={() => {
+                onCheckHighDistance?.(endKm);
+                ordersInputRef.current?.focus();
+              }}
               onFocus={() => onScrollToInput?.(40)}
             />
             <View style={[styles.unitBadge, { backgroundColor: colors.primaryLight }]}>
@@ -117,10 +123,31 @@ export const EndShiftSection: React.FC<EndShiftSectionProps> = ({
           </View>
 
           {calculatedDistance > 0 && (
-            <View style={[styles.distanceBadge, { backgroundColor: 'rgba(56, 189, 248, 0.12)', borderColor: '#38bdf8', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Ionicons name="navigate-circle" size={16} color="#0284c7" />
-              <Text style={[styles.distanceBadgeText, { color: isDarkMode ? '#38bdf8' : '#0369a1' }]}>
+            <View
+              style={[
+                styles.distanceBadge,
+                {
+                  backgroundColor: calculatedDistance > 600
+                    ? (isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2')
+                    : 'rgba(56, 189, 248, 0.12)',
+                  borderColor: calculatedDistance > 600 ? '#ef4444' : '#38bdf8',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+            >
+              <Ionicons
+                name={calculatedDistance > 600 ? 'alert-circle' : 'navigate-circle'}
+                size={16}
+                color={calculatedDistance > 600 ? '#ef4444' : '#0284c7'}
+              />
+              <Text
+                style={[
+                  styles.distanceBadgeText,
+                  { color: calculatedDistance > 600 ? '#ef4444' : isDarkMode ? '#38bdf8' : '#0369a1' },
+                ]}
+              >
                 {t.calculatedDistLabel || (isRTL ? 'المسافة المقطوعة المحسوبة' : 'Calculated Distance')}: {calculatedDistance} {t.km || 'كم'}
+                {calculatedDistance > 600 ? (isRTL ? ' (أكبر من 600 كم)' : ' (> 600 km)') : ''}
               </Text>
             </View>
           )}
