@@ -27,6 +27,7 @@ import { IdentifierPerformance } from '../types/target';
 import { toEnglishDigits } from '@shared/utils/plateUtils';
 import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
 import { DatePickerBottomSheet } from '../components/modals/DatePickerBottomSheet';
+import * as Haptics from 'expo-haptics';
 
 interface ApprovalsScreenProps {
   pendingSessions: WorkSession[];
@@ -42,6 +43,9 @@ interface ApprovalsScreenProps {
   targetSessionId?: string | null;
   targetEmployeeId?: string | null;
   onClearTargetSession?: () => void;
+  onSessionApproved?: (sessionId: string) => void;
+  onAdvanceDecision?: (advanceId: string) => void;
+  onMaintenanceDecision?: (maintenanceId: string) => void;
 }
 
 const formatTimeOnly = (iso?: string) => {
@@ -141,7 +145,13 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   targetSessionId,
   targetEmployeeId,
   onClearTargetSession,
+  onSessionApproved,
+  onAdvanceDecision,
+  onMaintenanceDecision,
 }) => {
+  // Optimistic review tracking: Approved sessions disappear instantly in 0ms without freezing buttons
+  const [approvedSessionIds, setApprovedSessionIds] = useState<Set<string>>(new Set());
+
   // Active review modal state
   const [selectedSession, setSelectedSession] = useState<WorkSession | null>(null);
   const [editedOrders, setEditedOrders] = useState('');
@@ -283,16 +293,17 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
     });
   }, [allIdentifiers, employees, identifierAppFilter, identifierSearchText]);
 
-  // Filter ONLY completed shifts and sort descending by end_time (newest finished first)
+  // Filter ONLY completed shifts and sort descending by end_time (newest finished first), excluding optimistically approved
   const sortedCompletedPendingSessions = useMemo(() => {
     return pendingSessions
-      .filter((s) => s.status === 'COMPLETED' && Boolean(s.end_time))
+      .filter((s) => !approvedSessionIds.has(s.id))
+      .filter((s) => (s.status === 'COMPLETED' || (s.status as string) !== 'ACTIVE') && Boolean(s.end_time))
       .sort((a, b) => {
         const tB = new Date(b.end_time || b.start_time || 0).getTime();
         const tA = new Date(a.end_time || a.start_time || 0).getTime();
         return tB - tA;
       });
-  }, [pendingSessions]);
+  }, [pendingSessions, approvedSessionIds]);
 
   // When navigated from a push notification, filter by that specific employee without auto-opening a modal
   useEffect(() => {
@@ -353,108 +364,110 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
       return;
     }
 
-    try {
-      setSubmitting(true);
-      const isoStart = combineDateTimeIso(editedStartDate, editedStartTime);
-      const isoEnd = combineDateTimeIso(editedEndDate, editedEndTime);
+    const sessionId = selectedSession.id;
+    const isoStart = combineDateTimeIso(editedStartDate, editedStartTime);
+    const isoEnd = combineDateTimeIso(editedEndDate, editedEndTime);
+    const payload = {
+      sessionId,
+      isReviewed: true,
+      ordersCount: Number(toEnglishDigits(editedOrders)) || 0,
+      fuelCost: Number(toEnglishDigits(editedFuel)) || 0,
+      startKm: startVal,
+      endKm: endVal,
+      startTime: isoStart,
+      endTime: isoEnd,
+      applicationId: editedAppId.trim(),
+      reviewNotes: reviewNotes.trim() || 'تمت المراجعة والاعتماد من المشرف',
+    };
 
-      await supervisorApi.reviewSession({
-        sessionId: selectedSession.id,
-        isReviewed: true,
-        ordersCount: Number(toEnglishDigits(editedOrders)) || 0,
-        fuelCost: Number(toEnglishDigits(editedFuel)) || 0,
-        startKm: startVal,
-        endKm: endVal,
-        startTime: isoStart,
-        endTime: isoEnd,
-        applicationId: editedAppId.trim(),
-        reviewNotes: reviewNotes.trim() || 'تمت المراجعة والاعتماد من المشرف',
-      });
-      setSelectedSession(null);
-      onRefresh();
-    } catch (e: any) {
-      showBottomAlert({
-        type: 'error',
-        title: 'فشل الاعتماد',
-        message: e?.message || 'حدث خطأ أثناء اعتماد الوردية، يرجى المحاولة مرة أخرى.',
-      });
-    } finally {
-      setSubmitting(false);
+    // 1. INSTANT OPTIMISTIC APPROVAL (0ms) - Close modal and disappear immediately
+    setApprovedSessionIds((prev) => new Set(prev).add(sessionId));
+    onSessionApproved?.(sessionId);
+    setSelectedSession(null);
+
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
+
+    showBottomAlert({
+      type: 'success',
+      title: 'تم الاعتماد بنجاح',
+      message: 'تم حفظ التعديلات واعتماد وردية المندوب فوراً.',
+      autoCloseMs: 2000,
+    });
+
+    // 2. BACKGROUND SERVER SYNC
+    supervisorApi.reviewSession(payload).catch((e: any) => {
+      console.warn('[handleConfirmSession] background review notice:', e);
+    });
+  };
+
+  const handleQuickApproveSession = (session: WorkSession) => {
+    // 1. INSTANT OPTIMISTIC APPROVAL (0ms) - Card disappears immediately
+    setApprovedSessionIds((prev) => new Set(prev).add(session.id));
+    onSessionApproved?.(session.id);
+
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
+
+    showBottomAlert({
+      type: 'success',
+      title: 'تم الاعتماد بنجاح',
+      message: `تم اعتماد وردية المندوب (${session.employee_name || 'المندوب'}) فوراً.`,
+      autoCloseMs: 2000,
+    });
+
+    // 2. BACKGROUND SERVER SYNC
+    supervisorApi.reviewSession({
+      sessionId: session.id,
+      isReviewed: true,
+      ordersCount: Number(session.orders_count ?? 0),
+      fuelCost: Number(session.fuel_cost ?? 0),
+      startKm: Number(session.start_km ?? 0),
+      endKm: Number(session.end_km ?? 0),
+      reviewNotes: 'اعتماد سريع من المشرف',
+    }).catch((e: any) => {
+      console.warn('[handleQuickApproveSession] background review notice:', e);
+    });
+  };
+
+  const handleInvestigationDecision = (id: string, approve: boolean) => {
+    onAdvanceDecision?.(id);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
+    showBottomAlert({
+      type: 'success',
+      title: approve ? 'تمت الموافقة' : 'تم الرفض',
+      message: approve ? 'تمت الموافقة على الطلب بنجاح.' : 'تم رفض الطلب.',
+      autoCloseMs: 2000,
+    });
+
+    if (approve) {
+      supervisorApi.approveInvestigation(id).catch(() => {});
+    } else {
+      supervisorApi.rejectInvestigation(id, 'مرفوض من المشرف').catch(() => {});
     }
   };
 
-  const handleQuickApproveSession = async (session: WorkSession) => {
+  const handleMaintenanceDecision = (id: string, approve: boolean) => {
+    onMaintenanceDecision?.(id);
     try {
-      setSubmitting(true);
-      await supervisorApi.reviewSession({
-        sessionId: session.id,
-        isReviewed: true,
-        ordersCount: Number(session.orders_count ?? 0),
-        fuelCost: Number(session.fuel_cost ?? 0),
-        startKm: Number(session.start_km ?? 0),
-        endKm: Number(session.end_km ?? 0),
-        reviewNotes: 'اعتماد سريع من المشرف',
-      });
-      onRefresh();
-    } catch (e: any) {
-      showBottomAlert({
-        type: 'error',
-        title: 'خطأ في الاعتماد',
-        message: e?.message || 'تعذر اعتماد الوردية.',
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {}
+    showBottomAlert({
+      type: 'success',
+      title: approve ? 'تمت الموافقة' : 'تم الرفض',
+      message: approve ? 'تم اعتماد طلب الصيانة بنجاح.' : 'تم رفض طلب الصيانة.',
+      autoCloseMs: 2000,
+    });
 
-  const handleInvestigationDecision = async (id: string, approve: boolean) => {
-    try {
-      setSubmitting(true);
-      if (approve) {
-        await supervisorApi.approveInvestigation(id);
-      } else {
-        await supervisorApi.rejectInvestigation(id, 'مرفوض من المشرف');
-      }
-      onRefresh();
-      showBottomAlert({
-        type: 'success',
-        title: approve ? 'تمت الموافقة' : 'تم الرفض',
-        message: approve ? 'تمت الموافقة على الطلب بنجاح.' : 'تم رفض الطلب.',
-      });
-    } catch (e: any) {
-      showBottomAlert({
-        type: 'error',
-        title: 'خطأ',
-        message: e?.message || 'فشل تنفيذ الإجراء.',
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleMaintenanceDecision = async (id: string, approve: boolean) => {
-    try {
-      setSubmitting(true);
-      await supervisorApi.updateMaintenanceStatus(
-        id,
-        approve ? 'APPROVED' : 'REJECTED',
-        approve ? 'موافق على الصيانة' : 'مرفوض'
-      );
-      onRefresh();
-      showBottomAlert({
-        type: 'success',
-        title: approve ? 'تمت الموافقة' : 'تم الرفض',
-        message: approve ? 'تم اعتماد طلب الصيانة بنجاح.' : 'تم رفض طلب الصيانة.',
-      });
-    } catch (e: any) {
-      showBottomAlert({
-        type: 'error',
-        title: 'خطأ',
-        message: e?.message || 'فشل تنفيذ الإجراء.',
-      });
-    } finally {
-      setSubmitting(false);
-    }
+    supervisorApi.updateMaintenanceStatus(
+      id,
+      approve ? 'APPROVED' : 'REJECTED',
+      approve ? 'موافق على الصيانة' : 'مرفوض'
+    ).catch(() => {});
   };
 
   return (
@@ -698,7 +711,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                   <TouchableOpacity
                     style={[styles.approveDirectBtn, { backgroundColor: '#10b981' }]}
                     onPress={() => handleQuickApproveSession(session)}
-                    disabled={submitting}
                     activeOpacity={0.85}
                   >
                     <Ionicons name="checkmark-circle" size={18} color="#ffffff" />
@@ -714,7 +726,6 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
                       },
                     ]}
                     onPress={() => openSessionModal(session)}
-                    disabled={submitting}
                     activeOpacity={0.8}
                   >
                     <Ionicons name="create-outline" size={17} color={colors.primary} />

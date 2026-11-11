@@ -297,10 +297,60 @@ export default function DelegateApp() {
 
   const [loadingApprovalsOnly, setLoadingApprovalsOnly] = useState(false);
 
-  const refreshApprovalsOnly = useCallback(async () => {
+  // Cached keys for instant 0ms cold-start
+  const CACHED_PENDING_SESSIONS_KEY = '@aams_cached_pending_sessions';
+  const CACHED_PENDING_MAINTENANCE_KEY = '@aams_cached_pending_maintenance';
+  const CACHED_PENDING_ADVANCES_KEY = '@aams_cached_pending_advances';
+  const CACHED_BRANCH_DELEGATES_KEY = '@aams_cached_branch_delegates';
+
+  // Load all cached pending requests on mount so Approvals & Notifications tabs open instantly
+  useEffect(() => {
+    Promise.all([
+      AsyncStorage.getItem(CACHED_PENDING_SESSIONS_KEY),
+      AsyncStorage.getItem(CACHED_PENDING_MAINTENANCE_KEY),
+      AsyncStorage.getItem(CACHED_PENDING_ADVANCES_KEY),
+      AsyncStorage.getItem(CACHED_BRANCH_DELEGATES_KEY),
+    ]).then(([rawSessions, rawMaint, rawAdvs, rawDelegates]) => {
+      if (rawSessions) {
+        try {
+          const parsed = JSON.parse(rawSessions);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPendingSessions((prev) => (prev.length === 0 ? parsed : prev));
+          }
+        } catch {}
+      }
+      if (rawMaint) {
+        try {
+          const parsed = JSON.parse(rawMaint);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPendingMaintenance((prev) => (prev.length === 0 ? parsed : prev));
+          }
+        } catch {}
+      }
+      if (rawAdvs) {
+        try {
+          const parsed = JSON.parse(rawAdvs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPendingAdvances((prev) => (prev.length === 0 ? parsed : prev));
+          }
+        } catch {}
+      }
+      if (rawDelegates) {
+        try {
+          const parsed = JSON.parse(rawDelegates);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setBranchDelegates((prev) => (prev.length === 0 ? parsed : prev));
+            setAllBranchEmployees((prev) => (prev.length === 0 ? parsed : prev));
+          }
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Dedicated Ultra-Lightweight Sync for Live Delegate Requests (< 100ms, no JS lag!)
+  const syncPendingRequests = useCallback(async (isSilent = true) => {
+    const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
     try {
-      setLoadingApprovalsOnly(true);
-      const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
       await Promise.all([
         supervisorApi.getPendingSessions().then((sessions) => {
           if (Array.isArray(sessions)) {
@@ -308,41 +358,49 @@ export default function DelegateApp() {
             AsyncStorage.setItem(CACHED_PENDING_SESSIONS_KEY, JSON.stringify(sessions)).catch(() => {});
           }
         }).catch(() => {}),
-        supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
-        supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
-        supervisorApi.getWorkingDelegates(branchId).then(setWorkingDelegates).catch(() => {}),
-        supervisorApi.getDashboardStats(branchId).then((ds) => { if (ds) setServerDashboardStats(ds); }).catch(() => {}),
+        supervisorApi.getPendingInvestigations().then((invs) => {
+          if (Array.isArray(invs)) {
+            setPendingAdvances(invs);
+            AsyncStorage.setItem(CACHED_PENDING_ADVANCES_KEY, JSON.stringify(invs)).catch(() => {});
+          }
+        }).catch(() => {}),
+        supervisorApi.getPendingMaintenance().then((maint) => {
+          if (Array.isArray(maint)) {
+            setPendingMaintenance(maint);
+            AsyncStorage.setItem(CACHED_PENDING_MAINTENANCE_KEY, JSON.stringify(maint)).catch(() => {});
+          }
+        }).catch(() => {}),
+        supervisorApi.getWorkingDelegates(branchId).then((working) => {
+          if (Array.isArray(working)) {
+            setWorkingDelegates(working);
+          }
+        }).catch(() => {}),
+        supervisorApi.getDashboardStats(branchId).then((ds) => {
+          if (ds) setServerDashboardStats(ds);
+        }).catch(() => {}),
       ]);
+    } catch (e) {
+      console.warn('[Eshraf] Error syncing pending requests:', e);
+    }
+  }, [employee?.branch_id]);
+
+  const refreshApprovalsOnly = useCallback(async () => {
+    try {
+      setLoadingApprovalsOnly(true);
+      await syncPendingRequests(false);
     } catch (e) {
       console.warn('[Eshraf] Error refreshing approvals only:', e);
     } finally {
       setLoadingApprovalsOnly(false);
     }
-  }, [employee?.branch_id]);
+  }, [syncPendingRequests]);
 
   const lastSupervisorFetchRef = useRef<number>(0);
   const isSupervisorFetchingRef = useRef<boolean>(false);
 
-  // Cached pending sessions key for instant 0ms cold-start
-  const CACHED_PENDING_SESSIONS_KEY = '@aams_cached_pending_sessions';
-
-  // Load cached pending sessions on mount so Approvals tab never opens blank
-  useEffect(() => {
-    AsyncStorage.getItem(CACHED_PENDING_SESSIONS_KEY).then((raw) => {
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setPendingSessions((prev) => (prev.length === 0 ? parsed : prev));
-          }
-        } catch {}
-      }
-    }).catch(() => {});
-  }, []);
-
   const fetchSupervisorData = useCallback(async (isSilent = false, force = false) => {
     const now = Date.now();
-    // Cache TTL: Only debounce non-forced background calls by 4 seconds (down from 25s!)
+    // Cache TTL: Only debounce non-forced background calls by 4 seconds
     if (!force && now - lastSupervisorFetchRef.current < 4000 && hasLoadedSupervisorInitialRef.current) {
       if (!isSilent) {
         setLoadingSupervisorData(false);
@@ -360,39 +418,29 @@ export default function DelegateApp() {
       }
       const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
 
-      // Tier 1 (Ultra High Priority - Urgent < 200ms):
-      // Approvals, Active working delegates & Dashboard counters update instantly!
-      await Promise.all([
-        supervisorApi.getPendingSessions().then((sessions) => {
-          if (Array.isArray(sessions)) {
-            setPendingSessions(sessions);
-            AsyncStorage.setItem(CACHED_PENDING_SESSIONS_KEY, JSON.stringify(sessions)).catch(() => {});
-          }
-        }).catch(() => {}),
-        supervisorApi.getWorkingDelegates(branchId).then((working) => {
-          if (Array.isArray(working)) {
-            setWorkingDelegates(working);
-          }
-        }).catch(() => {}),
-        supervisorApi.getDashboardStats(branchId).then((ds) => {
-          if (ds) setServerDashboardStats(ds);
-        }).catch(() => {}),
-      ]);
+      // Tier 1 (Live Delegate Requests - Urgent & Instant < 100ms)
+      await syncPendingRequests(isSilent);
 
-      // Tier 2 (Secondary / Background Data):
-      // Fetch branch history, employees roster, maintenance, investigations and vehicles
-      await Promise.all([
-        supervisorApi.getBranchSessions(150).then(setBranchSessions).catch(() => {}),
-        supervisorApi.getPendingMaintenance().then(setPendingMaintenance).catch(() => {}),
-        supervisorApi.getPendingInvestigations().then(setPendingAdvances).catch(() => {}),
+      // Release loading spinner immediately so the UI is unblocked
+      if (!isSilent) {
+        setLoadingSupervisorData(false);
+      }
+      setIsInitialSupervisorLoading(false);
+
+      // Tier 2 (Heavy Secondary Background Data):
+      // Only fetch heavy roster and branch history in background without blocking UI
+      Promise.all([
+        supervisorApi.getBranchSessions(100).then(setBranchSessions).catch(() => {}),
         supervisorApi.getAllBranchDelegates(branchId).then((emps) => {
           if (Array.isArray(emps)) {
             setBranchDelegates(emps);
             setAllBranchEmployees(emps);
+            AsyncStorage.setItem(CACHED_BRANCH_DELEGATES_KEY, JSON.stringify(emps)).catch(() => {});
           }
         }).catch(() => {}),
         operationsApi.getVehicles(branchId).then(setVehicles).catch(() => {}),
-      ]);
+      ]).catch(() => {});
+
     } catch (e) {
       console.warn('[Eshraf] Error fetching supervisor data:', e);
     } finally {
@@ -402,7 +450,7 @@ export default function DelegateApp() {
       }
       setIsInitialSupervisorLoading(false);
     }
-  }, [employee?.branch_id]);
+  }, [employee?.branch_id, syncPendingRequests]);
 
   const handleConfirmOrders = useCallback(async (session: WorkSession, ordersCount?: number, notes?: string) => {
     try {
@@ -620,10 +668,10 @@ export default function DelegateApp() {
     onSelectApprovalSession: (sessionId, employeeId) => {
       setTargetApprovalSessionId(sessionId || null);
       setTargetApprovalEmployeeId(employeeId || null);
-      fetchSupervisorData(false, true);
+      syncPendingRequests(false);
     },
     onRefreshSupervisor: () => {
-      fetchSupervisorData(true, true);
+      syncPendingRequests(true);
     },
   });
 
@@ -719,8 +767,8 @@ export default function DelegateApp() {
         if (!isTakingPhotoRef.current) {
           checkSession(true);
           if (employee?.id) {
-            // Immediately sync supervisor approvals, active delegates & stats when opening app
-            fetchSupervisorData(true, true);
+            // Ultra-lightweight live sync (< 100ms, never blocks JS thread or UI)
+            syncPendingRequests(true);
             // Process any offline queued actions (e.g. oil dispenses, shift actions)
             offlineQueue.processQueue(apiRequest).catch(() => {});
           }
@@ -730,19 +778,18 @@ export default function DelegateApp() {
 
     const timer = setInterval(() => {
       if (AppState.currentState === 'active' && !isTakingPhotoRef.current && employee?.id) {
-        checkSession(true);
-        // Periodic background pulse every 30s to keep ended shifts & approvals in live sync
-        fetchSupervisorData(true, true);
+        // Fast periodic background pulse every 20s to keep incoming delegate requests live without app lag
+        syncPendingRequests(true);
         // Background offline queue flush
         offlineQueue.processQueue(apiRequest).catch(() => {});
       }
-    }, 30000);
+    }, 20000);
 
     return () => {
       sub.remove();
       clearInterval(timer);
     };
-  }, [employee?.id, fetchSupervisorData]);
+  }, [employee?.id, syncPendingRequests]);
 
 
 
@@ -2498,7 +2545,7 @@ export default function DelegateApp() {
                 pendingAdvances={pendingAdvances}
                 pendingMaintenance={pendingMaintenance}
                 employees={branchScopedDelegates}
-                loading={loadingApprovalsOnly || loadingSupervisorData}
+                loading={loadingApprovalsOnly}
                 onRefresh={refreshApprovalsOnly}
                 colors={colors}
                 isDarkMode={isDarkMode}
@@ -2509,6 +2556,27 @@ export default function DelegateApp() {
                 onClearTargetSession={() => {
                   setTargetApprovalSessionId(null);
                   setTargetApprovalEmployeeId(null);
+                }}
+                onSessionApproved={(sessionId) => {
+                  setPendingSessions((prev) => {
+                    const filtered = prev.filter((s) => s.id !== sessionId);
+                    AsyncStorage.setItem(CACHED_PENDING_SESSIONS_KEY, JSON.stringify(filtered)).catch(() => {});
+                    return filtered;
+                  });
+                }}
+                onAdvanceDecision={(advId) => {
+                  setPendingAdvances((prev) => {
+                    const filtered = prev.filter((a) => a.id !== advId);
+                    AsyncStorage.setItem(CACHED_PENDING_ADVANCES_KEY, JSON.stringify(filtered)).catch(() => {});
+                    return filtered;
+                  });
+                }}
+                onMaintenanceDecision={(maintId) => {
+                  setPendingMaintenance((prev) => {
+                    const filtered = prev.filter((m) => m.id !== maintId);
+                    AsyncStorage.setItem(CACHED_PENDING_MAINTENANCE_KEY, JSON.stringify(filtered)).catch(() => {});
+                    return filtered;
+                  });
                 }}
               />
             </ModuleErrorBoundary>

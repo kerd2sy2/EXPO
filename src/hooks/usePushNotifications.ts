@@ -63,19 +63,34 @@ export function usePushNotifications({
         const title = response?.notification?.request?.content?.title || '';
         const body = response?.notification?.request?.content?.body || '';
 
-        // 0. Shift Ended by Courier -> Navigate to approvals tab & open delegate's approval modal!
-        const isShiftEnded =
+        // 0. Shift Ended / Advance / Maintenance by Courier -> Navigate to approvals tab & open delegate's approval modal!
+        const isDelegateRequest =
           data?.type === 'SHIFT_COMPLETED_PENDING_REVIEW' ||
           data?.type === 'SHIFT_ENDED' ||
+          data?.type === 'ADVANCE_REQUEST' ||
+          data?.type === 'MAINTENANCE_REQUEST' ||
+          data?.type === 'INVESTIGATION_REQUEST' ||
           title.includes('إنهاء وردية') ||
+          title.includes('أنهى المندوب') ||
+          title.includes('بانتظار الاعتماد') ||
+          title.includes('إنهاء الشفت') ||
+          title.includes('سلفة') ||
+          title.includes('صيانة') ||
+          title.includes('طلب سلفة') ||
+          title.includes('طلب صيانة') ||
           body.includes('أنهى المندوب') ||
           body.includes('بانتظار الاعتماد') ||
-          body.includes('إنهاء الشفت');
+          body.includes('إنهاء الشفت') ||
+          body.includes('سلفة') ||
+          body.includes('صيانة') ||
+          body.includes('طلب سلفة') ||
+          body.includes('طلب صيانة');
 
-        if (isShiftEnded) {
+        if (isDelegateRequest) {
           const sid = data?.sessionId || data?.session_id;
           const eid = data?.employee_id || data?.employeeId;
           onSelectApprovalSession?.(sid, eid);
+          onRefreshSupervisor?.();
           setCurrentTab('approvals');
           mainScrollRef.current?.scrollTo({ y: 0, animated: false });
           return;
@@ -238,14 +253,25 @@ export function usePushNotifications({
         const title = notification?.request?.content?.title || '';
         const body = notification?.request?.content?.body || '';
 
-        const isShiftEnded =
+        const isDelegateRequest =
           data?.type === 'SHIFT_COMPLETED_PENDING_REVIEW' ||
           data?.type === 'SHIFT_ENDED' ||
+          data?.type === 'ADVANCE_REQUEST' ||
+          data?.type === 'MAINTENANCE_REQUEST' ||
+          data?.type === 'INVESTIGATION_REQUEST' ||
           title.includes('إنهاء وردية') ||
+          title.includes('أنهى المندوب') ||
+          title.includes('بانتظار الاعتماد') ||
+          title.includes('إنهاء الشفت') ||
+          title.includes('سلفة') ||
+          title.includes('صيانة') ||
+          body.includes('أنهى المندوب') ||
           body.includes('بانتظار الاعتماد') ||
-          body.includes('إنهاء الشفت');
+          body.includes('إنهاء الشفت') ||
+          body.includes('سلفة') ||
+          body.includes('صيانة');
 
-        if (isShiftEnded) {
+        if (isDelegateRequest) {
           onRefreshSupervisor?.();
         }
 
