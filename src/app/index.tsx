@@ -95,21 +95,8 @@ import { getMyViolationsApi, DelegateViolation, apiRequest } from '../services/a
 import { offlineQueue } from '../services/offlineQueue';
 
 // Modals
-import { SuccessShiftModal } from '../components/modals/SuccessShiftModal';
-import { LanguageModal } from '../components/modals/LanguageModal';
-import { QrCodeModal } from '../components/modals/QrCodeModal';
-import { ImagePreviewModal } from '../components/modals/ImagePreviewModal';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
-import { AppUpdateBottomSheet } from '../components/modals/AppUpdateBottomSheet';
-import { DiagnosticsModal } from '../components/modals/DiagnosticsModal';
-import { BroadcastModal } from '../components/modals/BroadcastModal';
-import { BroadcastHistoryModal } from '../components/modals/BroadcastHistoryModal';
-import { OilChangeBottomSheet } from '../components/modals/OilChangeBottomSheet';
-import { PlateScannerModal } from '../features/plate-scanner';
-import { AccidentAlertModal } from '../components/modals/AccidentAlertModal';
-import { EmployeeReportModal } from '../components/modals/EmployeeReportModal';
-import { ReportTypePickerModal } from '../components/modals/ReportTypePickerModal';
-import { OperationVideoModal } from '../components/OperationVideoModal';
+import { AppModalsContainer } from '../components/AppModalsContainer';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 
 
@@ -2943,199 +2930,69 @@ export default function DelegateApp() {
 
       </KeyboardAvoidingView>
 
-      {/* Fullscreen QR Modal */}
-      <ModuleErrorBoundary moduleName="رمز الاستجابة السريعة (QR)" fallback={null}>
-        <QrCodeModal
-          visible={showQrModal}
-          employee={employee}
-          colors={colors}
-          isRTL={isRTL}
-          t={t}
-          onClose={() => setShowQrModal(false)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Language Selector Modal */}
-      <ModuleErrorBoundary moduleName="اختيار اللغة" fallback={null}>
-        <LanguageModal
-          visible={showLangModal}
-          currentLang={lang}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          t={t}
-          onSelectLang={async (newLang) => {
-            await handleSetLanguage(newLang);
-            setShowLangModal(false);
-          }}
-          onClose={() => setShowLangModal(false)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Photo Preview Lightbox Modal */}
-      <ModuleErrorBoundary moduleName="معاينة الصور" fallback={null}>
-        <ImagePreviewModal
-          previewPhoto={previewPhoto}
-          colors={colors}
-          isRTL={isRTL}
-          onClose={() => setPreviewPhoto(null)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Simple Start & End Shift Success Bottom Sheet Modal */}
-      {successModalData && (
-        <ModuleErrorBoundary moduleName="تأكيد الشفت" fallback={null}>
-          <SuccessShiftModal
-            data={successModalData}
-            employee={employee}
-            colors={colors}
-            isDarkMode={isDarkMode}
-            isRTL={isRTL}
-            t={t}
-            backdropOpacity={backdropOpacity}
-            sheetTranslateY={sheetTranslateY}
-            formatTimeStr={formatTimeStr}
-            onClose={closeSuccessModal}
-            onNavigateToTab={(tab) => {
-              if (tab === 'history') {
-                const currentMonth = getCurrentMonthInfo(lang);
-                setSelectedHistoryMonthKey(currentMonth.key);
-                setSelectedHistoryMonthLabel(currentMonth.label);
-              }
-              mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-              setCurrentTab(tab);
-            }}
-            onPreviewPhoto={setPreviewPhoto}
-          />
-        </ModuleErrorBoundary>
-      )}
-
-      {/* Unified Action Alert & Permissions Bottom Sheet */}
-      <ModuleErrorBoundary moduleName="نافذة التنبيهات" fallback={null}>
-        <ActionAlertBottomSheet
-          config={alertConfig}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          onClose={() => setAlertConfig(null)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Motorcycle Oil Change Alert Bottom Sheet */}
-      <ModuleErrorBoundary moduleName="تنبيه تغيير الزيت" fallback={null}>
-        <OilChangeBottomSheet
-          visible={oilChangeModalState.visible}
-          motorcycleNumber={oilChangeModalState.bikeNumber}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          title={t.oilChangeAlertTitle}
-          message={t.oilChangeAlertMessage}
-          buttonText={t.oilChangeAlertBtn}
-          onClose={() => setOilChangeModalState((prev) => ({ ...prev, visible: false }))}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Modern OTA App Update Bottom Sheet */}
-      <ModuleErrorBoundary moduleName="تحديثات التطبيق" fallback={null}>
-        <AppUpdateBottomSheet
-          visible={updateModalVisible}
-          state={updateState}
-          errorMessage={updateError}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          onApplyUpdate={handleApplyUpdate}
-          onCheckAgain={() => handleCheckForUpdates(true)}
-          onClose={() => setUpdateModalVisible(false)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Real-time Diagnostics & Crash Tracing Modal */}
-      <ModuleErrorBoundary moduleName="نافذة التشخيص" fallback={null}>
-        <DiagnosticsModal
-          visible={showDiagnosticsModal}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          onClose={() => setShowDiagnosticsModal(false)}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Broadcast Announcement & Survey Poll Modal */}
-      <ModuleErrorBoundary moduleName="التعاميم والتصويت" fallback={null}>
-        <BroadcastModal
-          visible={showBroadcastModal}
-          broadcast={activeBroadcast}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          lang={lang}
-          onClose={handleCloseBroadcast}
-          onVote={handleVoteBroadcast}
-          onPreviewImage={(url) => {
-            if (activeBroadcast) {
-              setPreviewPhoto({ url, title: activeBroadcast.title });
-            }
-          }}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Broadcast History Modal (مركز الإشعارات) */}
-      <ModuleErrorBoundary moduleName="سجل التعاميم" fallback={null}>
-        <BroadcastHistoryModal
-          visible={showBroadcastHistory}
-          broadcasts={allBroadcasts}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          lang={lang}
-          onClose={() => setShowBroadcastHistory(false)}
-          onSelectBroadcast={(item) => {
-            setActiveBroadcast(item);
-            setShowBroadcastHistory(false);
-            setShowBroadcastModal(true);
-          }}
-          onPreviewImage={(url) => setPreviewPhoto({ url, title: 'معاينة صورة التعميم' })}
-          onRefresh={handleRefreshNotificationsHistory}
-          onMarkAllAsRead={handleMarkAllAsRead}
-          loading={loadingBroadcastHistory}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Smart Saudi Plate Live Scanner Modal */}
-      <ModuleErrorBoundary moduleName="ماسح اللوحات" fallback={null}>
-        <PlateScannerModal
-          visible={showPlateScannerModal}
-          onClose={handleClosePlateScanner}
-          onScanned={handleProcessPlateScan}
-          isProcessing={isScanningPlate}
-          isDarkMode={isDarkMode}
-          lang={lang}
-          t={t}
-          isRTL={isRTL}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Emergency Accident Detection Modal (Shake to Report) */}
-      <ModuleErrorBoundary moduleName="تنبيه الحوادث الطارئة" fallback={null}>
-        <AccidentAlertModal
-          visible={showAccidentModal}
-          onClose={() => setShowAccidentModal(false)}
-          employee={employee}
-          activeSession={activeSession}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          lang={lang}
-        />
-      </ModuleErrorBoundary>
-
-      {/* Report & Advance Type Picker BottomSheet Modal */}
-      <ReportTypePickerModal
-        visible={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        onSelectAction={(action) => {
+      {/* Extracted Isolated Modals & BottomSheets Container */}
+      <AppModalsContainer
+        showQrModal={showQrModal}
+        setShowQrModal={setShowQrModal}
+        showLangModal={showLangModal}
+        setShowLangModal={setShowLangModal}
+        lang={lang}
+        onSelectLang={async (newLang) => {
+          await handleSetLanguage(newLang);
+          setShowLangModal(false);
+        }}
+        previewPhoto={previewPhoto}
+        setPreviewPhoto={setPreviewPhoto}
+        successModalData={successModalData}
+        backdropOpacity={backdropOpacity}
+        sheetTranslateY={sheetTranslateY}
+        formatTimeStr={formatTimeStr}
+        onCloseSuccessModal={closeSuccessModal}
+        onNavigateToTab={(tab) => {
+          if (tab === 'history') {
+            const currentMonth = getCurrentMonthInfo(lang);
+            setSelectedHistoryMonthKey(currentMonth.key);
+            setSelectedHistoryMonthLabel(currentMonth.label);
+          }
+          mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+          setCurrentTab(tab);
+        }}
+        alertConfig={alertConfig}
+        setAlertConfig={setAlertConfig}
+        oilChangeModalState={oilChangeModalState}
+        setOilChangeModalState={setOilChangeModalState}
+        updateModalVisible={updateModalVisible}
+        updateState={updateState}
+        updateError={updateError}
+        onApplyUpdate={handleApplyUpdate}
+        onCheckAgain={() => handleCheckForUpdates(true)}
+        onCloseUpdateModal={() => setUpdateModalVisible(false)}
+        showDiagnosticsModal={showDiagnosticsModal}
+        setShowDiagnosticsModal={setShowDiagnosticsModal}
+        showBroadcastModal={showBroadcastModal}
+        activeBroadcast={activeBroadcast}
+        onCloseBroadcast={handleCloseBroadcast}
+        onVoteBroadcast={handleVoteBroadcast}
+        showBroadcastHistory={showBroadcastHistory}
+        setShowBroadcastHistory={setShowBroadcastHistory}
+        allBroadcasts={allBroadcasts}
+        loadingBroadcastHistory={loadingBroadcastHistory}
+        onSelectBroadcastFromHistory={(item) => {
+          setActiveBroadcast(item);
+          setShowBroadcastHistory(false);
+          setShowBroadcastModal(true);
+        }}
+        onRefreshBroadcastHistory={handleRefreshNotificationsHistory}
+        onMarkAllBroadcastsAsRead={handleMarkAllAsRead}
+        showPlateScannerModal={showPlateScannerModal}
+        onClosePlateScanner={handleClosePlateScanner}
+        onScannedPlate={handleProcessPlateScan}
+        isScanningPlate={isScanningPlate}
+        showAccidentModal={showAccidentModal}
+        setShowAccidentModal={setShowAccidentModal}
+        showReportModal={showReportModal}
+        setShowReportModal={setShowReportModal}
+        onSelectReportAction={(action) => {
           setShowReportModal(false);
           if (action === 'supervisor-report-create') {
             setReportInitialMode('create');
@@ -3151,22 +3008,17 @@ export default function DelegateApp() {
             setCurrentTab('advance-request');
           }
         }}
-        colors={colors}
-        isDarkMode={isDarkMode}
-
-        isRTL={isRTL}
-      />
-
-      {/* Operation Video Documentation Modal (60-day auto-purge on server) */}
-      <OperationVideoModal
-        visible={showOperationVideoModal}
-        onClose={() => setShowOperationVideoModal(false)}
+        showOperationVideoModal={showOperationVideoModal}
+        setShowOperationVideoModal={setShowOperationVideoModal}
         branchDelegates={branchScopedDelegates}
         pendingSessions={pendingSessions}
-        onRefresh={fetchSupervisorData}
+        onRefreshSupervisorData={fetchSupervisorData}
+        employee={employee}
+        activeSession={activeSession}
         colors={colors}
         isDarkMode={isDarkMode}
         isRTL={isRTL}
+        t={t}
       />
     </SafeAreaView>
   );
