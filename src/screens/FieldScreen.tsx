@@ -28,7 +28,7 @@ interface FieldScreenProps {
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL: boolean;
-  onOverrideSuccess: () => void;
+  onOverrideSuccess: (employeeId?: string, wasStart?: boolean) => void;
 }
 
 type FieldFilter = 'working' | 'not_working' | 'all';
@@ -62,6 +62,20 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
   const [selectedDelegate, setSelectedDelegate] = useState<DelegateWithStatus | null>(null);
   const [overrideMode, setOverrideMode] = useState<'start' | 'end' | null>(null);
 
+  // Optimistic tracking: ended delegates vanish in 0ms without waiting for slow roster refetches
+  const [overrideEndedIds, setOverrideEndedIds] = useState<Set<string>>(new Set());
+  const [overrideStartedIds, setOverrideStartedIds] = useState<Set<string>>(new Set());
+
+  const isDelegateActuallyWorking = useCallback(
+    (d: DelegateWithStatus) => {
+      const id = String(d.id);
+      if (overrideEndedIds.has(id)) return false;
+      if (overrideStartedIds.has(id)) return true;
+      return Boolean(d.is_working);
+    },
+    [overrideEndedIds, overrideStartedIds]
+  );
+
   // Override Form State
   const [bikeNum, setBikeNum] = useState('');
   const [kmValue, setKmValue] = useState('');
@@ -70,10 +84,10 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
   const [submitting, setSubmitting] = useState(false);
 
   const counts = useMemo(() => {
-    const working = delegates.filter((d) => d.is_working).length;
+    const working = delegates.filter(isDelegateActuallyWorking).length;
     const idle = delegates.length - working;
     return { working, idle, total: delegates.length };
-  }, [delegates]);
+  }, [delegates, isDelegateActuallyWorking]);
 
   // Filter & Sort by Key Number ascending (ترتيب المفاتيح 1, 2, 3...)
   const filteredDelegates = useMemo(() => {
@@ -81,8 +95,9 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
 
     return delegates
       .filter((d) => {
-        if (filter === 'working' && !d.is_working) return false;
-        if (filter === 'not_working' && d.is_working) return false;
+        const isWorking = isDelegateActuallyWorking(d);
+        if (filter === 'working' && !isWorking) return false;
+        if (filter === 'not_working' && isWorking) return false;
         if (!q) return true;
 
         const nameMatch = (d.name || '').toLowerCase().includes(q);
@@ -100,7 +115,7 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
         if (keyA !== keyB) return keyA - keyB;
         return (a.name || '').localeCompare(b.name || '', 'ar');
       });
-  }, [delegates, filter, searchQuery]);
+  }, [delegates, filter, searchQuery, isDelegateActuallyWorking]);
 
   const openOverride = useCallback((d: DelegateWithStatus, mode: 'start' | 'end') => {
     setSelectedDelegate(d);
@@ -184,11 +199,29 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
         });
       }
 
+      const targetEmpId = String(selectedDelegate.id);
       const dName = selectedDelegate.name;
       const wasStart = overrideMode === 'start';
+
+      if (wasStart) {
+        setOverrideStartedIds((prev) => new Set(prev).add(targetEmpId));
+        setOverrideEndedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(targetEmpId);
+          return next;
+        });
+      } else {
+        setOverrideEndedIds((prev) => new Set(prev).add(targetEmpId));
+        setOverrideStartedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(targetEmpId);
+          return next;
+        });
+      }
+
       setSelectedDelegate(null);
       setOverrideMode(null);
-      onOverrideSuccess();
+      onOverrideSuccess(targetEmpId, wasStart);
 
       setTimeout(() => {
         showBottomAlert({
@@ -212,10 +245,11 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
 
   const renderDelegateCard = useCallback(
     ({ item: d }: { item: DelegateWithStatus }) => {
+      const isWorking = isDelegateActuallyWorking(d);
       const hasKey = Boolean(d.key_number && d.key_number.trim());
       const plate = d.active_motorcycle || d.motorcycle_number || 'بدون لوحة';
       const rawStartTime = d.shift_start_time || d.active_session?.start_time;
-      const elapsed = d.is_working && rawStartTime ? calcLiveElapsed(rawStartTime) : '';
+      const elapsed = isWorking && rawStartTime ? calcLiveElapsed(rawStartTime) : '';
       const startTimeFormatted = rawStartTime
         ? new Date(rawStartTime).toLocaleTimeString('ar-SA', {
             hour: '2-digit',
@@ -235,7 +269,7 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
             styles.delegateCard,
             {
               backgroundColor: colors.card,
-              borderColor: d.is_working ? '#10b98160' : colors.border,
+              borderColor: isWorking ? '#10b98160' : colors.border,
             },
           ]}
         >
@@ -270,16 +304,16 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
                 <View
                   style={[
                     styles.statusDot,
-                    { backgroundColor: d.is_working ? '#10b981' : '#ef4444' },
+                    { backgroundColor: isWorking ? '#10b981' : '#ef4444' },
                   ]}
                 />
                 <Text
                   style={[
                     styles.statusText,
-                    { color: d.is_working ? '#10b981' : colors.textSecondary },
+                    { color: isWorking ? '#10b981' : colors.textSecondary },
                   ]}
                 >
-                  {d.is_working ? `في الميدان (${elapsed || 'نشط'})` : 'خارج الدوام'}
+                  {isWorking ? `في الميدان (${elapsed || 'نشط'})` : 'خارج الدوام'}
                 </Text>
               </View>
             </View>
@@ -320,7 +354,7 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
               </Text>
             </View>
 
-            {d.is_working ? (
+            {isWorking ? (
               <>
                 <View style={styles.infoCell}>
                   <Text style={[styles.infoCellLabel, { color: colors.textSecondary }]}>وقت البداية</Text>
@@ -348,32 +382,32 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
             style={[
               styles.overrideBtn,
               {
-                backgroundColor: d.is_working ? '#ef444415' : '#10b98115',
-                borderColor: d.is_working ? '#ef444440' : '#10b98140',
+                backgroundColor: isWorking ? '#ef444415' : '#10b98115',
+                borderColor: isWorking ? '#ef444440' : '#10b98140',
                 flexDirection: isRTL ? 'row-reverse' : 'row',
               },
             ]}
-            onPress={() => openOverride(d, d.is_working ? 'end' : 'start')}
+            onPress={() => openOverride(d, isWorking ? 'end' : 'start')}
             activeOpacity={0.8}
           >
             <Ionicons
-              name={d.is_working ? 'stop-circle-outline' : 'play-circle-outline'}
+              name={isWorking ? 'stop-circle-outline' : 'play-circle-outline'}
               size={18}
-              color={d.is_working ? '#ef4444' : '#10b981'}
+              color={isWorking ? '#ef4444' : '#10b981'}
             />
             <Text
               style={[
                 styles.overrideBtnText,
-                { color: d.is_working ? '#ef4444' : '#10b981' },
+                { color: isWorking ? '#ef4444' : '#10b981' },
               ]}
             >
-              {d.is_working ? 'إنهاء الوردية كمشرف' : 'بدء وردية للمندوب كمشرف'}
+              {isWorking ? 'إنهاء الوردية كمشرف' : 'بدء وردية للمندوب كمشرف'}
             </Text>
           </TouchableOpacity>
         </View>
       );
     },
-    [colors, isDarkMode, isRTL, handleCall, handleWhatsApp, openOverride]
+    [colors, isDarkMode, isRTL, handleCall, handleWhatsApp, openOverride, isDelegateActuallyWorking]
   );
 
   return (

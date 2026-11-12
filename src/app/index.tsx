@@ -125,12 +125,16 @@ import { initGlobalErrorLogger } from '../services/errorLogger';
 import { analytics } from '../services/analytics';
 import { notificationService } from '../services/notificationService';
 import { useObserve } from 'expo-observe';
+import { useKeepAwake } from 'expo-keep-awake';
 
 // Initialize global crash/error interception immediately on app boot
 initGlobalErrorLogger();
 analytics.init();
 
 export default function DelegateApp() {
+  // Keep the device screen awake during active supervisor operations
+  useKeepAwake();
+
   const { markInteractive } = useObserve();
   const insets = useSafeAreaInsets();
   const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0);
@@ -471,6 +475,43 @@ export default function DelegateApp() {
       });
     }
   }, [fetchSupervisorData]);
+
+  const handleOverrideSuccess = useCallback(async (employeeId?: string, wasStart?: boolean) => {
+    if (employeeId) {
+      const empIdStr = String(employeeId);
+      if (wasStart) {
+        setWorkingDelegates((prev) => {
+          if (prev.some((w) => String(w.id) === empIdStr)) return prev;
+          const found = branchDelegates.find((d) => String(d.id) === empIdStr);
+          return found ? [...prev, { ...found, is_working: true }] : prev;
+        });
+        setBranchDelegates((prev) =>
+          prev.map((d) => (String(d.id) === empIdStr ? { ...d, is_working: true } : d))
+        );
+        setAllBranchEmployees((prev) =>
+          prev.map((d) => (String(d.id) === empIdStr ? { ...d, is_working: true } : d))
+        );
+      } else {
+        // Ending shift override: Instantly remove from working delegates in 0ms!
+        setWorkingDelegates((prev) => prev.filter((w) => String(w.id) !== empIdStr));
+        setBranchSessions((prev) =>
+          prev.map((s) =>
+            String(s.employee_id) === empIdStr
+              ? { ...s, status: 'COMPLETED', end_time: s.end_time || new Date().toISOString() }
+              : s
+          )
+        );
+        setBranchDelegates((prev) =>
+          prev.map((d) => (String(d.id) === empIdStr ? { ...d, is_working: false } : d))
+        );
+        setAllBranchEmployees((prev) =>
+          prev.map((d) => (String(d.id) === empIdStr ? { ...d, is_working: false } : d))
+        );
+      }
+    }
+    // Force live background sync
+    fetchSupervisorData(true, true);
+  }, [branchDelegates, fetchSupervisorData]);
 
   // Modular Hook: Shift Workflow & Inputs
   const {
@@ -2504,7 +2545,9 @@ export default function DelegateApp() {
                   const activeSess = branchSessions.find(
                     (s) => s.employee_id === d.id && (s.status === 'ACTIVE' || !s.end_time)
                   );
-                  const isWorking = !!workingInfo || !!activeSess || !!d.is_working;
+                  const isWorking =
+                    !!workingInfo ||
+                    (!!activeSess && activeSess.status === 'ACTIVE' && !activeSess.end_time);
                   const shiftStartTime =
                     activeSess?.start_time || workingInfo?.shift_start_time || d.shift_start_time;
                   const startKm =
@@ -2533,7 +2576,7 @@ export default function DelegateApp() {
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isRTL={isRTL}
-                onOverrideSuccess={fetchSupervisorData}
+                onOverrideSuccess={handleOverrideSuccess}
               />
             </ModuleErrorBoundary>
           </View>

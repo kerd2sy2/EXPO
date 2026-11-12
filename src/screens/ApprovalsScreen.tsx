@@ -28,6 +28,7 @@ import { toEnglishDigits } from '@shared/utils/plateUtils';
 import { showBottomAlert } from '../components/modals/ActionAlertBottomSheet';
 import { DatePickerBottomSheet } from '../components/modals/DatePickerBottomSheet';
 import * as Haptics from 'expo-haptics';
+import { useKeepAwake } from 'expo-keep-awake';
 
 interface ApprovalsScreenProps {
   pendingSessions: WorkSession[];
@@ -149,6 +150,9 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
   onAdvanceDecision,
   onMaintenanceDecision,
 }) => {
+  // Keep the device screen awake while the supervisor is on approvals screen / reviewing shifts
+  useKeepAwake();
+
   // Optimistic review tracking: Approved sessions disappear instantly in 0ms without freezing buttons
   const [approvedSessionIds, setApprovedSessionIds] = useState<Set<string>>(new Set());
 
