@@ -75,7 +75,7 @@ const formatArabicRelativeTime = (timestampMs: number): string => {
   return new Date(timestampMs).toLocaleDateString('ar-SA');
 };
 
-export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
+export const NotificationsScreen: React.FC<NotificationsScreenProps> = React.memo(({
   pendingSessions,
   workingDelegates,
   vehicles,
@@ -505,7 +505,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       </Modal>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

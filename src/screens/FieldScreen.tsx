@@ -48,7 +48,7 @@ const calcLiveElapsed = (startIso?: string) => {
   }
 };
 
-export const FieldScreen: React.FC<FieldScreenProps> = ({
+export const FieldScreen: React.FC<FieldScreenProps> = React.memo(({
   delegates,
   loading,
   onRefresh,
@@ -668,7 +668,7 @@ export const FieldScreen: React.FC<FieldScreenProps> = ({
       </Modal>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

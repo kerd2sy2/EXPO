@@ -47,7 +47,7 @@ interface DashboardScreenProps {
   scrollRef?: any;
 }
 
-export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+export const DashboardScreen: React.FC<DashboardScreenProps> = React.memo(({
   adminName,
   branchName,
   stats,
@@ -506,7 +506,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       </ScrollView>
     </>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

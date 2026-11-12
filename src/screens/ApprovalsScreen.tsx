@@ -132,7 +132,7 @@ const combineDateTimeIso = (dateStr: string, timeStr: string): string => {
   }
 };
 
-export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
+export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = React.memo(({
   pendingSessions,
   pendingAdvances,
   pendingMaintenance,
@@ -1352,7 +1352,7 @@ export const ApprovalsScreen: React.FC<ApprovalsScreenProps> = ({
       />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   filterBanner: {

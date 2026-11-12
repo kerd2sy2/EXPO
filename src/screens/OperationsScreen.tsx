@@ -44,7 +44,7 @@ interface EnrichedVehicleItem extends VehicleItem {
   courierName?: string;
 }
 
-export const OperationsScreen: React.FC<OperationsScreenProps> = ({
+export const OperationsScreen: React.FC<OperationsScreenProps> = React.memo(({
   inventoryItems,
   vehicles,
   employees = [],
@@ -1005,7 +1005,7 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
       </Modal>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

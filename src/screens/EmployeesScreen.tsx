@@ -48,7 +48,7 @@ const isDriverOnly = (emp: DelegateWithStatus): boolean => {
   return isDeliveryDelegate(emp);
 };
 
-export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
+export const EmployeesScreen: React.FC<EmployeesScreenProps> = React.memo(({
   employees,
   vehicles,
   loading,
@@ -475,7 +475,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = ({
       />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
