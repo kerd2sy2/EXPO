@@ -265,13 +265,7 @@ export const supervisorApi = {
       return list.filter((e) => {
         if (!isDeliveryDelegate(e)) return false;
         if (branchId && !isEmployeeInBranch(e, branchId)) return false;
-        // Strictly filter only employees with an actual active shift session
-        const hasActiveSession = Boolean(
-          e.active_session_id ||
-          e.shift_start_time ||
-          (e.active_session && (e.active_session.status === 'ACTIVE' || !e.active_session.end_time))
-        );
-        return hasActiveSession;
+        return true;
       });
     } catch (err) {
       console.warn('[supervisorApi] getAllBranchDelegates error:', err);
