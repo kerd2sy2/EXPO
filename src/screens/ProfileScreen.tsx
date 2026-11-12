@@ -30,6 +30,7 @@ import {
   saveLastCredentialsForBiometrics,
   getStoredToken,
   loadStoredToken,
+  loadStoredRefreshToken,
 } from '../services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -146,8 +147,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         });
         if (result.success) {
           const token = getStoredToken() || (await loadStoredToken());
-          if (token && employee?.national_id) {
-            await saveLastCredentialsForBiometrics(employee.national_id, token, employee);
+          const rToken = await loadStoredRefreshToken();
+          const identifier =
+            employee?.national_id ||
+            employee?.phone ||
+            (employee as any)?.username ||
+            (employee as any)?.email ||
+            employee?.id ||
+            'supervisor';
+
+          if (token && identifier) {
+            await saveLastCredentialsForBiometrics(identifier, token, employee, rToken || undefined);
           }
           await setBiometricEnabled(true);
           setBiometricsOn(true);

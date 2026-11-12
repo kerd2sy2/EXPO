@@ -2142,9 +2142,9 @@ export default function DelegateApp() {
       }
     });
 
-    // Every working delegate in this branch must be included in the roster
+    // Every actually working delegate in this branch must be included in the roster
     workingDelegates.forEach((w) => {
-      if (w?.id) {
+      if (w?.id && (w.active_session_id || w.shift_start_time || w.active_session)) {
         const existing = map.get(String(w.id));
         map.set(String(w.id), {
           ...(existing || {}),
@@ -2173,6 +2173,7 @@ export default function DelegateApp() {
 
     return workingDelegates.filter((d) => {
       if (!isDeliveryDelegate(d)) return false;
+      if (!d.active_session_id && !d.shift_start_time && !d.active_session) return false;
       if (supervisorBranchId || supervisorBranchName) {
         return isEmployeeInBranch(d, supervisorBranchId, supervisorBranchName);
       }
@@ -2545,9 +2546,12 @@ export default function DelegateApp() {
                   const activeSess = branchSessions.find(
                     (s) => s.employee_id === d.id && (s.status === 'ACTIVE' || !s.end_time)
                   );
-                  const isWorking =
-                    !!workingInfo ||
-                    (!!activeSess && activeSess.status === 'ACTIVE' && !activeSess.end_time);
+                  const isWorking = Boolean(
+                    workingInfo &&
+                      (workingInfo.active_session_id ||
+                        workingInfo.shift_start_time ||
+                        workingInfo.active_session)
+                  );
                   const shiftStartTime =
                     activeSess?.start_time || workingInfo?.shift_start_time || d.shift_start_time;
                   const startKm =

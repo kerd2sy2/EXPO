@@ -70,7 +70,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
         const enabled = await isBiometricEnabled();
         const saved = await getSavedCredentialsForBiometrics();
-        if (hasHardware && isEnrolled && enabled && saved && saved.user) {
+        if (hasHardware && isEnrolled && enabled && saved && (saved.user || saved.token)) {
           setIsBiometricSupported(true);
         } else {
           setIsBiometricSupported(false);
