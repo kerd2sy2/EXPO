@@ -1,21 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  PanResponder,
-  ActivityIndicator,
-  StatusBar,
-  Dimensions,
-} from 'react-native';
+import { View, Text, Animated, PanResponder, ActivityIndicator, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeColors, Language } from '../types/delegate';
+import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
+import {
+  VerificationLanguage,
+  verificationTranslations,
+  getLocalizedAppName,
+} from './human-verification/humanVerificationI18n';
+import {
+  HV_TRACK_WIDTH,
+  HV_KNOB_SIZE,
+  HV_MAX_SLIDE,
+  humanVerificationStyles as styles,
+} from './human-verification/humanVerificationStyles';
 
-export type VerificationLanguage = 'ar' | 'en' | 'ur' | 'bn';
+export type { VerificationLanguage };
+export { verificationTranslations, getLocalizedAppName };
 
 export interface HumanVerificationScreenProps {
   colors: ThemeColors;
@@ -28,131 +32,26 @@ export interface HumanVerificationScreenProps {
   onBack?: () => void;
 }
 
-export const verificationTranslations: Record<
-  VerificationLanguage,
-  {
-    title: string;
-    subtitle: (appName: string) => string;
-    slideAction: string;
-    verifying: string;
-    verified: string;
-    trustFooter: string;
-    timeoutError: string;
-    genericError: string;
-    permissionError: string;
-  }
-> = {
-  ar: {
-    title: 'التأكد أنك إنسان',
-    subtitle: (appName: string) => `اسحب المؤشر أدناه لإثبات هويتك والمتابعة إلى ${appName}`,
-    slideAction: 'اسحب المؤشر للمتابعة',
-    verifying: 'جاري التحقق وتسجيل الدخول...',
-    verified: 'تم التحقق بنجاح',
-    trustFooter: 'نظام حماية أمني مشفر ومحمي ضد برامج التخمين الآلية',
-    timeoutError: 'انتهت مهلة الاتصال بالخادم، يرجى المحاولة مجدداً',
-    genericError: 'فشل تسجيل الدخول، يرجى التأكد من صحة البيانات',
-    permissionError: 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة',
-  },
-  en: {
-    title: 'Human Verification',
-    subtitle: (appName: string) => `Slide the slider below to verify you are human and proceed to ${appName}`,
-    slideAction: 'Slide to verify',
-    verifying: 'Verifying and signing in...',
-    verified: 'Verified successfully',
-    trustFooter: 'Encrypted security system protected against automated bots',
-    timeoutError: 'Server connection timed out, please try again',
-    genericError: 'Sign in failed, please check your credentials',
-    permissionError: 'You do not have access permission for this app, please contact administration',
-  },
-  ur: {
-    title: 'انسانی تصدیق',
-    subtitle: (appName: string) => `اپنی شناخت کی تصدیق اور ${appName} پر جاری رکھنے کے لیے سلائیڈر کو سلائیڈ کریں`,
-    slideAction: 'جاری رکھنے کے لیے سلائیڈ کریں',
-    verifying: 'تصدیق اور لاگ ان ہو رہا ہے...',
-    verified: 'کامیابی سے تصدیق ہو گئی',
-    trustFooter: 'خودکار بوٹس کے خلاف محفوظ اور انکرپٹڈ سیکیورٹی سسٹم',
-    timeoutError: 'سرور کنکشن کا وقت ختم ہو گیا، براہ کرم دوبارہ کوشش کریں',
-    genericError: 'لاگ ان ناکام رہا، براہ کرم معلومات کی درستگی چیک کریں',
-    permissionError: 'آپ کے پاس اس ایپ تک رسائی کی اجازت نہیں ہے، براہ کرم انتظامیہ سے رابطہ کریں',
-  },
-  bn: {
-    title: 'মানুষ যাচাইকরণ',
-    subtitle: (appName: string) => `আপনি মানুষ তা নিশ্চিত করতে এবং ${appName}-এ প্রবেশ করতে নিচের স্লাইডারটি টানুন`,
-    slideAction: 'এগিয়ে যেতে স্লাইড করুন',
-    verifying: 'যাচাই এবং সাইন ইন করা হচ্ছে...',
-    verified: 'সফলভাবে যাচাই করা হয়েছে',
-    trustFooter: 'স্বয়ংক্রিয় বট থেকে সুরক্ষিত এনক্রিপ্ট করা নিরাপত্তা ব্যবস্থা',
-    timeoutError: 'সার্ভার সংযোগের সময় শেষ, অনুগ্রহ করে আবার চেষ্টা করুন',
-    genericError: 'সাইন ইন ব্যর্থ হয়েছে, অনুগ্রহ করে তথ্য সঠিক কিনা পরীক্ষা করুন',
-    permissionError: 'আপনার এই অ্যাপে প্রবেশের অনুমতি নেই, অনুগ্রহ করে প্রশাসনের সাথে যোগাযোগ করুন',
-  },
-};
-
-export const getLocalizedAppName = (rawName: string, lang: VerificationLanguage): string => {
-  const normalized = (rawName || '').trim().toLowerCase();
-  if (normalized.includes('إشراف') || normalized.includes('اشراف') || normalized.includes('supervis')) {
-    switch (lang) {
-      case 'en': return 'Supervision';
-      case 'ur': return 'نگرانی';
-      case 'bn': return 'তত্ত্বابধান';
-      default: return 'الإشراف';
-    }
-  }
-  if (normalized.includes('مناديب') || normalized.includes('مندوب') || normalized.includes('delegat')) {
-    switch (lang) {
-      case 'en': return 'Delegates';
-      case 'ur': return 'ڈیلیگیٹس';
-      case 'bn': return 'প্রতিনিধিরা';
-      default: return 'المناديب';
-    }
-  }
-  if (normalized.includes('عهدة') || normalized.includes('عهده') || normalized.includes('custody') || normalized.includes('ahda')) {
-    switch (lang) {
-      case 'en': return 'Custody';
-      case 'ur': return 'تحویل';
-      case 'bn': return 'হেফাজত';
-      default: return 'العهدة';
-    }
-  }
-  if (normalized.includes('إدارة') || normalized.includes('ادارة') || normalized.includes('manag') || normalized.includes('admin')) {
-    switch (lang) {
-      case 'en': return 'Management';
-      case 'ur': return 'انتظامیہ';
-      case 'bn': return 'প্রশাসন';
-      default: return 'الإدارة';
-    }
-  }
-  return rawName;
-};
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TRACK_WIDTH = Math.min(SCREEN_WIDTH - 48, 330);
-const KNOB_SIZE = 50;
-const MAX_SLIDE = TRACK_WIDTH - KNOB_SIZE - 8;
-
 export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = ({
   colors,
   isDarkMode,
   appName,
-  isRTL: propIsRTL,
   lang: propLang,
   onVerify,
 }) => {
   const [currentLang, setCurrentLang] = useState<VerificationLanguage>(
-    (propLang as VerificationLanguage) || (propIsRTL ? 'ar' : 'ar')
+    (propLang as VerificationLanguage) || 'ar'
   );
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Sync propLang if it changes externally
   useEffect(() => {
     if (propLang && ['ar', 'en', 'ur', 'bn'].includes(propLang as string)) {
       setCurrentLang(propLang as VerificationLanguage);
     }
   }, [propLang]);
 
-  // Load language from storage if not explicitly provided as prop
   useEffect(() => {
     if (!propLang) {
       (async () => {
@@ -163,7 +62,7 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
           if (stored && ['ar', 'en', 'ur', 'bn'].includes(stored)) {
             setCurrentLang(stored as VerificationLanguage);
           }
-        } catch (_) {}
+        } catch {}
       })();
     }
   }, [propLang]);
@@ -172,7 +71,6 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
   const t = verificationTranslations[currentLang] || verificationTranslations.ar;
   const localizedAppName = getLocalizedAppName(appName, currentLang);
 
-  // Mutable refs to prevent stale closures and block multi-triggers / freeze
   const isProcessingRef = useRef(false);
   const isVerifiedRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -197,7 +95,7 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
       isMountedRef.current = false;
       slideAnim.stopAnimation();
     };
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   const handleSlideComplete = async () => {
     if (isProcessingRef.current || isVerifiedRef.current) return;
@@ -208,25 +106,19 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
     setVerifying(true);
     setErrorMessage(null);
 
-    // Stop any in-flight animations and lock slider at the end
     slideAnim.stopAnimation();
     Animated.timing(slideAnim, {
-      toValue: MAX_SLIDE,
+      toValue: HV_MAX_SLIDE,
       duration: 120,
       useNativeDriver: false,
     }).start();
 
     try {
-      // Execute the actual login request with a 20s timeout safeguard
       await Promise.race([
         onVerify(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(t.timeoutError)), 20000)
-        ),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(t.timeoutError)), 20000)),
       ]);
 
-      // Defensive fallback: If onVerify resolved without error but screen did not transition within 1.5s,
-      // reset slider so UI never remains permanently frozen
       setTimeout(() => {
         if (isMountedRef.current && isProcessingRef.current) {
           isProcessingRef.current = false;
@@ -261,7 +153,7 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
       if (isMountedRef.current) {
         setErrorMessage(msg);
       }
-      // Reset slider smoothly and unlock only after animation completes
+
       slideAnim.stopAnimation();
       Animated.spring(slideAnim, {
         toValue: 0,
@@ -282,20 +174,19 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => !isProcessingRef.current && !isVerifiedRef.current,
-      onMoveShouldSetPanResponder: (_, gesture) => {
-        return !isProcessingRef.current && !isVerifiedRef.current && Math.abs(gesture.dx) > 4;
-      },
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        !isProcessingRef.current && !isVerifiedRef.current && Math.abs(gesture.dx) > 4,
       onPanResponderGrant: () => {
         slideAnim.stopAnimation();
       },
       onPanResponderMove: (_, gesture) => {
         if (isProcessingRef.current || isVerifiedRef.current) return;
-        const clampedX = Math.max(0, Math.min(gesture.dx, MAX_SLIDE));
+        const clampedX = Math.max(0, Math.min(gesture.dx, HV_MAX_SLIDE));
         slideAnim.setValue(clampedX);
       },
       onPanResponderRelease: (_, gesture) => {
         if (isProcessingRef.current || isVerifiedRef.current) return;
-        if (gesture.dx >= MAX_SLIDE * 0.75) {
+        if (gesture.dx >= HV_MAX_SLIDE * 0.75) {
           handleSlideComplete();
         } else {
           slideAnim.stopAnimation();
@@ -323,130 +214,122 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.bg}
+      />
 
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        {/* Upper Section: Lottie Animation */}
-        <View style={styles.animationSection}>
-          <LottieView
-            ref={lottieRef}
-            source={require('../../assets/Lottie/lottie/41qLNI7XMt.lottie')}
-            autoPlay
-            loop
-            style={styles.fullLottie}
-            resizeMode="contain"
-          />
-        </View>
+        <ModuleErrorBoundary moduleName="شعار التحقق" colors={colors}>
+          <View style={styles.animationSection}>
+            <LottieView
+              ref={lottieRef}
+              source={require('../../assets/Lottie/lottie/41qLNI7XMt.lottie')}
+              autoPlay
+              loop
+              style={styles.fullLottie}
+              resizeMode="contain"
+            />
+          </View>
+        </ModuleErrorBoundary>
 
-        {/* Action & Verification Section */}
-        <View style={styles.actionSection}>
-          {/* Main Title */}
-          <Text style={[styles.mainTitle, { color: colors.textPrimary }]}>
-            {t.title}
-          </Text>
+        <ModuleErrorBoundary moduleName="مؤشر التحقق البشري" colors={colors}>
+          <View style={styles.actionSection}>
+            <Text style={[styles.mainTitle, { color: colors.textPrimary }]}>{t.title}</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              {t.subtitle(localizedAppName)}
+            </Text>
 
-          {/* Subtitle */}
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {t.subtitle(localizedAppName)}
-          </Text>
-
-          {/* Error Banner if failed */}
-          {errorMessage ? (
-            <View
-              style={[
-                styles.errorBox,
-                {
-                  backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2',
-                  borderColor: '#ef4444',
-                },
-              ]}
-            >
-              <View style={[styles.errorContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Ionicons name="alert-circle" size={17} color="#ef4444" />
-                <Text style={[styles.errorText, { textAlign: isRTL ? 'right' : 'left' }]}>
-                  {errorMessage}
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
-          {/* Slider Verification Track */}
-          <View style={styles.sliderSection}>
-            <View
-              pointerEvents={verifying || verified ? 'none' : 'auto'}
-              style={[
-                styles.track,
-                {
-                  width: TRACK_WIDTH,
-                  backgroundColor: verified
-                    ? '#10b98120'
-                    : isDarkMode
-                    ? '#0f172a'
-                    : '#f1f5f9',
-                  borderColor: verified ? '#10b981' : colors.border,
-                },
-              ]}
-            >
-              {/* Progress fill */}
-              <Animated.View
+            {errorMessage ? (
+              <View
                 style={[
-                  styles.trackFill,
+                  styles.errorBox,
                   {
-                    width: slideAnim.interpolate({
-                      inputRange: [0, MAX_SLIDE],
-                      outputRange: [KNOB_SIZE, TRACK_WIDTH],
-                      extrapolate: 'clamp',
-                    }),
-                    backgroundColor: verified ? '#10b98125' : `${colors.primary}25`,
+                    backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2',
+                    borderColor: '#ef4444',
                   },
                 ]}
-              />
-
-              {/* Slider track label */}
-              <Text
-                style={[
-                  styles.trackLabel,
-                  {
-                    color: verified
-                      ? '#059669'
-                      : isDarkMode
-                      ? '#94a3b8'
-                      : '#64748b',
-                  },
-                ]}
-                numberOfLines={1}
               >
-                {verifying ? t.verifying : verified ? t.verified : t.slideAction}
-              </Text>
+                <View
+                  style={[styles.errorContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                >
+                  <Ionicons name="alert-circle" size={17} color="#ef4444" />
+                  <Text style={[styles.errorText, { textAlign: isRTL ? 'right' : 'left' }]}>
+                    {errorMessage}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
 
-              {/* Draggable Knob */}
-              <Animated.View
-                {...(verifying || verified ? {} : panResponder.panHandlers)}
+            <View style={styles.sliderSection}>
+              <View
                 pointerEvents={verifying || verified ? 'none' : 'auto'}
                 style={[
-                  styles.knob,
+                  styles.track,
                   {
-                    transform: [{ translateX: slideAnim }],
-                    backgroundColor: verified ? '#10b981' : colors.primary,
-                    shadowColor: verified ? '#10b981' : colors.primary,
+                    width: HV_TRACK_WIDTH,
+                    backgroundColor: verified
+                      ? '#10b98120'
+                      : isDarkMode
+                      ? '#0f172a'
+                      : '#f1f5f9',
+                    borderColor: verified ? '#10b981' : colors.border,
                   },
                 ]}
               >
-                {verifying ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Ionicons
-                    name={verified ? 'checkmark' : 'arrow-forward'}
-                    size={24}
-                    color="#ffffff"
-                  />
-                )}
-              </Animated.View>
+                <Animated.View
+                  style={[
+                    styles.trackFill,
+                    {
+                      width: slideAnim.interpolate({
+                        inputRange: [0, HV_MAX_SLIDE],
+                        outputRange: [HV_KNOB_SIZE, HV_TRACK_WIDTH],
+                        extrapolate: 'clamp',
+                      }),
+                      backgroundColor: verified ? '#10b98125' : `${colors.primary}25`,
+                    },
+                  ]}
+                />
+
+                <Text
+                  style={[
+                    styles.trackLabel,
+                    {
+                      color: verified ? '#059669' : isDarkMode ? '#94a3b8' : '#64748b',
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {verifying ? t.verifying : verified ? t.verified : t.slideAction}
+                </Text>
+
+                <Animated.View
+                  {...(verifying || verified ? {} : panResponder.panHandlers)}
+                  pointerEvents={verifying || verified ? 'none' : 'auto'}
+                  style={[
+                    styles.knob,
+                    {
+                      transform: [{ translateX: slideAnim }],
+                      backgroundColor: verified ? '#10b981' : colors.primary,
+                      shadowColor: verified ? '#10b981' : colors.primary,
+                    },
+                  ]}
+                >
+                  {verifying ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Ionicons
+                      name={verified ? 'checkmark' : 'arrow-forward'}
+                      size={24}
+                      color="#ffffff"
+                    />
+                  )}
+                </Animated.View>
+              </View>
             </View>
           </View>
-        </View>
+        </ModuleErrorBoundary>
 
-        {/* Security Trust Note at the very bottom */}
         <View style={[styles.trustFooter, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Ionicons name="lock-closed" size={13} color={colors.textSecondary} />
           <Text style={[styles.trustText, { color: colors.textSecondary }]}>
@@ -457,116 +340,3 @@ export const HumanVerificationScreen: React.FC<HumanVerificationScreenProps> = (
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 20,
-  },
-  animationSection: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullLottie: {
-    width: '100%',
-    height: '100%',
-    maxHeight: 340,
-  },
-  actionSection: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  mainTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.3,
-  },
-  subtitle: {
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 20,
-    fontWeight: '500',
-  },
-  errorBox: {
-    width: '100%',
-    maxWidth: TRACK_WIDTH,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  errorContentRow: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  errorText: {
-    flex: 1,
-    color: '#ef4444',
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 18,
-  },
-  sliderSection: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  track: {
-    height: 58,
-    borderRadius: 29,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  trackFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: 29,
-  },
-  trackLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    zIndex: 1,
-  },
-  knob: {
-    position: 'absolute',
-    left: 4,
-    width: KNOB_SIZE,
-    height: KNOB_SIZE,
-    borderRadius: KNOB_SIZE / 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    zIndex: 2,
-  },
-  trustFooter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingTop: 12,
-  },
-  trustText: {
-    fontSize: 11,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-});

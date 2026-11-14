@@ -1,0 +1,217 @@
+import { Dimensions, Platform, StyleSheet } from 'react-native';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+export const addPhoneStyles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  sheetContent: {
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    maxHeight: SCREEN_HEIGHT * 0.88,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  dragBarContainer: {
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  dragBar: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+  },
+  headerRow: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150, 150, 150, 0.12)',
+  },
+  headerIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextCol: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  inputSection: {
+    marginBottom: 20,
+  },
+  labelRow: {
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  requiredStar: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  phoneInputBox: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    height: 54,
+  },
+  saudiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginRight: 8,
+    flexShrink: 0,
+  },
+  flagEmoji: {
+    fontSize: 15,
+    lineHeight: 18,
+  },
+  countryCode: {
+    fontSize: 14,
+    fontWeight: '700',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 0,
+    margin: 0,
+    height: 48,
+    textAlignVertical: 'center',
+  },
+  inputActionBox: {
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hintRow: {
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  hintText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  errorBox: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  warningLockCard: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  warningLockHeader: {
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  warningLockTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  warningLockDesc: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  actionButtonsCol: {
+    gap: 10,
+    marginTop: 8,
+  },
+  submitBtn: {
+    height: 52,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  btnInnerRow: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  submitBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  cancelBtn: {
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+});

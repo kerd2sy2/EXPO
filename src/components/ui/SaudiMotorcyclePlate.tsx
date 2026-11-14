@@ -1,15 +1,27 @@
 import React, { useRef } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Platform,
-  I18nManager,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
+import {
+  AR_TO_EN_LETTERS,
+  EN_TO_AR_LETTERS,
+  toArabicDigits,
+  toEnglishDigits,
+  getPlateLetterSlots,
+  convertLettersToBoth,
+  getAlignedDigits,
+} from '@shared/utils/plateUtils';
+import { saudiMotorcyclePlateStyles as styles } from './saudiMotorcyclePlateStyles';
+
+export {
+  AR_TO_EN_LETTERS,
+  EN_TO_AR_LETTERS,
+  toArabicDigits,
+  toEnglishDigits,
+  getPlateLetterSlots,
+  convertLettersToBoth,
+  getAlignedDigits,
+};
 
 interface SaudiMotorcyclePlateProps {
   digits: string;
@@ -24,27 +36,6 @@ interface SaudiMotorcyclePlateProps {
   showScanButton?: boolean;
   showInputsRow?: boolean;
 }
-
-import {
-  AR_TO_EN_LETTERS,
-  EN_TO_AR_LETTERS,
-  toArabicDigits,
-  toEnglishDigits,
-  getPlateLetterSlots,
-  convertLettersToBoth,
-  getAlignedDigits,
-} from '@shared/utils/plateUtils';
-
-export {
-  AR_TO_EN_LETTERS,
-  EN_TO_AR_LETTERS,
-  toArabicDigits,
-  toEnglishDigits,
-  getPlateLetterSlots,
-  convertLettersToBoth,
-  getAlignedDigits,
-};
-
 
 export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
   digits,
@@ -62,9 +53,9 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
   const digitsInputRef = useRef<TextInput>(null);
   const lettersInputRef = useRef<TextInput>(null);
 
-
   const englishDigits = toEnglishDigits(digits);
-  const { enArray: enDigitsArray, arArray: arDigitsArray, isEmptyDigits } = getAlignedDigits(englishDigits);
+  const { enArray: enDigitsArray, arArray: arDigitsArray, isEmptyDigits } =
+    getAlignedDigits(englishDigits);
   const { arSlots, enSlots, isThreeLetters } = getPlateLetterSlots(letters);
 
   return (
@@ -75,7 +66,6 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
         isDarkMode && styles.plateDarkShadow,
       ]}
     >
-      {/* Hidden inputs to allow direct tapping on the plate to type if editable */}
       {editable && (
         <>
           <TextInput
@@ -105,7 +95,6 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
         </>
       )}
 
-      {/* Smart Plate Camera Scan Action Bar (Opt-in) */}
       {showScanButton && editable && onScanPlate && (
         <TouchableOpacity
           style={[
@@ -130,12 +119,13 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
               { color: isDarkMode ? '#4ade80' : '#16a34a' },
             ]}
           >
-            {isScanning ? 'جاري قراءة اللوحة والتعرف عليها...' : 'مسح لوحة الدباب بالكاميرا (Scan Plate)'}
+            {isScanning
+              ? 'جاري قراءة اللوحة والتعرف عليها...'
+              : 'مسح لوحة الدباب بالكاميرا (Scan Plate)'}
           </Text>
         </TouchableOpacity>
       )}
 
-      {/* Authentic Saudi Plate Body (Fixed Physical LTR Orientation & True Scaled Layout Box) */}
       <View
         style={
           scale !== 1
@@ -154,147 +144,133 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
             scale !== 1 && { width: 340, transform: [{ scale }] },
           ]}
         >
-        {/* Subtle realistic bolt rivets */}
-        <View style={[styles.rivetDot, styles.rivetTopLeft]} />
-        <View style={[styles.rivetDot, styles.rivetTopRight]} />
+          <View style={[styles.rivetDot, styles.rivetTopLeft]} />
+          <View style={[styles.rivetDot, styles.rivetTopRight]} />
 
-        {/* Main Grid Area (Left: Numbers, Middle: Letters) */}
-        <View style={styles.mainGrid}>
-          {/* Top Row: Arabic Numbers (Left) & Arabic Letters (Right/Inner) */}
-          <View style={styles.gridRow}>
-            {/* Top-Left: Arabic Numbers */}
-            <TouchableOpacity
-              activeOpacity={editable ? 0.7 : 1}
-              onPress={() => editable && digitsInputRef.current?.focus()}
-              style={[
-                styles.quadrantCell,
-                styles.numbersQuadrant,
-                styles.topCellBorder,
-                styles.verticalDivider,
-              ]}
-            >
-              <View style={styles.alignedRow}>
-                {arDigitsArray.map((d, i) => (
-                  <View key={`ar-dig-${i}`} style={styles.alignedDigitSlot}>
-                    <Text style={[styles.arabicNumbersText, isEmptyDigits && { opacity: 0.3 }]}>
-                      {isEmptyDigits ? '٠' : d}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </TouchableOpacity>
+          <View style={styles.mainGrid}>
+            <View style={styles.gridRow}>
+              <TouchableOpacity
+                activeOpacity={editable ? 0.7 : 1}
+                onPress={() => editable && digitsInputRef.current?.focus()}
+                style={[
+                  styles.quadrantCell,
+                  styles.numbersQuadrant,
+                  styles.topCellBorder,
+                  styles.verticalDivider,
+                ]}
+              >
+                <View style={styles.alignedRow}>
+                  {arDigitsArray.map((d, i) => (
+                    <View key={`ar-dig-${i}`} style={styles.alignedDigitSlot}>
+                      <Text style={[styles.arabicNumbersText, isEmptyDigits && { opacity: 0.3 }]}>
+                        {isEmptyDigits ? '٠' : d}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </TouchableOpacity>
 
-            {/* Top-Right: Arabic Letters (2 slots for motorcycles, 3 slots for cars) */}
-            <TouchableOpacity
-              activeOpacity={editable ? 0.7 : 1}
-              onPress={() => editable && lettersInputRef.current?.focus()}
-              style={[
-                styles.quadrantCell,
-                styles.lettersQuadrant,
-                isThreeLetters && styles.lettersQuadrantThree,
-                styles.topCellBorder,
-              ]}
-            >
-              <View style={styles.alignedRow}>
-                {arSlots.map((arChar, idx) => (
-                  <View key={`ar-let-${idx}`} style={styles.alignedLetterSlot}>
-                    <Text
-                      style={[
-                        styles.arabicLettersText,
-                        isThreeLetters && styles.arabicLettersTextThree,
-                        !arChar && { opacity: 0.3 },
-                      ]}
-                    >
-                      {arChar || 'ـ'}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Bottom Row: English Numbers (Left) & English Letters (Right/Inner) */}
-          <View style={styles.gridRow}>
-            {/* Bottom-Left: English Numbers */}
-            <TouchableOpacity
-              activeOpacity={editable ? 0.7 : 1}
-              onPress={() => editable && digitsInputRef.current?.focus()}
-              style={[
-                styles.quadrantCell,
-                styles.numbersQuadrant,
-                styles.bottomCellBorder,
-                styles.verticalDivider,
-              ]}
-            >
-              <View style={styles.alignedRow}>
-                {enDigitsArray.map((d, i) => (
-                  <View key={`en-dig-${i}`} style={styles.alignedDigitSlot}>
-                    <Text style={[styles.englishNumbersText, isEmptyDigits && { opacity: 0.3 }]}>
-                      {isEmptyDigits ? '0' : d}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </TouchableOpacity>
-
-            {/* Bottom-Right: English Letters (2 slots for motorcycles, 3 slots for cars) */}
-            <TouchableOpacity
-              activeOpacity={editable ? 0.7 : 1}
-              onPress={() => editable && lettersInputRef.current?.focus()}
-              style={[
-                styles.quadrantCell,
-                styles.lettersQuadrant,
-                isThreeLetters && styles.lettersQuadrantThree,
-                styles.bottomCellBorder,
-              ]}
-            >
-              <View style={styles.alignedRow}>
-                {enSlots.map((enChar, idx) => (
-                  <View key={`en-let-${idx}`} style={styles.alignedLetterSlot}>
-                    <Text
-                      style={[
-                        styles.englishLettersText,
-                        isThreeLetters && styles.englishLettersTextThree,
-                        !enChar && { opacity: 0.3 },
-                      ]}
-                    >
-                      {enChar || '-'}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Right Sidebar: Authentic Saudi Inner Frame, Palm & Swords Emblem, 'السعودية', 'K S A' */}
-        <View style={styles.sidebar}>
-          {/* Inner embossed rounded groove border matching real Saudi motorcycle plate */}
-          <View style={styles.sidebarInnerFrame}>
-            {/* Authentic Saudi Palm & Crossed Swords Emblem */}
-            <View style={styles.emblemWrap}>
-              <ExpoImage
-                source={require('../../../assets/images/saudi_plate_emblem.svg')}
-                style={styles.emblemImage}
-                contentFit="contain"
-              />
+              <TouchableOpacity
+                activeOpacity={editable ? 0.7 : 1}
+                onPress={() => editable && lettersInputRef.current?.focus()}
+                style={[
+                  styles.quadrantCell,
+                  styles.lettersQuadrant,
+                  isThreeLetters && styles.lettersQuadrantThree,
+                  styles.topCellBorder,
+                ]}
+              >
+                <View style={styles.alignedRow}>
+                  {arSlots.map((arChar, idx) => (
+                    <View key={`ar-let-${idx}`} style={styles.alignedLetterSlot}>
+                      <Text
+                        style={[
+                          styles.arabicLettersText,
+                          isThreeLetters && styles.arabicLettersTextThree,
+                          !arChar && { opacity: 0.3 },
+                        ]}
+                      >
+                        {arChar || 'ـ'}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </TouchableOpacity>
             </View>
 
-            {/* Arabic Country Text */}
-            <Text style={styles.sidebarCountryAr}>السعودية</Text>
+            <View style={styles.gridRow}>
+              <TouchableOpacity
+                activeOpacity={editable ? 0.7 : 1}
+                onPress={() => editable && digitsInputRef.current?.focus()}
+                style={[
+                  styles.quadrantCell,
+                  styles.numbersQuadrant,
+                  styles.bottomCellBorder,
+                  styles.verticalDivider,
+                ]}
+              >
+                <View style={styles.alignedRow}>
+                  {enDigitsArray.map((d, i) => (
+                    <View key={`en-dig-${i}`} style={styles.alignedDigitSlot}>
+                      <Text style={[styles.englishNumbersText, isEmptyDigits && { opacity: 0.3 }]}>
+                        {isEmptyDigits ? '0' : d}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </TouchableOpacity>
 
-            {/* Vertical K S A */}
-            <View style={styles.verticalKSA}>
-              <Text style={styles.ksaLetter}>K</Text>
-              <Text style={styles.ksaLetter}>S</Text>
-              <Text style={styles.ksaLetter}>A</Text>
+              <TouchableOpacity
+                activeOpacity={editable ? 0.7 : 1}
+                onPress={() => editable && lettersInputRef.current?.focus()}
+                style={[
+                  styles.quadrantCell,
+                  styles.lettersQuadrant,
+                  isThreeLetters && styles.lettersQuadrantThree,
+                  styles.bottomCellBorder,
+                ]}
+              >
+                <View style={styles.alignedRow}>
+                  {enSlots.map((enChar, idx) => (
+                    <View key={`en-let-${idx}`} style={styles.alignedLetterSlot}>
+                      <Text
+                        style={[
+                          styles.englishLettersText,
+                          isThreeLetters && styles.englishLettersTextThree,
+                          !enChar && { opacity: 0.3 },
+                        ]}
+                      >
+                        {enChar || '-'}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
+
+          <View style={styles.sidebar}>
+            <View style={styles.sidebarInnerFrame}>
+              <View style={styles.emblemWrap}>
+                <ExpoImage
+                  source={require('../../../assets/images/saudi_plate_emblem.svg')}
+                  style={styles.emblemImage}
+                  contentFit="contain"
+                />
+              </View>
+
+              <Text style={styles.sidebarCountryAr}>السعودية</Text>
+
+              <View style={styles.verticalKSA}>
+                <Text style={styles.ksaLetter}>K</Text>
+                <Text style={styles.ksaLetter}>S</Text>
+                <Text style={styles.ksaLetter}>A</Text>
+              </View>
+            </View>
+          </View>
         </View>
       </View>
 
-      {/* Dual Inputs Row below plate (Only when explicit showInputsRow is true) */}
       {showInputsRow && editable && (
         <View style={styles.inputsRow}>
           <View style={styles.inputItem}>
@@ -357,244 +333,3 @@ export const SaudiMotorcyclePlate: React.FC<SaudiMotorcyclePlateProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  plateOuterContainer: {
-    width: '100%',
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  plateDarkShadow: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-  },
-  plateBody: {
-    width: '100%',
-    maxWidth: 340,
-    height: 155,
-    backgroundColor: '#fdfdfd',
-    borderRadius: 14,
-    borderWidth: 3.5,
-    borderColor: '#1e293b',
-    flexDirection: 'row',
-    overflow: 'hidden',
-    position: 'relative',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  rivetDot: {
-    position: 'absolute',
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: '#cbd5e1',
-    borderWidth: 1.2,
-    borderColor: '#64748b',
-    zIndex: 10,
-  },
-  rivetTopLeft: {
-    top: 6,
-    left: 8,
-  },
-  rivetTopRight: {
-    top: 6,
-    right: 54,
-  },
-  mainGrid: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-  gridRow: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  quadrantCell: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  numbersQuadrant: {
-    flex: 1.35,
-  },
-  lettersQuadrant: {
-    flex: 1,
-  },
-  lettersQuadrantThree: {
-    flex: 1.15,
-  },
-  topCellBorder: {
-    borderTopWidth: 0,
-    borderBottomWidth: 1.5,
-    backgroundColor: '#f8fafc',
-  },
-  bottomCellBorder: {
-    borderTopWidth: 0,
-    borderBottomWidth: 0,
-    backgroundColor: '#ffffff',
-  },
-  verticalDivider: {
-    borderRightWidth: 1.5,
-    borderRightColor: '#334155',
-  },
-  alignedRow: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: 2,
-  },
-  alignedDigitSlot: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  alignedLetterSlot: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  arabicNumbersText: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#0f172a',
-    textAlign: 'center',
-    fontFamily: Platform.OS === 'android' ? 'sans-serif-medium' : undefined,
-  },
-  arabicLettersText: {
-    fontSize: 27,
-    fontWeight: '900',
-    color: '#0f172a',
-    textAlign: 'center',
-  },
-  arabicLettersTextThree: {
-    fontSize: 24,
-  },
-  englishNumbersText: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#0f172a',
-    textAlign: 'center',
-    fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
-  },
-  englishLettersText: {
-    fontSize: 27,
-    fontWeight: '900',
-    color: '#0f172a',
-    textAlign: 'center',
-    fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
-  },
-  englishLettersTextThree: {
-    fontSize: 24,
-  },
-  /* Right Sidebar (KSA) */
-  sidebar: {
-    width: 48,
-    borderLeftWidth: 2,
-    borderLeftColor: '#1e293b',
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 2.5,
-  },
-  sidebarInnerFrame: {
-    width: '100%',
-    height: '100%',
-    borderWidth: 1.5,
-    borderColor: '#334155',
-    borderRadius: 7,
-    backgroundColor: '#f8fafc',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4.5,
-    paddingHorizontal: 1,
-  },
-  emblemWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 32,
-    height: 32,
-    marginTop: 0.5,
-  },
-  emblemImage: {
-    width: 29,
-    height: 29,
-  },
-  sidebarCountryAr: {
-    fontSize: 9.5,
-    fontWeight: '900',
-    color: '#0f172a',
-    textAlign: 'center',
-    letterSpacing: 0.4,
-    marginVertical: 1,
-  },
-  verticalKSA: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    marginBottom: 2,
-  },
-  ksaLetter: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#0f172a',
-    lineHeight: 15,
-  },
-  /* Inputs Row below plate */
-  inputsRow: {
-    width: '100%',
-    maxWidth: 340,
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    gap: 10,
-  },
-  inputItem: {
-    flex: 1,
-  },
-  inputHelperLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 5,
-    textAlign: 'right',
-  },
-  nativeTextInput: {
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  scanButton: {
-    width: '100%',
-    maxWidth: 340,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1.2,
-    marginBottom: 10,
-    gap: 8,
-  },
-  scanButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  hiddenInput: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
-  },
-});

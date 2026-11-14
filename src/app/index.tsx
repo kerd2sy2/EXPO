@@ -1,106 +1,26 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  StatusBar,
-  ScrollView,
-  RefreshControl,
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  Image,
-  Animated,
-  BackHandler,
-  useColorScheme,
-  KeyboardAvoidingView,
-  Keyboard,
-  KeyboardEvent,
-  Platform,
-  StyleSheet,
-  AppState,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
+import React, { useState, useRef } from 'react';
+import { StatusBar, ScrollView, View, ActivityIndicator, Animated, Platform, StyleSheet, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useObserve } from 'expo-observe';
+import { useKeepAwake } from 'expo-keep-awake';
 
-// Types & Constants
-import {
-  EmployeeProfile,
-  WorkSession,
-  SuccessModalData,
-  PreviewPhotoData,
-  TabType,
-  Language,
-  ThemeColors,
-} from '../types/delegate';
+import { EmployeeProfile, WorkSession, TabType, Language } from '../types/delegate';
 import { translations } from '../constants/translations';
-
-// Services
-import { workApi } from '../services/work';
-import {
-  API_BASE_URL,
-  setAuthToken,
-  getStoredToken,
-  loadStoredToken,
-  getCachedUser,
-  saveCachedUser,
-  isBiometricEnabled,
-  saveLastCredentialsForBiometrics,
-  onSessionExpired,
-  getStoredLanguage,
-  saveStoredLanguage,
-  formatImageUrl,
-} from '../services/api';
-
-// Screens
-import { LoginScreen } from '../screens/LoginScreen';
-import { HomeScreen } from '../screens/HomeScreen';
-import { HomeHeader } from '../components/HomeHeader';
-import { ShiftScreen } from '../features/shift';
-import { HistoryScreen, getCurrentMonthInfo } from '../screens/HistoryScreen';
-import { ViolationsScreen } from '../screens/ViolationsScreen';
-import { ProfileScreen } from '../screens/ProfileScreen';
-import { OilChangeScreen } from '../screens/OilChangeScreen';
-import { FleetOilScreen } from '../screens/FleetOilScreen';
-import { DashboardScreen } from '../screens/DashboardScreen';
-import { FieldScreen } from '../screens/FieldScreen';
-import { ApprovalsScreen } from '../screens/ApprovalsScreen';
-import { OperationsScreen } from '../screens/OperationsScreen';
-import { SupervisorReportScreen } from '../screens/SupervisorReportScreen';
-import { AdvanceRequestScreen } from '../screens/AdvanceRequestScreen';
-import { EmployeesScreen } from '../screens/EmployeesScreen';
-import { OrdersReviewScreen } from '../screens/OrdersReviewScreen';
-import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { saveCachedUser, saveStoredLanguage } from '../services/api';
 import { hasCustodyPermission, openOhdaApp } from '../utils/custodyPermissions';
-import {
-  supervisorApi,
-  BranchStats,
-  ServerDashboardStats,
-  DelegateWithStatus,
-  PendingMaintenanceRequest,
-  PendingAdvanceRequest,
-  isDeliveryDelegate,
-  isEmployeeInBranch,
-} from '../services/supervisor';
-import {
-  operationsApi,
-  InventoryItem,
-  VehicleItem,
-  isVehicleOilDue,
-} from '../services/operations';
-import { getMyViolationsApi, DelegateViolation, apiRequest } from '../services/api';
-import { offlineQueue } from '../services/offlineQueue';
+import { initGlobalErrorLogger } from '../services/errorLogger';
+import { analytics } from '../services/analytics';
+import { notificationService } from '../services/notificationService';
 
-// Modals
-import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
+import { LoginScreen } from '../screens/LoginScreen';
+import { HomeHeader } from '../components/HomeHeader';
+import { getCurrentMonthInfo } from '../screens/HistoryScreen';
 import { AppModalsContainer } from '../components/AppModalsContainer';
+import { SubPageHeader } from '../components/layout/SubPageHeader';
+import { SupervisorTabContent } from '../components/layout/SupervisorTabContent';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 
-
-// Modular Hooks
 import { useSessionTimer } from '../hooks/useSessionTimer';
 import { useBroadcasts } from '../hooks/useBroadcasts';
 import { useAppUpdates } from '../hooks/useAppUpdates';
@@ -108,28 +28,25 @@ import { usePushNotifications } from '../hooks/usePushNotifications';
 import { useShakeDetection } from '../hooks/useShakeDetection';
 import { useShiftWorkflow } from '../hooks/useShiftWorkflow';
 import { useViolations } from '../hooks/useViolations';
-import { initGlobalErrorLogger } from '../services/errorLogger';
-import { analytics } from '../services/analytics';
-import { notificationService } from '../services/notificationService';
-import { useObserve } from 'expo-observe';
-import { useKeepAwake } from 'expo-keep-awake';
+import { useSupervisorDataSync } from '../hooks/useSupervisorDataSync';
+import { buildThemeColors, useAppAnalyticsAndDerivedState } from '../hooks/useAppAnalyticsAndDerivedState';
+import { useAppAuthAndSession } from '../hooks/useAppAuthAndSession';
+import { useAppShiftMediaAndActions } from '../hooks/useAppShiftMediaAndActions';
+import { useAppLifecycleAndEffects, HOME_HEADER_HEIGHT } from '../hooks/useAppLifecycleAndEffects';
+import { useAppUiAndModalsState } from '../hooks/useAppUiAndModalsState';
 
-// Initialize global crash/error interception immediately on app boot
 initGlobalErrorLogger();
 analytics.init();
 
 export default function DelegateApp() {
-  // Keep the device screen awake during active supervisor operations
   useKeepAwake();
-
   const { markInteractive } = useObserve();
   const insets = useSafeAreaInsets();
-  const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0);
+  const topInset = insets.top > 0 ? insets.top : Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0;
 
-  // Theme state: Default is Light Mode ('light')
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
   const isDarkMode = themeMode === 'dark';
-
+  const colors = buildThemeColors(isDarkMode);
   const toggleTheme = async () => {
     const nextMode = themeMode === 'light' ? 'dark' : 'light';
     setThemeMode(nextMode);
@@ -138,548 +55,32 @@ export default function DelegateApp() {
     } catch {}
   };
 
-  // Navigation & Language
   const [currentTab, setCurrentTab] = useState<TabType>('home');
   const [lang, setLang] = useState<Language>('ar');
   const t = translations[lang];
   const isRTL = lang === 'ar' || lang === 'ur';
 
-  // Authentication State
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
 
-  useEffect(() => {
-    if (!loading) {
-      markInteractive();
-    }
-  }, [loading, markInteractive]);
-
-  // Work Session State
   const [activeSession, setActiveSession] = useState<WorkSession | null>(null);
   const [historySessions, setHistorySessions] = useState<WorkSession[]>([]);
   const [selectedHistorySession, setSelectedHistorySession] = useState<WorkSession | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
-  // Supervisor Branch States
-  const [branchDelegates, setBranchDelegates] = useState<DelegateWithStatus[]>([]);
-  const [allBranchEmployees, setAllBranchEmployees] = useState<DelegateWithStatus[]>([]);
-  const [workingDelegates, setWorkingDelegates] = useState<DelegateWithStatus[]>([]);
-  const [pendingMaintenance, setPendingMaintenance] = useState<PendingMaintenanceRequest[]>([]);
-  const [pendingSessions, setPendingSessions] = useState<WorkSession[]>([]);
-  const [branchSessions, setBranchSessions] = useState<WorkSession[]>([]);
-  const [serverDashboardStats, setServerDashboardStats] = useState<ServerDashboardStats | null>(null);
-  const [pendingAdvances, setPendingAdvances] = useState<PendingAdvanceRequest[]>([]);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [reportInitialMode, setReportInitialMode] = useState<'list' | 'create'>('list');
-  const [advanceInitialMode, setAdvanceInitialMode] = useState<'list' | 'create'>('list');
-  const [showOperationVideoModal, setShowOperationVideoModal] = useState(false);
-  const [loadingSupervisorData, setLoadingSupervisorData] = useState(true);
-  const [isInitialSupervisorLoading, setIsInitialSupervisorLoading] = useState(true);
-  const [ordersDatePickerOpen, setOrdersDatePickerOpen] = useState(false);
-  const [readNotifIds, setReadNotifIds] = useState<Set<string>>(new Set());
-  const notifHeaderActionsRef = useRef<{ markAll: () => void; openClearModal: () => void } | null>(null);
-
-  // Load read notification IDs from storage on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const stored = await AsyncStorage.getItem('@eshraf_read_notifications_v1');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            setReadNotifIds(new Set(parsed));
-          }
-        }
-      } catch {}
-    })();
-  }, []);
-
-
-  // Operations & Fleet States & Instant Local Storage Cache
-  const CACHED_VEHICLES_KEY = '@aams_cached_vehicles';
-  const CACHED_INVENTORY_KEY = '@aams_cached_inventory';
-
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [vehicles, setVehicles] = useState<VehicleItem[]>([]);
-  const [loadingOperationsData, setLoadingOperationsData] = useState(false);
-  const lastOperationsFetchRef = useRef<number>(0);
-
-  // Restore cached vehicles and inventory on mount for 0ms cold-start
-  useEffect(() => {
-    Promise.all([
-      AsyncStorage.getItem(CACHED_VEHICLES_KEY),
-      AsyncStorage.getItem(CACHED_INVENTORY_KEY),
-    ]).then(([rawVehicles, rawInventory]) => {
-      if (rawVehicles) {
-        try {
-          const parsedV = JSON.parse(rawVehicles);
-          if (Array.isArray(parsedV) && parsedV.length > 0) {
-            setVehicles((prev) => (prev.length === 0 ? parsedV : prev));
-          }
-        } catch {}
-      }
-      if (rawInventory) {
-        try {
-          const parsedI = JSON.parse(rawInventory);
-          if (Array.isArray(parsedI) && parsedI.length > 0) {
-            setInventoryItems((prev) => (prev.length === 0 ? parsedI : prev));
-          }
-        } catch {}
-      }
-    }).catch(() => {});
-  }, []);
-
-  // Instant optimistic update when oil is dispensed: updates state and local storage in 0ms!
-  const handleVehicleDispensedOptimistic = useCallback((vehicleId: string, currentKm: number) => {
-    setVehicles((prev) => {
-      const nowIso = new Date().toISOString();
-      const updated = prev.map((v) => {
-        if (v.id === vehicleId) {
-          return {
-            ...v,
-            last_oil_change_km: currentKm,
-            last_oil_change_date: nowIso,
-            last_oil_change_at: nowIso,
-            oil_change_required: false,
-          };
-        }
-        return v;
-      });
-      AsyncStorage.setItem(CACHED_VEHICLES_KEY, JSON.stringify(updated)).catch(() => {});
-      return updated;
-    });
-  }, []);
-
-  const fetchOperationsData = useCallback(async (isSilent = false, force = false) => {
-    const now = Date.now();
-    // Cache TTL: Only debounce non-forced background calls by 4 seconds (down from 25s!)
-    if (!force && now - lastOperationsFetchRef.current < 4000) {
-      return;
-    }
-    lastOperationsFetchRef.current = now;
-
-    try {
-      if (!isSilent) {
-        setLoadingOperationsData(true);
-      }
-      const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
-      const [items, vehs] = await Promise.all([
-        operationsApi.getInventoryItems(),
-        operationsApi.getVehicles(branchId),
-      ]);
-      if (Array.isArray(items)) {
-        setInventoryItems(items);
-        AsyncStorage.setItem(CACHED_INVENTORY_KEY, JSON.stringify(items)).catch(() => {});
-      }
-      if (Array.isArray(vehs)) {
-        setVehicles(vehs);
-        AsyncStorage.setItem(CACHED_VEHICLES_KEY, JSON.stringify(vehs)).catch(() => {});
-      }
-    } catch (e) {
-      console.warn('[Eshraf] Error fetching operations data:', e);
-    } finally {
-      if (!isSilent) {
-        setLoadingOperationsData(false);
-      }
-    }
-  }, [employee?.branch_id]);
-
-  const [loadingApprovalsOnly, setLoadingApprovalsOnly] = useState(false);
-
-  // Cached keys for instant 0ms cold-start
-  const CACHED_PENDING_SESSIONS_KEY = '@aams_cached_pending_sessions';
-  const CACHED_PENDING_MAINTENANCE_KEY = '@aams_cached_pending_maintenance';
-  const CACHED_PENDING_ADVANCES_KEY = '@aams_cached_pending_advances';
-  const CACHED_BRANCH_DELEGATES_KEY = '@aams_cached_branch_delegates';
-
-  // Load all cached pending requests on mount so Approvals & Notifications tabs open instantly
-  useEffect(() => {
-    Promise.all([
-      AsyncStorage.getItem(CACHED_PENDING_SESSIONS_KEY),
-      AsyncStorage.getItem(CACHED_PENDING_MAINTENANCE_KEY),
-      AsyncStorage.getItem(CACHED_PENDING_ADVANCES_KEY),
-      AsyncStorage.getItem(CACHED_BRANCH_DELEGATES_KEY),
-    ]).then(([rawSessions, rawMaint, rawAdvs, rawDelegates]) => {
-      if (rawSessions) {
-        try {
-          const parsed = JSON.parse(rawSessions);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setPendingSessions((prev) => (prev.length === 0 ? parsed : prev));
-          }
-        } catch {}
-      }
-      if (rawMaint) {
-        try {
-          const parsed = JSON.parse(rawMaint);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setPendingMaintenance((prev) => (prev.length === 0 ? parsed : prev));
-          }
-        } catch {}
-      }
-      if (rawAdvs) {
-        try {
-          const parsed = JSON.parse(rawAdvs);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setPendingAdvances((prev) => (prev.length === 0 ? parsed : prev));
-          }
-        } catch {}
-      }
-      if (rawDelegates) {
-        try {
-          const parsed = JSON.parse(rawDelegates);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setBranchDelegates((prev) => (prev.length === 0 ? parsed : prev));
-            setAllBranchEmployees((prev) => (prev.length === 0 ? parsed : prev));
-          }
-        } catch {}
-      }
-    }).catch(() => {});
-  }, []);
-
-  // Dedicated Ultra-Lightweight Sync for Live Delegate Requests (< 100ms, no JS lag!)
-  const syncPendingRequests = useCallback(async (isSilent = true) => {
-    const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
-    try {
-      await Promise.all([
-        supervisorApi.getPendingSessions().then((sessions) => {
-          if (Array.isArray(sessions)) {
-            setPendingSessions(sessions);
-            AsyncStorage.setItem(CACHED_PENDING_SESSIONS_KEY, JSON.stringify(sessions)).catch(() => {});
-          }
-        }).catch(() => {}),
-        supervisorApi.getPendingInvestigations().then((invs) => {
-          if (Array.isArray(invs)) {
-            setPendingAdvances(invs);
-            AsyncStorage.setItem(CACHED_PENDING_ADVANCES_KEY, JSON.stringify(invs)).catch(() => {});
-          }
-        }).catch(() => {}),
-        supervisorApi.getPendingMaintenance().then((maint) => {
-          if (Array.isArray(maint)) {
-            setPendingMaintenance(maint);
-            AsyncStorage.setItem(CACHED_PENDING_MAINTENANCE_KEY, JSON.stringify(maint)).catch(() => {});
-          }
-        }).catch(() => {}),
-        supervisorApi.getWorkingDelegates(branchId).then((working) => {
-          if (Array.isArray(working)) {
-            setWorkingDelegates(working);
-          }
-        }).catch(() => {}),
-        supervisorApi.getDashboardStats(branchId).then((ds) => {
-          if (ds) setServerDashboardStats(ds);
-        }).catch(() => {}),
-      ]);
-    } catch (e) {
-      console.warn('[Eshraf] Error syncing pending requests:', e);
-    }
-  }, [employee?.branch_id]);
-
-  const refreshApprovalsOnly = useCallback(async () => {
-    try {
-      setLoadingApprovalsOnly(true);
-      await syncPendingRequests(false);
-    } catch (e) {
-      console.warn('[Eshraf] Error refreshing approvals only:', e);
-    } finally {
-      setLoadingApprovalsOnly(false);
-    }
-  }, [syncPendingRequests]);
-
-  const lastSupervisorFetchRef = useRef<number>(0);
-  const isSupervisorFetchingRef = useRef<boolean>(false);
-
-  const fetchSupervisorData = useCallback(async (isSilent = false, force = false) => {
-    const now = Date.now();
-    // Cache TTL: Only debounce non-forced background calls by 4 seconds
-    if (!force && now - lastSupervisorFetchRef.current < 4000 && hasLoadedSupervisorInitialRef.current) {
-      if (!isSilent) {
-        setLoadingSupervisorData(false);
-      }
-      setIsInitialSupervisorLoading(false);
-      return;
-    }
-    if (isSupervisorFetchingRef.current && !force) return;
-    isSupervisorFetchingRef.current = true;
-    lastSupervisorFetchRef.current = now;
-
-    try {
-      if (!isSilent) {
-        setLoadingSupervisorData(true);
-      }
-      const branchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
-
-      // Tier 1 (Live Delegate Requests - Urgent & Instant < 100ms)
-      await syncPendingRequests(isSilent);
-
-      // Release loading spinner immediately so the UI is unblocked
-      if (!isSilent) {
-        setLoadingSupervisorData(false);
-      }
-      setIsInitialSupervisorLoading(false);
-
-      // Tier 2 (Heavy Secondary Background Data):
-      // Only fetch heavy roster and branch history in background without blocking UI
-      Promise.all([
-        supervisorApi.getBranchSessions(100).then(setBranchSessions).catch(() => {}),
-        supervisorApi.getAllBranchDelegates(branchId).then((emps) => {
-          if (Array.isArray(emps)) {
-            setBranchDelegates(emps);
-            setAllBranchEmployees(emps);
-            AsyncStorage.setItem(CACHED_BRANCH_DELEGATES_KEY, JSON.stringify(emps)).catch(() => {});
-          }
-        }).catch(() => {}),
-        operationsApi.getVehicles(branchId).then(setVehicles).catch(() => {}),
-      ]).catch(() => {});
-
-    } catch (e) {
-      console.warn('[Eshraf] Error fetching supervisor data:', e);
-    } finally {
-      isSupervisorFetchingRef.current = false;
-      if (!isSilent) {
-        setLoadingSupervisorData(false);
-      }
-      setIsInitialSupervisorLoading(false);
-    }
-  }, [employee?.branch_id, syncPendingRequests]);
-
-  const handleConfirmOrders = useCallback(async (session: WorkSession, ordersCount?: number, notes?: string) => {
-    try {
-      await supervisorApi.reviewSession({
-        sessionId: session.id,
-        isReviewed: true,
-        ordersCount: ordersCount !== undefined ? ordersCount : session.orders_count,
-        fuelCost: session.fuel_cost,
-        reviewNotes: notes || 'معتمد بواسطة المشرف',
-      });
-      setPendingSessions((prev) => prev.filter((s) => s.id !== session.id));
-      fetchSupervisorData();
-    } catch (err: any) {
-      setAlertConfig({
-        type: 'error',
-        title: 'خطأ',
-        message: err?.message || 'فشل تأكيد الوردية، يرجى المحاولة مجدداً.',
-      });
-    }
-  }, [fetchSupervisorData]);
-
-  const handleOverrideSuccess = useCallback(async (employeeId?: string, wasStart?: boolean) => {
-    if (employeeId) {
-      const empIdStr = String(employeeId);
-      if (wasStart) {
-        setWorkingDelegates((prev) => {
-          if (prev.some((w) => String(w.id) === empIdStr)) return prev;
-          const found = branchDelegates.find((d) => String(d.id) === empIdStr);
-          return found ? [...prev, { ...found, is_working: true }] : prev;
-        });
-        setBranchDelegates((prev) =>
-          prev.map((d) => (String(d.id) === empIdStr ? { ...d, is_working: true } : d))
-        );
-        setAllBranchEmployees((prev) =>
-          prev.map((d) => (String(d.id) === empIdStr ? { ...d, is_working: true } : d))
-        );
-      } else {
-        // Ending shift override: Instantly remove from working delegates in 0ms!
-        setWorkingDelegates((prev) => prev.filter((w) => String(w.id) !== empIdStr));
-        setBranchSessions((prev) =>
-          prev.map((s) =>
-            String(s.employee_id) === empIdStr
-              ? { ...s, status: 'COMPLETED', end_time: s.end_time || new Date().toISOString() }
-              : s
-          )
-        );
-        setBranchDelegates((prev) =>
-          prev.map((d) => (String(d.id) === empIdStr ? { ...d, is_working: false } : d))
-        );
-        setAllBranchEmployees((prev) =>
-          prev.map((d) => (String(d.id) === empIdStr ? { ...d, is_working: false } : d))
-        );
-      }
-    }
-    // Force live background sync
-    fetchSupervisorData(true, true);
-  }, [branchDelegates, fetchSupervisorData]);
-
-  // Modular Hook: Shift Workflow & Inputs
-  const {
-    enteredMotorcycle,
-    setEnteredMotorcycle,
-    startKm,
-    setStartKm,
-    startKmImage,
-    setStartKmImage,
-    startKmImageRef,
-    startPlateImage,
-    setStartPlateImage,
-    startPlateImageRef,
-    isPlateConfirmed,
-    setIsPlateConfirmed,
-    isScanningPlate,
-    setIsScanningPlate,
-    startNotes,
-    setStartNotes,
-    autoKmFetched,
-    setAutoKmFetched,
-    isOdometerBroken,
-    setIsOdometerBroken,
-    activeBikeRegistrationImage,
-    setActiveBikeRegistrationImage,
-    needsOilChange,
-    isTakingPhotoRef,
-    resetStartInputs,
-    endKm,
-    setEndKm,
-    endKmImage,
-    setEndKmImage,
-    endKmImageRef,
-    ordersCount,
-    setOrdersCount,
-    fuelCost,
-    setFuelCost,
-    endNotes,
-    setEndNotes,
-    resetEndInputs,
-  } = useShiftWorkflow(employee, activeSession);
-
-  // Modular Hook: Violations & Penalties
-  const {
-    violations,
-    violationsLoading,
-    totalViolationsAmount,
-    deductedViolationsAmount,
-    fetchViolations,
-  } = useViolations(employee?.id);
-
-  // Modals & Popups
-  const [showQrModal, setShowQrModal] = useState(false);
-  const [showLangModal, setShowLangModal] = useState(false);
-  const [previewPhoto, setPreviewPhoto] = useState<PreviewPhotoData | null>(null);
-  const [successModalData, setSuccessModalData] = useState<SuccessModalData | null>(null);
-  const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
-  const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
-  const [showPlateScannerModal, setShowPlateScannerModal] = useState(false);
-  const [showAccidentModal, setShowAccidentModal] = useState(false);
-  const [targetApprovalSessionId, setTargetApprovalSessionId] = useState<string | null>(null);
-  const [targetApprovalEmployeeId, setTargetApprovalEmployeeId] = useState<string | null>(null);
-  const [oilChangeModalState, setOilChangeModalState] = useState<{ visible: boolean; bikeNumber: string }>({
-    visible: false,
-    bikeNumber: '',
-  });
-  const [selectedHistoryMonthKey, setSelectedHistoryMonthKey] = useState<string | null>(null);
-  const [selectedHistoryMonthLabel, setSelectedHistoryMonthLabel] = useState<string | null>(null);
-
-  // Success Sheet Animations
-  const sheetTranslateY = useRef(new Animated.Value(600)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
   const mainScrollRef = useRef<ScrollView>(null);
-
-  const [keyboardOffset, setKeyboardOffset] = useState<number>(0);
-  const [mainScrollEnabled, setMainScrollEnabled] = useState(true);
-
-  // Collapsible Home Header Animation (Google Play Store Style)
-  const HOME_HEADER_HEIGHT = 72;
-  const headerTranslateY = useRef(new Animated.Value(0)).current;
-  const lastScrollY = useRef(0);
-  const savedHomeScrollY = useRef(0);
   const dashboardScrollRef = useRef<ScrollView>(null);
-  const isHeaderHidden = useRef(false);
-  const scrollDelta = useRef(0);
 
-  useEffect(() => {
-    headerTranslateY.setValue(0);
-    isHeaderHidden.current = false;
-    if (currentTab === 'home') {
-      lastScrollY.current = savedHomeScrollY.current;
-      if (savedHomeScrollY.current > 0) {
-        requestAnimationFrame(() => {
-          dashboardScrollRef.current?.scrollTo({
-            y: savedHomeScrollY.current,
-            animated: false,
-          });
-        });
-      }
-    } else {
-      scrollDelta.current = 0;
-    }
-  }, [currentTab]);
-
-  const handleHomeScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (currentTab !== 'home') return;
-
-    const currentY = event.nativeEvent.contentOffset.y;
-    savedHomeScrollY.current = currentY;
-    const diff = currentY - lastScrollY.current;
-    lastScrollY.current = currentY;
-
-    // At top of scroll (or pulling down past top): immediately ensure header is visible
-    if (currentY <= 0) {
-      if (isHeaderHidden.current) {
-        isHeaderHidden.current = false;
-        Animated.timing(headerTranslateY, {
-          toValue: 0,
-          duration: 120,
-          useNativeDriver: true,
-        }).start();
-      }
-      return;
-    }
-
-    // Swiping up / scrolling down page: hide header immediately with motion
-    if (diff > 1.5) {
-      if (!isHeaderHidden.current) {
-        isHeaderHidden.current = true;
-        Animated.timing(headerTranslateY, {
-          toValue: -HOME_HEADER_HEIGHT,
-          duration: 180,
-          useNativeDriver: true,
-        }).start();
-      }
-    }
-    // Swiping down / scrolling up towards top: show header immediately
-    else if (diff < -1.5) {
-      if (isHeaderHidden.current) {
-        isHeaderHidden.current = false;
-        Animated.timing(headerTranslateY, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }).start();
-      }
-    }
-  };
-
-  // Modular Hooks: Active Shift Timer
+  const ui = useAppUiAndModalsState(mainScrollRef);
+  const supervisorSync = useSupervisorDataSync(employee);
+  const shift = useShiftWorkflow(employee, activeSession);
+  const violationsState = useViolations(employee?.id);
   const { elapsedTime } = useSessionTimer(activeSession);
+  const updates = useAppUpdates(isRTL);
+  const broadcasts = useBroadcasts(employee);
 
-  // Modular Hooks: Over-The-Air Updates
-  const {
-    updateModalVisible,
-    setUpdateModalVisible,
-    updateState,
-    updateError,
-    handleCheckForUpdates,
-    handleApplyUpdate,
-  } = useAppUpdates(isRTL);
-
-  // Modular Hooks: Announcements & Survey Polls
-  const {
-    activeBroadcast,
-    setActiveBroadcast,
-    showBroadcastModal,
-    setShowBroadcastModal,
-    showBroadcastHistory,
-    setShowBroadcastHistory,
-    allBroadcasts,
-    unreadBroadcastsCount,
-    loadingBroadcastHistory,
-    handleVoteBroadcast,
-    handleCloseBroadcast,
-    handleOpenNotificationsHistory,
-    handleRefreshNotificationsHistory,
-    handleMarkAllAsRead,
-  } = useBroadcasts(employee);
-
-  // Modular Hooks: Direct Shift & Violation Notification Routing
   usePushNotifications({
     employee,
     setCurrentTab,
@@ -687,84 +88,121 @@ export default function DelegateApp() {
     setHistorySessions,
     setSelectedHistorySession,
     setLoadingHistory,
-    setActiveBroadcast,
-    setShowBroadcastModal,
-    fetchViolations,
-    setSelectedHistoryMonthKey,
-    setSelectedHistoryMonthLabel,
+    setActiveBroadcast: broadcasts.setActiveBroadcast,
+    setShowBroadcastModal: broadcasts.setShowBroadcastModal,
+    fetchViolations: violationsState.fetchViolations,
+    setSelectedHistoryMonthKey: ui.setSelectedHistoryMonthKey,
+    setSelectedHistoryMonthLabel: ui.setSelectedHistoryMonthLabel,
     lang,
     onSelectApprovalSession: (sessionId, employeeId) => {
-      setTargetApprovalSessionId(sessionId || null);
-      setTargetApprovalEmployeeId(employeeId || null);
-      syncPendingRequests(false);
+      ui.setTargetApprovalSessionId(sessionId || null);
+      ui.setTargetApprovalEmployeeId(employeeId || null);
+      supervisorSync.syncPendingRequests(false);
     },
-    onRefreshSupervisor: () => {
-      syncPendingRequests(true);
-    },
+    onRefreshSupervisor: () => supervisorSync.syncPendingRequests(true),
   });
 
-  // Emergency Accident Shake Detection (Impact & Shake Sensor)
   useShakeDetection({
     enabled: Boolean(employee),
     cooldownMs: 8000,
-    onShake: () => {
-      setShowAccidentModal(true);
-    },
+    onShake: () => ui.setShowAccidentModal(true),
   });
 
-  // Pre-warm camera permissions quietly in background so scanner opens with zero delay
-  useEffect(() => {
-    ImagePicker.getCameraPermissionsAsync()
-      .then(({ granted }) => {
-        if (!granted) {
-          ImagePicker.requestCameraPermissionsAsync().catch(() => {});
-        }
-      })
-      .catch(() => {});
-  }, []);
+  const auth = useAppAuthAndSession({
+    employee,
+    setEmployee,
+    setLoading,
+    setSubmitting,
+    setLoginError,
+    activeSession,
+    setActiveSession,
+    setHistorySessions,
+    setLoadingHistory,
+    setEnteredMotorcycle: shift.setEnteredMotorcycle,
+    setOrdersCount: shift.setOrdersCount,
+    setCurrentTab,
+    setAlertConfig: ui.setAlertConfig,
+    isTakingPhotoRef: shift.isTakingPhotoRef,
+    fetchViolations: violationsState.fetchViolations,
+    fetchSupervisorData: supervisorSync.fetchSupervisorData,
+    fetchOperationsData: supervisorSync.fetchOperationsData,
+    resetSupervisorState: supervisorSync.resetSupervisorState,
+    lang,
+    isRTL,
+    t,
+  });
 
-  // Theme Colors
-  const colors: ThemeColors = isDarkMode
-    ? {
-        bg: '#000000',
-        card: '#16161a',
-        cardHeader: '#202026',
-        textPrimary: '#ffffff',
-        textSecondary: '#9ca3af',
-        border: '#27272e',
-        primary: '#0284c7',
-        primaryLight: 'rgba(2, 132, 199, 0.16)',
-        primaryText: '#38bdf8',
-        accent: '#38bdf8',
-        accentLight: 'rgba(56, 189, 248, 0.16)',
-        inputBg: '#1c1c22',
-        inputBorder: '#2e2e38',
-        warningBg: 'rgba(234, 179, 8, 0.15)',
-        warningBorder: 'rgba(234, 179, 8, 0.3)',
-        warningText: '#fef08a',
-        errorBg: 'rgba(239, 68, 68, 0.15)',
-        errorText: '#fca5a5',
-      }
-    : {
-        bg: '#f8fafc',
-        card: '#ffffff',
-        cardHeader: '#f1f5f9',
-        textPrimary: '#0f172a',
-        textSecondary: '#64748b',
-        border: '#e2e8f0',
-        primary: '#0369a1',
-        primaryLight: '#f0f9ff',
-        primaryText: '#0369a1',
-        accent: '#0284c7',
-        accentLight: '#f0f9ff',
-        inputBg: '#ffffff',
-        inputBorder: '#cbd5e1',
-        warningBg: '#fef9c3',
-        warningBorder: '#facc15',
-        warningText: '#854d0e',
-        errorBg: '#fee2e2',
-        errorText: '#ef4444',
-      };
+  const shiftActions = useAppShiftMediaAndActions({
+    employee,
+    setEmployee,
+    activeSession,
+    setActiveSession,
+    setSubmitting,
+    ...shift,
+    setCurrentTab,
+    setAlertConfig: ui.setAlertConfig,
+    setShowPlateScannerModal: ui.setShowPlateScannerModal,
+    setOilChangeModalState: ui.setOilChangeModalState,
+    setSelectedHistoryMonthKey: ui.setSelectedHistoryMonthKey,
+    setSelectedHistoryMonthLabel: ui.setSelectedHistoryMonthLabel,
+    mainScrollRef,
+    fetchHistory: auth.fetchHistory,
+    lang,
+    isRTL,
+    t,
+  });
+
+  const { headerTranslateY, handleHomeScroll } = useAppLifecycleAndEffects({
+    currentTab,
+    setCurrentTab,
+    employee,
+    setEmployee,
+    activeSession,
+    lang,
+    setLang,
+    setThemeMode,
+    loading,
+    markInteractive,
+    setReadNotifIds: ui.setReadNotifIds,
+    isTakingPhotoRef: shift.isTakingPhotoRef,
+    hasLoadedSupervisorInitialRef: supervisorSync.hasLoadedSupervisorInitialRef,
+    mainScrollRef,
+    dashboardScrollRef,
+    checkSession: auth.checkSession,
+    performClearSession: auth.performClearSession,
+    syncPendingRequests: supervisorSync.syncPendingRequests,
+    fetchSupervisorData: supervisorSync.fetchSupervisorData,
+    fetchOperationsData: supervisorSync.fetchOperationsData,
+    setAlertConfig: ui.setAlertConfig,
+    previewPhoto: ui.previewPhoto,
+    setPreviewPhoto: ui.setPreviewPhoto,
+    showQrModal: ui.showQrModal,
+    setShowQrModal: ui.setShowQrModal,
+    showLangModal: ui.showLangModal,
+    setShowLangModal: ui.setShowLangModal,
+    successModalData: ui.successModalData,
+    closeSuccessModal: ui.closeSuccessModal,
+    setSelectedHistoryMonthKey: ui.setSelectedHistoryMonthKey,
+    setSelectedHistoryMonthLabel: ui.setSelectedHistoryMonthLabel,
+    setKeyboardOffset: ui.setKeyboardOffset,
+  });
+
+  const derived = useAppAnalyticsAndDerivedState({
+    employee,
+    branchSessions: supervisorSync.branchSessions,
+    historySessions,
+    serverDashboardStats: supervisorSync.serverDashboardStats,
+    branchDelegates: supervisorSync.branchDelegates,
+    allBranchEmployees: supervisorSync.allBranchEmployees,
+    workingDelegates: supervisorSync.workingDelegates,
+    pendingSessions: supervisorSync.pendingSessions,
+    vehicles: supervisorSync.vehicles,
+    pendingMaintenance: supervisorSync.pendingMaintenance,
+    pendingAdvances: supervisorSync.pendingAdvances,
+    readNotifIds: ui.readNotifIds,
+    endKm: shift.endKm,
+    activeSession,
+  });
 
   const handleSetLanguage = async (newLang: Language) => {
     setLang(newLang);
@@ -774,1488 +212,6 @@ export default function DelegateApp() {
     }
   };
 
-  // Check Active Session, Stored Theme & Employee on Mount
-  useEffect(() => {
-    AsyncStorage.getItem('@aams_theme_mode').then((savedTheme) => {
-      if (savedTheme === 'dark' || savedTheme === 'light') {
-        setThemeMode(savedTheme);
-      }
-    }).catch(() => {});
-
-    getStoredLanguage().then((l) => {
-      if (l) setLang(l);
-    });
-    checkSession();
-  }, []);
-
-  // Silently re-sync session and data when app returns from background / unlocked
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active') {
-        if (!isTakingPhotoRef.current) {
-          checkSession(true);
-          if (employee?.id) {
-            // Ultra-lightweight live sync (< 100ms, never blocks JS thread or UI)
-            syncPendingRequests(true);
-            // Process any offline queued actions (e.g. oil dispenses, shift actions)
-            offlineQueue.processQueue(apiRequest).catch(() => {});
-          }
-        }
-      }
-    });
-
-    const timer = setInterval(() => {
-      if (AppState.currentState === 'active' && !isTakingPhotoRef.current && employee?.id) {
-        // Fast periodic background pulse every 20s to keep incoming delegate requests live without app lag
-        syncPendingRequests(true);
-        // Background offline queue flush
-        offlineQueue.processQueue(apiRequest).catch(() => {});
-      }
-    }, 20000);
-
-    return () => {
-      sub.remove();
-      clearInterval(timer);
-    };
-  }, [employee?.id, syncPendingRequests]);
-
-
-
-  // Listen for unrecoverable session expiry (when token refresh fails)
-  useEffect(() => {
-    const unsub = onSessionExpired(() => {
-      setAlertConfig({
-        type: 'warning',
-        title: lang === 'ar' ? 'انتهت الجلسة' : 'Session Expired',
-        message: lang === 'ar' ? 'انتهت صلاحية جلسة الدخول بالكامل، يرجى تسجيل الدخول مجدداً.' : 'Your session has expired. Please log in again.',
-        primaryButtonText: lang === 'ar' ? 'تسجيل الدخول' : 'Log In',
-        onPrimaryPress: async () => {
-          try {
-            await setAuthToken(null);
-            await saveCachedUser(null);
-          } catch {}
-          setEmployee(null);
-          setActiveSession(null);
-          setHistorySessions([]);
-          setCurrentTab('home');
-        },
-      });
-    });
-    return unsub;
-  }, [lang]);
-
-  // Hardware Back Button (Android)
-  useEffect(() => {
-    const onBackPress = () => {
-      if (previewPhoto) {
-        setPreviewPhoto(null);
-        return true;
-      }
-      if (showQrModal) {
-        setShowQrModal(false);
-        return true;
-      }
-      if (showLangModal) {
-        setShowLangModal(false);
-        return true;
-      }
-      if (successModalData) {
-        closeSuccessModal();
-        return true;
-      }
-      if (currentTab !== 'home') {
-        setSelectedHistoryMonthKey(null);
-        setSelectedHistoryMonthLabel(null);
-        setCurrentTab('home');
-        return true; // Go back directly to Dashboard
-      }
-      // On home page, return false to exit the app
-      return false;
-    };
-
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => backHandler.remove();
-  }, [currentTab, previewPhoto, showQrModal, showLangModal, successModalData]);
-
-
-
-  // Keep active session in sync with local cache instantly
-  useEffect(() => {
-    if (activeSession && activeSession.status === 'ACTIVE') {
-      AsyncStorage.setItem('@aams_cached_active_session', JSON.stringify(activeSession)).catch(() => {});
-    } else if (!activeSession) {
-      AsyncStorage.removeItem('@aams_cached_active_session').catch(() => {});
-    }
-  }, [activeSession]);
-
-  // Microsoft Clarity: Screen Navigation Tracking
-  useEffect(() => {
-    analytics.setScreen(`Tab_${currentTab}`);
-  }, [currentTab]);
-
-  // Microsoft Clarity: Delegate User Identification
-  useEffect(() => {
-    if (employee?.id) {
-      analytics.identify(employee.id, {
-        name: employee.name || '',
-        national_id: employee.national_id || '',
-        branch: employee.branch_name || '',
-        motorcycle: employee.motorcycle_number || '',
-      });
-    }
-  }, [employee?.id]);
-
-  // Dynamic Keyboard Height Listener for Seamless Scroll Padding
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, (e: KeyboardEvent) => {
-      if (e?.endCoordinates?.height) {
-        setKeyboardOffset(e.endCoordinates.height);
-      }
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardOffset(0);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-
-
-
-
-  const checkSession = async (isSilentBackground: boolean = false) => {
-    try {
-      // 1. Fast Token Check - If no token exists at all, immediately show login screen in < 5ms
-      const token = await loadStoredToken();
-      if (!token) {
-        if (!isSilentBackground) {
-          setEmployee(null);
-          setLoading(false);
-        }
-        return;
-      }
-
-      // 2. Instant Render from Local Cache (< 10ms Cold Start!)
-      // Load cached user, active session, and history ALL TOGETHER before toggling loading state!
-      const [cached, rawActiveSession, rawHistory] = await Promise.all([
-        getCachedUser(),
-        AsyncStorage.getItem('@aams_cached_active_session'),
-        AsyncStorage.getItem('@aams_cached_history_sessions'),
-      ]);
-
-      if (cached) {
-        if (cached.id) {
-          setEmployee(cached);
-
-          // Restore cached active shift session immediately on the FIRST render frame
-          if (rawActiveSession) {
-            try {
-              const parsed = JSON.parse(rawActiveSession);
-              if (parsed && parsed.status === 'ACTIVE' && parsed.employee_id === cached.id) {
-                setActiveSession(parsed);
-              }
-            } catch {}
-          }
-
-          if (cached.motorcycle_number && !isSilentBackground && activeSession) {
-            setEnteredMotorcycle((prev) => prev || cached.motorcycle_number);
-          }
-
-          // Restore cached shift history instantly (< 5ms)
-          if (rawHistory) {
-            try {
-              const parsed = JSON.parse(rawHistory);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                setHistorySessions(parsed);
-                setLoadingHistory(false);
-              }
-            } catch {}
-          }
-
-          // Immediately hide loading spinner only after activeSession and employee are primed!
-          setLoading(false);
-
-          // Fetch shift session, history, and violations in background
-          fetchActiveSession(cached.id);
-          fetchHistory(cached.id);
-          fetchViolations(cached.id);
-        }
-      }
-
-      // 3. Silent Background Server Sync (Does NOT freeze the screen with a spinner)
-      workApi.getMe().then(async (user) => {
-        if (!user) {
-          if (!cached) {
-            setEmployee(null);
-          }
-          return;
-        }
-
-        if (user.id) {
-          const anyUser = user as any;
-          const userRole = String(anyUser.role || anyUser.job_role || '').toUpperCase();
-          const userPerms = Array.isArray(anyUser.permissions) ? anyUser.permissions : [];
-          const hasEshrafAccess =
-            userRole === 'SUPER_ADMIN' ||
-            userRole === 'OWNER' ||
-            userRole === 'GENERAL_MANAGER' ||
-            anyUser.app_permissions?.eshraf === true ||
-            userPerms.includes('*') ||
-            userPerms.includes('apps.eshraf') ||
-            userPerms.includes('app.eshraf') ||
-            userPerms.includes('work.view') ||
-            userPerms.includes('work.start') ||
-            (!anyUser.permissions_configured && (userRole === 'SUPERVISOR' || userRole === 'ADMIN'));
-
-          if (!hasEshrafAccess) {
-            await setAuthToken(null);
-            await saveCachedUser(null);
-            setEmployee(null);
-            setAlertConfig({
-              type: 'warning',
-              title: 'تنبيه الصلاحيات',
-              message: 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.',
-              primaryButtonText: 'حسناً',
-            });
-            return;
-          }
-
-          const merged: EmployeeProfile = {
-            ...(cached || {}),
-            ...user,
-            motorcycle_number: user.motorcycle_number || '',
-            key_number: user.key_number || '',
-            national_id: user.national_id || '',
-            personal_image: user.personal_image || '',
-            national_id_image: user.national_id_image || '',
-            driving_license_image: user.driving_license_image || '',
-            passport_image: user.passport_image || '',
-            vehicle_registration_image: user.vehicle_registration_image || '',
-            employee_number: user.employee_number || '',
-            phone: user.phone || '',
-            branch_name: user.branch_name || '',
-          } as EmployeeProfile;
-
-          setEmployee(merged);
-          await saveCachedUser(merged);
-          if (merged.motorcycle_number && activeSession) {
-            setEnteredMotorcycle(merged.motorcycle_number);
-          }
-          if (!cached?.id || cached.id !== merged.id) {
-            fetchActiveSession(merged.id);
-            fetchHistory(merged.id);
-            fetchViolations(merged.id);
-          }
-        }
-      }).catch(async (err) => {
-        console.log('Background session refresh notice:', err);
-        const errMsg = String(err?.message || '');
-        if (errMsg.includes('403') || errMsg.includes('غير مصرح')) {
-          await setAuthToken(null);
-          await saveCachedUser(null);
-          setEmployee(null);
-          setAlertConfig({
-            type: 'warning',
-            title: 'تنبيه الصلاحيات',
-            message: 'ليس لديك صلاحية للوصول إلى هذا التطبيق الآن.',
-            primaryButtonText: 'حسناً',
-          });
-        }
-      }).finally(() => {
-        if (!isSilentBackground) {
-          setLoading(false);
-        }
-      });
-
-    } catch (err) {
-      console.log('Session check notice:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchActiveSession = async (employeeId: string) => {
-    try {
-      const active = await workApi.getActiveSession(employeeId);
-      if (active && active.status === 'ACTIVE') {
-        setActiveSession((prev) => {
-          // If already active with the same session, preserve client start_time so timer doesn't stutter/reset
-          if (prev && prev.id === active.id && prev.start_time) {
-            return { ...active, start_time: prev.start_time };
-          }
-          return active as WorkSession;
-        });
-        setOrdersCount((prev) => prev || (active.orders_count ? String(active.orders_count) : ''));
-        AsyncStorage.setItem('@aams_cached_active_session', JSON.stringify(active)).catch(() => {});
-      } else {
-        setActiveSession(null);
-        AsyncStorage.removeItem('@aams_cached_active_session').catch(() => {});
-      }
-    } catch (err) {
-      console.log('Error fetching active session:', err);
-    }
-  };
-
-  const fetchHistory = async (employeeId: string) => {
-    try {
-      const history = await workApi.getMySessions(employeeId);
-      if (Array.isArray(history)) {
-        setHistorySessions(history as WorkSession[]);
-        AsyncStorage.setItem('@aams_cached_history_sessions', JSON.stringify(history)).catch(() => {});
-      }
-    } catch (err) {
-      console.log('Error fetching shift history:', err);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
-
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Pull-to-refresh across all screens
-  const onRefresh = async () => {
-    setRefreshing(true);
-    try {
-      if (employee && employee.id) {
-        await Promise.all([
-          workApi.getMe().then((u) => {
-            if (u) {
-              const updated = {
-                ...(u as EmployeeProfile),
-                vehicle_registration_image: u.vehicle_registration_image || '',
-              };
-              setEmployee(updated);
-              saveCachedUser(updated);
-            }
-          }),
-          fetchActiveSession(employee.id),
-          fetchHistory(employee.id),
-          fetchViolations(employee.id),
-          fetchSupervisorData(false, true),
-          fetchOperationsData(),
-        ]);
-      } else {
-        await checkSession();
-      }
-    } catch (err) {
-      console.log('Refresh error:', err);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // Auto-fetch supervisor branch data when entering supervisor tabs
-  const hasLoadedSupervisorInitialRef = useRef(false);
-
-  useEffect(() => {
-    if (employee?.id) {
-      const isInitial = !hasLoadedSupervisorInitialRef.current;
-      hasLoadedSupervisorInitialRef.current = true;
-
-      // Always force-fetch when switching directly to Approvals or Dashboard so newly ended shifts appear with 0 delay
-      const shouldForce = currentTab === 'approvals' || currentTab === 'dashboard';
-
-      if (
-        currentTab === 'dashboard' ||
-        currentTab === 'field' ||
-        currentTab === 'approvals' ||
-        currentTab === 'home' ||
-        currentTab === 'supervisor-report' ||
-        currentTab === 'advance-request' ||
-        currentTab === 'employees' ||
-        currentTab === 'orders-review' ||
-        currentTab === 'operations' ||
-        currentTab === 'oil-change' ||
-        currentTab === 'accident-report'
-      ) {
-        fetchSupervisorData(!isInitial, shouldForce);
-      }
-      if (
-        currentTab === 'operations' ||
-        currentTab === 'oil-change' ||
-        currentTab === 'add-vehicle' ||
-        currentTab === 'accident-report' ||
-        currentTab === 'employees' ||
-        currentTab === 'dashboard' ||
-        currentTab === 'home'
-      ) {
-        fetchOperationsData(!isInitial);
-      }
-    }
-  }, [currentTab, employee?.id, fetchSupervisorData, fetchOperationsData]);
-
-
-  // Auto-fetch fresh profile data when user opens Profile tab without requiring manual pull-to-refresh
-  useEffect(() => {
-    if (currentTab === 'profile' && employee?.id) {
-      workApi
-        .getMe()
-        .then((u) => {
-          if (u && u.id) {
-            const updated = {
-              ...(u as EmployeeProfile),
-              vehicle_registration_image: u.vehicle_registration_image || '',
-            };
-            setEmployee(updated);
-            saveCachedUser(updated);
-          }
-        })
-        .catch((err) => {
-          console.log('Silent profile sync error:', err);
-        });
-    }
-  }, [currentTab]);
-
-  // Scroll to top whenever tab changes (e.g. returning to Home after start shift)
-  useEffect(() => {
-    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-    const timer = setTimeout(() => {
-      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-    }, 60);
-    return () => clearTimeout(timer);
-  }, [currentTab]);
-
-  // Open Success Bottom Sheet
-  const openSuccessModal = (data: SuccessModalData) => {
-    backdropOpacity.setValue(0);
-    sheetTranslateY.setValue(400);
-    setSuccessModalData(data);
-    Animated.parallel([
-      Animated.timing(backdropOpacity, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.spring(sheetTranslateY, {
-        toValue: 0,
-        bounciness: 2,
-        speed: 18,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  // Close Success Bottom Sheet
-  const closeSuccessModal = (callback?: () => void) => {
-    Animated.parallel([
-      Animated.timing(backdropOpacity, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-      Animated.timing(sheetTranslateY, {
-        toValue: 600,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setSuccessModalData(null);
-      if (callback) callback();
-      setTimeout(() => {
-        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-      }, 60);
-    });
-  };
-
-  // Login Handler
-  const handleLogin = async (rawPhone?: string, rawPass?: string) => {
-    const inputVal = (rawPhone || '').trim();
-    if (!inputVal) {
-      const msg = t.phoneRequired || (lang === 'ar' ? 'يرجى إدخال رقم الهاتف' : 'Phone number is required');
-      setLoginError(msg);
-      throw new Error(msg);
-    }
-
-    const password = (rawPass || '').trim();
-    if (!password) {
-      const msg = t.passwordRequired || (lang === 'ar' ? 'يرجى إدخال كلمة المرور' : 'Password is required');
-      setLoginError(msg);
-      throw new Error(msg);
-    }
-
-    setSubmitting(true);
-    setLoginError('');
-    try {
-      const res = await workApi.login(inputVal, password);
-
-      const userRole = res?.admin?.role || (res?.employee as any)?.job_role || (res?.employee as any)?.role || '';
-      const hasEshrafAccess =
-        res?.app_permissions?.eshraf === true ||
-        res?.admin?.app_permissions?.eshraf === true ||
-        userRole === 'SUPERVISOR' ||
-        userRole === 'SUPER_ADMIN' ||
-        userRole === 'ADMIN' ||
-        (res?.admin?.permissions && (res.admin.permissions.includes('*') || res.admin.permissions.includes('apps.eshraf')));
-
-      if (!hasEshrafAccess) {
-        const errorMsg = lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.';
-        setLoginError(errorMsg);
-        await setAuthToken(null);
-        await saveCachedUser(null);
-        setEmployee(null);
-        throw new Error(errorMsg);
-      }
-
-      const emp = (res.admin
-        ? {
-            id: res.admin.id,
-            name: res.admin.name,
-            role: res.admin.role,
-            job_role: res.admin.role,
-            phone: res.admin.phone,
-            branch_id: res.admin.branch_id,
-            branch_name: res.admin.branch_name,
-            permissions: res.admin.permissions || [],
-            app_permissions: res.admin.app_permissions,
-            is_admin: true,
-          }
-        : (res.employee || res)) as EmployeeProfile;
-
-      setEmployee(emp);
-      await saveCachedUser(emp);
-      if (res.access_token) {
-        await setAuthToken(res.access_token, res.refresh_token);
-        const bioOn = await isBiometricEnabled();
-        if (bioOn) {
-          await saveLastCredentialsForBiometrics(emp.national_id || emp.phone || inputVal, res.access_token, emp, res.refresh_token);
-        }
-      }
-      setCurrentTab('home');
-
-      // Non-blocking background sync of profile, session, and history
-      workApi
-        .getMe()
-        .then(async (fresh) => {
-          if (fresh && fresh.id) {
-            setEmployee((prev) => ({
-              ...(prev || {}),
-              ...fresh,
-              personal_image: fresh.personal_image || prev?.personal_image || '',
-              motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
-              key_number: fresh.key_number || prev?.key_number || '',
-              national_id: fresh.national_id || prev?.national_id || '',
-              phone: fresh.phone || prev?.phone || '',
-              branch_name: fresh.branch_name || prev?.branch_name || '',
-            } as EmployeeProfile));
-            const bioOn = await isBiometricEnabled();
-            if (bioOn && res.access_token && (fresh.national_id || fresh.phone)) {
-              saveLastCredentialsForBiometrics(fresh.national_id || fresh.phone || inputVal, res.access_token, fresh, res.refresh_token);
-            }
-          }
-        })
-        .catch((e) => console.log('Notice refreshing profile on Login:', e));
-
-      fetchActiveSession(emp.id).catch(() => {});
-      fetchHistory(emp.id).catch(() => {});
-      fetchSupervisorData();
-    } catch (err: any) {
-      console.error('Login error:', err);
-      let errorMsg = err?.message || (lang === 'ar' ? 'تعذر تسجيل الدخول، تأكد من صحة البيانات' : 'Failed to log in');
-      if (
-        errorMsg.includes('صلاحية') ||
-        errorMsg.includes('مخصص') ||
-        errorMsg.toLowerCase().includes('permission') ||
-        errorMsg.toLowerCase().includes('access')
-      ) {
-        errorMsg = lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.';
-      }
-      setLoginError(errorMsg);
-      throw new Error(errorMsg);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Immediate Login via OTP Success or Biometrics
-  const handleOtpSuccess = async (loginResp?: any) => {
-    const token = loginResp?.access_token || loginResp?.token;
-    if (token) {
-      await setAuthToken(token, loginResp?.refresh_token || token);
-    }
-
-    const userRole = loginResp?.admin?.role || (loginResp?.employee as any)?.job_role || (loginResp?.employee as any)?.role || '';
-    const hasEshrafAccess =
-      loginResp?.app_permissions?.eshraf === true ||
-      loginResp?.admin?.app_permissions?.eshraf === true ||
-      userRole === 'SUPERVISOR' ||
-      userRole === 'SUPER_ADMIN' ||
-      userRole === 'ADMIN' ||
-      (loginResp?.admin?.permissions && (loginResp.admin.permissions.includes('*') || loginResp.admin.permissions.includes('apps.eshraf')));
-
-    if (!hasEshrafAccess) {
-      const errorMsg = lang === 'ar' ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة' : 'You do not have permission to access the app. Please contact administration.';
-      setLoginError(errorMsg);
-      await setAuthToken(null);
-      await saveCachedUser(null);
-      setEmployee(null);
-      throw new Error(errorMsg);
-    }
-
-    let emp = loginResp?.admin
-      ? ({
-          id: loginResp.admin.id,
-          name: loginResp.admin.name,
-          role: loginResp.admin.role,
-          job_role: loginResp.admin.role,
-          phone: loginResp.admin.phone,
-          branch_id: loginResp.admin.branch_id,
-          branch_name: loginResp.admin.branch_name,
-          permissions: loginResp.admin.permissions || [],
-          app_permissions: loginResp.admin.app_permissions,
-          is_admin: true,
-          personal_image:
-            loginResp.admin.personal_image ||
-            loginResp.admin.avatar ||
-            loginResp.admin.google_avatar ||
-            loginResp.admin.photo ||
-            loginResp.admin.employee?.personal_image ||
-            '',
-          avatar:
-            loginResp.admin.avatar ||
-            loginResp.admin.google_avatar ||
-            loginResp.admin.personal_image ||
-            '',
-          employee_id: loginResp.admin.employee_id || '',
-        } as EmployeeProfile)
-      : (loginResp?.employee || (loginResp?.id ? loginResp : null));
-
-    if (!emp) {
-      try {
-        const fresh = await workApi.getMe();
-        if (fresh && fresh.id) {
-          emp = fresh;
-        }
-      } catch (e) {
-        console.log('Notice getting fresh me:', e);
-      }
-    }
-
-    if (emp && emp.id) {
-      setEmployee(emp);
-      await saveCachedUser(emp);
-      setCurrentTab('home');
-
-      // Non-blocking background sync of profile, session, and history
-      workApi
-        .getMe()
-        .then(async (fresh) => {
-          if (fresh && fresh.id) {
-            setEmployee((prev) => ({
-              ...(prev || {}),
-              ...fresh,
-              personal_image: fresh.personal_image || prev?.personal_image || '',
-              motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
-              key_number: fresh.key_number || prev?.key_number || '',
-              national_id: fresh.national_id || prev?.national_id || '',
-              phone: fresh.phone || prev?.phone || '',
-              branch_name: fresh.branch_name || prev?.branch_name || '',
-            } as EmployeeProfile));
-            const bioOn = await isBiometricEnabled();
-            const curTok = loginResp?.access_token || getStoredToken();
-            if (bioOn && curTok && (fresh.national_id || fresh.phone)) {
-              saveLastCredentialsForBiometrics(fresh.national_id || fresh.phone || '', curTok, fresh, loginResp?.refresh_token);
-            }
-          }
-        })
-        .catch((e) => console.log('Notice refreshing profile on OTP/Bio:', e));
-
-      fetchActiveSession(emp.id).catch(() => {});
-      fetchHistory(emp.id).catch(() => {});
-      fetchSupervisorData();
-    } else {
-      await checkSession();
-      setCurrentTab('home');
-    }
-  };
-
-  // Logout Handler
-  const handleLogout = async () => {
-    setAlertConfig({
-      type: 'confirm',
-      title: t.logout,
-      message: lang === 'ar' ? 'هل أنت متأكد من رغبتك في تسجيل الخروج من التطبيق؟' : 'Are you sure you want to log out from the app?',
-      primaryButtonText: t.logout,
-      secondaryButtonText: isRTL ? 'إلغاء' : 'Cancel',
-      onPrimaryPress: async () => {
-        try {
-          await setAuthToken(null);
-          await saveCachedUser(null);
-        } catch (e) {
-          console.log('Logout error', e);
-        }
-        setEmployee(null);
-        setActiveSession(null);
-        setHistorySessions([]);
-        setCurrentTab('home');
-      },
-    });
-  };
-
-  // Camera Capture for Odometer
-  const takeOdometerPhoto = async (type: 'start' | 'end') => {
-    isTakingPhotoRef.current = true;
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        setAlertConfig({
-          type: 'camera_permission',
-          title: lang === 'ar' ? 'إذن استخدام الكاميرا مطلوب' : 'Camera Access Required',
-          message:
-            lang === 'ar'
-              ? 'يرجى السماح للتطبيق باستخدام الكاميرا لالتقاط صورة واضحة لعداد الدراجة.'
-              : 'Please allow camera access to take odometer photos for your shift records.',
-          primaryButtonText: lang === 'ar' ? 'فتح إعدادات الهاتف' : 'Open Settings',
-          secondaryButtonText: isRTL ? 'لاحقاً' : 'Later',
-        });
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: false,
-        quality: 0.3,
-        base64: true,
-        cameraType: (ImagePicker.CameraType?.back ?? 'back') as ImagePicker.CameraType,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        const base64Uri = asset.base64
-          ? `data:image/jpeg;base64,${asset.base64}`
-          : asset.uri;
-
-        if (type === 'start') {
-          startKmImageRef.current = base64Uri;
-          setStartKmImage(asset.uri);
-        } else {
-          endKmImageRef.current = base64Uri;
-          setEndKmImage(asset.uri);
-        }
-      }
-    } catch (err) {
-      console.error('Camera capture error:', err);
-      setAlertConfig({
-        type: 'error',
-        title: lang === 'ar' ? 'خطأ في الكاميرا' : 'Camera Error',
-        message: lang === 'ar' ? 'تعذر فتح الكاميرا، يرجى المحاولة مرة أخرى' : 'Could not launch camera, please try again.',
-      });
-    } finally {
-      setTimeout(() => {
-        isTakingPhotoRef.current = false;
-      }, 1000);
-    }
-  };
-
-  // Smart Plate Camera Scan Handlers
-  const handleScanPlate = () => {
-    setShowPlateScannerModal(true);
-  };
-
-  const handleClosePlateScanner = () => {
-    setShowPlateScannerModal(false);
-  };
-
-  // Open Shift & Camera directly when clicking "بدء الدوام"
-  const handleStartShiftClick = () => {
-    if (!activeSession && !isPlateConfirmed) {
-      setShowPlateScannerModal(true);
-    } else {
-      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-      setCurrentTab('shift');
-    }
-  };
-
-  const handleNavigateToTab = (tab: TabType) => {
-    if (tab === 'shift' && !activeSession && !isPlateConfirmed) {
-      setShowPlateScannerModal(true);
-      return;
-    }
-    if (tab === 'history') {
-      const currentMonth = getCurrentMonthInfo(lang);
-      setSelectedHistoryMonthKey(currentMonth.key);
-      setSelectedHistoryMonthLabel(currentMonth.label);
-    }
-    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-    setCurrentTab(tab);
-  };
-
-  const handleRecheckOil = async () => {
-    if (!employee) return;
-    const bikeToCheck = enteredMotorcycle || employee.motorcycle_number;
-    if (!bikeToCheck) return;
-
-    try {
-      const res = await workApi.getLastKM(employee.id, bikeToCheck);
-      if (res?.needs_oil_change) {
-        setAlertConfig({
-          type: 'warning',
-          title: lang === 'ar' ? 'ما زال تغيير الزيت مطلوباً' : 'Oil Change Still Required',
-          message:
-            lang === 'ar'
-              ? 'الدباب يحتاج الى تغير زيت ارجع لى المشرف لصرف زيت للدباب'
-              : 'Motorcycle requires an oil change. Please return to supervisor to dispense oil.',
-        });
-      } else {
-        setIsPlateConfirmed(true);
-        if (res?.registration_image) {
-          setActiveBikeRegistrationImage(res.registration_image);
-        }
-        if (res && res.last_end_km > 0) {
-          setStartKm(String(res.last_end_km));
-          setAutoKmFetched(true);
-        }
-        setAlertConfig({
-          type: 'success',
-          title: lang === 'ar' ? 'تم التحقق بنجاح' : 'Oil Status Verified',
-          message:
-            lang === 'ar'
-              ? 'تم التحقق من جاهزية الدباب وصرف الزيت بنجاح. يمكنك الآن بدء الدوام.'
-              : 'Oil change has been verified successfully. You can now start your shift.',
-        });
-        setCurrentTab('shift');
-        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-      }
-    } catch (err) {
-      console.error('Error rechecking oil status:', err);
-      setAlertConfig({
-        type: 'error',
-        title: lang === 'ar' ? 'خطأ في الاتصال' : 'Connection Error',
-        message: lang === 'ar' ? 'تعذر التحقق من حالة الزيت، يرجى المحاولة مرة أخرى' : 'Could not check oil status, please try again.',
-      });
-    }
-  };
-
-  const handleProcessPlateScan = async (imageUri: string, base64Uri: string, plateData?: any) => {
-    // 1. Instantly dismiss modal and navigate to Shift screen without delay
-    setShowPlateScannerModal(false);
-    setIsPlateConfirmed(true);
-    setCurrentTab('shift');
-    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-
-    startPlateImageRef.current = base64Uri;
-    setStartPlateImage(imageUri);
-
-    const combined =
-      plateData &&
-      (plateData.full_plate ||
-        (plateData.letters ? `${plateData.digits} ${plateData.letters}` : plateData.digits));
-
-    if (combined) {
-      setEnteredMotorcycle(combined);
-    }
-
-    // 2. Perform oil & last KM lookup in background to prefill odometer & verify oil status
-    const bikeNumber = combined || enteredMotorcycle;
-    if (bikeNumber && employee) {
-      try {
-        const res = await workApi.getLastKM(employee.id, bikeNumber);
-        if (res?.registration_image) {
-          setActiveBikeRegistrationImage(res.registration_image);
-        }
-        if (res && res.last_end_km > 0) {
-          setStartKm(String(res.last_end_km));
-          setAutoKmFetched(true);
-        }
-
-        if (res?.needs_oil_change) {
-          // Bike needs oil change: navigate to dedicated oil change page
-          setIsPlateConfirmed(false);
-          setOilChangeModalState({
-            visible: false,
-            bikeNumber,
-          });
-          setCurrentTab('oil-change');
-          mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-        }
-      } catch (err) {
-        console.log('Error checking bike oil/km after scan:', err);
-      }
-    }
-  };
-
-  // Start Shift Handler
-  const handleStartShift = async () => {
-    if (!employee) return;
-
-    if (!enteredMotorcycle.trim()) {
-      setAlertConfig({
-        type: 'warning',
-        title: t.actualBikeNumber,
-        message: t.actualBikePlaceholder,
-      });
-      return;
-    }
-
-    // التحقق الإلزامي من تصوير ومسح لوحة الدباب لتوثيق اللوحة وإثبات وجودها
-    const platePhoto = startPlateImageRef.current || startPlateImage;
-    if (!platePhoto) {
-      setAlertConfig({
-        type: 'warning',
-        title: lang === 'ar' ? 'تصوير اللوحة إلزامي' : 'Plate Photo Required',
-        message:
-          lang === 'ar'
-            ? 'يجب مسح وتصوير لوحة الدباب بالكاميرا لتوثيق اللوحة وإثبات وجودها قبل بدء الدوام.'
-            : 'You must scan/capture the motorcycle plate photo before starting your shift.',
-      });
-      setIsPlateConfirmed(false);
-      return;
-    }
-
-    let startVal = Number(startKm);
-    let photoUri = startKmImageRef.current || startKmImage;
-
-    if (!isOdometerBroken) {
-      if (!startKm || isNaN(startVal) || startVal <= 0) {
-        setAlertConfig({
-          type: 'warning',
-          title: t.startKmInputLabel,
-          message: t.startKmPlaceholder,
-        });
-        return;
-      }
-
-      if (!photoUri) {
-        setAlertConfig({
-          type: 'warning',
-          title: t.startKmPhotoLabel,
-          message: t.odometerGuideSub,
-        });
-        return;
-      }
-    } else {
-      startVal = 0;
-      photoUri = '';
-    }
-
-    proceedStartShift(startVal, photoUri, platePhoto);
-  };
-
-  const proceedStartShift = async (startVal: number, photoUri: string, platePhotoUri?: string | null) => {
-    if (!employee) return;
-
-    const savedMoto = enteredMotorcycle.trim();
-    const savedStartKm = startVal;
-    const savedPhoto = photoUri;
-    const savedPlatePhoto = platePhotoUri || startPlateImageRef.current || startPlateImage;
-    const savedNotes = startNotes;
-
-    // 1. الانتقال فوراً وبشكل لحظي للداشبورد دون أي انتظار ودون أي موديول
-    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-    setCurrentTab('home');
-
-    // تنظيف حقول شاشة البداية فوراً
-    setStartKm('');
-    startKmImageRef.current = null;
-    setStartKmImage(null);
-    startPlateImageRef.current = null;
-    setStartPlateImage(null);
-    setIsPlateConfirmed(false);
-    setStartNotes('');
-    setAutoKmFetched(false);
-
-    // تفعيل حالة الشفت التفاؤلية فوراً ليراها الموظف نشطة بالداشبورد
-    const optimisticSession: WorkSession = {
-      id: 'temp-' + Date.now(),
-      employee_id: employee.id,
-      motorcycle_number: savedMoto,
-      start_km: savedStartKm,
-      start_km_image: savedPhoto || undefined,
-      start_plate_image: savedPlatePhoto || undefined,
-      notes: savedNotes,
-      start_time: new Date().toISOString(),
-      end_time: null,
-      end_km: 0,
-      distance: 0,
-      orders_count: 0,
-      fuel_cost: 0,
-      status: 'ACTIVE',
-    };
-    setActiveSession(optimisticSession);
-    setSubmitting(true);
-
-    try {
-      const newSession = await workApi.startShift({
-        employee_id: employee.id,
-        motorcycle_number: savedMoto,
-        start_km: savedStartKm,
-        start_km_image: savedPhoto || undefined,
-        start_plate_image: savedPlatePhoto || undefined,
-        notes: savedNotes,
-      });
-
-      if (newSession && newSession.id) {
-        setActiveSession({
-          ...newSession,
-          start_time: optimisticSession.start_time || newSession.start_time,
-        });
-        fetchHistory(employee.id).catch(() => {});
-        workApi.getMe().then((me) => {
-          if (me) setEmployee(me);
-        }).catch(() => {});
-      }
-    } catch (err: any) {
-      console.error('Start shift error:', err);
-      // في حال وجود خطأ من الخادم (مثل تنبيه الزيت أو خطأ بيانات)، إعادة الحالة لصفحة الدوام وتنبيه الموظف
-      setActiveSession(null);
-      setCurrentTab('shift');
-      setStartKm(String(savedStartKm));
-      setStartNotes(savedNotes);
-      setAlertConfig({
-        type: 'error',
-        title: lang === 'ar' ? 'خطأ في بدء الدوام' : 'Shift Error',
-        message: err?.message || (lang === 'ar' ? 'تعذر بدء الشفت، يرجى المحاولة ثانية' : 'Failed to start shift'),
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // End Shift Handler
-  const handleEndShift = async () => {
-    if (!employee || !activeSession) return;
-
-    let endVal = Number(endKm);
-    const startVal = Number(activeSession.start_km || 0);
-    const isExemptOdometer = isOdometerBroken || (startVal === 0 && !activeSession.start_km_image);
-
-    const countVal = Number(ordersCount) || 0;
-    const fuelVal = Number(fuelCost) || 0;
-    const distanceVal = isExemptOdometer ? 0 : Math.max(0, endVal - startVal);
-    const photoUri = endKmImageRef.current || endKmImage;
-
-    if (!isExemptOdometer) {
-      if (!endKm || isNaN(endVal) || endVal <= 0) {
-        setAlertConfig({
-          type: 'warning',
-          title: t.endKmInputLabel,
-          message: `${t.startKmLabel}: ${startVal} ${t.km}`,
-        });
-        return;
-      }
-
-      if (endVal < startVal) {
-        setAlertConfig({
-          type: 'warning',
-          title: lang === 'ar' ? 'تنبيه في قراءة العداد' : 'Odometer Error',
-          message:
-            lang === 'ar'
-              ? `عداد النهاية (${endVal}) لا يمكن أن يكون أقل من عداد البداية (${startVal})`
-              : `End KM (${endVal}) cannot be less than Start KM (${startVal})`,
-        });
-        return;
-      }
-
-      if (!photoUri) {
-        setAlertConfig({
-          type: 'warning',
-          title: t.endKmPhotoLabel,
-          message: t.odometerGuideSub,
-        });
-        return;
-      }
-    } else {
-      endVal = 0;
-    }
-
-    // Zero orders confirmation bottom sheet modal
-    if (countVal < 1) {
-      setAlertConfig({
-        type: 'confirm',
-        title: lang === 'ar' ? 'تأكيد عدد الطلبات' : 'Confirm Orders Count',
-        message: lang === 'ar' ? 'هل أنت متأكد أن عدد الطلبات هو 0؟' : 'Are you sure the orders count is 0?',
-        primaryButtonText: lang === 'ar' ? 'نعم، تأكيد إنهاء الدوام' : 'Yes, End Shift',
-        secondaryButtonText: lang === 'ar' ? 'تعديل عدد الطلبات' : 'Edit Orders',
-        onPrimaryPress: () => {
-          proceedEndShift(endVal, distanceVal, countVal, fuelVal, photoUri, isExemptOdometer);
-        },
-      });
-      return;
-    }
-
-    proceedEndShift(endVal, distanceVal, countVal, fuelVal, photoUri, isExemptOdometer);
-  };
-
-  const proceedEndShift = async (
-    endVal: number,
-    distanceVal: number,
-    countVal: number,
-    fuelVal: number,
-    photoUri: string | null,
-    isExemptOdometer: boolean
-  ) => {
-    if (!employee || !activeSession) return;
-
-    setSubmitting(true);
-    try {
-      const savedEndKm = endVal;
-      const savedOrders = countVal;
-      const savedFuel = fuelVal;
-      const savedPhoto = isExemptOdometer ? undefined : (photoUri || undefined);
-      const savedNotes = endNotes;
-
-      await workApi.endShift({
-        employee_id: employee.id,
-        end_km: savedEndKm,
-        orders_count: savedOrders,
-        fuel_cost: savedFuel,
-        end_km_image: savedPhoto,
-        notes: savedNotes,
-      });
-
-      // 1. الانتقال فوراً لصفحة طلبات الشهر الحالي بسجل الشفتات مباشرة (وليس صفحة كروت الشهور)
-      const currentMonth = getCurrentMonthInfo(lang);
-      setSelectedHistoryMonthKey(currentMonth.key);
-      setSelectedHistoryMonthLabel(currentMonth.label);
-      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-      setCurrentTab('history');
-
-      // 2. تنظيف الحالة بعد الانتقال
-      setActiveSession(null);
-      setActiveBikeRegistrationImage(null);
-      setEndKm('');
-      endKmImageRef.current = null;
-      setEndKmImage(null);
-      setOrdersCount('');
-      setFuelCost('');
-      setEndNotes('');
-
-      // 3. إعادة تحميل بروفايل الموظف الأصلي والدباب الرسمي وإلغاء استمارة الدباب البديل
-      workApi
-        .getMe()
-        .then(async (fresh) => {
-          if (fresh && fresh.id) {
-            setEmployee(fresh);
-            if (fresh.motorcycle_number) {
-              setEnteredMotorcycle(fresh.motorcycle_number);
-            }
-            await saveCachedUser(fresh);
-          }
-        })
-        .catch((e) => console.log('Notice refreshing profile on End Shift:', e));
-
-      fetchHistory(employee.id);
-    } catch (err: any) {
-      console.error('End shift error:', err);
-      setAlertConfig({
-        type: 'error',
-        title: lang === 'ar' ? 'خطأ' : 'Error',
-        message: err?.message || (lang === 'ar' ? 'تعذر إنهاء الشفت، يرجى المحاولة ثانية' : 'Failed to end shift'),
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Format Helper Functions
-  const formatTimeStr = (isoString?: string) => {
-    if (!isoString) return '';
-    try {
-      const d = new Date(isoString);
-      return d.toLocaleTimeString(lang === 'ar' ? 'ar-SA' : 'en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch (e) {
-      return isoString;
-    }
-  };
-
-  const formatDateStr = (isoString?: string) => {
-    if (!isoString) return '';
-    try {
-      const d = new Date(isoString);
-      return d.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
-    } catch (e) {
-      return isoString;
-    }
-  };
-
-  // Performance & Monthly Target Calculations (Current Calendar Month: Day 1 to End of Month)
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const currentDay = now.getDate();
-
-  // All supervisor-approved completed sessions in current month (across branch or personal history)
-  const sessionsSourceForAnalytics = branchSessions.length > 0 ? branchSessions : historySessions;
-
-  // Operational day cut-off is 10:00 AM (in Riyadh / local operations).
-  // Before 10:00 AM, the operational day belongs to yesterday's cycle.
-  // At 10:00 AM, the operational day resets for the new day until tomorrow 10:00 AM.
-  const isSessionFromToday = (s: WorkSession): boolean => {
-    const rawDate = s.start_time || (s as any).created_at;
-    if (!rawDate) return false;
-    try {
-      const sDate = new Date(rawDate);
-      const cutoff = 10;
-      let startWindow: Date;
-      let endWindow: Date;
-
-      if (now.getHours() < cutoff) {
-        // Today is early morning before 10 AM (e.g. 3 AM) -> belongs to yesterday's operational day (yesterday 00:00 to today 10:00 AM)
-        const yDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-        startWindow = new Date(yDate.getFullYear(), yDate.getMonth(), yDate.getDate(), 0, 0, 0, 0);
-        endWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), cutoff, 0, 0, 0);
-      } else {
-        startWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-        endWindow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, cutoff, 0, 0, 0);
-      }
-
-      return sDate >= startWindow && sDate < endWindow;
-    } catch {
-      return false;
-    }
-  };
-
-  const todayApprovedSessions = sessionsSourceForAnalytics.filter((s) => {
-    const isCompleted = s.status === 'COMPLETED' || !!s.end_time;
-    if (!isCompleted) return false;
-    if (s.is_reviewed !== true) return false;
-    return isSessionFromToday(s);
-  });
-
-  const computedTodayOrdersCount = todayApprovedSessions
-    .reduce((acc, s) => acc + (Number(s.orders_count ?? (s as any).total_orders) || 0), 0);
-
-  const computedTodayDistance = todayApprovedSessions
-    .reduce((acc, s) => {
-      const explicitDist = Number((s as any).total_km ?? s.distance ?? 0);
-      if (explicitDist > 0) return acc + explicitDist;
-      const startKm = Number(s.start_km ?? 0);
-      const endKm = Number(s.end_km ?? 0);
-      if (endKm > startKm) return acc + (endKm - startKm);
-      return acc;
-    }, 0);
-
-  const computedTodayFuel = todayApprovedSessions
-    .reduce((acc, s) => acc + (Number(s.fuel_cost) || 0), 0);
-
-  const todayApprovedOrdersCount =
-    serverDashboardStats?.today_orders !== undefined
-      ? Number(serverDashboardStats.today_orders)
-      : computedTodayOrdersCount;
-
-  const todayApprovedDistance =
-    serverDashboardStats?.today_distance !== undefined
-      ? Number(serverDashboardStats.today_distance)
-      : computedTodayDistance;
-
-  const todayApprovedFuel =
-    serverDashboardStats?.today_fuel_cost !== undefined
-      ? Number(serverDashboardStats.today_fuel_cost)
-      : computedTodayFuel;
-
-  const currentMonthApprovedSessions = sessionsSourceForAnalytics.filter((s) => {
-    const isCompleted = s.status === 'COMPLETED' || !!s.end_time;
-    if (!isCompleted) return false;
-    if (s.is_reviewed !== true) return false;
-    if (!s.start_time) return true;
-    try {
-      const sDate = new Date(s.start_time);
-      return sDate.getFullYear() === currentYear && sDate.getMonth() === currentMonth;
-    } catch (e) {
-      return true;
-    }
-  });
-
-  // All pending completed sessions waiting for supervisor approval in current month
-  const currentMonthPendingSessions = sessionsSourceForAnalytics.filter((s) => {
-    const isCompleted = s.status === 'COMPLETED' || !!s.end_time;
-    if (!isCompleted) return false;
-    if (s.is_reviewed === true) return false;
-    if (!s.start_time) return true;
-    try {
-      const sDate = new Date(s.start_time);
-      return sDate.getFullYear() === currentYear && sDate.getMonth() === currentMonth;
-    } catch (e) {
-      return true;
-    }
-  });
-
-  // Total orders approved by supervisor this month:
-  const totalApprovedOrdersCount = currentMonthApprovedSessions
-    .reduce((acc, s) => acc + (Number(s.orders_count ?? (s as any).total_orders) || 0), 0);
-
-  // Total pending orders waiting for supervisor approval:
-  const totalPendingOrdersCount = currentMonthPendingSessions
-    .reduce((acc, s) => acc + (Number(s.orders_count ?? (s as any).total_orders) || 0), 0);
-
-  const totalApprovedDistance = currentMonthApprovedSessions
-    .reduce((acc, s) => {
-      const explicitDist = Number((s as any).total_km ?? s.distance ?? 0);
-      if (explicitDist > 0) return acc + explicitDist;
-      const startKm = Number(s.start_km ?? 0);
-      const endKm = Number(s.end_km ?? 0);
-      if (endKm > startKm) return acc + (endKm - startKm);
-      return acc;
-    }, 0);
-
-  const totalApprovedFuel = currentMonthApprovedSessions
-    .reduce((acc, s) => acc + (Number(s.fuel_cost) || 0), 0);
-
-  const totalApprovedShifts = currentMonthApprovedSessions.length;
-
-  // Monthly Target Rule:
-  // Target = 460 orders
-  // 1 to 459 orders -> 5 SAR / order
-  // 460 or more orders -> 6 SAR / order
-  const monthlyTarget = 460;
-  const isTargetAchieved = totalApprovedOrdersCount >= monthlyTarget;
-  const currentRatePerOrder = isTargetAchieved ? 6 : 5;
-  const expectedSalary = totalApprovedOrdersCount * currentRatePerOrder;
-  const targetProgressPct = Math.min(100, Math.round((totalApprovedOrdersCount / monthlyTarget) * 100));
-  const remainingOrdersToTarget = Math.max(0, monthlyTarget - totalApprovedOrdersCount);
-
-  // Strictly filter delegates belonging ONLY to the supervisor's branch and exclude supervisors/admins
-  const branchScopedDelegates = useMemo(() => {
-    const map = new Map<string, DelegateWithStatus>();
-
-    branchDelegates.forEach((d) => {
-      if (d?.id) map.set(String(d.id), d);
-    });
-
-    allBranchEmployees.forEach((d) => {
-      if (d?.id && !map.has(String(d.id))) {
-        map.set(String(d.id), d);
-      }
-    });
-
-    // Every actually working delegate in this branch must be included in the roster
-    workingDelegates.forEach((w) => {
-      if (w?.id && (w.active_session_id || w.shift_start_time || w.active_session)) {
-        const existing = map.get(String(w.id));
-        map.set(String(w.id), {
-          ...(existing || {}),
-          ...w,
-          is_working: true,
-        });
-      }
-    });
-
-    const combined = Array.from(map.values());
-    const supervisorBranchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
-    const supervisorBranchName = employee?.branch_name ? String(employee.branch_name).trim() : undefined;
-
-    return combined.filter((emp) => {
-      if (!isDeliveryDelegate(emp)) return false;
-      if (supervisorBranchId || supervisorBranchName) {
-        if (!isEmployeeInBranch(emp, supervisorBranchId, supervisorBranchName)) return false;
-      }
-      return true;
-    });
-  }, [branchDelegates, allBranchEmployees, workingDelegates, employee?.branch_id, employee?.branch_name]);
-
-  const branchScopedWorkingDelegates = useMemo(() => {
-    const supervisorBranchId = employee?.branch_id ? String(employee.branch_id).trim() : undefined;
-    const supervisorBranchName = employee?.branch_name ? String(employee.branch_name).trim() : undefined;
-
-    return workingDelegates.filter((d) => {
-      if (!isDeliveryDelegate(d)) return false;
-      if (!d.active_session_id && !d.shift_start_time && !d.active_session) return false;
-      if (supervisorBranchId || supervisorBranchName) {
-        return isEmployeeInBranch(d, supervisorBranchId, supervisorBranchName);
-      }
-      return true;
-    });
-  }, [workingDelegates, employee?.branch_id, employee?.branch_name]);
-
-  // Supervisor Live Branch Stats
-  const branchStats: BranchStats = useMemo(() => {
-    const total = branchScopedDelegates.length;
-    const working = Math.max(
-      branchScopedWorkingDelegates.length,
-      Number(serverDashboardStats?.working_employees || 0)
-    );
-    const effectiveTotal = Math.max(total, working);
-    const notStarted = Math.max(0, effectiveTotal - working);
-    const pendingShifts =
-      pendingSessions.length > 0
-        ? pendingSessions.length
-        : sessionsSourceForAnalytics.filter(
-            (s) => (s.status === 'COMPLETED' || !!s.end_time) && !s.is_reviewed
-          ).length;
-    return {
-      workingCount: working,
-      totalCount: effectiveTotal,
-      notStartedCount: notStarted,
-      pendingApprovalsCount: pendingShifts,
-      todayOrdersCount: todayApprovedOrdersCount,
-      todayEmployeesCount:
-        serverDashboardStats?.today_employees !== undefined
-          ? Math.max(Number(serverDashboardStats.today_employees), working)
-          : working,
-      finishedEmployeesCount:
-        serverDashboardStats?.finished_employees !== undefined
-          ? Number(serverDashboardStats.finished_employees)
-          : undefined,
-    };
-  }, [branchScopedDelegates, branchScopedWorkingDelegates, pendingSessions.length, sessionsSourceForAnalytics, todayApprovedOrdersCount, serverDashboardStats]);
-  const calculatedDistance =
-    endKm && activeSession?.start_km && Number(endKm) >= Number(activeSession.start_km)
-      ? Number(endKm) - Number(activeSession.start_km)
-      : 0;
-
-  
-
-  // Unread operational alerts counter for Bell in HomeHeader
-  const unreadNotificationsCount = useMemo(() => {
-    let count = 0;
-    pendingSessions.forEach((s) => {
-      if (!readNotifIds.has(`shift_end_${s.id}`)) count++;
-    });
-    branchScopedWorkingDelegates.forEach((d) => {
-      const bike = d.active_motorcycle || d.motorcycle_number || 'بدون لوحة';
-      if (!readNotifIds.has(`working_shift_${d.id}_${bike}`)) count++;
-    });
-    vehicles.forEach((v) => {
-      if (isVehicleOilDue(v) && !readNotifIds.has(`oil_due_${v.id}`)) count++;
-    });
-    pendingMaintenance.forEach((m) => {
-      if (!readNotifIds.has(`maintenance_${m.id}`)) count++;
-    });
-    pendingAdvances.forEach((adv) => {
-      if (!readNotifIds.has(`advance_${adv.id}`)) count++;
-    });
-    return count;
-  }, [pendingSessions, branchScopedWorkingDelegates, vehicles, pendingMaintenance, pendingAdvances, readNotifIds]);
-
-  const rawEmpPhoto = useMemo(() => {
-    const direct =
-      (employee?.personal_image && typeof employee.personal_image === 'string' && employee.personal_image.trim()) ||
-      ((employee as any)?.avatar && typeof (employee as any).avatar === 'string' && (employee as any).avatar.trim()) ||
-      ((employee as any)?.google_avatar && typeof (employee as any).google_avatar === 'string' && (employee as any).google_avatar.trim()) ||
-      ((employee as any)?.photo && typeof (employee as any).photo === 'string' && (employee as any).photo.trim()) ||
-      ((employee as any)?.employee?.personal_image && typeof (employee as any).employee.personal_image === 'string' && (employee as any).employee.personal_image.trim()) ||
-      ((employee as any)?.image && typeof (employee as any).image === 'string' && (employee as any).image.trim());
-    if (direct) return direct;
-
-    const allEmps = allBranchEmployees.length > 0 ? allBranchEmployees : branchDelegates;
-    if (employee && allEmps.length > 0) {
-      const match = allEmps.find(
-        (emp) =>
-          (emp.id && emp.id === (employee as any).employee_id) ||
-          (emp.id && emp.id === employee.id) ||
-          (emp.phone && employee.phone && emp.phone.replace(/\D/g, '') === employee.phone.replace(/\D/g, '')) ||
-          (emp.name && employee.name && emp.name.trim().toLowerCase() === employee.name.trim().toLowerCase())
-      );
-      if (match?.personal_image && typeof match.personal_image === 'string' && match.personal_image.trim()) {
-        return match.personal_image.trim();
-      }
-    }
-    return null;
-  }, [employee, allBranchEmployees, branchDelegates]);
-  const empPhotoUrl = formatImageUrl(rawEmpPhoto);
-
-  // Loading Screen
   if (loading) {
     return (
       <View style={[styles.loadingScreen, { backgroundColor: colors.bg }]}>
@@ -2264,7 +220,6 @@ export default function DelegateApp() {
     );
   }
 
-  // Not Logged In -> Login Screen
   if (!employee) {
     return (
       <ModuleErrorBoundary moduleName="تسجيل الدخول" colors={colors}>
@@ -2275,8 +230,8 @@ export default function DelegateApp() {
           t={t}
           lang={lang}
           onSetLang={handleSetLanguage}
-          onLogin={handleLogin}
-          onOtpSuccess={handleOtpSuccess}
+          onLogin={auth.handleLogin}
+          onOtpSuccess={auth.handleOtpSuccess}
           loginError={loginError}
           submitting={submitting}
         />
@@ -2284,26 +239,14 @@ export default function DelegateApp() {
     );
   }
 
-  // Logged In Portal
   return (
     <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
-
-      {/* Status Bar Cover (keeps notification bar clean and solid when header collapses) */}
       <View
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: topInset,
-          backgroundColor: colors.bg,
-          zIndex: 40,
-        }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: topInset, backgroundColor: colors.bg, zIndex: 40 }}
         pointerEvents="none"
       />
 
-      {/* Collapsible Header on 'home', Sub-Page Header on other tabs */}
       {currentTab === 'home' ? (
         <Animated.View
           style={{
@@ -2319,700 +262,224 @@ export default function DelegateApp() {
         >
           <HomeHeader
             employee={employee}
-            empPhotoUrl={empPhotoUrl}
+            empPhotoUrl={derived.empPhotoUrl}
             colors={colors}
             isRTL={isRTL}
             onPressProfile={() => setCurrentTab('profile')}
-            onLongPressProfile={() => setShowDiagnosticsModal(true)}
-            onPressQr={() => setShowQrModal(true)}
-            unreadCount={unreadNotificationsCount}
+            onLongPressProfile={() => ui.setShowDiagnosticsModal(true)}
+            onPressQr={() => ui.setShowQrModal(true)}
+            unreadCount={derived.unreadNotificationsCount}
             onPressNotifications={() => setCurrentTab('notifications')}
           />
         </Animated.View>
       ) : (
-        <View style={[styles.appHeader, { marginTop: topInset, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          {/* Sub-Page Header: Back Button + Start-Aligned Title with Orange Underline */}
-          <View style={[styles.subPageHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <TouchableOpacity
-              style={styles.headerBackBtn}
-              onPress={() => {
-                if (currentTab === 'history' && selectedHistoryMonthKey) {
-                  setSelectedHistoryMonthKey(null);
-                  setSelectedHistoryMonthLabel(null);
-                } else {
-                  setCurrentTab('home');
-                }
-              }}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Ionicons
-                name={isRTL ? 'arrow-forward' : 'arrow-back'}
-                size={24}
-                color={colors.textPrimary}
-              />
-            </TouchableOpacity>
-
-            <View style={[styles.subPageTitleContainer, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-              <Text style={[styles.subPageHeaderTitle, { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}>
-                {currentTab === 'notifications'
-                  ? 'مركز الإشعارات'
-                  : currentTab === 'dashboard'
-                  ? 'لوحة مؤشرات الفرع'
-                  : currentTab === 'field'
-                  ? 'متابعة الميدان والورديات'
-                  : currentTab === 'approvals'
-                  ? 'مركز الموافقات'
-                  : currentTab === 'operations'
-                  ? 'المخزن والعمليات'
-                  : currentTab === 'oil-change'
-                  ? 'الدبابات المستحقة لتغيير الزيت'
-                  : currentTab === 'fleet-oil'
-                  ? 'متابعة زيوت الدبابات'
-                  : currentTab === 'add-vehicle'
-                  ? 'إضافة مركبة جديدة'
-                  : currentTab === 'accident-report'
-                  ? 'بلاغ عن حادث'
-                  : currentTab === 'supervisor-report'
-                  ? 'تقرير مشرف'
-                  : currentTab === 'advance-request'
-                  ? 'سلفة'
-                  : currentTab === 'employees'
-                  ? 'إدارة وتعديل الموظفين'
-                  : currentTab === 'orders-review'
-                  ? 'مراجعة الطلبات'
-                  : currentTab === 'shift'
-                  ? (activeSession ? t.endShiftTitle : t.startShiftTitle)
-                  : currentTab === 'history'
-                  ? (selectedHistoryMonthLabel
-                      ? (lang === 'ar'
-                          ? `طلبات شهر ${selectedHistoryMonthLabel}`
-                          : lang === 'ur'
-                          ? `${selectedHistoryMonthLabel} کے آرڈرز`
-                          : lang === 'bn'
-                          ? `${selectedHistoryMonthLabel} এর অর্ডারসমূহ`
-                          : `${selectedHistoryMonthLabel} Orders`)
-                      : t.historyTitle)
-                  : currentTab === 'violations'
-                  ? (t.violationsTitle || 'سجل المخالفات والجزاءات')
-                  : t.profileTitle}
-              </Text>
-              <View style={[styles.titleUnderlineBar, { backgroundColor: colors.primary }]} />
-
-            </View>
-          </View>
-
-          {currentTab === 'orders-review' && (
-            <TouchableOpacity
-              style={[styles.headerCalendarBtn, { backgroundColor: colors.primaryLight }]}
-              onPress={() => setOrdersDatePickerOpen(true)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="calendar-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-          )}
-
-          {currentTab === 'notifications' && (
-            <TouchableOpacity
-              style={[
-                styles.headerCalendarBtn,
-                {
-                  backgroundColor: colors.primary + '18',
-                  borderRadius: 12,
-                  width: 40,
-                  height: 40,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                },
-              ]}
-              onPress={() => notifHeaderActionsRef.current?.markAll()}
-              onLongPress={() => notifHeaderActionsRef.current?.openClearModal()}
-              delayLongPress={450}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="checkmark-done-circle-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-          )}
+        <View style={{ marginTop: topInset }}>
+          <SubPageHeader
+            currentTab={currentTab}
+            colors={colors}
+            isRTL={isRTL}
+            onBack={() => {
+              if (currentTab === 'history' && ui.selectedHistoryMonthKey) {
+                ui.setSelectedHistoryMonthKey(null);
+                ui.setSelectedHistoryMonthLabel(null);
+              } else {
+                setCurrentTab('home');
+              }
+            }}
+            activeSession={activeSession}
+            selectedHistoryMonthLabel={ui.selectedHistoryMonthLabel ?? undefined}
+            lang={lang}
+            t={t}
+            onOpenOrdersDatePicker={() => ui.setOrdersDatePickerOpen(true)}
+            onNotifMarkAll={() => ui.notifHeaderActionsRef.current?.markAll()}
+            onNotifClearModal={() => ui.notifHeaderActionsRef.current?.openClearModal()}
+          />
         </View>
       )}
 
-      {/* Main Content Body */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        {/* Persistent Home/Dashboard Screen to preserve exact scroll position */}
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: colors.bg,
-            display: (currentTab === 'dashboard' || currentTab === 'home') ? 'flex' : 'none',
-          }}
-        >
-          <ModuleErrorBoundary moduleName="لوحة المؤشرات" colors={colors} onReset={fetchSupervisorData}>
-            <DashboardScreen
-              scrollRef={dashboardScrollRef}
-              adminName={employee?.name || 'المشرف'}
-              branchName={employee?.branch_name || 'فرع الإشراف'}
-              stats={branchStats}
-              workingDelegates={branchScopedWorkingDelegates}
-              allDelegates={branchScopedDelegates}
-              pendingSessions={pendingSessions}
-              vehicles={vehicles}
-              approvedOrdersCount={todayApprovedOrdersCount}
-              approvedKmCount={todayApprovedDistance}
-              approvedFuelCount={todayApprovedFuel}
-              colors={colors}
-              isDarkMode={isDarkMode}
-              isRTL={isRTL}
-              loading={isInitialSupervisorLoading}
-              onNavigateToTab={(tab) => {
-                if (tab === 'dashboard') {
-                  setCurrentTab('home');
-                } else {
-                  handleNavigateToTab(tab);
-                }
-              }}
-              onOpenOverrideModal={() => setCurrentTab('field')}
-              onOpenReportModal={(prefMode) => {
-                if (prefMode === 'create') {
-                  setReportInitialMode('create');
-                  setAdvanceInitialMode('create');
-                } else {
-                  setReportInitialMode('list');
-                  setAdvanceInitialMode('list');
-                }
-                setShowReportModal(true);
-              }}
-              onOpenOperationVideosModal={() => setShowOperationVideoModal(true)}
-              onOpenOhdaApp={openOhdaApp}
-              hasCustody={hasCustodyPermission(employee)}
-              onRefresh={fetchSupervisorData}
-              refreshing={loadingSupervisorData}
-              contentContainerStyle={{
-                paddingTop: topInset + HOME_HEADER_HEIGHT + 8,
-                paddingBottom: 40,
-              }}
-              onScroll={handleHomeScroll}
-              scrollEventThrottle={16}
-              progressViewOffset={topInset + HOME_HEADER_HEIGHT}
-            />
-          </ModuleErrorBoundary>
-        </View>
-
-        {currentTab === 'dashboard' || currentTab === 'home' ? null : currentTab === 'violations' ? (
-          <ModuleErrorBoundary
-            moduleName="المخالفات والجزاءات"
-            colors={colors}
-            onReset={() => {
-              if (employee?.id) fetchViolations(employee.id);
-            }}
-          >
-            <ViolationsScreen
-              violations={violations}
-              loading={violationsLoading}
-              totalAmount={totalViolationsAmount}
-              deductedAmount={deductedViolationsAmount}
-              onRefresh={() => {
-                if (employee?.id) fetchViolations(employee.id);
-              }}
-              colors={colors}
-              isDarkMode={isDarkMode}
-              isRTL={isRTL}
-              t={t}
-              lang={lang}
-            />
-          </ModuleErrorBoundary>
-        ) : currentTab === 'field' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="إدارة الميدان" colors={colors} onReset={fetchSupervisorData}>
-              <FieldScreen
-                delegates={branchScopedDelegates.map((d) => {
-                  const workingInfo = branchScopedWorkingDelegates.find((w) => w.id === d.id);
-                  const activeSess = branchSessions.find(
-                    (s) => s.employee_id === d.id && (s.status === 'ACTIVE' || !s.end_time)
-                  );
-                  const isWorking = Boolean(
-                    workingInfo &&
-                      (workingInfo.active_session_id ||
-                        workingInfo.shift_start_time ||
-                        workingInfo.active_session)
-                  );
-                  const shiftStartTime =
-                    activeSess?.start_time || workingInfo?.shift_start_time || d.shift_start_time;
-                  const startKm =
-                    activeSess?.start_km !== undefined && activeSess?.start_km !== null
-                      ? Number(activeSess.start_km)
-                      : workingInfo?.start_km !== undefined && workingInfo?.start_km !== null
-                      ? Number(workingInfo.start_km)
-                      : d.start_km;
-                  const activeBike =
-                    activeSess?.motorcycle_number ||
-                    workingInfo?.active_motorcycle ||
-                    d.active_motorcycle ||
-                    d.motorcycle_number;
-
-                  return {
-                    ...d,
-                    ...(workingInfo || {}),
-                    is_working: isWorking,
-                    shift_start_time: shiftStartTime,
-                    start_km: startKm,
-                    active_motorcycle: activeBike,
-                  };
-                })}
-                loading={loadingSupervisorData}
-                onRefresh={fetchSupervisorData}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-                onOverrideSuccess={handleOverrideSuccess}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'approvals' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="مركز الموافقات" colors={colors} onReset={fetchSupervisorData}>
-              <ApprovalsScreen
-                pendingSessions={pendingSessions}
-                pendingAdvances={pendingAdvances}
-                pendingMaintenance={pendingMaintenance}
-                employees={branchScopedDelegates}
-                loading={loadingApprovalsOnly}
-                onRefresh={refreshApprovalsOnly}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-                onPreviewPhoto={setPreviewPhoto}
-                targetSessionId={targetApprovalSessionId}
-                targetEmployeeId={targetApprovalEmployeeId}
-                onClearTargetSession={() => {
-                  setTargetApprovalSessionId(null);
-                  setTargetApprovalEmployeeId(null);
-                }}
-                onSessionApproved={(sessionId) => {
-                  setPendingSessions((prev) => {
-                    const filtered = prev.filter((s) => s.id !== sessionId);
-                    AsyncStorage.setItem(CACHED_PENDING_SESSIONS_KEY, JSON.stringify(filtered)).catch(() => {});
-                    return filtered;
-                  });
-                }}
-                onAdvanceDecision={(advId) => {
-                  setPendingAdvances((prev) => {
-                    const filtered = prev.filter((a) => a.id !== advId);
-                    AsyncStorage.setItem(CACHED_PENDING_ADVANCES_KEY, JSON.stringify(filtered)).catch(() => {});
-                    return filtered;
-                  });
-                }}
-                onMaintenanceDecision={(maintId) => {
-                  setPendingMaintenance((prev) => {
-                    const filtered = prev.filter((m) => m.id !== maintId);
-                    AsyncStorage.setItem(CACHED_PENDING_MAINTENANCE_KEY, JSON.stringify(filtered)).catch(() => {});
-                    return filtered;
-                  });
-                }}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'operations' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="العمليات والأسطول" colors={colors} onReset={fetchOperationsData}>
-              <OperationsScreen
-                mode="all"
-                inventoryItems={inventoryItems}
-                vehicles={vehicles}
-                employees={branchScopedDelegates}
-                loading={loadingOperationsData}
-                onRefresh={fetchOperationsData}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'oil-change' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="تغيير زيت" colors={colors} onReset={fetchOperationsData}>
-              <OilChangeScreen
-                vehicles={vehicles}
-                delegates={branchScopedDelegates}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-                loading={loadingOperationsData}
-                onRefresh={fetchOperationsData}
-                adminName={employee?.name || 'المشرف'}
-                onNavigateToTab={handleNavigateToTab}
-                onVehicleDispensed={handleVehicleDispensedOptimistic}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'fleet-oil' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="متابعة زيوت الدبابات" colors={colors} onReset={fetchOperationsData}>
-              <FleetOilScreen
-                vehicles={vehicles}
-                delegates={branchScopedDelegates}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-                loading={loadingOperationsData}
-                onRefresh={fetchOperationsData}
-                adminName={employee?.name || 'المشرف'}
-                onNavigateToTab={handleNavigateToTab}
-                onVehicleDispensed={handleVehicleDispensedOptimistic}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'add-vehicle' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="إضافة مركبة جديدة" colors={colors} onReset={fetchOperationsData}>
-              <OperationsScreen
-                mode="add-vehicle"
-                inventoryItems={inventoryItems}
-                vehicles={vehicles}
-                employees={branchScopedDelegates}
-                loading={loadingOperationsData}
-                onRefresh={fetchOperationsData}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'accident-report' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="بلاغ عن حادث" colors={colors} onReset={fetchOperationsData}>
-              <OperationsScreen
-                mode="accidents"
-                inventoryItems={inventoryItems}
-                vehicles={vehicles}
-                employees={branchScopedDelegates}
-                loading={loadingOperationsData}
-                onRefresh={fetchOperationsData}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'supervisor-report' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="تقرير مشرف" colors={colors} onReset={fetchSupervisorData}>
-              <SupervisorReportScreen
-                initialMode={reportInitialMode}
-                branchDelegates={branchScopedDelegates}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-                onSuccess={fetchSupervisorData}
-                onBack={() => setCurrentTab('home')}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'advance-request' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="سلفة" colors={colors} onReset={fetchSupervisorData}>
-              <AdvanceRequestScreen
-                initialMode={advanceInitialMode}
-                branchDelegates={branchScopedDelegates}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-                onSuccess={fetchSupervisorData}
-                onBack={() => setCurrentTab('home')}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'employees' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="إدارة الموظفين" colors={colors} onReset={fetchSupervisorData}>
-              <EmployeesScreen
-                employees={branchScopedDelegates.map((e) => ({
-                  ...e,
-                  is_working: branchScopedWorkingDelegates.some((w) => w.id === e.id),
-                }))}
-                vehicles={vehicles}
-                loading={loadingSupervisorData}
-                onRefresh={fetchSupervisorData}
-                onEmployeeUpdated={() => {
-                  fetchSupervisorData();
-                }}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'notifications' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="مركز الإشعارات" colors={colors} onReset={fetchSupervisorData}>
-              <NotificationsScreen
-                pendingSessions={pendingSessions}
-                workingDelegates={branchScopedWorkingDelegates}
-                vehicles={vehicles}
-                pendingMaintenance={pendingMaintenance}
-                pendingAdvances={pendingAdvances}
-                onNavigateToTab={(tab, meta) => {
-                  if (meta?.sessionId) {
-                    setTargetApprovalSessionId(meta.sessionId);
-                  }
-                  if (meta?.employeeId) {
-                    setTargetApprovalEmployeeId(meta.employeeId);
-                  }
-                  setCurrentTab(tab);
-                }}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-                onRefresh={fetchSupervisorData}
-                loading={loadingSupervisorData}
-                onReadStatusChange={(ids) => setReadNotifIds(new Set(ids))}
-                onRegisterHeaderActions={(actions) => {
-                  notifHeaderActionsRef.current = actions;
-                }}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'orders-review' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary moduleName="مراجعة الطلبات" colors={colors} onReset={fetchSupervisorData}>
-              <OrdersReviewScreen
-                employees={branchScopedDelegates}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-                onPreviewPhoto={setPreviewPhoto}
-                isDatePickerOpen={ordersDatePickerOpen}
-                onOpenDatePicker={() => setOrdersDatePickerOpen(true)}
-                onCloseDatePicker={() => setOrdersDatePickerOpen(false)}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : currentTab === 'history' ? (
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <ModuleErrorBoundary
-              moduleName="سجل الشفتات"
-              colors={colors}
-              onReset={() => {
-                if (employee?.id) fetchHistory(employee.id);
-              }}
-            >
-              <HistoryScreen
-                historySessions={historySessions}
-                loading={loadingHistory}
-                selectedSession={selectedHistorySession}
-                onSelectSession={setSelectedHistorySession}
-                selectedMonthKey={selectedHistoryMonthKey}
-                onSelectMonthKey={(key, label) => {
-                  setSelectedHistoryMonthKey(key);
-                  setSelectedHistoryMonthLabel(label);
-                }}
-                onPreviewPhoto={setPreviewPhoto}
-                formatDateStr={formatDateStr}
-                formatTimeStr={formatTimeStr}
-                colors={colors}
-                isDarkMode={isDarkMode}
-                isRTL={isRTL}
-                t={t}
-                lang={lang}
-                monthlyTarget={monthlyTarget}
-              />
-            </ModuleErrorBoundary>
-          </View>
-        ) : (
-          <ScrollView
-            ref={mainScrollRef}
-            scrollEnabled={mainScrollEnabled}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            contentContainerStyle={[
-              styles.mainScrollContent,
-              {
-                paddingTop: 12,
-                paddingBottom: 24 + (keyboardOffset > 0 ? keyboardOffset + 24 : 0),
-              },
-            ]}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
-              />
-            }
-          >
-            {currentTab === 'shift' && (
-              <ModuleErrorBoundary moduleName="إدارة الشفت" colors={colors} onReset={() => checkSession(false)}>
-                <ShiftScreen
-                  employee={employee}
-                  activeSession={activeSession}
-                  enteredMotorcycle={enteredMotorcycle}
-                  setEnteredMotorcycle={setEnteredMotorcycle}
-                  startKm={startKm}
-                  setStartKm={setStartKm}
-                  autoKmFetched={autoKmFetched}
-                  isOdometerBroken={isOdometerBroken}
-                  startKmImage={startKmImage}
-                  startPlateImage={startPlateImage}
-                  isPlateConfirmed={isPlateConfirmed}
-                  setIsPlateConfirmed={setIsPlateConfirmed}
-                  startNotes={startNotes}
-                  setStartNotes={setStartNotes}
-                  endKm={endKm}
-                  setEndKm={setEndKm}
-                  endKmImage={endKmImage}
-                  ordersCount={ordersCount}
-                  setOrdersCount={setOrdersCount}
-                  fuelCost={fuelCost}
-                  setFuelCost={setFuelCost}
-                  endNotes={endNotes}
-                  setEndNotes={setEndNotes}
-                  calculatedDistance={calculatedDistance}
-                  elapsedTime={elapsedTime}
-                  onScrollToInput={(y) => mainScrollRef.current?.scrollTo({ y, animated: true })}
-                  submitting={submitting}
-                  onTakeOdometerPhoto={takeOdometerPhoto}
-                  onScanPlate={handleScanPlate}
-                  isScanningPlate={isScanningPlate}
-                  onStartShift={handleStartShift}
-                  onEndShift={handleEndShift}
-                  activeBikeRegistrationImage={activeBikeRegistrationImage}
-                  needsOilChange={needsOilChange}
-                  onOpenOilChangeModal={() =>
-                    setOilChangeModalState({
-                      visible: true,
-                      bikeNumber: enteredMotorcycle,
-                    })
-                  }
-                  onPreviewPhoto={setPreviewPhoto}
-                  formatTimeStr={formatTimeStr}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                  t={t}
-                  lang={lang}
-                />
-              </ModuleErrorBoundary>
-            )}
-
-            {currentTab === 'profile' && (
-              <ModuleErrorBoundary moduleName="الملف الشخصي" colors={colors} onReset={() => checkSession(false)}>
-                <ProfileScreen
-                  employee={employee}
-                  activeSession={activeSession}
-                  activeBikeRegistrationImage={activeBikeRegistrationImage}
-                  empPhotoUrl={empPhotoUrl}
-                  lang={lang}
-                  onOpenQrModal={() => setShowQrModal(true)}
-                  onOpenLangModal={() => setShowLangModal(true)}
-                  onToggleTheme={toggleTheme}
-                  onCheckForUpdates={() => handleCheckForUpdates(true)}
-                  onOpenDiagnostics={() => setShowDiagnosticsModal(true)}
-                  setParentScrollEnabled={setMainScrollEnabled}
-                  onLogout={handleLogout}
-                  onPreviewPhoto={setPreviewPhoto}
-                  onUpdateEmployee={async (updated) => {
-                    setEmployee(updated);
-                    await saveCachedUser(updated);
-                  }}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isRTL={isRTL}
-                  t={t}
-                />
-              </ModuleErrorBoundary>
-            )}
-          </ScrollView>
-        )}
-
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <SupervisorTabContent
+          currentTab={currentTab}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          topInset={topInset}
+          homeHeaderHeight={HOME_HEADER_HEIGHT}
+          employee={employee}
+          dashboardScrollRef={dashboardScrollRef}
+          branchStats={derived.branchStats}
+          branchScopedWorkingDelegates={derived.branchScopedWorkingDelegates}
+          branchScopedDelegates={derived.branchScopedDelegates}
+          pendingSessions={supervisorSync.pendingSessions}
+          vehicles={supervisorSync.vehicles}
+          todayApprovedOrdersCount={derived.todayApprovedOrdersCount}
+          todayApprovedDistance={derived.todayApprovedDistance}
+          todayApprovedFuel={derived.todayApprovedFuel}
+          isInitialSupervisorLoading={supervisorSync.isInitialSupervisorLoading}
+          loadingSupervisorData={supervisorSync.loadingSupervisorData}
+          fetchSupervisorData={supervisorSync.fetchSupervisorData}
+          handleHomeScroll={handleHomeScroll}
+          setCurrentTab={setCurrentTab}
+          handleNavigateToTab={shiftActions.handleNavigateToTab}
+          setShowReportModal={ui.setShowReportModal}
+          setReportInitialMode={ui.setReportInitialMode}
+          setAdvanceInitialMode={ui.setAdvanceInitialMode}
+          setShowOperationVideoModal={ui.setShowOperationVideoModal}
+          openOhdaApp={openOhdaApp}
+          hasCustodyPermission={hasCustodyPermission}
+          violations={violationsState.violations}
+          violationsLoading={violationsState.violationsLoading}
+          totalViolationsAmount={violationsState.totalViolationsAmount}
+          deductedViolationsAmount={violationsState.deductedViolationsAmount}
+          fetchViolations={violationsState.fetchViolations}
+          t={t}
+          lang={lang}
+          branchSessions={supervisorSync.branchSessions}
+          handleOverrideSuccess={supervisorSync.handleOverrideSuccess}
+          pendingAdvances={supervisorSync.pendingAdvances}
+          pendingMaintenance={supervisorSync.pendingMaintenance}
+          loadingApprovalsOnly={supervisorSync.loadingApprovalsOnly}
+          refreshApprovalsOnly={supervisorSync.refreshApprovalsOnly}
+          setPreviewPhoto={ui.setPreviewPhoto}
+          targetApprovalSessionId={ui.targetApprovalSessionId}
+          targetApprovalEmployeeId={ui.targetApprovalEmployeeId}
+          setTargetApprovalSessionId={ui.setTargetApprovalSessionId}
+          setTargetApprovalEmployeeId={ui.setTargetApprovalEmployeeId}
+          setPendingSessions={supervisorSync.setPendingSessions}
+          setPendingAdvances={supervisorSync.setPendingAdvances}
+          setPendingMaintenance={supervisorSync.setPendingMaintenance}
+          inventoryItems={supervisorSync.inventoryItems}
+          loadingOperationsData={supervisorSync.loadingOperationsData}
+          fetchOperationsData={supervisorSync.fetchOperationsData}
+          handleVehicleDispensedOptimistic={supervisorSync.handleVehicleDispensedOptimistic}
+          reportInitialMode={ui.reportInitialMode}
+          advanceInitialMode={ui.advanceInitialMode}
+          setReadNotifIds={ui.setReadNotifIds}
+          notifHeaderActionsRef={ui.notifHeaderActionsRef}
+          ordersDatePickerOpen={ui.ordersDatePickerOpen}
+          setOrdersDatePickerOpen={ui.setOrdersDatePickerOpen}
+          historySessions={historySessions}
+          loadingHistory={loadingHistory}
+          selectedHistorySession={selectedHistorySession}
+          setSelectedHistorySession={setSelectedHistorySession}
+          selectedHistoryMonthKey={ui.selectedHistoryMonthKey}
+          setSelectedHistoryMonthKey={ui.setSelectedHistoryMonthKey}
+          setSelectedHistoryMonthLabel={ui.setSelectedHistoryMonthLabel}
+          fetchHistory={auth.fetchHistory}
+          formatDateStr={shiftActions.formatDateStr}
+          formatTimeStr={shiftActions.formatTimeStr}
+          monthlyTarget={derived.monthlyTarget}
+          mainScrollRef={mainScrollRef}
+          mainScrollEnabled={ui.mainScrollEnabled}
+          keyboardOffset={ui.keyboardOffset}
+          refreshing={auth.refreshing}
+          onRefresh={auth.onRefresh}
+          checkSession={auth.checkSession}
+          activeSession={activeSession}
+          {...shift}
+          calculatedDistance={derived.calculatedDistance}
+          elapsedTime={elapsedTime}
+          submitting={submitting}
+          takeOdometerPhoto={shiftActions.takeOdometerPhoto}
+          handleScanPlate={shiftActions.handleScanPlate}
+          handleStartShift={shiftActions.handleStartShift}
+          handleEndShift={shiftActions.handleEndShift}
+          setOilChangeModalState={ui.setOilChangeModalState}
+          empPhotoUrl={derived.empPhotoUrl}
+          setShowQrModal={ui.setShowQrModal}
+          setShowLangModal={ui.setShowLangModal}
+          toggleTheme={toggleTheme}
+          handleCheckForUpdates={updates.handleCheckForUpdates}
+          setShowDiagnosticsModal={ui.setShowDiagnosticsModal}
+          setMainScrollEnabled={ui.setMainScrollEnabled}
+          handleLogout={auth.handleLogout}
+          setEmployee={setEmployee}
+          saveCachedUser={saveCachedUser}
+        />
       </KeyboardAvoidingView>
 
-      {/* Extracted Isolated Modals & BottomSheets Container */}
       <AppModalsContainer
-        showQrModal={showQrModal}
-        setShowQrModal={setShowQrModal}
-        showLangModal={showLangModal}
-        setShowLangModal={setShowLangModal}
+        showQrModal={ui.showQrModal}
+        setShowQrModal={ui.setShowQrModal}
+        showLangModal={ui.showLangModal}
+        setShowLangModal={ui.setShowLangModal}
         lang={lang}
         onSelectLang={async (newLang) => {
           await handleSetLanguage(newLang);
-          setShowLangModal(false);
+          ui.setShowLangModal(false);
         }}
-        previewPhoto={previewPhoto}
-        setPreviewPhoto={setPreviewPhoto}
-        successModalData={successModalData}
-        backdropOpacity={backdropOpacity}
-        sheetTranslateY={sheetTranslateY}
-        formatTimeStr={formatTimeStr}
-        onCloseSuccessModal={closeSuccessModal}
+        previewPhoto={ui.previewPhoto}
+        setPreviewPhoto={ui.setPreviewPhoto}
+        successModalData={ui.successModalData}
+        backdropOpacity={ui.backdropOpacity}
+        sheetTranslateY={ui.sheetTranslateY}
+        formatTimeStr={shiftActions.formatTimeStr}
+        onCloseSuccessModal={ui.closeSuccessModal}
         onNavigateToTab={(tab) => {
           if (tab === 'history') {
             const currentMonth = getCurrentMonthInfo(lang);
-            setSelectedHistoryMonthKey(currentMonth.key);
-            setSelectedHistoryMonthLabel(currentMonth.label);
+            ui.setSelectedHistoryMonthKey(currentMonth.key);
+            ui.setSelectedHistoryMonthLabel(currentMonth.label);
           }
           mainScrollRef.current?.scrollTo({ y: 0, animated: false });
           setCurrentTab(tab);
         }}
-        alertConfig={alertConfig}
-        setAlertConfig={setAlertConfig}
-        oilChangeModalState={oilChangeModalState}
-        setOilChangeModalState={setOilChangeModalState}
-        updateModalVisible={updateModalVisible}
-        updateState={updateState}
-        updateError={updateError}
-        onApplyUpdate={handleApplyUpdate}
-        onCheckAgain={() => handleCheckForUpdates(true)}
-        onCloseUpdateModal={() => setUpdateModalVisible(false)}
-        showDiagnosticsModal={showDiagnosticsModal}
-        setShowDiagnosticsModal={setShowDiagnosticsModal}
-        showBroadcastModal={showBroadcastModal}
-        activeBroadcast={activeBroadcast}
-        onCloseBroadcast={handleCloseBroadcast}
-        onVoteBroadcast={handleVoteBroadcast}
-        showBroadcastHistory={showBroadcastHistory}
-        setShowBroadcastHistory={setShowBroadcastHistory}
-        allBroadcasts={allBroadcasts}
-        loadingBroadcastHistory={loadingBroadcastHistory}
+        alertConfig={ui.alertConfig}
+        setAlertConfig={ui.setAlertConfig}
+        oilChangeModalState={ui.oilChangeModalState}
+        setOilChangeModalState={ui.setOilChangeModalState}
+        updateModalVisible={updates.updateModalVisible}
+        updateState={updates.updateState}
+        updateError={updates.updateError}
+        onApplyUpdate={updates.handleApplyUpdate}
+        onCheckAgain={() => updates.handleCheckForUpdates(true)}
+        onCloseUpdateModal={() => updates.setUpdateModalVisible(false)}
+        showDiagnosticsModal={ui.showDiagnosticsModal}
+        setShowDiagnosticsModal={ui.setShowDiagnosticsModal}
+        showBroadcastModal={broadcasts.showBroadcastModal}
+        activeBroadcast={broadcasts.activeBroadcast}
+        onCloseBroadcast={broadcasts.handleCloseBroadcast}
+        onVoteBroadcast={broadcasts.handleVoteBroadcast}
+        showBroadcastHistory={broadcasts.showBroadcastHistory}
+        setShowBroadcastHistory={broadcasts.setShowBroadcastHistory}
+        allBroadcasts={broadcasts.allBroadcasts}
+        loadingBroadcastHistory={broadcasts.loadingBroadcastHistory}
         onSelectBroadcastFromHistory={(item) => {
-          setActiveBroadcast(item);
-          setShowBroadcastHistory(false);
-          setShowBroadcastModal(true);
+          broadcasts.setActiveBroadcast(item);
+          broadcasts.setShowBroadcastHistory(false);
+          broadcasts.setShowBroadcastModal(true);
         }}
-        onRefreshBroadcastHistory={handleRefreshNotificationsHistory}
-        onMarkAllBroadcastsAsRead={handleMarkAllAsRead}
-        showPlateScannerModal={showPlateScannerModal}
-        onClosePlateScanner={handleClosePlateScanner}
-        onScannedPlate={handleProcessPlateScan}
-        isScanningPlate={isScanningPlate}
-        showAccidentModal={showAccidentModal}
-        setShowAccidentModal={setShowAccidentModal}
-        showReportModal={showReportModal}
-        setShowReportModal={setShowReportModal}
+        onRefreshBroadcastHistory={broadcasts.handleRefreshNotificationsHistory}
+        onMarkAllBroadcastsAsRead={broadcasts.handleMarkAllAsRead}
+        showPlateScannerModal={ui.showPlateScannerModal}
+        onClosePlateScanner={shiftActions.handleClosePlateScanner}
+        onScannedPlate={shiftActions.handleProcessPlateScan}
+        isScanningPlate={shift.isScanningPlate}
+        showAccidentModal={ui.showAccidentModal}
+        setShowAccidentModal={ui.setShowAccidentModal}
+        showReportModal={ui.showReportModal}
+        setShowReportModal={ui.setShowReportModal}
         onSelectReportAction={(action) => {
-          setShowReportModal(false);
+          ui.setShowReportModal(false);
           if (action === 'supervisor-report-create') {
-            setReportInitialMode('create');
+            ui.setReportInitialMode('create');
             setCurrentTab('supervisor-report');
           } else if (action === 'supervisor-reports-list') {
-            setReportInitialMode('list');
+            ui.setReportInitialMode('list');
             setCurrentTab('supervisor-report');
           } else if (action === 'advance-create') {
-            setAdvanceInitialMode('create');
+            ui.setAdvanceInitialMode('create');
             setCurrentTab('advance-request');
           } else {
-            setAdvanceInitialMode('list');
+            ui.setAdvanceInitialMode('list');
             setCurrentTab('advance-request');
           }
         }}
-        showOperationVideoModal={showOperationVideoModal}
-        setShowOperationVideoModal={setShowOperationVideoModal}
-        branchDelegates={branchScopedDelegates}
-        pendingSessions={pendingSessions}
-        onRefreshSupervisorData={fetchSupervisorData}
+        showOperationVideoModal={ui.showOperationVideoModal}
+        setShowOperationVideoModal={ui.setShowOperationVideoModal}
+        branchDelegates={derived.branchScopedDelegates}
+        pendingSessions={supervisorSync.pendingSessions}
+        onRefreshSupervisorData={() => supervisorSync.fetchSupervisorData(false, true)}
         employee={employee}
         activeSession={activeSession}
         colors={colors}
@@ -3025,60 +492,6 @@ export default function DelegateApp() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  loadingScreen: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  appHeader: {
-    minHeight: 72,
-    borderBottomWidth: 0,
-    backgroundColor: 'transparent',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-
-  subPageHeaderRow: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerBackBtn: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-  },
-  headerCalendarBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  subPageTitleContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  subPageHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  titleUnderlineBar: {
-    width: 34,
-    height: 3,
-    borderRadius: 2,
-    marginTop: 3,
-  },
-  mainScrollContent: {
-    flexGrow: 1,
-    paddingBottom: 24,
-  },
+  safeArea: { flex: 1 },
+  loadingScreen: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

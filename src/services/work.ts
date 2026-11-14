@@ -106,6 +106,7 @@ export const workApi = {
             job_role: data.admin.role,
             phone: data.admin.phone,
             branch_id: data.admin.branch_id,
+            selected_branch_id: (data.admin as any).selected_branch_id || data.admin.branch_id,
             branch_name: data.admin.branch_name,
             permissions: data.admin.permissions,
             app_permissions: data.admin.app_permissions,
@@ -160,15 +161,19 @@ export const workApi = {
             cached?.avatar ||
             '';
 
-          const fullAdmin: EmployeeProfile = {
+          const resolvedBranchId = u.branch_id !== undefined ? (u.branch_id || '') : (cached?.branch_id || '');
+          const resolvedSelectedBranch = u.selected_branch_id !== undefined ? u.selected_branch_id : resolvedBranchId;
+
+          const fullAdmin: EmployeeProfile & { selected_branch_id?: string } = {
             ...(cached || {}),
             id: u.id,
             name: u.name,
             role: u.role,
             job_role: u.role,
             phone: u.phone || cached?.phone || '',
-            branch_id: u.branch_id || cached?.branch_id || '',
-            branch_name: u.branch_name || cached?.branch_name || '',
+            branch_id: resolvedBranchId,
+            selected_branch_id: resolvedSelectedBranch,
+            branch_name: u.branch_name !== undefined ? (u.branch_name || '') : (cached?.branch_name || ''),
             permissions: Array.isArray(u.permissions) ? u.permissions : cached?.permissions || [],
             app_permissions: u.app_permissions || cached?.app_permissions,
             personal_image: admPhoto,
@@ -176,9 +181,7 @@ export const workApi = {
             employee_id: u.employee_id || cached?.employee_id || '',
             is_admin: true,
           };
-          if (fullAdmin.branch_id) {
-            setCurrentBranchId(fullAdmin.branch_id);
-          }
+          setCurrentBranchId(resolvedSelectedBranch || resolvedBranchId || null);
           await saveCachedUser(fullAdmin);
           return fullAdmin;
         }
