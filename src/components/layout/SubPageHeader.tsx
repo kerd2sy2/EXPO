@@ -13,6 +13,7 @@ interface SubPageHeaderProps {
   lang: string;
   t: any;
   onOpenOrdersDatePicker?: () => void;
+  onOpenOrdersSearchPicker?: () => void;
   onNotifMarkAll?: () => void;
   onNotifClearModal?: () => void;
 }
@@ -27,6 +28,7 @@ export const SubPageHeader: React.FC<SubPageHeaderProps> = React.memo(({
   lang,
   t,
   onOpenOrdersDatePicker,
+  onOpenOrdersSearchPicker,
   onNotifMarkAll,
   onNotifClearModal,
 }) => {
@@ -100,15 +102,29 @@ export const SubPageHeader: React.FC<SubPageHeaderProps> = React.memo(({
         </View>
       </View>
 
-      {currentTab === 'orders-review' && onOpenOrdersDatePicker && (
-        <TouchableOpacity
-          style={[styles.headerCalendarBtn, { backgroundColor: colors.primaryLight }]}
-          onPress={onOpenOrdersDatePicker}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="calendar-outline" size={22} color={colors.primary} />
-        </TouchableOpacity>
+      {currentTab === 'orders-review' && (
+        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
+          {onOpenOrdersSearchPicker && (
+            <TouchableOpacity
+              style={[styles.headerCalendarBtn, { backgroundColor: colors.primaryLight }]}
+              onPress={onOpenOrdersSearchPicker}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="search-outline" size={21} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+          {onOpenOrdersDatePicker && (
+            <TouchableOpacity
+              style={[styles.headerCalendarBtn, { backgroundColor: colors.primaryLight }]}
+              onPress={onOpenOrdersDatePicker}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
       )}
 
       {currentTab === 'notifications' && (

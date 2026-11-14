@@ -96,6 +96,21 @@ export function usePushNotifications({
           return;
         }
 
+        // 0b. Shift Started / Motorcycle Changed -> Refresh & Navigate to Field Screen
+        const isFieldMovement =
+          data?.type === 'SHIFT_STARTED' ||
+          data?.type === 'MOTORCYCLE_CHANGED' ||
+          title.includes('بدء وردية') ||
+          title.includes('تغيير دباب') ||
+          body.includes('تغيير الدباب');
+
+        if (isFieldMovement) {
+          onRefreshSupervisor?.();
+          setCurrentTab('field');
+          mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+          return;
+        }
+
         // 1. Shift Approval Notification
         const isShiftApproval =
           data?.type === 'SESSION_APPROVED' ||
@@ -263,15 +278,18 @@ export function usePushNotifications({
           title.includes('أنهى المندوب') ||
           title.includes('بانتظار الاعتماد') ||
           title.includes('إنهاء الشفت') ||
+          title.includes('بدء وردية') ||
+          title.includes('تغيير دباب') ||
           title.includes('سلفة') ||
           title.includes('صيانة') ||
           body.includes('أنهى المندوب') ||
           body.includes('بانتظار الاعتماد') ||
           body.includes('إنهاء الشفت') ||
+          body.includes('تغيير الدباب') ||
           body.includes('سلفة') ||
           body.includes('صيانة');
 
-        if (isDelegateRequest) {
+        if (isDelegateRequest || data?.type === 'SHIFT_STARTED' || data?.type === 'MOTORCYCLE_CHANGED') {
           onRefreshSupervisor?.();
         }
 

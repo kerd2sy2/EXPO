@@ -44,6 +44,8 @@ export const SupervisorOpsAndHrTabs: React.FC<SupervisorTabContentProps> = React
     notifHeaderActionsRef,
     ordersDatePickerOpen,
     setOrdersDatePickerOpen,
+    ordersSearchPickerOpen,
+    setOrdersSearchPickerOpen,
     historySessions,
     loadingHistory,
     selectedHistorySession,
@@ -262,6 +264,9 @@ export const SupervisorOpsAndHrTabs: React.FC<SupervisorTabContentProps> = React
             isDatePickerOpen={ordersDatePickerOpen}
             onOpenDatePicker={() => setOrdersDatePickerOpen(true)}
             onCloseDatePicker={() => setOrdersDatePickerOpen(false)}
+            isSearchPickerOpen={ordersSearchPickerOpen}
+            onOpenSearchPicker={() => setOrdersSearchPickerOpen?.(true)}
+            onCloseSearchPicker={() => setOrdersSearchPickerOpen?.(false)}
           />
         </ModuleErrorBoundary>
       </View>

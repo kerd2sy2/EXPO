@@ -232,6 +232,7 @@ export const EmployeesScreen: React.FC<EmployeesScreenProps> = React.memo(({
           visible={Boolean(selectedEmpForEdit)}
           employee={selectedEmpForEdit}
           vehicles={vehicles}
+          allDelegates={employees}
           onClose={() => setSelectedEmpForEdit(null)}
           onSuccess={(updatedEmp) => {
             onEmployeeUpdated(updatedEmp);

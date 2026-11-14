@@ -185,9 +185,10 @@ export const targetApi = {
     return res.json();
   },
 
-  // 4. Create Identifier (Admin only)
+  // 4. Create Identifier (Admin & Supervisor)
   createIdentifier: async (data: {
     name: string;
+    app_name?: string;
     code?: string;
     monthly_target?: number;
     daily_target?: number;
@@ -204,11 +205,12 @@ export const targetApi = {
     return res.json();
   },
 
-  // 5. Update Identifier (Admin only)
+  // 5. Update Identifier (Admin & Supervisor)
   updateIdentifier: async (
     id: string,
     data: {
       name?: string;
+      app_name?: string;
       code?: string;
       monthly_target?: number;
       daily_target?: number;

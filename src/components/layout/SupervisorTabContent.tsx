@@ -9,6 +9,7 @@ import { ShiftScreen } from '../../features/shift';
 import { ProfileScreen } from '../../screens/ProfileScreen';
 import { SupervisorOpsAndHrTabs } from './SupervisorOpsAndHrTabs';
 import { SupervisorTabContentProps } from './supervisorTabContentTypes';
+import { getTodayRiyadhDateKey, toRiyadhDateKey } from '../../utils/dateUtils';
 
 export type { SupervisorTabContentProps } from './supervisorTabContentTypes';
 
@@ -224,40 +225,65 @@ export const SupervisorTabContent: React.FC<SupervisorTabContentProps> = React.m
             onReset={() => fetchSupervisorData(false, true)}
           >
             <FieldScreen
-              delegates={branchScopedDelegates.map((d) => {
-                const workingInfo = branchScopedWorkingDelegates.find((w) => w.id === d.id);
-                const activeSess = branchSessions.find(
-                  (s) => s.employee_id === d.id && (s.status === 'ACTIVE' || !s.end_time)
-                );
-                const isWorking = Boolean(
-                  workingInfo &&
-                    (workingInfo.active_session_id ||
-                      workingInfo.shift_start_time ||
-                      workingInfo.active_session)
-                );
-                const shiftStartTime =
-                  activeSess?.start_time || workingInfo?.shift_start_time || d.shift_start_time;
-                const startKmVal =
-                  activeSess?.start_km !== undefined && activeSess?.start_km !== null
-                    ? Number(activeSess.start_km)
-                    : workingInfo?.start_km !== undefined && workingInfo?.start_km !== null
-                    ? Number(workingInfo.start_km)
-                    : d.start_km;
-                const activeBike =
-                  activeSess?.motorcycle_number ||
-                  workingInfo?.active_motorcycle ||
-                  d.active_motorcycle ||
-                  d.motorcycle_number;
+              delegates={(() => {
+                const todayKey = getTodayRiyadhDateKey();
+                const mergedSessions = [...pendingSessions, ...branchSessions];
+                const seenSessionIds = new Set<string>();
+                const completedTodayByEmp = new Map<string, (typeof mergedSessions)[0]>();
 
-                return {
-                  ...d,
-                  ...(workingInfo || {}),
-                  is_working: isWorking,
-                  shift_start_time: shiftStartTime,
-                  start_km: startKmVal,
-                  active_motorcycle: activeBike,
-                };
-              })}
+                mergedSessions.forEach((s) => {
+                  const sid = String(s.id);
+                  if (seenSessionIds.has(sid)) return;
+                  seenSessionIds.add(sid);
+                  if (s.status !== 'COMPLETED' || !s.end_time) return;
+                  const endKey = toRiyadhDateKey(s.end_time);
+                  if (endKey !== todayKey) return;
+                  const empKey = String(s.employee_id || '');
+                  if (!empKey) return;
+                  const prev = completedTodayByEmp.get(empKey);
+                  if (!prev || new Date(s.end_time).getTime() > new Date(prev.end_time || 0).getTime()) {
+                    completedTodayByEmp.set(empKey, s);
+                  }
+                });
+
+                return branchScopedDelegates.map((d) => {
+                  const workingInfo = branchScopedWorkingDelegates.find((w) => w.id === d.id);
+                  const activeSess = branchSessions.find(
+                    (s) => s.employee_id === d.id && (s.status === 'ACTIVE' || !s.end_time)
+                  );
+                  const isWorking = Boolean(
+                    workingInfo &&
+                      (workingInfo.active_session_id ||
+                        workingInfo.shift_start_time ||
+                        workingInfo.active_session)
+                  );
+                  const shiftStartTime =
+                    activeSess?.start_time || workingInfo?.shift_start_time || d.shift_start_time;
+                  const startKmVal =
+                    activeSess?.start_km !== undefined && activeSess?.start_km !== null
+                      ? Number(activeSess.start_km)
+                      : workingInfo?.start_km !== undefined && workingInfo?.start_km !== null
+                      ? Number(workingInfo.start_km)
+                      : d.start_km;
+                  const activeBike =
+                    activeSess?.motorcycle_number ||
+                    workingInfo?.active_motorcycle ||
+                    d.active_motorcycle ||
+                    d.motorcycle_number;
+                  const lastTodaySess = completedTodayByEmp.get(String(d.id)) || null;
+
+                  return {
+                    ...d,
+                    ...(workingInfo || {}),
+                    is_working: isWorking,
+                    shift_start_time: shiftStartTime,
+                    start_km: startKmVal,
+                    active_motorcycle: activeBike,
+                    finished_today: Boolean(lastTodaySess),
+                    last_today_session: lastTodaySess,
+                  };
+                });
+              })()}
               loading={loadingSupervisorData}
               onRefresh={() => fetchSupervisorData(false, true)}
               colors={colors}

@@ -9,6 +9,7 @@ export function useAppUiAndModalsState(mainScrollRef: React.RefObject<ScrollView
   const [advanceInitialMode, setAdvanceInitialMode] = useState<'list' | 'create'>('list');
   const [showOperationVideoModal, setShowOperationVideoModal] = useState(false);
   const [ordersDatePickerOpen, setOrdersDatePickerOpen] = useState(false);
+  const [ordersSearchPickerOpen, setOrdersSearchPickerOpen] = useState(false);
   const [readNotifIds, setReadNotifIds] = useState<Set<string>>(new Set());
   const notifHeaderActionsRef = useRef<{ markAll: () => void; openClearModal: () => void } | null>(null);
 
@@ -59,6 +60,8 @@ export function useAppUiAndModalsState(mainScrollRef: React.RefObject<ScrollView
     setShowOperationVideoModal,
     ordersDatePickerOpen,
     setOrdersDatePickerOpen,
+    ordersSearchPickerOpen,
+    setOrdersSearchPickerOpen,
     readNotifIds,
     setReadNotifIds,
     notifHeaderActionsRef,

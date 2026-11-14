@@ -21,6 +21,7 @@ interface DashboardDistributionAndShortcutsProps {
   isRTL: boolean;
   onOpenOperationVideosModal?: () => void;
   onOpenOhdaApp?: () => void;
+  onOpenPlatformDelegates?: (platformKey: 'ALL' | 'keeta' | 'ninja' | 'hungerstation' | 'unassigned') => void;
   hasCustody: boolean;
 }
 
@@ -32,39 +33,55 @@ export const DashboardDistributionAndShortcuts: React.FC<DashboardDistributionAn
   isRTL,
   onOpenOperationVideosModal,
   onOpenOhdaApp,
+  onOpenPlatformDelegates,
   hasCustody,
 }) => (
   <>
     {analyticsData.appDistribution.length > 0 && (
       <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <Ionicons name="pie-chart-outline" size={18} color={colors.primary} />
-          <Text style={[styles.cardHeaderTitle, { color: colors.textPrimary }]}>
-            توزيع المناديب حسب منصات التوصيل
-          </Text>
-        </View>
+        <TouchableOpacity
+          style={[styles.cardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: 'space-between' }]}
+          onPress={() => onOpenPlatformDelegates?.('ALL')}
+          activeOpacity={0.75}
+        >
+          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="pie-chart-outline" size={18} color={colors.primary} />
+            <Text style={[styles.cardHeaderTitle, { color: colors.textPrimary }]}>
+              توزيع المناديب حسب منصات التوصيل
+            </Text>
+          </View>
+          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 4 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>عرض المناديب</Text>
+            <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={14} color={colors.primary} />
+          </View>
+        </TouchableOpacity>
 
-        {analyticsData.appDistribution.map(([appName, count], idx) => {
-          const pct = Math.round((count / (analyticsData.totalDrivers || 1)) * 100);
+        {analyticsData.appDistribution.map((item) => {
+          const pct = item.percentage;
           return (
-            <View key={idx} style={styles.distRow}>
+            <TouchableOpacity
+              key={item.key}
+              style={styles.distRow}
+              onPress={() => onOpenPlatformDelegates?.(item.key)}
+              activeOpacity={0.7}
+            >
               <View style={[styles.distLabelRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <Text style={[styles.distAppName, { color: colors.textPrimary }]}>
-                  {appName}
+                  {item.label}
                 </Text>
                 <Text style={[styles.distCountText, { color: colors.textSecondary }]}>
-                  {count} مندوب ({pct}%)
+                  {item.count} مندوب ({pct}%)
                 </Text>
               </View>
               <View style={[styles.distBarBg, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}>
                 <View
                   style={[
                     styles.distBarFill,
-                    { width: `${Math.max(6, pct)}%`, backgroundColor: colors.primary },
+                    { width: `${item.count > 0 ? Math.max(6, pct) : 0}%`, backgroundColor: item.color },
                   ]}
                 />
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>

@@ -38,7 +38,7 @@ export const FieldScreen: React.FC<FieldScreenProps> = React.memo(({
   isRTL,
   onOverrideSuccess,
 }) => {
-  const [filter, setFilter] = useState<FieldFilter>('working');
+  const [filter, setFilter] = useState<FieldFilter>('today');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDelegate, setSelectedDelegate] = useState<DelegateWithStatus | null>(null);
   const [overrideMode, setOverrideMode] = useState<'start' | 'end' | null>(null);
@@ -58,8 +58,9 @@ export const FieldScreen: React.FC<FieldScreenProps> = React.memo(({
 
   const counts = useMemo(() => {
     const working = delegates.filter(isDelegateActuallyWorking).length;
-    const idle = delegates.length - working;
-    return { working, idle, total: delegates.length };
+    const finished = delegates.filter((d) => !isDelegateActuallyWorking(d) && Boolean(d.finished_today)).length;
+    const today = working + finished;
+    return { today, working, finished };
   }, [delegates, isDelegateActuallyWorking]);
 
   const filteredDelegates = useMemo(
@@ -137,6 +138,29 @@ export const FieldScreen: React.FC<FieldScreenProps> = React.memo(({
               style={[
                 styles.tabChip,
                 {
+                  backgroundColor: filter === 'today' ? colors.primary : colors.card,
+                  borderColor: filter === 'today' ? colors.primary : colors.border,
+                },
+              ]}
+              onPress={() => setFilter('today')}
+            >
+              <Text style={[styles.tabNum, { color: filter === 'today' ? '#fff' : colors.primary }]}>
+                {counts.today}
+              </Text>
+              <Text
+                style={[
+                  styles.tabLbl,
+                  { color: filter === 'today' ? '#e0f2fe' : colors.textSecondary },
+                ]}
+              >
+                مناديب اليوم
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.tabChip,
+                {
                   backgroundColor: filter === 'working' ? '#10b981' : colors.card,
                   borderColor: filter === 'working' ? '#10b981' : colors.border,
                 },
@@ -152,7 +176,7 @@ export const FieldScreen: React.FC<FieldScreenProps> = React.memo(({
                   { color: filter === 'working' ? '#d1fae5' : colors.textSecondary },
                 ]}
               >
-                في الميدان الآن
+                يعملون الآن
               </Text>
             </TouchableOpacity>
 
@@ -160,49 +184,24 @@ export const FieldScreen: React.FC<FieldScreenProps> = React.memo(({
               style={[
                 styles.tabChip,
                 {
-                  backgroundColor: filter === 'not_working' ? '#ef4444' : colors.card,
-                  borderColor: filter === 'not_working' ? '#ef4444' : colors.border,
+                  backgroundColor: filter === 'finished' ? '#f59e0b' : colors.card,
+                  borderColor: filter === 'finished' ? '#f59e0b' : colors.border,
                 },
               ]}
-              onPress={() => setFilter('not_working')}
+              onPress={() => setFilter('finished')}
             >
               <Text
-                style={[styles.tabNum, { color: filter === 'not_working' ? '#fff' : '#ef4444' }]}
+                style={[styles.tabNum, { color: filter === 'finished' ? '#fff' : '#f59e0b' }]}
               >
-                {counts.idle}
+                {counts.finished}
               </Text>
               <Text
                 style={[
                   styles.tabLbl,
-                  { color: filter === 'not_working' ? '#fee2e2' : colors.textSecondary },
+                  { color: filter === 'finished' ? '#fef3c7' : colors.textSecondary },
                 ]}
               >
-                خارج الدوام
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.tabChip,
-                {
-                  backgroundColor: filter === 'all' ? colors.primary : colors.card,
-                  borderColor: filter === 'all' ? colors.primary : colors.border,
-                },
-              ]}
-              onPress={() => setFilter('all')}
-            >
-              <Text
-                style={[styles.tabNum, { color: filter === 'all' ? '#fff' : colors.textPrimary }]}
-              >
-                {counts.total}
-              </Text>
-              <Text
-                style={[
-                  styles.tabLbl,
-                  { color: filter === 'all' ? '#e0f2fe' : colors.textSecondary },
-                ]}
-              >
-                الكل (بالمفاتيح)
+                أنهوا الشفت
               </Text>
             </TouchableOpacity>
           </View>
@@ -277,9 +276,13 @@ export const FieldScreen: React.FC<FieldScreenProps> = React.memo(({
             >
               <Ionicons name="bicycle-outline" size={44} color={colors.textSecondary} />
               <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                {filter === 'working'
-                  ? 'لا يوجد مناديب في الميدان حالياً'
-                  : 'لا يوجد مناديب مطابقون للبحث'}
+                {searchQuery.trim()
+                  ? 'لا يوجد مناديب مطابقون للبحث'
+                  : filter === 'working'
+                  ? 'لا يوجد مناديب يعملون الآن'
+                  : filter === 'finished'
+                  ? 'لا يوجد مناديب أنهوا الشفت اليوم'
+                  : 'لا يوجد مناديب سجلوا حضورهم اليوم'}
               </Text>
             </View>
           }

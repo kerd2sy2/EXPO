@@ -1,25 +1,59 @@
 import { toEnglishDigits } from '@shared/utils/plateUtils';
 import { VehicleItem } from '../../../services/operations';
+import { DelegateWithStatus } from '../../../services/supervisor';
 import { IdentifierPerformance } from '../../../types/target';
+
+export type DeliveryPlatformKey = 'keeta' | 'ninja' | 'hungerstation';
 
 export const DELIVERY_APPS = [
   { key: 'keeta', label: 'كيتا (Keeta)', color: '#0284c7', icon: 'bicycle-outline' },
   { key: 'ninja', label: 'نينجا (Ninja)', color: '#10b981', icon: 'flash-outline' },
-  { key: 'hungerstation', label: 'هنقرستيشن (HungerStation)', color: '#f59e0b', icon: 'fast-food-outline' },
+  { key: 'hungerstation', label: 'هنجر / هنقرستيشن (HungerStation)', color: '#f59e0b', icon: 'fast-food-outline' },
 ] as const;
 
 export const IDENTIFIER_FILTER_PLATFORMS = [
   { key: 'ALL', label: 'الكل' },
   { key: 'keeta', label: 'كيتا (Keeta)' },
   { key: 'ninja', label: 'نينجا (Ninja)' },
-  { key: 'hungerstation', label: 'هنقرستيشن' },
+  { key: 'hungerstation', label: 'هنجر (HungerStation)' },
 ] as const;
+
+export function normalizePlatformKey(raw?: string): DeliveryPlatformKey | 'unassigned' {
+  const v = (raw || '').trim().toLowerCase();
+  if (!v) return 'unassigned';
+  if (v.includes('keeta') || v.includes('كيتا') || v.includes('كينتا')) return 'keeta';
+  if (v.includes('ninja') || v.includes('نينجا')) return 'ninja';
+  if (v.includes('hunger') || v.includes('هنجر') || v.includes('هنقر')) return 'hungerstation';
+  return 'unassigned';
+}
+
+export function getPlatformLabelAr(key: DeliveryPlatformKey | 'unassigned'): string {
+  if (key === 'keeta') return 'كيتا (Keeta)';
+  if (key === 'ninja') return 'نينجا (Ninja)';
+  if (key === 'hungerstation') return 'هنجر (HungerStation)';
+  return 'غير محدد';
+}
+
+export function getPlatformColor(key: DeliveryPlatformKey | 'unassigned'): string {
+  if (key === 'keeta') return '#0284c7';
+  if (key === 'ninja') return '#10b981';
+  if (key === 'hungerstation') return '#f59e0b';
+  return '#64748b';
+}
+
+export function toBackendAppName(key: string): string {
+  const norm = normalizePlatformKey(key);
+  if (norm === 'keeta') return 'KEETA';
+  if (norm === 'ninja') return 'NINJA';
+  if (norm === 'hungerstation') return 'HUNGER';
+  return '';
+}
 
 export interface NormalizedIdentifier {
   id: string;
   code: string;
   driverName: string;
-  appKey: 'keeta' | 'ninja' | 'hungerstation';
+  appKey: DeliveryPlatformKey;
   appNameAr: string;
   branch?: string;
 }
@@ -39,30 +73,25 @@ export function filterVehiclesByQuery(vehicles: VehicleItem[], plateSearchText: 
 export function normalizeAndFilterIdentifiers(
   allIdentifiers: IdentifierPerformance[],
   modalAppFilter: string,
-  identifierSearchText: string
+  identifierSearchText: string,
+  employees: DelegateWithStatus[] = []
 ): NormalizedIdentifier[] {
-  const activeApp = modalAppFilter !== 'ALL' ? modalAppFilter.toLowerCase() : null;
+  const normFilter = modalAppFilter !== 'ALL' ? normalizePlatformKey(modalAppFilter) : null;
+  const activeApp = normFilter && normFilter !== 'unassigned' ? normFilter : null;
   const q = toEnglishDigits(identifierSearchText.trim()).toLowerCase();
 
   const normalized: NormalizedIdentifier[] = [];
 
   allIdentifiers.forEach((item) => {
-    const rawApp = (item.app_name || '').toLowerCase();
-    let appKey: 'keeta' | 'ninja' | 'hungerstation' | null = null;
-    let appNameAr = '';
-
-    if (rawApp.includes('keeta') || rawApp.includes('كيتا')) {
-      appKey = 'keeta';
-      appNameAr = 'كيتا (Keeta)';
-    } else if (rawApp.includes('ninja') || rawApp.includes('نينجا')) {
-      appKey = 'ninja';
-      appNameAr = 'نينجا (Ninja)';
-    } else if (rawApp.includes('hunger') || rawApp.includes('هنقر')) {
-      appKey = 'hungerstation';
-      appNameAr = 'هنقرستيشن';
+    let resolvedKey = normalizePlatformKey(item.app_name);
+    if (resolvedKey === 'unassigned') {
+      resolvedKey = normalizePlatformKey(`${item.name || ''} ${item.code || ''}`);
     }
+    if (resolvedKey === 'unassigned') return;
 
-    if (!appKey) return;
+    const appKey: DeliveryPlatformKey = resolvedKey;
+    const appNameAr =
+      appKey === 'keeta' ? 'كيتا (Keeta)' : appKey === 'ninja' ? 'نينجا (Ninja)' : 'هنجر (HungerStation)';
 
     const rawName = (item.name || '').trim();
     const rawCode = (item.code || '').trim();
@@ -96,6 +125,21 @@ export function normalizeAndFilterIdentifiers(
       appKey,
       appNameAr,
       branch: item.branch,
+    });
+  });
+
+  // Also include employee-linked application IDs (e.g. manually created HungerStation IDs)
+  employees.forEach((emp) => {
+    const appId = toEnglishDigits((emp.application_id || '').trim());
+    const empApp = normalizePlatformKey(emp.application_type);
+    if (!appId || empApp === 'unassigned') return;
+    normalized.push({
+      id: `emp_${emp.id}_${appId}`,
+      code: appId,
+      driverName: emp.name || '',
+      appKey: empApp,
+      appNameAr: getPlatformLabelAr(empApp),
+      branch: emp.branch_name,
     });
   });
 

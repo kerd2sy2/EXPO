@@ -22,6 +22,8 @@ import { showBottomAlert } from './ActionAlertBottomSheet';
 import {
   filterVehiclesByQuery,
   normalizeAndFilterIdentifiers,
+  normalizePlatformKey,
+  toBackendAppName,
 } from './edit-employee/editEmployeeHelpers';
 import { editEmployeeStyles as styles } from './edit-employee/editEmployeeStyles';
 import { EmployeeEditFormBody } from './edit-employee/EmployeeEditFormBody';
@@ -32,6 +34,7 @@ export interface EditEmployeeModalProps {
   visible: boolean;
   employee: DelegateWithStatus | null;
   vehicles: VehicleItem[];
+  allDelegates?: DelegateWithStatus[];
   onClose: () => void;
   onSuccess: (updatedEmp?: any) => void;
   colors: ThemeColors;
@@ -44,6 +47,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
   visible,
   employee,
   vehicles,
+  allDelegates = [],
   onClose,
   onSuccess,
   colors,
@@ -111,7 +115,8 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
       setVehicleType(employee.vehicle_type || 'motorcycle');
       setMotorcycleNumber(employee.motorcycle_number || '');
       setKeyNumber(employee.key_number || '');
-      const initialApp = (employee.application_type || 'keeta').toLowerCase();
+      const normApp = normalizePlatformKey(employee.application_type);
+      const initialApp = normApp !== 'unassigned' ? normApp : 'keeta';
       setApplicationType(initialApp);
       setModalAppFilter(initialApp);
       setApplicationId(employee.application_id || '');
@@ -134,8 +139,8 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
   );
 
   const filteredIdentifiers = useMemo(
-    () => normalizeAndFilterIdentifiers(allIdentifiers, modalAppFilter, identifierSearchText),
-    [allIdentifiers, modalAppFilter, identifierSearchText]
+    () => normalizeAndFilterIdentifiers(allIdentifiers, modalAppFilter, identifierSearchText, allDelegates),
+    [allIdentifiers, modalAppFilter, identifierSearchText, allDelegates]
   );
 
   const plateComponents = useMemo(() => parsePlateComponents(motorcycleNumber || ''), [motorcycleNumber]);
@@ -351,7 +356,23 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
             setIsIdentifierModalOpen(false);
           }}
           onApplyManual={(val) => {
-            setApplicationId(val);
+            const cleanVal = toEnglishDigits(val.trim());
+            const resolvedApp =
+              modalAppFilter !== 'ALL' && normalizePlatformKey(modalAppFilter) !== 'unassigned'
+                ? normalizePlatformKey(modalAppFilter)
+                : normalizePlatformKey(applicationType);
+            if (resolvedApp !== 'unassigned') {
+              setApplicationType(resolvedApp);
+              targetApi
+                .createIdentifier({
+                  name: cleanVal,
+                  code: cleanVal,
+                  app_name: toBackendAppName(resolvedApp),
+                })
+                .then(() => loadIdentifiers())
+                .catch(() => {});
+            }
+            setApplicationId(cleanVal);
             setIsIdentifierModalOpen(false);
           }}
           onClose={() => setIsIdentifierModalOpen(false)}

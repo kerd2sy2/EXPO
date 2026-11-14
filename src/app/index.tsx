@@ -291,6 +291,7 @@ export default function DelegateApp() {
             lang={lang}
             t={t}
             onOpenOrdersDatePicker={() => ui.setOrdersDatePickerOpen(true)}
+            onOpenOrdersSearchPicker={() => ui.setOrdersSearchPickerOpen(true)}
             onNotifMarkAll={() => ui.notifHeaderActionsRef.current?.markAll()}
             onNotifClearModal={() => ui.notifHeaderActionsRef.current?.openClearModal()}
           />
@@ -358,6 +359,8 @@ export default function DelegateApp() {
           notifHeaderActionsRef={ui.notifHeaderActionsRef}
           ordersDatePickerOpen={ui.ordersDatePickerOpen}
           setOrdersDatePickerOpen={ui.setOrdersDatePickerOpen}
+          ordersSearchPickerOpen={ui.ordersSearchPickerOpen}
+          setOrdersSearchPickerOpen={ui.setOrdersSearchPickerOpen}
           historySessions={historySessions}
           loadingHistory={loadingHistory}
           selectedHistorySession={selectedHistorySession}

@@ -4,6 +4,20 @@ import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiRequest, getStoredLanguage } from './api';
 
+export interface PersonalNotificationItem {
+  id: string;
+  branch_id?: string | null;
+  admin_id?: string | null;
+  employee_id?: string | null;
+  title: string;
+  body: string;
+  image_url?: string;
+  type: string;
+  status: 'unread' | 'read' | string;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface BroadcastNotificationItem {
   id: string;
   title: string;
@@ -336,6 +350,43 @@ export const notificationService = {
       });
       return true;
     } catch (e) {
+      return false;
+    }
+  },
+
+  getPersonalNotifications: async (): Promise<PersonalNotificationItem[]> => {
+    try {
+      const res = await apiRequest<{ data: PersonalNotificationItem[] }>(
+        `/notifications`,
+        { timeoutMs: 8000 }
+      );
+      return Array.isArray(res?.data) ? res.data : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  markPersonalNotificationAsRead: async (id: string): Promise<boolean> => {
+    if (!id) return false;
+    try {
+      await apiRequest(`/notifications/${id}/read`, {
+        method: 'PUT',
+        timeoutMs: 6000,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  markAllPersonalNotificationsAsRead: async (): Promise<boolean> => {
+    try {
+      await apiRequest(`/notifications/read-all`, {
+        method: 'PUT',
+        timeoutMs: 6000,
+      });
+      return true;
+    } catch {
       return false;
     }
   },

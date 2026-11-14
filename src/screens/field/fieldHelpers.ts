@@ -2,7 +2,7 @@ import { toEnglishDigits } from '@shared/utils/plateUtils';
 import { DelegateWithStatus } from '../../services/supervisor';
 import { extractKeySortValue } from '../EmployeesScreen';
 
-export type FieldFilter = 'working' | 'not_working' | 'all';
+export type FieldFilter = 'today' | 'working' | 'finished';
 
 export function calcLiveElapsed(startIso?: string): string {
   if (!startIso) return '';
@@ -30,8 +30,10 @@ export function filterAndSortFieldDelegates(
   return delegates
     .filter((d) => {
       const isWorking = isDelegateActuallyWorking(d);
+      const finishedToday = Boolean(d.finished_today);
       if (filter === 'working' && !isWorking) return false;
-      if (filter === 'not_working' && isWorking) return false;
+      if (filter === 'finished' && (isWorking || !finishedToday)) return false;
+      if (filter === 'today' && !q && !isWorking && !finishedToday) return false;
       if (!q) return true;
 
       const nameMatch = (d.name || '').toLowerCase().includes(q);

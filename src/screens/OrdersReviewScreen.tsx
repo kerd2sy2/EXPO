@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  TextInput,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
@@ -22,6 +21,10 @@ import {
 } from './orders-review/ordersReviewHelpers';
 import { OrderSessionCard } from './orders-review/OrderSessionCard';
 import { OrderReviewEditModal } from './orders-review/OrderReviewEditModal';
+import {
+  OrdersDatePickerModal,
+  OrdersEmployeeSearchModal,
+} from './orders-review/OrdersReviewModals';
 
 interface OrdersReviewScreenProps {
   employees?: DelegateWithStatus[];
@@ -32,6 +35,9 @@ interface OrdersReviewScreenProps {
   isDatePickerOpen?: boolean;
   onOpenDatePicker?: () => void;
   onCloseDatePicker?: () => void;
+  isSearchPickerOpen?: boolean;
+  onOpenSearchPicker?: () => void;
+  onCloseSearchPicker?: () => void;
 }
 
 export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
@@ -40,11 +46,17 @@ export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
   isDarkMode,
   isRTL,
   onPreviewPhoto,
+  isDatePickerOpen = false,
+  onCloseDatePicker,
+  isSearchPickerOpen = false,
+  onCloseSearchPicker,
 }) => {
   const [sessions, setSessions] = useState<WorkSession[]>([]);
+  const [extraScopedSessions, setExtraScopedSessions] = useState<WorkSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ReviewStatusFilter>('ALL');
+  const [statusFilter, setStatusFilter] = useState<ReviewStatusFilter>('TODAY');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<DelegateWithStatus | null>(null);
 
   const [selectedSession, setSelectedSession] = useState<WorkSession | null>(null);
   const [editedOrders, setEditedOrders] = useState('');
@@ -78,9 +90,52 @@ export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
     fetchSessions();
   }, [fetchSessions]);
 
+  // Fetch full employee or selected-date sessions from backend whenever employee or date filter is active
+  useEffect(() => {
+    if (!selectedEmployee && !selectedDate) {
+      setExtraScopedSessions([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const fetched = await supervisorApi.getOrdersReview({
+          employeeId: selectedEmployee?.id,
+          date: selectedDate || undefined,
+          limit: 500,
+        });
+        if (!cancelled && Array.isArray(fetched)) {
+          setExtraScopedSessions(fetched);
+        }
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEmployee, selectedDate]);
+
+  const mergedSessions = useMemo(() => {
+    if (extraScopedSessions.length === 0) return sessions;
+    const byId = new Map<string, WorkSession>();
+    sessions.forEach((s) => byId.set(String(s.id), s));
+    extraScopedSessions.forEach((s) => byId.set(String(s.id), s));
+    return Array.from(byId.values());
+  }, [sessions, extraScopedSessions]);
+
   const completedSessions = useMemo(
-    () => filterCompletedReviewSessions(sessions, searchQuery, statusFilter, employeeMap),
-    [sessions, searchQuery, statusFilter, employeeMap]
+    () =>
+      filterCompletedReviewSessions(
+        mergedSessions,
+        statusFilter,
+        selectedDate,
+        selectedEmployee?.id || null
+      ),
+    [mergedSessions, statusFilter, selectedDate, selectedEmployee]
+  );
+
+  const displayedOrdersTotal = useMemo(
+    () => completedSessions.reduce((acc, s) => acc + Number(s.orders_count ?? 0), 0),
+    [completedSessions]
   );
 
   const summaryStats = useMemo(() => computeReviewSummaryStats(sessions), [sessions]);
@@ -123,8 +178,8 @@ export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
         reviewNotes: reviewNotes.trim() || 'تمت المراجعة والاعتماد',
       });
 
-      setSessions((prev) =>
-        prev.map((s) =>
+      const applyPatch = (list: WorkSession[]) =>
+        list.map((s) =>
           s.id === selectedSession.id
             ? {
                 ...s,
@@ -136,8 +191,9 @@ export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
                 review_notes: reviewNotes.trim(),
               }
             : s
-        )
-      );
+        );
+      setSessions(applyPatch);
+      setExtraScopedSessions(applyPatch);
       setSelectedSession(null);
     } catch (e: any) {
       showBottomAlert({
@@ -175,17 +231,47 @@ export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
             style={[
               styles.filterChip,
               {
-                backgroundColor: statusFilter === 'ALL' ? colors.primary : colors.card,
-                borderColor: statusFilter === 'ALL' ? colors.primary : colors.border,
+                backgroundColor:
+                  statusFilter === 'TODAY' && !selectedDate && !selectedEmployee
+                    ? colors.primary
+                    : colors.card,
+                borderColor:
+                  statusFilter === 'TODAY' && !selectedDate && !selectedEmployee
+                    ? colors.primary
+                    : colors.border,
               },
             ]}
-            onPress={() => setStatusFilter('ALL')}
+            onPress={() => {
+              setSelectedDate(null);
+              setSelectedEmployee(null);
+              setStatusFilter('TODAY');
+            }}
           >
-            <Text style={[styles.filterNum, { color: statusFilter === 'ALL' ? '#fff' : colors.textPrimary }]}>
-              {summaryStats.totalFinished}
+            <Text
+              style={[
+                styles.filterNum,
+                {
+                  color:
+                    statusFilter === 'TODAY' && !selectedDate && !selectedEmployee
+                      ? '#fff'
+                      : colors.primary,
+                },
+              ]}
+            >
+              {summaryStats.todayOrdersCount}
             </Text>
-            <Text style={[styles.filterLbl, { color: statusFilter === 'ALL' ? '#e0f2fe' : colors.textSecondary }]}>
-              المنتهية (الأحدث أولاً)
+            <Text
+              style={[
+                styles.filterLbl,
+                {
+                  color:
+                    statusFilter === 'TODAY' && !selectedDate && !selectedEmployee
+                      ? '#e0f2fe'
+                      : colors.textSecondary,
+                },
+              ]}
+            >
+              اليوم الحالي ({summaryStats.todaySessionsCount} شفت)
             </Text>
           </TouchableOpacity>
 
@@ -193,66 +279,109 @@ export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
             style={[
               styles.filterChip,
               {
-                backgroundColor: statusFilter === 'PENDING' ? '#d97706' : colors.card,
-                borderColor: statusFilter === 'PENDING' ? '#d97706' : colors.border,
+                backgroundColor:
+                  statusFilter === 'ALL' && !selectedDate && !selectedEmployee
+                    ? '#10b981'
+                    : colors.card,
+                borderColor:
+                  statusFilter === 'ALL' && !selectedDate && !selectedEmployee
+                    ? '#10b981'
+                    : colors.border,
               },
             ]}
-            onPress={() => setStatusFilter('PENDING')}
+            onPress={() => {
+              setSelectedDate(null);
+              setSelectedEmployee(null);
+              setStatusFilter('ALL');
+            }}
           >
-            <Text style={[styles.filterNum, { color: statusFilter === 'PENDING' ? '#fff' : '#d97706' }]}>
-              {summaryStats.pendingCount}
+            <Text
+              style={[
+                styles.filterNum,
+                {
+                  color:
+                    statusFilter === 'ALL' && !selectedDate && !selectedEmployee
+                      ? '#fff'
+                      : '#10b981',
+                },
+              ]}
+            >
+              {summaryStats.allOrdersCount}
             </Text>
-            <Text style={[styles.filterLbl, { color: statusFilter === 'PENDING' ? '#fef3c7' : colors.textSecondary }]}>
-              بانتظار المراجعة
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor: statusFilter === 'REVIEWED' ? '#10b981' : colors.card,
-                borderColor: statusFilter === 'REVIEWED' ? '#10b981' : colors.border,
-              },
-            ]}
-            onPress={() => setStatusFilter('REVIEWED')}
-          >
-            <Text style={[styles.filterNum, { color: statusFilter === 'REVIEWED' ? '#fff' : '#10b981' }]}>
-              {summaryStats.reviewedCount}
-            </Text>
-            <Text style={[styles.filterLbl, { color: statusFilter === 'REVIEWED' ? '#d1fae5' : colors.textSecondary }]}>
-              تم اعتمادها
+            <Text
+              style={[
+                styles.filterLbl,
+                {
+                  color:
+                    statusFilter === 'ALL' && !selectedDate && !selectedEmployee
+                      ? '#d1fae5'
+                      : colors.textSecondary,
+                },
+              ]}
+            >
+              الكل ({summaryStats.allSessionsCount} شفت)
             </Text>
           </TouchableOpacity>
         </View>
 
-        <View
-          style={[
-            styles.searchBox,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
+        {(selectedEmployee || selectedDate) && (
+          <View
+            style={{
               flexDirection: isRTL ? 'row-reverse' : 'row',
-            },
-          ]}
-        >
-          <Ionicons name="search-outline" size={19} color={colors.textSecondary} />
-          <TextInput
-            style={[
-              styles.searchInput,
-              { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
-            ]}
-            placeholder="ابحث بالاسم، رقم المفتاح، اللوحة، أو المعرف..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
+              flexWrap: 'wrap',
+              gap: 8,
+              marginBottom: 4,
+            }}
+          >
+            {selectedEmployee && (
+              <View
+                style={{
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 10,
+                  backgroundColor: colors.primary + '18',
+                  borderWidth: 1,
+                  borderColor: colors.primary + '45',
+                }}
+              >
+                <Ionicons name="person" size={14} color={colors.primary} />
+                <Text style={{ fontSize: 12, fontWeight: '800', color: colors.primary }}>
+                  {selectedEmployee.name} • {displayedOrdersTotal} طلب ({completedSessions.length} شفت)
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedEmployee(null)}>
+                  <Ionicons name="close-circle" size={16} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {selectedDate && (
+              <View
+                style={{
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 10,
+                  backgroundColor: '#f59e0b18',
+                  borderWidth: 1,
+                  borderColor: '#f59e0b45',
+                }}
+              >
+                <Ionicons name="calendar" size={14} color="#d97706" />
+                <Text style={{ fontSize: 12, fontWeight: '800', color: '#d97706' }}>
+                  {selectedDate}
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedDate(null)}>
+                  <Ionicons name="close-circle" size={16} color="#d97706" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
       </View>
 
       <ModuleErrorBoundary moduleName="سجل مراجعة الطلبات والورديات" colors={colors} onReset={fetchSessions}>
@@ -316,6 +445,39 @@ export const OrdersReviewScreen: React.FC<OrdersReviewScreenProps> = ({
           onChangeReviewNotes={setReviewNotes}
           onSave={handleSaveReview}
           onClose={() => setSelectedSession(null)}
+        />
+      </ModuleErrorBoundary>
+
+      <ModuleErrorBoundary
+        moduleName="التقويم لمراجعة الطلبات"
+        colors={colors}
+        onReset={() => onCloseDatePicker?.()}
+      >
+        <OrdersDatePickerModal
+          visible={Boolean(isDatePickerOpen)}
+          selectedDate={selectedDate}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          onSelectDate={setSelectedDate}
+          onClose={() => onCloseDatePicker?.()}
+        />
+      </ModuleErrorBoundary>
+
+      <ModuleErrorBoundary
+        moduleName="البحث بالموظفين لمراجعة الطلبات"
+        colors={colors}
+        onReset={() => onCloseSearchPicker?.()}
+      >
+        <OrdersEmployeeSearchModal
+          visible={Boolean(isSearchPickerOpen)}
+          employees={employees}
+          selectedEmployeeId={selectedEmployee?.id || null}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          onSelectEmployee={setSelectedEmployee}
+          onClose={() => onCloseSearchPicker?.()}
         />
       </ModuleErrorBoundary>
     </View>

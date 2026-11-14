@@ -10,6 +10,7 @@ import {
 } from '../services/supervisor';
 import { VehicleItem } from '../services/operations';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
+import { notificationService, PersonalNotificationItem } from '../services/notificationService';
 import {
   READ_NOTIFS_KEY,
   CLEARED_NOTIFS_KEY,
@@ -55,7 +56,29 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = React.mem
 }) => {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [clearedIds, setClearedIds] = useState<Set<string>>(new Set());
+  const [serverNotifications, setServerNotifications] = useState<PersonalNotificationItem[]>([]);
   const [showClearModal, setShowClearModal] = useState(false);
+
+  const loadServerNotifications = useCallback(async () => {
+    try {
+      const list = await notificationService.getPersonalNotifications();
+      setServerNotifications(list);
+      const alreadyReadSrvIds = list
+        .filter((n) => n.status === 'read')
+        .map((n) => `srv_${n.id}`);
+      if (alreadyReadSrvIds.length > 0) {
+        setReadIds((prev) => {
+          const next = new Set(prev);
+          alreadyReadSrvIds.forEach((id) => next.add(id));
+          return next;
+        });
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadServerNotifications();
+  }, [loadServerNotifications, pendingSessions.length, workingDelegates.length]);
 
   useEffect(() => {
     (async () => {
@@ -106,15 +129,17 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = React.mem
         vehicles,
         pendingMaintenance,
         pendingAdvances,
+        serverNotifications,
         clearedIds,
       }),
-    [pendingSessions, workingDelegates, vehicles, pendingMaintenance, pendingAdvances, clearedIds]
+    [pendingSessions, workingDelegates, vehicles, pendingMaintenance, pendingAdvances, serverNotifications, clearedIds]
   );
 
   const handleMarkAllAsRead = useCallback(async () => {
     const allIds = new Set(readIds);
     notificationsList.forEach((n) => allIds.add(n.id));
     await saveReadIds(allIds);
+    notificationService.markAllPersonalNotificationsAsRead().catch(() => {});
   }, [readIds, notificationsList, saveReadIds]);
 
   const handleClearAllNotifications = useCallback(async () => {
@@ -128,6 +153,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = React.mem
     const allRead = new Set(readIds);
     notificationsList.forEach((n) => allRead.add(n.id));
     await saveReadIds(allRead);
+    notificationService.markAllPersonalNotificationsAsRead().catch(() => {});
   }, [clearedIds, notificationsList, readIds, saveReadIds]);
 
   useEffect(() => {
@@ -145,6 +171,9 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = React.mem
         const next = new Set(readIds);
         next.add(item.id);
         await saveReadIds(next);
+        if (item.id.startsWith('srv_')) {
+          notificationService.markPersonalNotificationAsRead(item.id.slice(4)).catch(() => {});
+        }
       }
       onNavigateToTab(item.actionTab, item.actionMeta);
     },
@@ -175,14 +204,15 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = React.mem
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            onRefresh ? (
-              <RefreshControl
-                refreshing={loading}
-                onRefresh={onRefresh}
-                tintColor={colors.primary}
-                colors={[colors.primary]}
-              />
-            ) : undefined
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={() => {
+                loadServerNotifications();
+                onRefresh?.();
+              }}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
           }
           ListEmptyComponent={
             <View style={styles.emptyStateBox}>

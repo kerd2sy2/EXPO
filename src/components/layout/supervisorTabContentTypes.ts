@@ -60,6 +60,8 @@ export interface SupervisorTabContentProps {
   notifHeaderActionsRef: any;
   ordersDatePickerOpen: boolean;
   setOrdersDatePickerOpen: (v: boolean) => void;
+  ordersSearchPickerOpen?: boolean;
+  setOrdersSearchPickerOpen?: (v: boolean) => void;
   historySessions: any[];
   loadingHistory: boolean;
   selectedHistorySession: any;

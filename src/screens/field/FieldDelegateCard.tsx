@@ -28,7 +28,13 @@ export const FieldDelegateCard: React.FC<FieldDelegateCardProps> = ({
   onOpenOverride,
 }) => {
   const hasKey = Boolean(d.key_number && d.key_number.trim());
-  const plate = d.active_motorcycle || d.motorcycle_number || 'بدون لوحة';
+  const isFinishedToday = !isWorking && Boolean(d.finished_today);
+  const lastSess = d.last_today_session;
+  const plate =
+    (isFinishedToday && lastSess?.motorcycle_number) ||
+    d.active_motorcycle ||
+    d.motorcycle_number ||
+    'بدون لوحة';
   const rawStartTime = d.shift_start_time || d.active_session?.start_time;
   const elapsed = isWorking && rawStartTime ? calcLiveElapsed(rawStartTime) : '';
   const startTimeFormatted = rawStartTime
@@ -37,6 +43,20 @@ export const FieldDelegateCard: React.FC<FieldDelegateCardProps> = ({
         minute: '2-digit',
       })
     : '--:--';
+  const endTimeFormatted = lastSess?.end_time
+    ? new Date(lastSess.end_time).toLocaleTimeString('ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '--:--';
+  const finishedOrdersCount = Number(lastSess?.orders_count ?? 0);
+  const finishedDistance =
+    lastSess?.end_km !== undefined &&
+    lastSess?.start_km !== undefined &&
+    Number(lastSess.end_km) >= Number(lastSess.start_km) &&
+    Number(lastSess.end_km) > 0
+      ? Number(lastSess.end_km) - Number(lastSess.start_km)
+      : Number((lastSess as any)?.total_km ?? lastSess?.distance ?? 0);
   const startKmVal =
     d.start_km !== undefined && d.start_km !== null
       ? d.start_km
@@ -50,7 +70,7 @@ export const FieldDelegateCard: React.FC<FieldDelegateCardProps> = ({
         styles.delegateCard,
         {
           backgroundColor: colors.card,
-          borderColor: isWorking ? '#10b98160' : colors.border,
+          borderColor: isWorking ? '#10b98160' : isFinishedToday ? '#f59e0b60' : colors.border,
         },
       ]}
     >
@@ -85,16 +105,20 @@ export const FieldDelegateCard: React.FC<FieldDelegateCardProps> = ({
             <View
               style={[
                 styles.statusDot,
-                { backgroundColor: isWorking ? '#10b981' : '#ef4444' },
+                { backgroundColor: isWorking ? '#10b981' : isFinishedToday ? '#f59e0b' : '#ef4444' },
               ]}
             />
             <Text
               style={[
                 styles.statusText,
-                { color: isWorking ? '#10b981' : colors.textSecondary },
+                { color: isWorking ? '#10b981' : isFinishedToday ? '#d97706' : colors.textSecondary },
               ]}
             >
-              {isWorking ? `في الميدان (${elapsed || 'نشط'})` : 'خارج الدوام'}
+              {isWorking
+                ? `في الميدان (${elapsed || 'نشط'})`
+                : isFinishedToday
+                ? `أنهى الشفت اليوم • ${endTimeFormatted}`
+                : 'خارج الدوام'}
             </Text>
           </View>
         </View>
@@ -145,6 +169,21 @@ export const FieldDelegateCard: React.FC<FieldDelegateCardProps> = ({
               <Text style={[styles.infoCellLabel, { color: colors.textSecondary }]}>كيلو البداية</Text>
               <Text style={[styles.infoCellValue, { color: colors.textPrimary }]}>
                 {startKmVal} كم
+              </Text>
+            </View>
+          </>
+        ) : isFinishedToday && lastSess ? (
+          <>
+            <View style={styles.infoCell}>
+              <Text style={[styles.infoCellLabel, { color: colors.textSecondary }]}>الطلبات</Text>
+              <Text style={[styles.infoCellValue, { color: '#10b981' }]}>
+                {finishedOrdersCount} طلب
+              </Text>
+            </View>
+            <View style={styles.infoCell}>
+              <Text style={[styles.infoCellLabel, { color: colors.textSecondary }]}>المسافة</Text>
+              <Text style={[styles.infoCellValue, { color: colors.textPrimary }]}>
+                {finishedDistance.toFixed(1)} كم
               </Text>
             </View>
           </>

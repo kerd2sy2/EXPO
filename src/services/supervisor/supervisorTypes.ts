@@ -37,6 +37,8 @@ export interface DelegateWithStatus extends EmployeeProfile {
   active_motorcycle?: string;
   shift_start_time?: string;
   start_km?: number;
+  finished_today?: boolean;
+  last_today_session?: WorkSession | null;
 }
 
 export interface SupervisorStartShiftParams {

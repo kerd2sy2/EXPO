@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Text, ScrollView, RefreshControl } from 'react-native';
 import { ThemeColors, TabType, WorkSession } from '../types/delegate';
 import { BranchStats, DelegateWithStatus } from '../services/supervisor';
 import { VehicleItem } from '../services/operations';
 import { DashboardSkeleton } from '../components/skeletons/DashboardSkeleton';
 import { WidgetErrorBoundary } from '../components/WidgetErrorBoundary';
+import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 import { dashboardStyles as styles } from './dashboard/dashboardStyles';
 import { computeDashboardAnalytics } from './dashboard/dashboardHelpers';
 import { DashboardHeroCard } from './dashboard/DashboardHeroCard';
@@ -13,6 +14,7 @@ import {
   DashboardDistributionAndShortcuts,
   DashboardShortcutItem,
 } from './dashboard/DashboardDistributionAndShortcuts';
+import { PlatformDelegatesModal, PlatformModalFilter } from './dashboard/PlatformDelegatesModal';
 
 interface DashboardScreenProps {
   adminName: string;
@@ -70,6 +72,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = React.memo(({
   progressViewOffset = 0,
   scrollRef,
 }) => {
+  const [platformModalState, setPlatformModalState] = useState<{
+    visible: boolean;
+    platformKey: PlatformModalFilter;
+  }>({ visible: false, platformKey: 'ALL' });
+
   const analyticsData = useMemo(
     () =>
       computeDashboardAnalytics(
@@ -166,9 +173,29 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = React.memo(({
           isRTL={isRTL}
           onOpenOperationVideosModal={onOpenOperationVideosModal}
           onOpenOhdaApp={onOpenOhdaApp}
+          onOpenPlatformDelegates={(platformKey) =>
+            setPlatformModalState({ visible: true, platformKey })
+          }
           hasCustody={hasCustody}
         />
       </WidgetErrorBoundary>
+
+      <ModuleErrorBoundary
+        moduleName="توزيع المناديب واليوزرات"
+        colors={colors}
+        onReset={() => setPlatformModalState({ visible: false, platformKey: 'ALL' })}
+      >
+        <PlatformDelegatesModal
+          visible={platformModalState.visible}
+          initialPlatformKey={platformModalState.platformKey}
+          delegates={allDelegates}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          onClose={() => setPlatformModalState((p) => ({ ...p, visible: false }))}
+          onRefresh={onRefresh}
+        />
+      </ModuleErrorBoundary>
     </ScrollView>
   );
 });

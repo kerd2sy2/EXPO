@@ -6,6 +6,7 @@ import {
   PendingAdvanceRequest,
 } from '../../services/supervisor';
 import { VehicleItem, isVehicleOilDue } from '../../services/operations';
+import { PersonalNotificationItem } from '../../services/notificationService';
 
 export const READ_NOTIFS_KEY = '@eshraf_read_notifications_v1';
 export const CLEARED_NOTIFS_KEY = '@eshraf_cleared_notifications_v1';
@@ -46,6 +47,7 @@ export function synthesizeNotifications({
   vehicles,
   pendingMaintenance,
   pendingAdvances,
+  serverNotifications = [],
   clearedIds,
 }: {
   pendingSessions: WorkSession[];
@@ -53,9 +55,93 @@ export function synthesizeNotifications({
   vehicles: VehicleItem[];
   pendingMaintenance: PendingMaintenanceRequest[];
   pendingAdvances: PendingAdvanceRequest[];
+  serverNotifications?: PersonalNotificationItem[];
   clearedIds: Set<string>;
 }): NotificationItem[] {
   const items: NotificationItem[] = [];
+
+  serverNotifications.forEach((srv) => {
+    const type = (srv.type || '').toUpperCase();
+    // Skip delegate-targeted approval notices if any ever leak
+    if (type === 'SESSION_APPROVED') return;
+
+    let parsedTime = srv.created_at ? new Date(srv.created_at).getTime() : 0;
+    if (!parsedTime || Number.isNaN(parsedTime)) {
+      parsedTime = Date.now();
+    }
+
+    // Deduplicate pending shift-end alerts already synthesized directly from pendingSessions
+    if (type === 'SHIFT_COMPLETED_PENDING_REVIEW') {
+      const hasMatchingPending = pendingSessions.some((ps) => {
+        const empName = (ps.employee_name || (ps as any).employee?.name || '').trim();
+        const pendTime = ps.end_time ? new Date(ps.end_time).getTime() : 0;
+        return Boolean(empName && srv.body?.includes(empName) && Math.abs(parsedTime - pendTime) < 120000);
+      });
+      if (hasMatchingPending) return;
+    }
+
+    // Deduplicate live shift start if workingDelegates card matches within 2 mins
+    if (type === 'SHIFT_STARTED') {
+      const hasMatchingWorking = workingDelegates.some((wd) => {
+        const startStr = wd.shift_start_time || wd.active_session?.start_time;
+        const startTime = startStr ? new Date(startStr).getTime() : 0;
+        return Boolean(wd.name && srv.body?.includes(wd.name) && Math.abs(parsedTime - startTime) < 120000);
+      });
+      if (hasMatchingWorking && Date.now() - parsedTime > 3600000) return;
+    }
+
+    let category: NotificationItem['category'] = 'SHIFT';
+    let iconName: keyof typeof Ionicons.glyphMap = 'notifications-outline';
+    let iconColor = '#0284c7';
+    let actionLabel = 'عرض التفاصيل';
+    let actionTab: TabType = 'field';
+
+    if (type === 'SHIFT_STARTED') {
+      category = 'SHIFT';
+      iconName = 'play-circle-outline';
+      iconColor = '#0284c7';
+      actionLabel = 'متابعة الميدان';
+      actionTab = 'field';
+    } else if (type === 'MOTORCYCLE_CHANGED') {
+      category = 'VEHICLE';
+      iconName = 'swap-horizontal-outline';
+      iconColor = '#f59e0b';
+      actionLabel = 'متابعة الميدان';
+      actionTab = 'field';
+    } else if (type === 'SHIFT_COMPLETED_PENDING_REVIEW') {
+      category = 'SHIFT';
+      iconName = 'flag-outline';
+      iconColor = '#10b981';
+      actionLabel = 'مراجعة واعتماد';
+      actionTab = 'approvals';
+    } else if (type === 'ADVANCE_REQUEST') {
+      category = 'ADVANCE';
+      iconName = 'cash-outline';
+      iconColor = '#8b5cf6';
+      actionLabel = 'مراجعة السلفة';
+      actionTab = 'approvals';
+    } else if (type === 'MAINTENANCE_REQUEST') {
+      category = 'VEHICLE';
+      iconName = 'build-outline';
+      iconColor = '#f59e0b';
+      actionLabel = 'مراجعة الصيانة';
+      actionTab = 'approvals';
+    }
+
+    items.push({
+      id: `srv_${srv.id}`,
+      category,
+      title: srv.title || 'إشعار جديد',
+      message: srv.body || '',
+      timestamp: formatArabicRelativeTime(parsedTime),
+      rawDate: parsedTime,
+      iconName,
+      iconColor,
+      iconBg: `${iconColor}18`,
+      actionLabel,
+      actionTab,
+    });
+  });
 
   pendingSessions.forEach((s) => {
     let parsedTime = 0;

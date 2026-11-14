@@ -1,6 +1,19 @@
 import { WorkSession } from '../../types/delegate';
 import { BranchStats, DelegateWithStatus } from '../../services/supervisor';
 import { VehicleItem, isVehicleOilDue } from '../../services/operations';
+import {
+  getPlatformColor,
+  getPlatformLabelAr,
+  normalizePlatformKey,
+} from '../../components/modals/edit-employee/editEmployeeHelpers';
+
+export interface AppDistributionItem {
+  key: 'keeta' | 'ninja' | 'hungerstation' | 'unassigned';
+  label: string;
+  count: number;
+  percentage: number;
+  color: string;
+}
 
 export interface DashboardAnalytics {
   totalDrivers: number;
@@ -20,7 +33,7 @@ export interface DashboardAnalytics {
   oilDueVehicles: VehicleItem[];
   driverByPlate: Map<string, DelegateWithStatus>;
   driverByKey: Map<string, DelegateWithStatus>;
-  appDistribution: [string, number][];
+  appDistribution: AppDistributionItem[];
 }
 
 export const getFirstTwoNames = (fullName?: string): string => {
@@ -80,8 +93,10 @@ export const computeDashboardAnalytics = (
       missingKeys++;
     }
 
-    const appName = (d.application_type || 'غير محدد').trim().toUpperCase();
-    appCounts[appName] = (appCounts[appName] || 0) + 1;
+    const platKey = normalizePlatformKey(d.application_type);
+    const hasAppId = Boolean(d.application_id && d.application_id.trim());
+    const bucket = !hasAppId && platKey === 'unassigned' ? 'unassigned' : platKey;
+    appCounts[bucket] = (appCounts[bucket] || 0) + 1;
   });
 
   const completedPending = pendingSessions.filter(
@@ -107,9 +122,26 @@ export const computeDashboardAnalytics = (
   const oilDueVehicles = vehicles.filter((v) => isVehicleOilDue(v));
   const oilDueCount = oilDueVehicles.length;
 
-  const appDistribution = Object.entries(appCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+  const orderedKeys: Array<'keeta' | 'ninja' | 'hungerstation' | 'unassigned'> = [
+    'keeta',
+    'ninja',
+    'hungerstation',
+  ];
+  if ((appCounts['unassigned'] || 0) > 0) {
+    orderedKeys.push('unassigned');
+  }
+
+  const denom = totalDrivers || 1;
+  const appDistribution: AppDistributionItem[] = orderedKeys.map((key) => {
+    const count = appCounts[key] || 0;
+    return {
+      key,
+      label: key === 'unassigned' ? 'غير مربوط بيوزر' : getPlatformLabelAr(key),
+      count,
+      percentage: Math.round((count / denom) * 100),
+      color: getPlatformColor(key),
+    };
+  });
 
   return {
     totalDrivers,
