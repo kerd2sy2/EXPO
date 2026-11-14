@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Modal,
-  StyleSheet,
   Animated,
   PanResponder,
   TouchableOpacity,
@@ -12,6 +11,12 @@ import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeColors, Language } from '../../types/delegate';
+import {
+  humanVerificationModalStyles as styles,
+  HVM_TRACK_WIDTH as TRACK_WIDTH,
+  HVM_KNOB_SIZE as KNOB_SIZE,
+  HVM_MAX_SLIDE as MAX_SLIDE,
+} from './humanVerificationModalStyles';
 
 export type VerificationLanguage = 'ar' | 'en' | 'ur' | 'bn';
 
@@ -107,10 +112,6 @@ const getLocalizedAppName = (rawName: string, lang: VerificationLanguage): strin
   }
   return rawName;
 };
-
-const TRACK_WIDTH = 270;
-const KNOB_SIZE = 48;
-const MAX_SLIDE = TRACK_WIDTH - KNOB_SIZE - 8;
 
 export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
   visible,
@@ -417,127 +418,3 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.72)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 340,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    paddingHorizontal: 22,
-    paddingTop: 24,
-    paddingBottom: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 10,
-    position: 'relative',
-  },
-  closeBtn: {
-    position: 'absolute',
-    top: 14,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  lottieWrapper: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-    overflow: 'hidden',
-  },
-  lottieAnim: {
-    width: 100,
-    height: 100,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  badge: {
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-    paddingHorizontal: 8,
-  },
-  track: {
-    width: TRACK_WIDTH,
-    height: KNOB_SIZE + 8,
-    borderRadius: (KNOB_SIZE + 8) / 2,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  trackFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: (KNOB_SIZE + 8) / 2,
-  },
-  trackText: {
-    position: 'absolute',
-    left: KNOB_SIZE + 10,
-    right: 12,
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  knob: {
-    width: KNOB_SIZE,
-    height: KNOB_SIZE,
-    borderRadius: KNOB_SIZE / 2,
-    marginLeft: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 5,
-    zIndex: 5,
-  },
-  footerNote: {
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 18,
-  },
-  footerText: {
-    fontSize: 10.5,
-    fontWeight: '600',
-  },
-});

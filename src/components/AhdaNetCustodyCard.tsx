@@ -2,7 +2,6 @@ import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   Image,
   PanResponder,
@@ -13,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { ThemeColors } from '../types/delegate';
 import { CustodyDayData, CustodyLogItem } from '../services/custodyService';
 import { toArabicDigits, formatArabicNumber } from '../utils/formatters';
+import { ahdaNetCustodyCardStyles as styles } from './ahdaNetCustodyCardStyles';
 
 interface AhdaNetCustodyCardProps {
   currentDay: CustodyDayData | null;
@@ -290,18 +290,18 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
         </View>
       </View>
 
-      {/* Footer 3-Stats Details: باقي أمس • المضاف للعهدة • إجمالي المصاريف */}
+      {/* Footer 4-Stats Details: باقي أمس • العهدة المضافة • إجمالي العهدة اليوم • إجمالي المصاريف */}
       <View style={[styles.targetDetailsRow, { borderTopColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
         {/* 1. باقي أمس (افتتاحي) */}
         <View style={styles.detailCol}>
-          <Text style={[styles.detailColLabel, { color: colors.textSecondary }]}>باقي أمس</Text>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-            <Text style={[styles.detailColValue, { color: colors.textPrimary }]}>
+          <Text style={[styles.detailColLabel, { color: colors.textSecondary }]} numberOfLines={1}>باقي أمس</Text>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 3 }}>
+            <Text style={[styles.detailColValue, { color: colors.textPrimary }]} numberOfLines={1}>
               {formatArabicNumber(effectiveOpeningBalance, 2)}
             </Text>
             <Image
               source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-              style={{ width: 11, height: 11, tintColor: colors.textPrimary }}
+              style={{ width: 10, height: 10, tintColor: colors.textPrimary }}
               resizeMode="contain"
             />
           </View>
@@ -311,16 +311,16 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
 
         {/* 2. عهدة اليوم المضافة */}
         <View style={styles.detailCol}>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-            <Text style={[styles.detailColLabel, { color: '#047857' }]}>العهدة المضافة</Text>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 3 }}>
+            <Text style={[styles.detailColLabel, { color: '#047857' }]} numberOfLines={1}>العهدة المضافة</Text>
           </View>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-            <Text style={[styles.detailColValue, { color: '#047857' }]}>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 3 }}>
+            <Text style={[styles.detailColValue, { color: '#047857' }]} numberOfLines={1}>
               {formatArabicNumber(currentDay?.added_amount ?? 0, 2)}
             </Text>
             <Image
               source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-              style={{ width: 11, height: 11, tintColor: '#047857' }}
+              style={{ width: 10, height: 10, tintColor: '#047857' }}
               resizeMode="contain"
             />
           </View>
@@ -339,16 +339,35 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
 
         <View style={[styles.detailDivider, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
 
-        {/* 3. إجمالي المصاريف */}
+        {/* 3. إجمالي العهدة اليوم (باقي أمس + العهدة المضافة) */}
         <View style={styles.detailCol}>
-          <Text style={[styles.detailColLabel, { color: '#ef4444' }]}>إجمالي المصاريف</Text>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4 }}>
-            <Text style={[styles.detailColValue, { color: '#ef4444' }]}>
+          <Text style={[styles.detailColLabel, { color: isDarkMode ? '#38bdf8' : '#0284c7' }]} numberOfLines={1}>
+            إجمالي العهدة اليوم
+          </Text>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 3 }}>
+            <Text style={[styles.detailColValue, { color: isDarkMode ? '#38bdf8' : '#0284c7' }]} numberOfLines={1}>
+              {formatArabicNumber(custodyTotalAvailable, 2)}
+            </Text>
+            <Image
+              source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
+              style={{ width: 10, height: 10, tintColor: isDarkMode ? '#38bdf8' : '#0284c7' }}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+
+        <View style={[styles.detailDivider, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
+
+        {/* 4. إجمالي المصاريف */}
+        <View style={styles.detailCol}>
+          <Text style={[styles.detailColLabel, { color: '#ef4444' }]} numberOfLines={1}>إجمالي المصاريف</Text>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 3 }}>
+            <Text style={[styles.detailColValue, { color: '#ef4444' }]} numberOfLines={1}>
               {formatArabicNumber(currentDay?.total_expenses ?? 0, 2)}
             </Text>
             <Image
               source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}
-              style={{ width: 11, height: 11, tintColor: '#ef4444' }}
+              style={{ width: 10, height: 10, tintColor: '#ef4444' }}
               resizeMode="contain"
             />
           </View>
@@ -360,137 +379,3 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
 };
 
 export const AhdaNetCustodyCard = React.memo(AhdaNetCustodyCardComponent);
-
-const styles = StyleSheet.create({
-  targetCardContainer: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  targetCardHeader: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  targetTitleGroup: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 10,
-  },
-  walletIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#ecfdf5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#fed7aa',
-  },
-  targetCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  targetCardDate: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-    textAlign: 'right',
-  },
-  targetCardHint: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#047857',
-    marginTop: 1,
-  },
-  targetNetValue: {
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  targetNetUnit: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  targetProgressContainer: {
-    marginBottom: 14,
-  },
-  progressBarTrack: {
-    height: 7,
-    borderRadius: 4,
-    overflow: 'hidden',
-    flexDirection: 'row-reverse',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  targetDetailsRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    paddingTop: 12,
-  },
-  detailCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  detailColLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  detailColValue: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  detailColUnit: {
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  detailDivider: {
-    width: 1,
-    height: 24,
-  },
-  miniLogLink: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#047857',
-    textDecorationLine: 'underline',
-    marginTop: 2,
-  },
-  dateRowContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 3,
-  },
-  dateDotSeparator: {
-    fontSize: 11,
-    fontWeight: '700',
-    opacity: 0.45,
-    marginHorizontal: 1,
-  },
-  relativeLabelContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 4,
-  },
-  relativeStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  relativeLabelText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-});
