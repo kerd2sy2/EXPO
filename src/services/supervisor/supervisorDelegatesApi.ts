@@ -194,12 +194,16 @@ export const supervisorDelegatesApi = {
   getOrdersReview: async (params: {
     date?: string;
     employeeId?: string;
+    branchId?: string;
     startDate?: string;
     endDate?: string;
     limit?: number;
   }): Promise<WorkSession[]> => {
     try {
       let url = `/reports?limit=${params.limit || 500}`;
+      if (params.branchId) {
+        url += `&branch_id=${encodeURIComponent(params.branchId)}`;
+      }
       if (params.date) {
         url += `&start_date=${params.date}&end_date=${params.date}`;
       } else {
@@ -219,8 +223,12 @@ export const supervisorDelegatesApi = {
     }
   },
 
-  getBranchSessions: async (limit: number = 300, _page: number = 1): Promise<WorkSession[]> => {
-    return supervisorDelegatesApi.getOrdersReview({ limit });
+  getBranchSessions: async (
+    limit: number = 300,
+    _page: number = 1,
+    branchId?: string
+  ): Promise<WorkSession[]> => {
+    return supervisorDelegatesApi.getOrdersReview({ limit, branchId });
   },
 
   getDashboardStats: async (branchId?: string): Promise<ServerDashboardStats | null> => {

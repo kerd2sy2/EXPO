@@ -9,7 +9,8 @@ import { ShiftScreen } from '../../features/shift';
 import { ProfileScreen } from '../../screens/ProfileScreen';
 import { SupervisorOpsAndHrTabs } from './SupervisorOpsAndHrTabs';
 import { SupervisorTabContentProps } from './supervisorTabContentTypes';
-import { getTodayRiyadhDateKey, toRiyadhDateKey } from '../../utils/dateUtils';
+import { DelegateWithStatus } from '../../services/supervisor';
+import { isInCurrentOperationalDay } from '../../utils/dateUtils';
 
 export type { SupervisorTabContentProps } from './supervisorTabContentTypes';
 
@@ -226,7 +227,6 @@ export const SupervisorTabContent: React.FC<SupervisorTabContentProps> = React.m
           >
             <FieldScreen
               delegates={(() => {
-                const todayKey = getTodayRiyadhDateKey();
                 const mergedSessions = [...pendingSessions, ...branchSessions];
                 const seenSessionIds = new Set<string>();
                 const completedTodayByEmp = new Map<string, (typeof mergedSessions)[0]>();
@@ -236,8 +236,7 @@ export const SupervisorTabContent: React.FC<SupervisorTabContentProps> = React.m
                   if (seenSessionIds.has(sid)) return;
                   seenSessionIds.add(sid);
                   if (s.status !== 'COMPLETED' || !s.end_time) return;
-                  const endKey = toRiyadhDateKey(s.end_time);
-                  if (endKey !== todayKey) return;
+                  if (!isInCurrentOperationalDay(s.start_time, s.end_time)) return;
                   const empKey = String(s.employee_id || '');
                   if (!empKey) return;
                   const prev = completedTodayByEmp.get(empKey);
@@ -246,7 +245,7 @@ export const SupervisorTabContent: React.FC<SupervisorTabContentProps> = React.m
                   }
                 });
 
-                return branchScopedDelegates.map((d) => {
+                const mappedDelegates = branchScopedDelegates.map((d) => {
                   const workingInfo = branchScopedWorkingDelegates.find((w) => w.id === d.id);
                   const activeSess = branchSessions.find(
                     (s) => s.employee_id === d.id && (s.status === 'ACTIVE' || !s.end_time)
@@ -283,6 +282,28 @@ export const SupervisorTabContent: React.FC<SupervisorTabContentProps> = React.m
                     last_today_session: lastTodaySess,
                   };
                 });
+
+                const knownEmpIds = new Set(mappedDelegates.map((d) => String(d.id)));
+                completedTodayByEmp.forEach((sess, empKey) => {
+                  if (knownEmpIds.has(empKey)) return;
+                  mappedDelegates.push({
+                    id: empKey,
+                    name: sess.employee_name || 'مندوب',
+                    phone: '',
+                    national_id: '',
+                    job_role: 'DRIVER',
+                    key_number: sess.key_number,
+                    motorcycle_number: sess.motorcycle_number,
+                    active_motorcycle: sess.motorcycle_number,
+                    application_id: sess.application_id,
+                    application_type: sess.application_type,
+                    is_working: false,
+                    finished_today: true,
+                    last_today_session: sess,
+                  } as DelegateWithStatus);
+                });
+
+                return mappedDelegates;
               })()}
               loading={loadingSupervisorData}
               onRefresh={() => fetchSupervisorData(false, true)}

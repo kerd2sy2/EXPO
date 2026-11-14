@@ -1,5 +1,5 @@
 import { WorkSession } from '../../types/delegate';
-import { getTodayRiyadhDateKey, toRiyadhDateKey } from '../../utils/dateUtils';
+import { isInCurrentOperationalDay, toRiyadhDateKey } from '../../utils/dateUtils';
 
 export type ReviewStatusFilter = 'TODAY' | 'ALL';
 
@@ -53,13 +53,12 @@ export const filterCompletedReviewSessions = (
   selectedDate: string | null,
   selectedEmployeeId: string | null
 ): WorkSession[] => {
-  const todayKey = getTodayRiyadhDateKey();
-
   return sessions
     .filter((s) => {
       if (s.status !== 'COMPLETED' || !s.end_time) return false;
 
-      const sessionDateKey = toRiyadhDateKey(s.end_time || s.start_time);
+      const matchesSelectedDate = (targetDate: string) =>
+        toRiyadhDateKey(s.start_time) === targetDate || toRiyadhDateKey(s.end_time) === targetDate;
 
       if (selectedEmployeeId) {
         if (String(s.employee_id || '') !== String(selectedEmployeeId)) {
@@ -67,17 +66,17 @@ export const filterCompletedReviewSessions = (
         }
         // Selected employee shows ALL orders across all dates unless a specific day filter is set
         if (selectedDate) {
-          return sessionDateKey === selectedDate;
+          return matchesSelectedDate(selectedDate);
         }
         return true;
       }
 
       if (selectedDate) {
-        return sessionDateKey === selectedDate;
+        return matchesSelectedDate(selectedDate);
       }
 
       if (statusFilter === 'TODAY') {
-        return sessionDateKey === todayKey;
+        return isInCurrentOperationalDay(s.start_time, s.end_time);
       }
 
       return true;
@@ -90,7 +89,6 @@ export const filterCompletedReviewSessions = (
 };
 
 export const computeReviewSummaryStats = (sessions: WorkSession[]) => {
-  const todayKey = getTodayRiyadhDateKey();
   let todaySessionsCount = 0;
   let todayOrdersCount = 0;
   let allSessionsCount = 0;
@@ -102,8 +100,7 @@ export const computeReviewSummaryStats = (sessions: WorkSession[]) => {
     allSessionsCount++;
     allOrdersCount += orders;
 
-    const sessionDateKey = toRiyadhDateKey(s.end_time || s.start_time);
-    if (sessionDateKey === todayKey) {
+    if (isInCurrentOperationalDay(s.start_time, s.end_time)) {
       todaySessionsCount++;
       todayOrdersCount += orders;
     }

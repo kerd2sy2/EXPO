@@ -25,6 +25,7 @@ const CACHED_PENDING_SESSIONS_KEY = '@aams_cached_pending_sessions';
 const CACHED_PENDING_MAINTENANCE_KEY = '@aams_cached_pending_maintenance';
 const CACHED_PENDING_ADVANCES_KEY = '@aams_cached_pending_advances';
 const CACHED_BRANCH_DELEGATES_KEY = '@aams_cached_branch_delegates';
+const CACHED_BRANCH_SESSIONS_KEY = '@aams_cached_branch_sessions';
 
 interface PendingSupervisorFetch {
   isSilent: boolean;
@@ -71,6 +72,7 @@ export function useSupervisorDataSync(employee: EmployeeProfile | null) {
       AsyncStorage.getItem(CACHED_PENDING_MAINTENANCE_KEY),
       AsyncStorage.getItem(CACHED_PENDING_ADVANCES_KEY),
       AsyncStorage.getItem(CACHED_BRANCH_DELEGATES_KEY),
+      AsyncStorage.getItem(CACHED_BRANCH_SESSIONS_KEY),
     ]).then((results) => {
       const val = (idx: number) =>
         results[idx]?.status === 'fulfilled' ? (results[idx] as PromiseFulfilledResult<string | null>).value : null;
@@ -104,6 +106,11 @@ export function useSupervisorDataSync(employee: EmployeeProfile | null) {
       if (dels) {
         setBranchDelegates((prev) => (prev.length === 0 ? dels : prev));
         setAllBranchEmployees((prev) => (prev.length === 0 ? dels : prev));
+      }
+
+      const cachedBranchSess = safeParseArray<WorkSession>(val(6));
+      if (cachedBranchSess) {
+        setBranchSessions((prev) => (prev.length === 0 ? cachedBranchSess : prev));
       }
     });
   }, []);
@@ -224,6 +231,12 @@ export function useSupervisorDataSync(employee: EmployeeProfile | null) {
           supervisorApi.getDashboardStats(branchId).then((ds) => {
             if (ds) setServerDashboardStats(ds);
           }),
+          supervisorApi.getBranchSessions(300, 1, branchId).then((sessions) => {
+            if (Array.isArray(sessions)) {
+              setBranchSessions(sessions);
+              AsyncStorage.setItem(CACHED_BRANCH_SESSIONS_KEY, JSON.stringify(sessions)).catch(() => {});
+            }
+          }),
         ]);
       } catch (e) {
         console.warn('[Eshraf] Error syncing pending requests:', e);
@@ -298,11 +311,8 @@ export function useSupervisorDataSync(employee: EmployeeProfile | null) {
         }
         setIsInitialSupervisorLoading(false);
 
-        // Tier 2: Secondary heavy roster & branch sessions in background
+        // Tier 2: Secondary heavy roster & vehicles in background
         Promise.allSettled([
-          supervisorApi.getBranchSessions(100).then((sessions) => {
-            if (Array.isArray(sessions)) setBranchSessions(sessions);
-          }),
           supervisorApi.getAllBranchDelegates(branchId).then((emps) => {
             if (Array.isArray(emps)) {
               setBranchDelegates(emps);
@@ -407,6 +417,7 @@ export function useSupervisorDataSync(employee: EmployeeProfile | null) {
         CACHED_PENDING_MAINTENANCE_KEY,
         CACHED_PENDING_ADVANCES_KEY,
         CACHED_BRANCH_DELEGATES_KEY,
+        CACHED_BRANCH_SESSIONS_KEY,
       ]);
     } catch {}
   }, []);
