@@ -1,121 +1,67 @@
-import React, { useRef, useEffect } from 'react';
-import { ScrollView } from 'react-native';
+import { useRef, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import {
-  EmployeeProfile,
-  WorkSession,
-  TabType,
-  Language,
-} from '../../../types/delegate';
+import { TabType } from '../../../types/delegate';
 import { workApi } from '../../../services/work';
-import { saveCachedUser } from '../../../services/api';
-import { AlertModalConfig } from '../../../components/modals/ActionAlertBottomSheet';
 import { getCurrentMonthInfo } from '../../../screens/HistoryScreen';
 import { shiftSessionService } from '../services/shiftSessionService';
+import {
+  UseShiftControllerParams,
+  isBrokenOdometerBike,
+} from './shiftControllerHelpers';
+import { buildShiftEndActions } from './shiftEndActions';
 
-interface UseShiftControllerParams {
-  employee: EmployeeProfile | null;
-  setEmployee: React.Dispatch<React.SetStateAction<EmployeeProfile | null>>;
-  activeSession: WorkSession | null;
-  setActiveSession: React.Dispatch<React.SetStateAction<WorkSession | null>>;
-  setIsSessionSyncing: React.Dispatch<React.SetStateAction<boolean>>;
-  setSubmitting: React.Dispatch<React.SetStateAction<boolean>>;
-  setCurrentTab: (tab: TabType) => void;
-  mainScrollRef: React.RefObject<ScrollView | null>;
-  setAlertConfig: (config: AlertModalConfig | null) => void;
-  setShowPlateScannerModal: (visible: boolean) => void;
-  setOilChangeModalState: React.Dispatch<
-    React.SetStateAction<{ visible: boolean; bikeNumber: string }>
-  >;
-  setSelectedHistoryMonthKey: (key: string | null) => void;
-  setSelectedHistoryMonthLabel: (label: string | null) => void;
-  fetchHistory: (employeeId: string) => Promise<void>;
-  lang: Language;
-  isRTL: boolean;
-  t: any;
-  // Workflow state from useShiftWorkflow
-  enteredMotorcycle: string;
-  setEnteredMotorcycle: React.Dispatch<React.SetStateAction<string>>;
-  startKm: string;
-  setStartKm: React.Dispatch<React.SetStateAction<string>>;
-  startKmImage: string | null;
-  setStartKmImage: React.Dispatch<React.SetStateAction<string | null>>;
-  startKmImageRef: React.MutableRefObject<string | null>;
-  startPlateImage: string | null;
-  setStartPlateImage: React.Dispatch<React.SetStateAction<string | null>>;
-  startPlateImageRef: React.MutableRefObject<string | null>;
-  isPlateConfirmed: boolean;
-  setIsPlateConfirmed: React.Dispatch<React.SetStateAction<boolean>>;
-  startNotes: string;
-  setStartNotes: React.Dispatch<React.SetStateAction<string>>;
-  setAutoKmFetched: React.Dispatch<React.SetStateAction<boolean>>;
-  isOdometerBroken: boolean;
-  setActiveBikeRegistrationImage: React.Dispatch<React.SetStateAction<string | null>>;
-  setNeedsOilChange: React.Dispatch<React.SetStateAction<boolean>>;
-  isTakingPhotoRef: React.MutableRefObject<boolean>;
-  endKm: string;
-  setEndKm: React.Dispatch<React.SetStateAction<string>>;
-  endKmImage: string | null;
-  setEndKmImage: React.Dispatch<React.SetStateAction<string | null>>;
-  endKmImageRef: React.MutableRefObject<string | null>;
-  ordersCount: string;
-  setOrdersCount: React.Dispatch<React.SetStateAction<string>>;
-  fuelCost: string;
-  setFuelCost: React.Dispatch<React.SetStateAction<string>>;
-  endNotes: string;
-  setEndNotes: React.Dispatch<React.SetStateAction<string>>;
-}
+export function useShiftController(params: UseShiftControllerParams) {
+  const {
+    employee,
+    setEmployee,
+    activeSession,
+    setActiveSession,
+    setIsSessionSyncing,
+    setSubmitting,
+    setCurrentTab,
+    mainScrollRef,
+    setAlertConfig,
+    setShowPlateScannerModal,
+    setOilChangeModalState,
+    setSelectedHistoryMonthKey,
+    setSelectedHistoryMonthLabel,
+    fetchHistory,
+    lang,
+    isRTL,
+    t,
+    enteredMotorcycle,
+    setEnteredMotorcycle,
+    startKm,
+    setStartKm,
+    startKmImage,
+    setStartKmImage,
+    startKmImageRef,
+    startPlateImage,
+    setStartPlateImage,
+    startPlateImageRef,
+    isPlateConfirmed,
+    setIsPlateConfirmed,
+    startNotes,
+    setStartNotes,
+    setAutoKmFetched,
+    isOdometerBroken,
+    setActiveBikeRegistrationImage,
+    setNeedsOilChange,
+    isTakingPhotoRef,
+    endKm,
+    setEndKm,
+    endKmImage,
+    setEndKmImage,
+    endKmImageRef,
+    ordersCount,
+    setOrdersCount,
+    fuelCost,
+    setFuelCost,
+    endNotes,
+    setEndNotes,
+  } = params;
 
-export function useShiftController({
-  employee,
-  setEmployee,
-  activeSession,
-  setActiveSession,
-  setIsSessionSyncing,
-  setSubmitting,
-  setCurrentTab,
-  mainScrollRef,
-  setAlertConfig,
-  setShowPlateScannerModal,
-  setOilChangeModalState,
-  setSelectedHistoryMonthKey,
-  setSelectedHistoryMonthLabel,
-  fetchHistory,
-  lang,
-  isRTL,
-  t,
-  enteredMotorcycle,
-  setEnteredMotorcycle,
-  startKm,
-  setStartKm,
-  startKmImage,
-  setStartKmImage,
-  startKmImageRef,
-  startPlateImage,
-  setStartPlateImage,
-  startPlateImageRef,
-  isPlateConfirmed,
-  setIsPlateConfirmed,
-  startNotes,
-  setStartNotes,
-  setAutoKmFetched,
-  isOdometerBroken,
-  setActiveBikeRegistrationImage,
-  setNeedsOilChange,
-  isTakingPhotoRef,
-  endKm,
-  setEndKm,
-  endKmImage,
-  setEndKmImage,
-  endKmImageRef,
-  ordersCount,
-  setOrdersCount,
-  fuelCost,
-  setFuelCost,
-  endNotes,
-  setEndNotes,
-}: UseShiftControllerParams) {
   const takeOdometerPhoto = async (type: 'start' | 'end') => {
     isTakingPhotoRef.current = true;
     try {
@@ -233,7 +179,7 @@ export function useShiftController({
         if (res?.registration_image) {
           setActiveBikeRegistrationImage(res.registration_image);
         }
-        const broken = Boolean(res?.is_odometer_broken) || bikeToCheck.includes('7569') || bikeToCheck.includes('8043');
+        const broken = isBrokenOdometerBike(res?.is_odometer_broken, bikeToCheck);
         if (broken) {
           setStartKm('0');
           setAutoKmFetched(false);
@@ -290,7 +236,7 @@ export function useShiftController({
         if (res?.registration_image) {
           setActiveBikeRegistrationImage(res.registration_image);
         }
-        const broken = Boolean(res?.is_odometer_broken) || bikeNumber.includes('7569') || bikeNumber.includes('8043');
+        const broken = isBrokenOdometerBike(res?.is_odometer_broken, bikeNumber);
         if (broken) {
           setStartKm('0');
           setAutoKmFetched(false);
@@ -324,31 +270,25 @@ export function useShiftController({
     if (!employee) return;
 
     const savedMoto = enteredMotorcycle.trim();
-    const savedStartKm = startVal;
-    const savedPhoto = photoUri;
     const savedPlatePhoto = platePhotoUri || startPlateImageRef.current || startPlateImage;
-    const savedNotes = startNotes;
 
     setSubmitting(true);
-
     try {
       const newSession = await workApi.startShift({
         employee_id: employee.id,
         motorcycle_number: savedMoto,
-        start_km: savedStartKm,
-        start_km_image: savedPhoto || undefined,
+        start_km: startVal,
+        start_km_image: photoUri || undefined,
         start_plate_image: savedPlatePhoto || undefined,
-        notes: savedNotes,
+        notes: startNotes,
       });
 
       if (newSession && newSession.id) {
-        // 1. Lock in activeSession and persist to cache BEFORE navigating to Home
-        // This guarantees HomeScreen renders "End Shift" + Timer immediately on frame 1
         const confirmedSession = await shiftSessionService.confirmShiftStarted(
           newSession,
           employee.id,
           savedMoto,
-          savedStartKm
+          startVal
         );
         setActiveSession(confirmedSession);
         setIsSessionSyncing(true);
@@ -356,7 +296,6 @@ export function useShiftController({
           setIsSessionSyncing(false);
         }, 450);
 
-        // 2. Clean start shift inputs
         setStartKm('');
         startKmImageRef.current = null;
         setStartKmImage(null);
@@ -366,13 +305,12 @@ export function useShiftController({
         setStartNotes('');
         setAutoKmFetched(false);
 
-        // 3. Navigate to Home screen seamlessly
         mainScrollRef.current?.scrollTo({ y: 0, animated: false });
         setCurrentTab('home');
 
         fetchHistory(employee.id).catch(() => {});
         workApi
-          .getMe()
+          .getMe(true)
           .then((me) => {
             if (me) setEmployee(me);
           })
@@ -414,7 +352,8 @@ export function useShiftController({
       Boolean(employee?.motorcycle_number) &&
       Boolean(enteredMotorcycle) &&
       (enteredMotorcycle.trim().toLowerCase() === employee?.motorcycle_number?.trim().toLowerCase() ||
-       enteredMotorcycle.trim().replace(/\s+/g, '').toLowerCase() === employee?.motorcycle_number?.trim().replace(/\s+/g, '').toLowerCase());
+        enteredMotorcycle.trim().replace(/\s+/g, '').toLowerCase() ===
+          employee?.motorcycle_number?.trim().replace(/\s+/g, '').toLowerCase());
 
     const platePhoto = startPlateImageRef.current || startPlateImage;
     if (!platePhoto && !isAssignedBikeConfirmed) {
@@ -459,261 +398,42 @@ export function useShiftController({
     proceedStartShift(startVal, photoUri, platePhoto);
   };
 
-  const proceedEndShift = async (
-    endVal: number,
-    distanceVal: number,
-    countVal: number,
-    fuelVal: number,
-    photoUri: string | null,
-    isExemptOdometer: boolean
-  ) => {
-    if (!employee || !activeSession) return;
-
-    setSubmitting(true);
-    try {
-      const savedEndKm = endVal;
-      const savedOrders = countVal;
-      const savedFuel = fuelVal;
-      const savedPhoto = isExemptOdometer ? undefined : photoUri || undefined;
-      const savedNotes = endNotes;
-
-      await workApi.endShift({
-        employee_id: employee.id,
-        end_km: savedEndKm,
-        orders_count: savedOrders,
-        fuel_cost: savedFuel,
-        end_km_image: savedPhoto,
-        notes: savedNotes,
-      });
-
-      await shiftSessionService.confirmShiftEnded();
-      setActiveSession(null);
-      setIsSessionSyncing(false);
-
-      const currentMonth = getCurrentMonthInfo(lang);
-      setSelectedHistoryMonthKey(currentMonth.key);
-      setSelectedHistoryMonthLabel(currentMonth.label);
-      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-      setCurrentTab('history');
-
-      setActiveBikeRegistrationImage(null);
-      setEndKm('');
-      endKmImageRef.current = null;
-      setEndKmImage(null);
-      setOrdersCount('');
-      setFuelCost('');
-      setEndNotes('');
-
-      workApi
-        .getMe()
-        .then(async (fresh) => {
-          if (fresh && fresh.id) {
-            setEmployee(fresh);
-            if (fresh.motorcycle_number) {
-              setEnteredMotorcycle(fresh.motorcycle_number);
-            }
-            await saveCachedUser(fresh);
-          }
-        })
-        .catch((e) => console.log('Notice refreshing profile on End Shift:', e));
-
-      fetchHistory(employee.id);
-    } catch (err: any) {
-      console.error('End shift error:', err);
-      setAlertConfig({
-        type: 'error',
-        title: lang === 'ar' ? 'خطأ' : 'Error',
-        message:
-          err?.message ||
-          (lang === 'ar' ? 'تعذر إنهاء الشفت، يرجى المحاولة ثانية' : 'Failed to end shift'),
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const confirmedHighDistanceRef = useRef<number | null>(null);
-
   useEffect(() => {
     confirmedHighDistanceRef.current = null;
   }, [endKm]);
 
-  const getDistanceAlertMsg = (dist: number) => {
-    switch (lang) {
-      case 'en':
-        return `You entered the odometer reading incorrectly, did you really travel ${dist} km?`;
-      case 'ur':
-        return `آپ نے اوڈومیٹر غلط درج کیا ہے، کیا آپ نے واقعی ${dist} کلومیٹر کا فاصلہ طے کیا ہے؟`;
-      case 'bn':
-        return `আপনি ওডোমিটার ভুল লিখেছেন, আপনি কি সত্যিই ${dist} কিমি পথ অতিক্রম করেছেন?`;
-      default:
-        return `لقد كتبت العداد خطأ، هل أنت قطعت ${dist} كم؟`;
-    }
-  };
-
-  const getDistanceAlertTitle = () => {
-    switch (lang) {
-      case 'en':
-        return 'Odometer Reading Alert';
-      case 'ur':
-        return 'اوڈومیٹر ریڈنگ الرٹ';
-      case 'bn':
-        return 'ওডোমিটার সতর্কতা';
-      default:
-        return 'تنبيه في قراءة العداد';
-    }
-  };
-
-  const getConfirmBtnText = (dist: number) => {
-    switch (lang) {
-      case 'en':
-        return `Yes, traveled ${dist} km`;
-      case 'ur':
-        return `ہاں، میں نے ${dist} کلومیٹر سفر کیا`;
-      case 'bn':
-        return `হ্যাঁ, ${dist} কিমি গিয়েছি`;
-      default:
-        return `نعم، قطعت ${dist} كم`;
-    }
-  };
-
-  const getEditBtnText = () => {
-    switch (lang) {
-      case 'en':
-        return 'Edit Odometer';
-      case 'ur':
-        return 'اوڈومیٹر تبدیل کریں';
-      case 'bn':
-        return 'ওডোমিটার সংশোধন করুন';
-      default:
-        return 'تعديل العداد';
-    }
-  };
-
-  const handleCheckEndKmDistance = (rawEndKm?: string) => {
-    const val = rawEndKm !== undefined ? Number(rawEndKm) : Number(endKm);
-    const startVal = Number(activeSession?.start_km || 0);
-    const isExempt = isOdometerBroken || (startVal === 0 && !activeSession?.start_km_image);
-    if (isExempt || isNaN(val) || val <= startVal) return;
-
-    const dist = val - startVal;
-    if (dist > 600 && confirmedHighDistanceRef.current !== dist) {
-      setAlertConfig({
-        type: 'confirm',
-        title: getDistanceAlertTitle(),
-        message: getDistanceAlertMsg(dist),
-        primaryButtonText: getConfirmBtnText(dist),
-        secondaryButtonText: getEditBtnText(),
-        onPrimaryPress: () => {
-          confirmedHighDistanceRef.current = dist;
-          setAlertConfig(null);
-        },
-        onSecondaryPress: () => {
-          setAlertConfig(null);
-        },
-      });
-    }
-  };
-
-  const handleEndShift = async () => {
-    if (!employee || !activeSession) return;
-
-    let endVal = Number(endKm);
-    const startVal = Number(activeSession.start_km || 0);
-    const isExemptOdometer = isOdometerBroken || (startVal === 0 && !activeSession.start_km_image);
-
-    const countVal = Number(ordersCount) || 0;
-    const fuelVal = Number(fuelCost) || 0;
-    const distanceVal = isExemptOdometer ? 0 : Math.max(0, endVal - startVal);
-    const photoUri = endKmImageRef.current || endKmImage;
-
-    if (!isExemptOdometer) {
-      if (!endKm || isNaN(endVal) || endVal <= 0) {
-        setAlertConfig({
-          type: 'warning',
-          title: t.endKmInputLabel,
-          message: `${t.startKmLabel}: ${startVal} ${t.km}`,
-        });
-        return;
-      }
-
-      if (endVal < startVal) {
-        setAlertConfig({
-          type: 'warning',
-          title: lang === 'ar' ? 'تنبيه في قراءة العداد' : 'Odometer Error',
-          message:
-            lang === 'ar'
-              ? `عداد النهاية (${endVal}) لا يمكن أن يكون أقل من عداد البداية (${startVal})`
-              : `End KM (${endVal}) cannot be less than Start KM (${startVal})`,
-        });
-        return;
-      }
-
-      if (distanceVal > 600 && confirmedHighDistanceRef.current !== distanceVal) {
-        setAlertConfig({
-          type: 'confirm',
-          title: getDistanceAlertTitle(),
-          message: getDistanceAlertMsg(distanceVal),
-          primaryButtonText: getConfirmBtnText(distanceVal),
-          secondaryButtonText: getEditBtnText(),
-          onPrimaryPress: () => {
-            confirmedHighDistanceRef.current = distanceVal;
-            if (countVal < 1) {
-              setAlertConfig({
-                type: 'confirm',
-                title: lang === 'ar' ? 'تأكيد عدد الطلبات' : 'Confirm Orders Count',
-                message:
-                  lang === 'ar'
-                    ? 'هل أنت متأكد أن عدد الطلبات هو 0؟'
-                    : 'Are you sure the orders count is 0?',
-                primaryButtonText: lang === 'ar' ? 'نعم، تأكيد إنهاء الدوام' : 'Yes, End Shift',
-                secondaryButtonText: lang === 'ar' ? 'تعديل عدد الطلبات' : 'Edit Orders',
-                onPrimaryPress: () => {
-                  proceedEndShift(endVal, distanceVal, countVal, fuelVal, photoUri, isExemptOdometer);
-                },
-              });
-              return;
-            }
-            proceedEndShift(endVal, distanceVal, countVal, fuelVal, photoUri, isExemptOdometer);
-          },
-          onSecondaryPress: () => {
-            setAlertConfig(null);
-          },
-        });
-        return;
-      }
-
-      if (!photoUri) {
-        setAlertConfig({
-          type: 'warning',
-          title: t.endKmPhotoLabel,
-          message: t.odometerGuideSub,
-        });
-        return;
-      }
-    } else {
-      endVal = 0;
-    }
-
-    if (countVal < 1) {
-      setAlertConfig({
-        type: 'confirm',
-        title: lang === 'ar' ? 'تأكيد عدد الطلبات' : 'Confirm Orders Count',
-        message:
-          lang === 'ar'
-            ? 'هل أنت متأكد أن عدد الطلبات هو 0؟'
-            : 'Are you sure the orders count is 0?',
-        primaryButtonText: lang === 'ar' ? 'نعم، تأكيد إنهاء الدوام' : 'Yes, End Shift',
-        secondaryButtonText: lang === 'ar' ? 'تعديل عدد الطلبات' : 'Edit Orders',
-        onPrimaryPress: () => {
-          proceedEndShift(endVal, distanceVal, countVal, fuelVal, photoUri, isExemptOdometer);
-        },
-      });
-      return;
-    }
-
-    proceedEndShift(endVal, distanceVal, countVal, fuelVal, photoUri, isExemptOdometer);
-  };
+  const { handleCheckEndKmDistance, handleEndShift } = buildShiftEndActions({
+    employee,
+    setEmployee,
+    activeSession,
+    setActiveSession,
+    setIsSessionSyncing,
+    setSubmitting,
+    setCurrentTab,
+    mainScrollRef,
+    setAlertConfig,
+    setSelectedHistoryMonthKey,
+    setSelectedHistoryMonthLabel,
+    fetchHistory,
+    lang,
+    t,
+    setEnteredMotorcycle,
+    isOdometerBroken,
+    setActiveBikeRegistrationImage,
+    endKm,
+    setEndKm,
+    endKmImage,
+    setEndKmImage,
+    endKmImageRef,
+    ordersCount,
+    setOrdersCount,
+    fuelCost,
+    setFuelCost,
+    endNotes,
+    setEndNotes,
+    confirmedHighDistanceRef,
+  });
 
   return {
     takeOdometerPhoto,
@@ -728,4 +448,3 @@ export function useShiftController({
     handleCheckEndKmDistance,
   };
 }
-

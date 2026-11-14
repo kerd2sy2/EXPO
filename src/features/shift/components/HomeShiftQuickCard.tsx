@@ -4,12 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { WorkSession, TabType, ThemeColors } from '../../../types/delegate';
 import { ModuleErrorBoundary } from '../../../components/ModuleErrorBoundary';
 import { ShiftCardSkeleton } from './ShiftCardSkeleton';
-import { formatSessionElapsed } from '../../../hooks/useSessionTimer';
+import { formatSessionElapsed, useSessionTimer } from '../../../hooks/useSessionTimer';
 
 interface HomeShiftQuickCardProps {
   activeSession: WorkSession | null;
   isSessionSyncing?: boolean;
-  elapsedTime: string;
+  elapsedTime?: string;
   colors: ThemeColors;
   isDarkMode: boolean;
   isRTL: boolean;
@@ -18,7 +18,7 @@ interface HomeShiftQuickCardProps {
   onStartShiftClick?: () => void;
 }
 
-export const HomeShiftQuickCard: React.FC<HomeShiftQuickCardProps> = ({
+export const HomeShiftQuickCard: React.FC<HomeShiftQuickCardProps> = React.memo(({
   activeSession,
   isSessionSyncing = false,
   elapsedTime,
@@ -29,8 +29,8 @@ export const HomeShiftQuickCard: React.FC<HomeShiftQuickCardProps> = ({
   onNavigateToTab,
   onStartShiftClick,
 }) => {
-  // Show skeleton while verifying active shift status if no session is loaded yet
-  // This prevents flashing "Start Shift" (بدء الدوام) when the courier is actually on an active shift
+  const { elapsedTime: liveElapsedTime } = useSessionTimer(activeSession);
+
   if (isSessionSyncing && !activeSession) {
     return (
       <ShiftCardSkeleton
@@ -41,9 +41,11 @@ export const HomeShiftQuickCard: React.FC<HomeShiftQuickCardProps> = ({
     );
   }
 
+  const candidateTimer =
+    elapsedTime && elapsedTime !== '00:00:00' ? elapsedTime : liveElapsedTime;
   const displayTimer =
-    elapsedTime && elapsedTime !== '00:00:00'
-      ? elapsedTime
+    candidateTimer && candidateTimer !== '00:00:00'
+      ? candidateTimer
       : formatSessionElapsed(activeSession?.start_time);
 
   return (
@@ -53,7 +55,11 @@ export const HomeShiftQuickCard: React.FC<HomeShiftQuickCardProps> = ({
           styles.quickCardRow,
           {
             backgroundColor: colors.card,
-            borderColor: activeSession ? (isDarkMode ? 'rgba(239, 68, 68, 0.35)' : '#fecaca') : colors.border,
+            borderColor: activeSession
+              ? isDarkMode
+                ? 'rgba(239, 68, 68, 0.35)'
+                : '#fecaca'
+              : colors.border,
             flexDirection: isRTL ? 'row-reverse' : 'row',
           },
         ]}
@@ -119,7 +125,7 @@ export const HomeShiftQuickCard: React.FC<HomeShiftQuickCardProps> = ({
       </TouchableOpacity>
     </ModuleErrorBoundary>
   );
-};
+});
 
 const styles = StyleSheet.create({
   quickCardRow: {
@@ -149,4 +155,3 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-

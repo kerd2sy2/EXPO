@@ -26,7 +26,7 @@ export interface ShiftScreenProps {
   endNotes: string;
   setEndNotes: (val: string) => void;
   calculatedDistance: number;
-  elapsedTime: string;
+  elapsedTime?: string;
   onScrollToInput?: (yOffset: number) => void;
   submitting: boolean;
   onTakeOdometerPhoto: (type: 'start' | 'end') => Promise<void>;

@@ -1,0 +1,58 @@
+import { Platform, StyleSheet } from 'react-native';
+
+export const identifierDetailsModalStyles = StyleSheet.create({
+  accountStatusCard: { borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1.5 },
+  accountStatusTopRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  accountStatusTitleGroup: { flex: 1 },
+  accountStatusTitle: { fontSize: 14, fontWeight: '800', textAlign: 'right' },
+  changeStatusBtn: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1,
+  },
+  changeStatusBtnText: { fontSize: 12, fontWeight: '700' },
+  accountStatusDesc: { fontSize: 12, lineHeight: 18, textAlign: 'right', marginBottom: 10 },
+  driverNoticeBox: {
+    flexDirection: 'row-reverse', alignItems: 'flex-start', backgroundColor: '#f0f9ff',
+    padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#bae6fd', gap: 8,
+  },
+  driverNoticeBoxDark: { backgroundColor: 'rgba(14, 165, 233, 0.12)', borderColor: '#0284c7' },
+  driverNoticeText: { flex: 1, fontSize: 11, lineHeight: 17, color: '#0369a1', textAlign: 'right' },
+  driverNoticeTextDark: { color: '#bae6fd' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  statusDragHandle: {
+    width: 44, height: 4.5, borderRadius: 3, backgroundColor: '#cbd5e1',
+    alignSelf: 'center', marginBottom: 14,
+  },
+  statusDialogBox: {
+    width: '100%', backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#e2e8f0',
+  },
+  darkDialogBox: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  dialogHeader: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  dialogTitle: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
+  dialogSubTitle: { fontSize: 12, color: '#64748b', textAlign: 'right', marginBottom: 16 },
+  darkSubText: { color: '#94a3b8' },
+  statusOptionCard: {
+    borderRadius: 12, padding: 12, borderWidth: 1.5, borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc', marginBottom: 10,
+  },
+  statusOptionCardSelected: { borderColor: '#10b981', backgroundColor: '#f0fdf4' },
+  statusOptionCardSelectedTemp: { borderColor: '#f59e0b', backgroundColor: '#fffbeb' },
+  statusOptionCardSelectedPerm: { borderColor: '#ef4444', backgroundColor: '#fef2f2' },
+  darkOptionCard: { backgroundColor: '#0f172a', borderColor: '#334155' },
+  optionHeaderRow: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  optionLeftGroup: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+  optionDot: { width: 10, height: 10, borderRadius: 5 },
+  optionTitle: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
+  optionDesc: { fontSize: 11, color: '#64748b', lineHeight: 16, textAlign: 'right' },
+  modalNoticeBox: {
+    flexDirection: 'row-reverse', alignItems: 'center', backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#10b981', marginTop: 4, gap: 6,
+  },
+  modalNoticeBoxDark: { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: '#059669' },
+  modalNoticeText: { flex: 1, fontSize: 11, color: '#047857', textAlign: 'right', fontWeight: '600' },
+  modalNoticeTextDark: { color: '#34d399' },
+  updatingLoader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 },
+  updatingText: { fontSize: 12, color: '#0284c7', fontWeight: '700' },
+});

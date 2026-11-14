@@ -1,32 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  RefreshControl,
-  StyleSheet,
-  Alert,
-  Modal,
-  Switch,
-  ActivityIndicator,
-} from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Modal, Switch, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Updates from 'expo-updates';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { ThemeColors } from '../../types/delegate';
-import { AppUpdateBottomSheet, UpdateModalState } from '../../components/modals/AppUpdateBottomSheet';
+import { AppUpdateBottomSheet } from '../../components/modals/AppUpdateBottomSheet';
 import { DiagnosticsModal } from '../../components/modals/DiagnosticsModal';
 import { LogoutBottomSheet } from '../../components/modals/LogoutBottomSheet';
+import { ModuleErrorBoundary } from '../../components/ModuleErrorBoundary';
 import { TargetRulesScreen } from './TargetRulesScreen';
-import {
-  isBiometricEnabled,
-  setBiometricEnabled,
-  saveLastCredentialsForBiometrics,
-  getStoredToken,
-  loadStoredToken,
-} from '../../services/api';
-import { targetApi } from '../../services/targetApi';
+import { adminProfileStyles as styles } from './admin-profile/adminProfileStyles';
+import { useAdminProfileActions } from './admin-profile/useAdminProfileActions';
 
 interface AdminProfileScreenProps {
   user: any;
@@ -53,191 +35,21 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const roleLabel = isSupervisor ? 'مشرف التوصيل (Supervisor)' : 'مدير النظام (Admin)';
 
-  // Logout BottomSheet State
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const actions = useAdminProfileActions(user, isAdmin, isRTL, onResetData);
 
-  // Dedicated Target Rules Page State (Sub-view fallback if not routed externally)
-  const [currentSubView, setCurrentSubView] = useState<'profile' | 'rules'>('profile');
-
-  // Updates BottomSheet State
-  const [updateModalVisible, setUpdateModalVisible] = useState(false);
-  const [updateState, setUpdateState] = useState<UpdateModalState>('CHECKING');
-  const [updateError, setUpdateError] = useState('');
-
-  // Diagnostics & Crash Modal State (Opened strictly via 3 taps on Admin Avatar)
-  const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
-  const tapCountRef = useRef(0);
-  const lastTapRef = useRef(0);
-
-  const handleAvatarTap = () => {
-    const now = Date.now();
-    if (now - lastTapRef.current < 600) {
-      tapCountRef.current += 1;
-      if (tapCountRef.current >= 3) {
-        tapCountRef.current = 0;
-        setShowDiagnosticsModal(true);
-      }
-    } else {
-      tapCountRef.current = 1;
-    }
-    lastTapRef.current = now;
-  };
-
-  // Biometrics State
-  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
-  const [biometricsOn, setBiometricsOn] = useState(false);
-
-  // Delete All Identifiers State & Handler
-  const [deletingAll, setDeletingAll] = useState(false);
-
-  const handleDeleteAllIdentifiers = () => {
-    Alert.alert(
-      'تأكيد مسح كافة المعرفات',
-      'هل أنت متأكد من رغبتك في مسح كافة المعرفات والبيانات المسجلة بالكامل؟\n\nستتمكن بعد ذلك من رفع شيتات وبيانات جديدة تماماً من الصفر.\n\n⚠️ هذا الإجراء نهائي ولا يمكن التراجع عنه.',
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'نعم، مسح الكل الآن',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setDeletingAll(true);
-              await targetApi.deleteAllIdentifiers();
-              Alert.alert('تم بنجاح', 'تم مسح كافة المعرفات والبيانات بنجاح. يمكنك الآن رفع الداتا الجديدة.');
-              onResetData?.();
-            } catch (err: any) {
-              Alert.alert('خطأ', err.message || 'فشل في مسح المعرفات');
-            } finally {
-              setDeletingAll(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  useEffect(() => {
-    const checkBio = async () => {
-      try {
-        const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-        if (hasHardware && isEnrolled) {
-          setBiometricsAvailable(true);
-          const enabled = await isBiometricEnabled();
-          setBiometricsOn(enabled);
-        }
-      } catch (e) {
-        console.log('Biometric check error in Admin Profile:', e);
-      }
-    };
-    checkBio();
-  }, []);
-
-  const handleToggleBiometrics = async (val: boolean) => {
-    if (val) {
-      try {
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: isRTL ? 'تأكيد البصمة لتفعيل الدخول السريع' : 'Confirm Biometrics to Enable',
-          cancelLabel: isRTL ? 'إلغاء' : 'Cancel',
-          disableDeviceFallback: false,
-        });
-
-        if (result.success) {
-          const token = getStoredToken() || (await loadStoredToken());
-          const identifier = user?.phone || user?.username || user?.email || (isAdmin ? '2642799148' : '500500');
-          if (token) {
-            await saveLastCredentialsForBiometrics(identifier, token, user);
-          }
-          await setBiometricEnabled(true);
-          setBiometricsOn(true);
-          Alert.alert(
-            isRTL ? 'تم التفعيل' : 'Activated',
-            isRTL
-              ? 'تم تفعيل تسجيل الدخول بالبصمة بنجاح على هذا الجهاز.'
-              : 'Biometric login has been activated on this device.'
-          );
-        }
-      } catch (e) {
-        console.log('Biometric activation error:', e);
-        Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل التحقق من البصمة' : 'Biometric verification failed');
-      }
-    } else {
-      await setBiometricEnabled(false);
-      setBiometricsOn(false);
-    }
-  };
-
-  const handleCheckForUpdates = async () => {
-    if (__DEV__ || !Updates.isEnabled) {
-      setUpdateState('CHECKING');
-      setUpdateModalVisible(true);
-      setTimeout(() => {
-        setUpdateState('UP_TO_DATE');
-      }, 1200);
-      return;
-    }
-
-    try {
-      setUpdateState('CHECKING');
-      setUpdateModalVisible(true);
-      const startTime = Date.now();
-      const check = await Updates.checkForUpdateAsync().catch((e) => {
-        console.log('checkForUpdateAsync catch:', e);
-        return { isAvailable: false } as Updates.UpdateCheckResult;
-      });
-      const elapsed = Date.now() - startTime;
-      if (elapsed < 900) {
-        await new Promise((resolve) => setTimeout(resolve, 900 - elapsed));
-      }
-
-      if (check && check.isAvailable) {
-        setUpdateState('DOWNLOADING');
-        await Updates.fetchUpdateAsync();
-        setUpdateState('READY');
-      } else {
-        setUpdateState('UP_TO_DATE');
-      }
-    } catch (err: any) {
-      console.log('Update check error:', err);
-      setUpdateState('ERROR');
-      setUpdateError(err?.message || (isRTL ? 'تعذر الاتصال بخوادم التحديث' : 'Update server unavailable'));
-    }
-  };
-
-  const handleApplyUpdate = async () => {
-    try {
-      await Updates.reloadAsync();
-    } catch (e) {
-      console.log('Update reload error:', e);
-      setUpdateModalVisible(false);
-    }
-  };
-
-  const handleConfirmLogout = () => {
-    setShowLogoutModal(true);
-  };
-
-  if (currentSubView === 'rules') {
+  if (actions.currentSubView === 'rules') {
     return (
-      <TargetRulesScreen
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        onBack={() => setCurrentSubView('profile')}
-        onOpenTargetSettings={onOpenTargetSettings}
-      />
+      <ModuleErrorBoundary moduleName="قواعد التارچت" colors={colors} onReset={() => actions.setCurrentSubView('profile')}>
+        <TargetRulesScreen
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          onBack={() => actions.setCurrentSubView('profile')}
+          onOpenTargetSettings={onOpenTargetSettings}
+        />
+      </ModuleErrorBoundary>
     );
   }
-
-  const [refreshing, setRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      if (onResetData) onResetData();
-    } catch {}
-    setTimeout(() => setRefreshing(false), 600);
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -246,72 +58,49 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
+            refreshing={actions.refreshing}
+            onRefresh={actions.handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
       >
-        {/* 1. Profile Hero Card (Identical structure to Delegate Profile) */}
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.profileAvatarSection}>
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={handleAvatarTap}
-              style={[
-                styles.profileAvatar,
-                {
-                  backgroundColor: colors.primaryLight,
-                  borderColor: colors.primary,
-                },
-              ]}
+              onPress={actions.handleAvatarTap}
+              style={[styles.profileAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
             >
-              <Ionicons
-                name={isSupervisor ? 'shield-outline' : 'shield-checkmark'}
-                size={44}
-                color={colors.primary}
-              />
+              <Ionicons name={isSupervisor ? 'shield-outline' : 'shield-checkmark'} size={44} color={colors.primary} />
             </TouchableOpacity>
 
-            <Text style={[styles.profileName, { color: colors.textPrimary }]}>
-              {user?.name || 'مدير النظام'}
-            </Text>
+            <Text style={[styles.profileName, { color: colors.textPrimary }]}>{user?.name || 'مدير النظام'}</Text>
             <View style={[styles.roleBadge, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
               <Ionicons name="ribbon-outline" size={13} color={colors.primary} />
-              <Text style={[styles.roleBadgeText, { color: colors.primary }]}>
-                {roleLabel}
-              </Text>
+              <Text style={[styles.roleBadgeText, { color: colors.primary }]}>{roleLabel}</Text>
             </View>
           </View>
 
-          {/* User Info List */}
           <View style={[styles.profileInfoList, { borderTopColor: colors.border }]}>
-            {/* Account Type / Role */}
             <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <Ionicons name="key-outline" size={16} color={colors.textSecondary} />
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>نوع الحساب</Text>
               </View>
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
-                {user?.role || 'ADMIN'}
-              </Text>
+              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{user?.role || 'ADMIN'}</Text>
             </View>
 
-            {/* Username / Email */}
             {(user?.email || user?.username) && (
               <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Ionicons name="mail-outline" size={16} color={colors.textSecondary} />
                   <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>البريد / المعرف</Text>
                 </View>
-                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
-                  {user?.email || user?.username}
-                </Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{user?.email || user?.username}</Text>
               </View>
             )}
 
-            {/* Account Status */}
             <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <Ionicons name="checkmark-circle-outline" size={16} color="#16a34a" />
@@ -324,7 +113,6 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
           </View>
         </View>
 
-        {/* 2. Target Settings Card (تعديل التارجت ومسح المعرفات - يظهر للمدير فقط) */}
         {isAdmin && (
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }]}>
@@ -342,40 +130,27 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
                     <Ionicons name="options-outline" size={20} color={colors.primary} />
                   </View>
                   <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
-                    <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                      تعديل التارچت وقواعد الإنجاز
-                    </Text>
-                    <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
-                      ضبط حدود التارچت اليومي والشهري للمعرفين
-                    </Text>
+                    <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>تعديل التارچت وقواعد الإنجاز</Text>
+                    <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>ضبط حدود التارچت اليومي والشهري للمعرفين</Text>
                   </View>
                 </View>
                 <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.primary} />
               </TouchableOpacity>
             )}
 
-            {/* مسح كافة المعرفات للبدء من الصفر */}
             <TouchableOpacity
               style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              onPress={handleDeleteAllIdentifiers}
-              disabled={deletingAll}
+              onPress={actions.handleDeleteAllIdentifiers}
+              disabled={actions.deletingAll}
               activeOpacity={0.75}
             >
               <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <View style={[styles.settingIconBox, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.16)' : '#fee2e2' }]}>
-                  {deletingAll ? (
-                    <ActivityIndicator size="small" color="#dc2626" />
-                  ) : (
-                    <Ionicons name="trash-outline" size={20} color="#dc2626" />
-                  )}
+                  {actions.deletingAll ? <ActivityIndicator size="small" color="#dc2626" /> : <Ionicons name="trash-outline" size={20} color="#dc2626" />}
                 </View>
                 <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
-                  <Text style={[styles.settingRowText, { color: '#dc2626', fontWeight: '800' }]}>
-                    مسح كافة المعرفات والبيانات
-                  </Text>
-                  <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
-                    إعادة تعيين وحذف كافة المعرفات للبدء برفع داتا جديدة
-                  </Text>
+                  <Text style={[styles.settingRowText, { color: '#dc2626', fontWeight: '800' }]}>مسح كافة المعرفات والبيانات</Text>
+                  <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>إعادة تعيين وحذف كافة المعرفات للبدء برفع داتا جديدة</Text>
                 </View>
               </View>
               <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color="#dc2626" />
@@ -383,52 +158,34 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
           </View>
         )}
 
-        {/* 3. App Settings Box (Biometrics, Updates & Logout) */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }]}>
             إعدادات النظام والتحديثات
           </Text>
 
-          {/* Biometrics Toggle Row */}
-          {biometricsAvailable && (
-            <View
-              style={[
-                styles.settingRow,
-                { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' },
-              ]}
-            >
+          {actions.biometricsAvailable && (
+            <View style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={[styles.settingIconBox, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.16)' : '#ffedd5' }]}>
-                  <Ionicons name="finger-print" size={20} color="#f97316" />
+                <View style={[styles.settingIconBox, { backgroundColor: isDarkMode ? 'rgba(2, 132, 199, 0.16)' : '#ffedd5' }]}>
+                  <Ionicons name="finger-print" size={20} color="#0284c7" />
                 </View>
                 <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
-                  <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                    تسجيل الدخول بالبصمة
-                  </Text>
-                  <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
-                    بصمة الإصبع أو الوجه لتسجيل الدخول السريع
-                  </Text>
+                  <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>تسجيل الدخول بالبصمة</Text>
+                  <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>بصمة الإصبع أو الوجه لتسجيل الدخول السريع</Text>
                 </View>
               </View>
               <Switch
-                value={biometricsOn}
-                onValueChange={handleToggleBiometrics}
+                value={actions.biometricsOn}
+                onValueChange={actions.handleToggleBiometrics}
                 trackColor={{ false: isDarkMode ? '#334155' : '#cbd5e1', true: colors.primary }}
                 thumbColor="#ffffff"
               />
             </View>
           )}
 
-          {/* Target Rules & Governance Page Row */}
           <TouchableOpacity
             style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-            onPress={() => {
-              if (onOpenTargetRules) {
-                onOpenTargetRules();
-              } else {
-                setCurrentSubView('rules');
-              }
-            }}
+            onPress={() => (onOpenTargetRules ? onOpenTargetRules() : actions.setCurrentSubView('rules'))}
             activeOpacity={0.7}
           >
             <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -436,21 +193,16 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
                 <Ionicons name="document-text-outline" size={20} color="#3b82f6" />
               </View>
               <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
-                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                  قواعد ومعايير احتساب التارچت
-                </Text>
-                <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
-                  الضوابط الرياضية، نموذج التوقع التراكمي، ومعايير تقييم الأداء
-                </Text>
+                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>قواعد ومعايير احتساب التارچت</Text>
+                <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>الضوابط الرياضية، نموذج التوقع التراكمي، ومعايير تقييم الأداء</Text>
               </View>
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* Check for Updates Row - Triggers Updates BottomSheet */}
           <TouchableOpacity
             style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-            onPress={handleCheckForUpdates}
+            onPress={actions.handleCheckForUpdates}
             activeOpacity={0.7}
           >
             <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -458,21 +210,16 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
                 <Ionicons name="cloud-download-outline" size={20} color="#2563eb" />
               </View>
               <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', flex: 1 }}>
-                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                  تحديث التطبيق
-                </Text>
-                <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>
-                  التحقق من توفر تحديث هوائي جديد (OTA Update)
-                </Text>
+                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>تحديث التطبيق</Text>
+                <Text style={[styles.settingRowSub, { color: colors.textSecondary }]}>التحقق من توفر تحديث هوائي جديد (OTA Update)</Text>
               </View>
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* Logout Row */}
           <TouchableOpacity
             style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-            onPress={handleConfirmLogout}
+            onPress={() => actions.setShowLogoutModal(true)}
             activeOpacity={0.7}
           >
             <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -486,189 +233,49 @@ export const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({
         </View>
       </ScrollView>
 
-      {/* 4. App Update Bottom Sheet (Wrapped in Modal like Delegate App) */}
       <Modal
-        visible={updateModalVisible}
+        visible={actions.updateModalVisible}
         transparent
         animationType="none"
         statusBarTranslucent
-        onRequestClose={() => setUpdateModalVisible(false)}
+        onRequestClose={() => actions.setUpdateModalVisible(false)}
       >
-        <AppUpdateBottomSheet
-          visible={updateModalVisible}
-          state={updateState}
-          errorMessage={updateError}
+        <ModuleErrorBoundary moduleName="تحديث التطبيق" colors={colors} fallback={null}>
+          <AppUpdateBottomSheet
+            visible={actions.updateModalVisible}
+            state={actions.updateState}
+            errorMessage={actions.updateError}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            onApplyUpdate={actions.handleApplyUpdate}
+            onCheckAgain={actions.handleCheckForUpdates}
+            onClose={() => actions.setUpdateModalVisible(false)}
+          />
+        </ModuleErrorBoundary>
+      </Modal>
+
+      <ModuleErrorBoundary moduleName="سجل الأعطال" colors={colors} fallback={null}>
+        <DiagnosticsModal
+          visible={actions.showDiagnosticsModal}
           colors={colors}
           isDarkMode={isDarkMode}
           isRTL={isRTL}
-          onApplyUpdate={handleApplyUpdate}
-          onCheckAgain={handleCheckForUpdates}
-          onClose={() => setUpdateModalVisible(false)}
+          onClose={() => actions.setShowDiagnosticsModal(false)}
         />
-      </Modal>
+      </ModuleErrorBoundary>
 
-      {/* 5. Diagnostics & Error/Crash Logs Modal (3 taps on Admin Avatar) */}
-      <DiagnosticsModal
-        visible={showDiagnosticsModal}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        onClose={() => setShowDiagnosticsModal(false)}
-      />
-
-      {/* 6. Logout Confirmation Bottom Sheet */}
-      <LogoutBottomSheet
-        visible={showLogoutModal}
-        user={user}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        onConfirm={onLogout}
-        onClose={() => setShowLogoutModal(false)}
-      />
+      <ModuleErrorBoundary moduleName="تسجيل الخروج" colors={colors} fallback={null}>
+        <LogoutBottomSheet
+          visible={actions.showLogoutModal}
+          user={user}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+          onConfirm={onLogout}
+          onClose={() => actions.setShowLogoutModal(false)}
+        />
+      </ModuleErrorBoundary>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 32,
-  },
-  profileCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 18,
-    marginBottom: 16,
-  },
-  profileAvatarSection: {
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  profileAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    position: 'relative',
-  },
-  avatarErrorBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: '#ef4444',
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 5,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  avatarErrorBadgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  systemHealthPill: {
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginTop: 8,
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-  roleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  roleBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  profileInfoList: {
-    borderTopWidth: 1,
-    paddingTop: 14,
-    gap: 12,
-  },
-  infoRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  infoLabelGroup: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  infoLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  statusBadgePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  card: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 18,
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  settingRow: {
-    paddingVertical: 12,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  settingRowRight: {
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  settingIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  settingRowText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  settingRowSub: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-});

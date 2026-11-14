@@ -18,6 +18,16 @@ export function useBroadcasts(
   const [loadingBroadcastHistory, setLoadingBroadcastHistory] = useState(false);
   const lastDismissedBroadcastId = useRef<string | null>(null);
   const oilAlertShownRef = useRef<boolean>(false);
+  const onOpenOilModalRef = useRef(onOpenOilModal);
+  const showBroadcastModalRef = useRef(showBroadcastModal);
+
+  useEffect(() => {
+    onOpenOilModalRef.current = onOpenOilModal;
+  }, [onOpenOilModal]);
+
+  useEffect(() => {
+    showBroadcastModalRef.current = showBroadcastModal;
+  }, [showBroadcastModal]);
 
   // Helper to fetch dynamic oil change status notification for the delegate's motorcycle
   const fetchOilNotification = useCallback(async (): Promise<{ notif: BroadcastNotificationItem; isDue: boolean } | null> => {
@@ -138,7 +148,7 @@ export function useBroadcasts(
       if (oilNotif && isDue && !dismissedIds.includes(oilNotif.id) && !oilAlertShownRef.current) {
         oilAlertShownRef.current = true;
         const bike = employee.motorcycle_number || '';
-        onOpenOilModal?.(bike);
+        onOpenOilModalRef.current?.(bike);
         // Also show system tray push notification for the courier
         notificationService.showSystemTrayNotification(oilNotif);
       }
@@ -146,7 +156,7 @@ export function useBroadcasts(
       const totalUnread = unread.length + (oilNotif ? 1 : 0);
       setUnreadBroadcastsCount(totalUnread);
 
-      if (unread.length > 0 && !showBroadcastModal) {
+      if (unread.length > 0 && !showBroadcastModalRef.current) {
         const pendingPoll = unread.find(
           (b) =>
             b.has_poll &&
@@ -162,13 +172,18 @@ export function useBroadcasts(
     } catch (e) {
       console.log('[useBroadcasts] Error checking broadcasts:', e);
     }
-  }, [employee?.id, employee?.motorcycle_number, fetchOilNotification, onOpenOilModal, showBroadcastModal]);
+  }, [employee?.id, employee?.motorcycle_number, fetchOilNotification]);
 
   useEffect(() => {
     if (employee?.id) {
       notificationService.initNotifications(employee.id);
+    }
+  }, [employee?.id]);
+
+  useEffect(() => {
+    if (employee?.id) {
       let isMounted = true;
-      let timer;
+      let timer: ReturnType<typeof setTimeout> | undefined;
       const schedulePoll = () => {
         if (!isMounted) return;
         const nextDelay = 35000 + Math.floor(Math.random() * 20000);

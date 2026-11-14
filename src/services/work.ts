@@ -70,6 +70,32 @@ export interface LoginResult {
   };
 }
 
+const WORK_CACHE_TTL_MS = 5000;
+let meCache: EmployeeProfile | null = null;
+let meCacheTime = 0;
+let meInFlightPromise: Promise<EmployeeProfile | null> | null = null;
+
+interface LastKmResult {
+  last_end_km: number;
+  last_start_km: number;
+  is_odometer_broken?: boolean;
+  registration_image?: string;
+  needs_oil_change?: boolean;
+  remaining_oil_km?: number;
+  distance_since_oil?: number;
+  remaining_days?: number;
+  oil_status_message?: string;
+}
+
+const lastKmCache = new Map<string, { data: LastKmResult | null; time: number }>();
+const lastKmInFlight = new Map<string, Promise<LastKmResult | null>>();
+
+export const clearWorkCaches = () => {
+  meCache = null;
+  meCacheTime = 0;
+  lastKmCache.clear();
+};
+
 export const workApi = {
   // Delegate Login
   login: async (login: string, password?: string): Promise<LoginResult> => {
@@ -88,6 +114,7 @@ export const workApi = {
     });
 
     if (data.access_token) {
+      clearWorkCaches();
       await setAuthToken(data.access_token, data.refresh_token);
       const isActualAdmin =
         Boolean(data.admin?.role && (data.admin.role === 'ADMIN' || data.admin.role === 'SUPER_ADMIN' || data.admin.role === 'SUPERVISOR'));
@@ -104,70 +131,97 @@ export const workApi = {
   },
 
   // Get current user / delegate profile
-  getMe: async (): Promise<EmployeeProfile | null> => {
-    try {
-      const cached = await getCachedUser();
-      if (cached && (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN')) {
-        return null;
-      }
-      const token = getStoredToken() || (await loadStoredToken());
-      if (!token) {
-        return null;
-      }
-      const meResp = await apiRequest(`/me?_t=${Date.now()}`, {
-        timeoutMs: 8000,
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          Pragma: 'no-cache',
-        },
-      });
-      if (meResp && meResp.id) {
-        let fullEmployee: EmployeeProfile;
-        try {
-          const empDetail = await apiRequest<EmployeeProfile>(`/employees/${meResp.id}`, { timeoutMs: 8000 });
-          if (empDetail && empDetail.id) {
-            fullEmployee = {
-              ...(cached || {}),
-              ...empDetail,
-              vehicle_registration_image: empDetail.vehicle_registration_image || '',
-              motorcycle_number: empDetail.motorcycle_number || '',
-            } as EmployeeProfile;
-          } else {
+  getMe: async (forceRefresh = false): Promise<EmployeeProfile | null> => {
+    if (!forceRefresh && meCache && Date.now() - meCacheTime < WORK_CACHE_TTL_MS) {
+      return meCache;
+    }
+    if (!forceRefresh && meInFlightPromise) {
+      return meInFlightPromise;
+    }
+
+    const currentPromise = (async (): Promise<EmployeeProfile | null> => {
+      try {
+        const cached = await getCachedUser();
+        if (cached && (cached.is_admin || cached.role === 'ADMIN' || cached.role === 'SUPERVISOR' || cached.role === 'SUPER_ADMIN')) {
+          return null;
+        }
+        const token = getStoredToken() || (await loadStoredToken());
+        if (!token) {
+          return null;
+        }
+        const meResp = await apiRequest(`/me?_t=${Date.now()}`, {
+          timeoutMs: 8000,
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+        });
+        if (meResp && meResp.id) {
+          let fullEmployee: EmployeeProfile;
+          if (meResp.national_id_image || meResp.driving_license_image) {
             fullEmployee = {
               ...(cached || {}),
               ...meResp,
               vehicle_registration_image: meResp.vehicle_registration_image || '',
               motorcycle_number: meResp.motorcycle_number || '',
             } as EmployeeProfile;
-          }
-        } catch {
-          fullEmployee = {
-            ...(cached || {}),
-            ...meResp,
-            vehicle_registration_image: meResp.vehicle_registration_image || '',
-            motorcycle_number: meResp.motorcycle_number || '',
-          } as EmployeeProfile;
-        }
-
-                // If employee has a vehicle assigned but vehicle_registration_image is empty, auto-fetch from vehicle
-        if (!fullEmployee.vehicle_registration_image && fullEmployee.motorcycle_number) {
-          try {
-            const vKm = await workApi.getLastKM(fullEmployee.id, fullEmployee.motorcycle_number);
-            if (vKm?.registration_image) {
-              fullEmployee.vehicle_registration_image = vKm.registration_image;
+          } else {
+            try {
+              const empDetail = await apiRequest<EmployeeProfile>(`/employees/${meResp.id}`, { timeoutMs: 8000 });
+              if (empDetail && empDetail.id) {
+                fullEmployee = {
+                  ...(cached || {}),
+                  ...empDetail,
+                  vehicle_registration_image: empDetail.vehicle_registration_image || '',
+                  motorcycle_number: empDetail.motorcycle_number || '',
+                } as EmployeeProfile;
+              } else {
+                fullEmployee = {
+                  ...(cached || {}),
+                  ...meResp,
+                  vehicle_registration_image: meResp.vehicle_registration_image || '',
+                  motorcycle_number: meResp.motorcycle_number || '',
+                } as EmployeeProfile;
+              }
+            } catch {
+              fullEmployee = {
+                ...(cached || {}),
+                ...meResp,
+                vehicle_registration_image: meResp.vehicle_registration_image || '',
+                motorcycle_number: meResp.motorcycle_number || '',
+              } as EmployeeProfile;
             }
-          } catch {
-            // non-blocking
           }
-        }
 
-        await saveCachedUser(fullEmployee);
-        return fullEmployee;
+          // If employee has a vehicle assigned but vehicle_registration_image is empty, auto-fetch from vehicle
+          if (!fullEmployee.vehicle_registration_image && fullEmployee.motorcycle_number) {
+            try {
+              const vKm = await workApi.getLastKM(fullEmployee.id, fullEmployee.motorcycle_number);
+              if (vKm?.registration_image) {
+                fullEmployee.vehicle_registration_image = vKm.registration_image;
+              }
+            } catch {
+              // non-blocking
+            }
+          }
+
+          meCache = fullEmployee;
+          meCacheTime = Date.now();
+          await saveCachedUser(fullEmployee);
+          return fullEmployee;
+        }
+        return cached;
+      } catch (e) {
+        return await getCachedUser();
       }
-      return cached;
-    } catch (e) {
-      return await getCachedUser();
-    }
+    })().finally(() => {
+      if (meInFlightPromise === currentPromise) {
+        meInFlightPromise = null;
+      }
+    });
+
+    meInFlightPromise = currentPromise;
+    return currentPromise;
   },
 
   // Check active shift for employee
@@ -193,10 +247,13 @@ export const workApi = {
     motorcycle_number: string;
     notes?: string;
   }): Promise<WorkSession> => {
-    return apiRequest<WorkSession>('/work/start', {
+    const session = await apiRequest<WorkSession>('/work/start', {
       method: 'POST',
       body: JSON.stringify(params),
     });
+    meCacheTime = 0;
+    lastKmCache.clear();
+    return session;
   },
 
   // End shift
@@ -208,46 +265,49 @@ export const workApi = {
     fuel_cost: number;
     notes?: string;
   }): Promise<WorkSession> => {
-    return apiRequest<WorkSession>('/work/end', {
+    const session = await apiRequest<WorkSession>('/work/end', {
       method: 'POST',
       body: JSON.stringify(params),
     });
+    meCacheTime = 0;
+    lastKmCache.clear();
+    return session;
   },
 
   // Get last ending odometer (last_km)
   getLastKM: async (
     employeeId: string,
     motorcycleNumber?: string
-  ): Promise<{
-    last_end_km: number;
-    last_start_km: number;
-    is_odometer_broken?: boolean;
-    registration_image?: string;
-    needs_oil_change?: boolean;
-    remaining_oil_km?: number;
-    distance_since_oil?: number;
-    remaining_days?: number;
-    oil_status_message?: string;
-  } | null> => {
-    try {
-      const url = motorcycleNumber
-        ? `/work/last-km?employee_id=${employeeId}&motorcycle_number=${encodeURIComponent(motorcycleNumber)}`
-        : `/work/last-km?employee_id=${employeeId}`;
-      const data = await apiRequest<{
-        last_end_km: number;
-        last_start_km: number;
-        is_odometer_broken?: boolean;
-        registration_image?: string;
-        needs_oil_change?: boolean;
-        remaining_oil_km?: number;
-        distance_since_oil?: number;
-        remaining_days?: number;
-        oil_status_message?: string;
-      }>(url);
-      return data;
-    } catch {
-      return null;
+  ): Promise<LastKmResult | null> => {
+    const cacheKey = `${employeeId}:${motorcycleNumber || ''}`;
+    const cachedEntry = lastKmCache.get(cacheKey);
+    if (cachedEntry && Date.now() - cachedEntry.time < WORK_CACHE_TTL_MS) {
+      return cachedEntry.data;
     }
+    const existingPromise = lastKmInFlight.get(cacheKey);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    const reqPromise = (async (): Promise<LastKmResult | null> => {
+      try {
+        const url = motorcycleNumber
+          ? `/work/last-km?employee_id=${employeeId}&motorcycle_number=${encodeURIComponent(motorcycleNumber)}`
+          : `/work/last-km?employee_id=${employeeId}`;
+        const data = await apiRequest<LastKmResult>(url);
+        lastKmCache.set(cacheKey, { data, time: Date.now() });
+        return data;
+      } catch {
+        return null;
+      }
+    })().finally(() => {
+      if (lastKmInFlight.get(cacheKey) === reqPromise) {
+        lastKmInFlight.delete(cacheKey);
+      }
+    });
+
+    lastKmInFlight.set(cacheKey, reqPromise);
+    return reqPromise;
   },
 
   // Check oil change requirement for employee or specific motorcycle

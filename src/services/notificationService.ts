@@ -126,13 +126,28 @@ try {
 
 // Track IDs already displayed in the system notification shade to prevent duplicates
 const shownInTrayIds = new Set<string>();
+let lastInitEmpId: string | undefined;
+let lastInitTime = 0;
+let lastInitToken: string | null = null;
+let initInFlightPromise: Promise<string | null> | null = null;
 
 export const notificationService = {
   /**
    * Initializes notification channel and requests system permissions for status bar notifications
    */
-  initNotifications: async (employeeId?: string): Promise<string | null> => {
-    try {
+  initNotifications: async (employeeId?: string, force = false): Promise<string | null> => {
+    const now = Date.now();
+    if (!force && initInFlightPromise && lastInitEmpId === employeeId) {
+      return initInFlightPromise;
+    }
+    if (!force && lastInitTime > 0 && lastInitEmpId === employeeId && now - lastInitTime < 60_000) {
+      return lastInitToken;
+    }
+
+    lastInitEmpId = employeeId;
+    const runInit = async (): Promise<string | null> => {
+      let hadError = false;
+      try {
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('aams_broadcasts', {
           name: 'إشعارات وتعاميم الإدارة',
@@ -227,11 +242,26 @@ export const notificationService = {
         }).catch(() => {});
       }
 
-      return pushToken || null;
-    } catch (e) {
-      console.log('[NotificationService] initNotifications notice:', e);
-      return null;
-    }
+        lastInitToken = pushToken || null;
+        return lastInitToken;
+      } catch (e) {
+        hadError = true;
+        console.log('[NotificationService] initNotifications notice:', e);
+        return null;
+      } finally {
+        if (!hadError) {
+          lastInitTime = Date.now();
+        }
+      }
+    };
+
+    const currentPromise = runInit().finally(() => {
+      if (initInFlightPromise === currentPromise) {
+        initInFlightPromise = null;
+      }
+    });
+    initInFlightPromise = currentPromise;
+    return currentPromise;
   },
 
   /**

@@ -6,14 +6,21 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Language, ThemeColors } from '../../types/delegate';
+import { ModuleErrorBoundary } from '../ModuleErrorBoundary';
+import {
+  CANCEL_LABELS,
+  LANGUAGE_OPTIONS,
+  getLanguageModalSubtitle,
+} from './language/languageModalHelpers';
+import { languageModalStyles as styles } from './language/languageModalStyles';
+import { LanguageOptionCard } from './language/LanguageOptionCard';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface LanguageModalProps {
+export interface LanguageModalProps {
   visible: boolean;
   currentLang: Language;
   colors: ThemeColors;
@@ -24,13 +31,9 @@ interface LanguageModalProps {
   onClose: () => void;
 }
 
-const cancelLabels: Record<Language, string> = {
-  ar: 'إلغاء',
-  en: 'Cancel',
-  bn: 'বাতিল',
-  ur: 'منسوخ کریں',
-};
-
+/**
+ * Animated bottom-sheet modal allowing the user to switch the display language.
+ */
 export const LanguageModal: React.FC<LanguageModalProps> = ({
   visible,
   currentLang,
@@ -102,34 +105,7 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
   if (!visible) return null;
 
   const cancelText =
-    t?.cancelBtn || cancelLabels[currentLang] || (currentLang === 'ar' ? 'إلغاء' : 'Cancel');
-
-  const languages = [
-    {
-      code: 'ar' as Language,
-      badge: 'AR',
-      name: 'العربية',
-      subName: 'Arabic',
-    },
-    {
-      code: 'en' as Language,
-      badge: 'EN',
-      name: 'English',
-      subName: 'الإنجليزية',
-    },
-    {
-      code: 'bn' as Language,
-      badge: 'BN',
-      name: 'বাংলা',
-      subName: 'Bengali (বাংলাদেশ)',
-    },
-    {
-      code: 'ur' as Language,
-      badge: 'UR',
-      name: 'اردو',
-      subName: 'Urdu (پاکستان)',
-    },
-  ];
+    t?.cancelBtn || CANCEL_LABELS[currentLang] || (currentLang === 'ar' ? 'إلغاء' : 'Cancel');
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -194,9 +170,7 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
             <View
               style={[
                 styles.headerIconBox,
-                {
-                  backgroundColor: colors.primaryLight,
-                },
+                { backgroundColor: colors.primaryLight },
               ]}
             >
               <Ionicons name="globe-outline" size={22} color={colors.primary} />
@@ -211,16 +185,8 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
               <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
                 {t.selectLang || (isRTL ? 'اختر لغة التطبيق' : 'Select App Language')}
               </Text>
-              <Text
-                style={[styles.headerSubtitle, { color: colors.textSecondary }]}
-              >
-                {currentLang === 'ar'
-                  ? 'حدد لغة العرض المفضلة لواجهة التطبيق'
-                  : currentLang === 'ur'
-                  ? 'ایپ کے انٹرفیس کے لیے اپنی پسندیدہ زبان منتخب کریں'
-                  : currentLang === 'bn'
-                  ? 'অ্যাপের জন্য আপনার পছন্দের ভাষা নির্বাচন করুন'
-                  : 'Choose your preferred display language'}
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                {getLanguageModalSubtitle(currentLang)}
               </Text>
             </View>
 
@@ -240,111 +206,24 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Language Options List */}
-          <View style={styles.optionsList}>
-            {languages.map((langItem) => {
-              const isSelected = currentLang === langItem.code;
-              return (
-                <TouchableOpacity
+          {/* Language Options List isolated in ModuleErrorBoundary */}
+          <ModuleErrorBoundary moduleName="LanguageOptionsList" colors={colors}>
+            <View style={styles.optionsList}>
+              {LANGUAGE_OPTIONS.map((langItem) => (
+                <LanguageOptionCard
                   key={langItem.code}
-                  style={[
-                    styles.langOptionCard,
-                    {
-                      backgroundColor: isSelected
-                        ? colors.primaryLight
-                        : isDarkMode
-                        ? 'rgba(255, 255, 255, 0.03)'
-                        : '#f8fafc',
-                      borderColor: isSelected
-                        ? colors.primary
-                        : colors.border,
-                      flexDirection: isRTL ? 'row-reverse' : 'row',
-                    },
-                  ]}
-                  onPress={() => handleSelect(langItem.code)}
-                  activeOpacity={0.75}
-                >
-                  {/* Code Badge */}
-                  <View
-                    style={[
-                      styles.flagBadgeBox,
-                      {
-                        backgroundColor: isSelected
-                          ? isDarkMode
-                            ? 'rgba(255, 255, 255, 0.1)'
-                            : '#ffffff'
-                          : isDarkMode
-                          ? 'rgba(255, 255, 255, 0.06)'
-                          : '#ffffff',
-                        borderColor: isSelected
-                          ? colors.primary
-                          : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.langBadgeText,
-                        {
-                          color: isSelected ? colors.primary : colors.textPrimary,
-                        },
-                      ]}
-                    >
-                      {langItem.badge}
-                    </Text>
-                  </View>
+                  langItem={langItem}
+                  isSelected={currentLang === langItem.code}
+                  isDarkMode={isDarkMode}
+                  isRTL={isRTL}
+                  colors={colors}
+                  onSelect={handleSelect}
+                />
+              ))}
+            </View>
+          </ModuleErrorBoundary>
 
-                  {/* Language Title & Subtitle */}
-                  <View
-                    style={[
-                      styles.langInfoCol,
-                      { alignItems: isRTL ? 'flex-end' : 'flex-start' },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.langMainName,
-                        {
-                          color: isSelected ? colors.primary : colors.textPrimary,
-                          fontWeight: isSelected ? '800' : '700',
-                        },
-                      ]}
-                    >
-                      {langItem.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.langSubName,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {langItem.subName}
-                    </Text>
-                  </View>
-
-                  {/* Selection Indicator */}
-                  <View style={styles.checkIconBox}>
-                    {isSelected ? (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={22}
-                        color={colors.primary}
-                      />
-                    ) : (
-                      <View
-                        style={[
-                          styles.uncheckedCircle,
-                          { borderColor: colors.border },
-                        ]}
-                      />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Cancel Button - Language Specific */}
+          {/* Cancel Button */}
           <TouchableOpacity
             style={[
               styles.cancelBtn,
@@ -367,141 +246,3 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  backdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#000000',
-    zIndex: 1000,
-  },
-  sheetWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1001,
-    justifyContent: 'flex-end',
-  },
-  sheetContent: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 20,
-  },
-  dragBarContainer: {
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  dragBar: {
-    width: 44,
-    height: 5,
-    borderRadius: 3,
-  },
-  headerRow: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150, 150, 150, 0.12)',
-    marginBottom: 16,
-  },
-  headerIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTextCol: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  optionsList: {
-    gap: 10,
-    marginBottom: 16,
-  },
-  langOptionCard: {
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    gap: 12,
-  },
-  flagBadgeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 6,
-  },
-  flagEmoji: {
-    fontSize: 16,
-  },
-  langBadgeText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  langInfoCol: {
-    flex: 1,
-    gap: 2,
-  },
-  langMainName: {
-    fontSize: 15,
-  },
-  langSubName: {
-    fontSize: 12,
-  },
-  checkIconBox: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  uncheckedCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-  },
-  cancelBtn: {
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});

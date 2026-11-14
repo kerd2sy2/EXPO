@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Modal,
-  StyleSheet,
   Animated,
   PanResponder,
   TouchableOpacity,
@@ -12,8 +11,17 @@ import { Ionicons } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeColors, Language } from '../../types/delegate';
+import { ModuleErrorBoundary } from '../ModuleErrorBoundary';
+import {
+  VerificationLanguage,
+  modalTranslations,
+  getLocalizedAppName,
+  MAX_SLIDE,
+} from './human-verification/humanVerificationHelpers';
+import { humanVerificationStyles as styles } from './human-verification/humanVerificationStyles';
+import { SlideToVerifyTrack } from './human-verification/SlideToVerifyTrack';
 
-export type VerificationLanguage = 'ar' | 'en' | 'ur' | 'bn';
+export type { VerificationLanguage };
 
 export interface HumanVerificationModalProps {
   visible: boolean;
@@ -26,92 +34,9 @@ export interface HumanVerificationModalProps {
   onCancel: () => void;
 }
 
-const modalTranslations: Record<
-  VerificationLanguage,
-  {
-    badge: string;
-    title: string;
-    subtitle: (appName: string) => string;
-    slideAction: string;
-    verified: string;
-    footerNote: string;
-  }
-> = {
-  ar: {
-    badge: 'حماية أمنية ذكية',
-    title: 'تأكيد أمان تسجيل الدخول',
-    subtitle: (appName: string) => `يرجى سحب المؤشر لتأكيد هويتك وحماية ${appName} من الوصول المؤتمت`,
-    slideAction: 'اسحب المؤشر لليمين للتحقق 👉',
-    verified: 'تم التحقق بنجاح ✓',
-    footerNote: 'اتصال مشفر ومحمي بواسطة جدار الحماية',
-  },
-  en: {
-    badge: 'Smart Security Shield',
-    title: 'Confirm Login Security',
-    subtitle: (appName: string) => `Please slide to confirm your identity and protect ${appName} from bots`,
-    slideAction: 'Slide to verify 👉',
-    verified: 'Verified successfully ✓',
-    footerNote: 'Encrypted connection protected by firewall',
-  },
-  ur: {
-    badge: 'سمارٹ سیکیورٹی شیلڈ',
-    title: 'لاگ ان سیکیورٹی کی تصدیق',
-    subtitle: (appName: string) => `براہ کرم اپنی شناخت کی تصدیق اور ${appName} کو خودکار بوٹس سے بچانے کیلئے سلائیڈ کریں`,
-    slideAction: 'تصدیق کے لیے سلائیڈ کریں 👉',
-    verified: 'کامیابی سے تصدیق ہو گئی ✓',
-    footerNote: 'فائر وال کے ذریعے محفوظ اور انکرپٹڈ کنکشن',
-  },
-  bn: {
-    badge: 'স্মার্ট নিরাপত্তা সুরক্ষা',
-    title: 'লগইন নিরাপত্তা নিশ্চিত করুন',
-    subtitle: (appName: string) => `আপনার পরিচয় নিশ্চিত করতে এবং ${appName}-কে বট থেকে রক্ষা করতে স্লাইড করুন`,
-    slideAction: 'যাচাই করতে স্লাইড করুন 👉',
-    verified: 'সফলভাবে যাচাই করা হয়েছে ✓',
-    footerNote: 'ফায়ারওয়াল দ্বারা সুরক্ষিত এনক্রিপ্ট করা সংযোগ',
-  },
-};
-
-const getLocalizedAppName = (rawName: string, lang: VerificationLanguage): string => {
-  const normalized = (rawName || '').trim().toLowerCase();
-  if (normalized.includes('إشراف') || normalized.includes('اشراف') || normalized.includes('supervis')) {
-    switch (lang) {
-      case 'en': return 'Supervision';
-      case 'ur': return 'نگرانی';
-      case 'bn': return 'তত্ত্বাবধান';
-      default: return 'الإشراف';
-    }
-  }
-  if (normalized.includes('مناديب') || normalized.includes('مندوب') || normalized.includes('delegat')) {
-    switch (lang) {
-      case 'en': return 'Delegates';
-      case 'ur': return 'ڈیلیگیٹس';
-      case 'bn': return 'প্রতিনিধিরা';
-      default: return 'المناديب';
-    }
-  }
-  if (normalized.includes('عهدة') || normalized.includes('عهده') || normalized.includes('custody') || normalized.includes('ahda')) {
-    switch (lang) {
-      case 'en': return 'Custody';
-      case 'ur': return 'تحویل';
-      case 'bn': return 'হেফাজত';
-      default: return 'العهدة';
-    }
-  }
-  if (normalized.includes('إدارة') || normalized.includes('ادارة') || normalized.includes('manag') || normalized.includes('admin')) {
-    switch (lang) {
-      case 'en': return 'Management';
-      case 'ur': return 'انتظامیہ';
-      case 'bn': return 'প্রশাসন';
-      default: return 'الإدارة';
-    }
-  }
-  return rawName;
-};
-
-const TRACK_WIDTH = 270;
-const KNOB_SIZE = 48;
-const MAX_SLIDE = TRACK_WIDTH - KNOB_SIZE - 8;
-
+/**
+ * Interactive human verification modal using slide-to-verify gesture.
+ */
 export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
   visible,
   colors,
@@ -131,14 +56,17 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const lottieRef = useRef<any>(null);
 
-  // Sync propLang if passed
+  // Mutable refs to prevent stale closures and block multi-triggers / freeze
+  const isProcessingRef = useRef(false);
+  const isVerifiedRef = useRef(false);
+  const isMountedRef = useRef(true);
+
   useEffect(() => {
     if (propLang && ['ar', 'en', 'ur', 'bn'].includes(propLang as string)) {
       setCurrentLang(propLang as VerificationLanguage);
     }
   }, [propLang]);
 
-  // Load language from storage if not explicitly provided as prop
   useEffect(() => {
     if (!propLang && visible) {
       (async () => {
@@ -158,7 +86,6 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
   const t = modalTranslations[currentLang] || modalTranslations.ar;
   const localizedAppName = getLocalizedAppName(appName, currentLang);
 
-  // Reset state on open
   useEffect(() => {
     isMountedRef.current = true;
     if (visible) {
@@ -197,11 +124,6 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
     };
   }, [visible]);
 
-  // Mutable refs to prevent stale closures and block multi-triggers / freeze
-  const isProcessingRef = useRef(false);
-  const isVerifiedRef = useRef(false);
-  const isMountedRef = useRef(true);
-
   const handleSuccess = () => {
     if (isProcessingRef.current || isVerifiedRef.current) return;
     isProcessingRef.current = true;
@@ -225,9 +147,8 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => !isProcessingRef.current && !isVerifiedRef.current,
-      onMoveShouldSetPanResponder: (_, gesture) => {
-        return !isProcessingRef.current && !isVerifiedRef.current && Math.abs(gesture.dx) > 4;
-      },
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        !isProcessingRef.current && !isVerifiedRef.current && Math.abs(gesture.dx) > 4,
       onPanResponderGrant: () => {
         slideAnim.stopAnimation();
       },
@@ -285,7 +206,7 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
             },
           ]}
         >
-          {/* Close button */}
+          {/* Close button kept outside error boundary so user can always cancel */}
           <TouchableOpacity
             style={[
               styles.closeBtn,
@@ -301,243 +222,64 @@ export const HumanVerificationModal: React.FC<HumanVerificationModalProps> = ({
             <Ionicons name="close" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* Lottie Animation */}
-          <View style={[styles.lottieWrapper, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc' }]}>
-            <LottieView
-              ref={lottieRef}
-              source={require('../../../assets/Lottie/lottie/41qLNI7XMt.lottie')}
-              autoPlay
-              loop
-              style={styles.lottieAnim}
-              resizeMode="contain"
-            />
-          </View>
+          <ModuleErrorBoundary moduleName="HumanVerificationBody" colors={colors}>
+            {/* Lottie Animation */}
+            <View style={[styles.lottieWrapper, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc' }]}>
+              <LottieView
+                ref={lottieRef}
+                source={require('../../../assets/Lottie/lottie/41qLNI7XMt.lottie')}
+                autoPlay
+                loop
+                style={styles.lottieAnim}
+                resizeMode="contain"
+              />
+            </View>
 
-          {/* Security Badge & Title */}
-          <View style={styles.titleContainer}>
-            <View
-              style={[
-                styles.badge,
-                {
-                  backgroundColor: `${colors.primary}18`,
-                  flexDirection: isRTL ? 'row-reverse' : 'row',
-                },
-              ]}
-            >
-              <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
-              <Text style={[styles.badgeText, { color: colors.primary }]}>
-                {t.badge}
+            {/* Security Badge & Title */}
+            <View style={styles.titleContainer}>
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor: `${colors.primary}18`,
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+              >
+                <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
+                <Text style={[styles.badgeText, { color: colors.primary }]}>
+                  {t.badge}
+                </Text>
+              </View>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>
+                {t.title}
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                {t.subtitle(localizedAppName)}
               </Text>
             </View>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>
-              {t.title}
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              {t.subtitle(localizedAppName)}
-            </Text>
-          </View>
 
-          {/* Slide to Verify Track */}
-          <View
-            pointerEvents={verified ? 'none' : 'auto'}
-            style={[
-              styles.track,
-              {
-                backgroundColor: verified
-                  ? '#10b98120'
-                  : isDarkMode
-                  ? '#0f172a'
-                  : '#f1f5f9',
-                borderColor: verified ? '#10b981' : colors.border,
-              },
-            ]}
-          >
-            {/* Track background progress fill */}
-            <Animated.View
-              style={[
-                styles.trackFill,
-                {
-                  width: slideAnim.interpolate({
-                    inputRange: [0, MAX_SLIDE],
-                    outputRange: [KNOB_SIZE, TRACK_WIDTH],
-                    extrapolate: 'clamp',
-                  }),
-                  backgroundColor: verified ? '#10b98125' : `${colors.primary}20`,
-                },
-              ]}
+            {/* Slide to Verify Track */}
+            <SlideToVerifyTrack
+              verified={verified}
+              slideAnim={slideAnim}
+              panHandlers={panResponder.panHandlers}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              verifiedText={t.verified}
+              slideActionText={t.slideAction}
             />
 
-            {/* Slider track label */}
-            <Text
-              style={[
-                styles.trackText,
-                {
-                  color: verified
-                    ? '#059669'
-                    : isDarkMode
-                    ? '#94a3b8'
-                    : '#64748b',
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {verified ? t.verified : t.slideAction}
-            </Text>
-
-            {/* Draggable Knob */}
-            <Animated.View
-              {...(verified ? {} : panResponder.panHandlers)}
-              pointerEvents={verified ? 'none' : 'auto'}
-              style={[
-                styles.knob,
-                {
-                  transform: [{ translateX: slideAnim }],
-                  backgroundColor: verified ? '#10b981' : colors.primary,
-                  shadowColor: verified ? '#10b981' : colors.primary,
-                },
-              ]}
-            >
-              <Ionicons
-                name={verified ? 'checkmark' : 'arrow-forward'}
-                size={22}
-                color="#ffffff"
-              />
-            </Animated.View>
-          </View>
-
-          {/* Security note */}
-          <View style={[styles.footerNote, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="lock-closed-outline" size={13} color={colors.textSecondary} />
-            <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-              {t.footerNote}
-            </Text>
-          </View>
+            {/* Security note */}
+            <View style={[styles.footerNote, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="lock-closed-outline" size={13} color={colors.textSecondary} />
+              <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+                {t.footerNote}
+              </Text>
+            </View>
+          </ModuleErrorBoundary>
         </Animated.View>
       </View>
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.72)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 340,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    paddingHorizontal: 22,
-    paddingTop: 24,
-    paddingBottom: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 10,
-    position: 'relative',
-  },
-  closeBtn: {
-    position: 'absolute',
-    top: 14,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  lottieWrapper: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-    overflow: 'hidden',
-  },
-  lottieAnim: {
-    width: 100,
-    height: 100,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  badge: {
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-    paddingHorizontal: 8,
-  },
-  track: {
-    width: TRACK_WIDTH,
-    height: KNOB_SIZE + 8,
-    borderRadius: (KNOB_SIZE + 8) / 2,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  trackFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: (KNOB_SIZE + 8) / 2,
-  },
-  trackText: {
-    position: 'absolute',
-    left: KNOB_SIZE + 10,
-    right: 12,
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  knob: {
-    width: KNOB_SIZE,
-    height: KNOB_SIZE,
-    borderRadius: KNOB_SIZE / 2,
-    marginLeft: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 5,
-    zIndex: 5,
-  },
-  footerNote: {
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 18,
-  },
-  footerText: {
-    fontSize: 10.5,
-    fontWeight: '600',
-  },
-});

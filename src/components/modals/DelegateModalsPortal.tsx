@@ -93,7 +93,7 @@ interface DelegateModalsPortalProps {
   setShowAccidentModal: (visible: boolean) => void;
 }
 
-export const DelegateModalsPortal: React.FC<DelegateModalsPortalProps> = ({
+export const DelegateModalsPortal: React.FC<DelegateModalsPortalProps> = React.memo(({
   employee,
   activeSession,
   colors,
@@ -151,47 +151,53 @@ export const DelegateModalsPortal: React.FC<DelegateModalsPortalProps> = ({
   return (
     <>
       {/* Fullscreen QR Modal */}
-      <ModuleErrorBoundary moduleName="رمز الاستجابة السريعة (QR)" fallback={null}>
-        <QrCodeModal
-          visible={showQrModal}
-          employee={employee}
-          colors={colors}
-          isRTL={isRTL}
-          t={t}
-          onClose={() => setShowQrModal(false)}
-        />
-      </ModuleErrorBoundary>
+      {showQrModal && (
+        <ModuleErrorBoundary moduleName="رمز الاستجابة السريعة (QR)" colors={colors} fallback={null}>
+          <QrCodeModal
+            visible={showQrModal}
+            employee={employee}
+            colors={colors}
+            isRTL={isRTL}
+            t={t}
+            onClose={() => setShowQrModal(false)}
+          />
+        </ModuleErrorBoundary>
+      )}
 
       {/* Language Selector Modal */}
-      <ModuleErrorBoundary moduleName="اختيار اللغة" fallback={null}>
-        <LanguageModal
-          visible={showLangModal}
-          currentLang={lang}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          t={t}
-          onSelectLang={async (newLang) => {
-            await handleSetLanguage(newLang);
-            setShowLangModal(false);
-          }}
-          onClose={() => setShowLangModal(false)}
-        />
-      </ModuleErrorBoundary>
+      {showLangModal && (
+        <ModuleErrorBoundary moduleName="اختيار اللغة" colors={colors} fallback={null}>
+          <LanguageModal
+            visible={showLangModal}
+            currentLang={lang}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            t={t}
+            onSelectLang={async (newLang) => {
+              await handleSetLanguage(newLang);
+              setShowLangModal(false);
+            }}
+            onClose={() => setShowLangModal(false)}
+          />
+        </ModuleErrorBoundary>
+      )}
 
       {/* Photo Preview Lightbox Modal */}
-      <ModuleErrorBoundary moduleName="معاينة الصور" fallback={null}>
-        <ImagePreviewModal
-          previewPhoto={previewPhoto}
-          colors={colors}
-          isRTL={isRTL}
-          onClose={() => setPreviewPhoto(null)}
-        />
-      </ModuleErrorBoundary>
+      {Boolean(previewPhoto) && (
+        <ModuleErrorBoundary moduleName="معاينة الصور" colors={colors} fallback={null}>
+          <ImagePreviewModal
+            previewPhoto={previewPhoto}
+            colors={colors}
+            isRTL={isRTL}
+            onClose={() => setPreviewPhoto(null)}
+          />
+        </ModuleErrorBoundary>
+      )}
 
       {/* Simple Start & End Shift Success Bottom Sheet Modal */}
       {successModalData && (
-        <ModuleErrorBoundary moduleName="تأكيد الشفت" fallback={null}>
+        <ModuleErrorBoundary moduleName="تأكيد الشفت" colors={colors} fallback={null}>
           <SuccessShiftModal
             data={successModalData}
             employee={employee}
@@ -218,127 +224,143 @@ export const DelegateModalsPortal: React.FC<DelegateModalsPortalProps> = ({
       )}
 
       {/* Unified Action Alert & Permissions Bottom Sheet */}
-      <ModuleErrorBoundary moduleName="نافذة التنبيهات" fallback={null}>
-        <ActionAlertBottomSheet
-          config={alertConfig}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          onClose={() => setAlertConfig(null)}
-        />
-      </ModuleErrorBoundary>
+      {Boolean(alertConfig) && (
+        <ModuleErrorBoundary moduleName="نافذة التنبيهات" colors={colors} fallback={null}>
+          <ActionAlertBottomSheet
+            config={alertConfig}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            onClose={() => setAlertConfig(null)}
+          />
+        </ModuleErrorBoundary>
+      )}
 
       {/* Motorcycle Oil Change Alert Bottom Sheet */}
-      <ModuleErrorBoundary moduleName="تنبيه تغيير الزيت" fallback={null}>
-        <OilChangeBottomSheet
-          visible={oilChangeModalState.visible}
-          motorcycleNumber={oilChangeModalState.bikeNumber}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          lang={lang}
-          title={t.oilChangeAlertTitle}
-          message={t.oilChangeAlertMessage}
-          buttonText={t.oilChangeAlertBtn}
-          onClose={() => setOilChangeModalState((prev) => ({ ...prev, visible: false }))}
-        />
-      </ModuleErrorBoundary>
+      {oilChangeModalState.visible && (
+        <ModuleErrorBoundary moduleName="تنبيه تغيير الزيت" colors={colors} fallback={null}>
+          <OilChangeBottomSheet
+            visible={oilChangeModalState.visible}
+            motorcycleNumber={oilChangeModalState.bikeNumber}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            lang={lang}
+            title={t.oilChangeAlertTitle}
+            message={t.oilChangeAlertMessage}
+            buttonText={t.oilChangeAlertBtn}
+            onClose={() => setOilChangeModalState((prev) => ({ ...prev, visible: false }))}
+          />
+        </ModuleErrorBoundary>
+      )}
 
       {/* Modern OTA App Update Bottom Sheet */}
-      <ModuleErrorBoundary moduleName="تحديثات التطبيق" fallback={null}>
-        <AppUpdateBottomSheet
-          visible={updateModalVisible}
-          state={updateState}
-          errorMessage={updateError}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          onApplyUpdate={handleApplyUpdate}
-          onCheckAgain={() => handleCheckForUpdates(true)}
-          onClose={() => setUpdateModalVisible(false)}
-        />
-      </ModuleErrorBoundary>
+      {updateModalVisible && (
+        <ModuleErrorBoundary moduleName="تحديثات التطبيق" colors={colors} fallback={null}>
+          <AppUpdateBottomSheet
+            visible={updateModalVisible}
+            state={updateState}
+            errorMessage={updateError}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            onApplyUpdate={handleApplyUpdate}
+            onCheckAgain={() => handleCheckForUpdates(true)}
+            onClose={() => setUpdateModalVisible(false)}
+          />
+        </ModuleErrorBoundary>
+      )}
 
       {/* Real-time Diagnostics & Crash Tracing Modal */}
-      <ModuleErrorBoundary moduleName="نافذة التشخيص" fallback={null}>
-        <DiagnosticsModal
-          visible={showDiagnosticsModal}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          onClose={() => setShowDiagnosticsModal(false)}
-        />
-      </ModuleErrorBoundary>
+      {showDiagnosticsModal && (
+        <ModuleErrorBoundary moduleName="نافذة التشخيص" colors={colors} fallback={null}>
+          <DiagnosticsModal
+            visible={showDiagnosticsModal}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            onClose={() => setShowDiagnosticsModal(false)}
+          />
+        </ModuleErrorBoundary>
+      )}
 
       {/* Broadcast Announcement & Survey Poll Modal */}
-      <ModuleErrorBoundary moduleName="التعاميم والتصويت" fallback={null}>
-        <BroadcastModal
-          visible={showBroadcastModal}
-          broadcast={activeBroadcast}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          lang={lang}
-          onClose={handleCloseBroadcast}
-          onVote={handleVoteBroadcast}
-          onPreviewImage={(url) => {
-            if (activeBroadcast) {
-              setPreviewPhoto({ url, title: activeBroadcast.title });
-            }
-          }}
-        />
-      </ModuleErrorBoundary>
+      {showBroadcastModal && (
+        <ModuleErrorBoundary moduleName="التعاميم والتصويت" colors={colors} fallback={null}>
+          <BroadcastModal
+            visible={showBroadcastModal}
+            broadcast={activeBroadcast}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            lang={lang}
+            onClose={handleCloseBroadcast}
+            onVote={handleVoteBroadcast}
+            onPreviewImage={(url) => {
+              if (activeBroadcast) {
+                setPreviewPhoto({ url, title: activeBroadcast.title });
+              }
+            }}
+          />
+        </ModuleErrorBoundary>
+      )}
 
       {/* Broadcast History Modal (مركز الإشعارات) */}
-      <ModuleErrorBoundary moduleName="سجل التعاميم" fallback={null}>
-        <BroadcastHistoryModal
-          visible={showBroadcastHistory}
-          broadcasts={allBroadcasts}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          lang={lang}
-          onClose={() => setShowBroadcastHistory(false)}
-          onSelectBroadcast={(item) => {
-            setActiveBroadcast(item);
-            setShowBroadcastHistory(false);
-            setShowBroadcastModal(true);
-          }}
-          onPreviewImage={(url) => setPreviewPhoto({ url, title: 'معاينة صورة التعميم' })}
-          onRefresh={handleRefreshNotificationsHistory}
-          onMarkAllAsRead={handleMarkAllAsRead}
-          loading={loadingBroadcastHistory}
-        />
-      </ModuleErrorBoundary>
+      {showBroadcastHistory && (
+        <ModuleErrorBoundary moduleName="سجل التعاميم" colors={colors} fallback={null}>
+          <BroadcastHistoryModal
+            visible={showBroadcastHistory}
+            broadcasts={allBroadcasts}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            lang={lang}
+            onClose={() => setShowBroadcastHistory(false)}
+            onSelectBroadcast={(item) => {
+              setActiveBroadcast(item);
+              setShowBroadcastHistory(false);
+              setShowBroadcastModal(true);
+            }}
+            onPreviewImage={(url) => setPreviewPhoto({ url, title: 'معاينة صورة التعميم' })}
+            onRefresh={handleRefreshNotificationsHistory}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            loading={loadingBroadcastHistory}
+          />
+        </ModuleErrorBoundary>
+      )}
 
       {/* Smart Saudi Plate Live Scanner Modal */}
-      <ModuleErrorBoundary moduleName="ماسح اللوحات" fallback={null}>
-        <PlateScannerModal
-          visible={showPlateScannerModal}
-          onClose={handleClosePlateScanner}
-          onScanned={handleProcessPlateScan}
-          isProcessing={isScanningPlate}
-          isDarkMode={isDarkMode}
-          lang={lang}
-          t={t}
-          isRTL={isRTL}
-          assignedPlate={employee?.motorcycle_number}
-        />
-      </ModuleErrorBoundary>
+      {showPlateScannerModal && (
+        <ModuleErrorBoundary moduleName="ماسح اللوحات" colors={colors} fallback={null}>
+          <PlateScannerModal
+            visible={showPlateScannerModal}
+            onClose={handleClosePlateScanner}
+            onScanned={handleProcessPlateScan}
+            isProcessing={isScanningPlate}
+            isDarkMode={isDarkMode}
+            lang={lang}
+            t={t}
+            isRTL={isRTL}
+            assignedPlate={employee?.motorcycle_number}
+          />
+        </ModuleErrorBoundary>
+      )}
 
       {/* Emergency Accident Detection Modal (Shake to Report) */}
-      <ModuleErrorBoundary moduleName="تنبيه الحوادث الطارئة" fallback={null}>
-        <AccidentAlertModal
-          visible={showAccidentModal}
-          onClose={() => setShowAccidentModal(false)}
-          employee={employee}
-          activeSession={activeSession}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          isRTL={isRTL}
-          lang={lang}
-        />
-      </ModuleErrorBoundary>
+      {showAccidentModal && (
+        <ModuleErrorBoundary moduleName="تنبيه الحوادث الطارئة" colors={colors} fallback={null}>
+          <AccidentAlertModal
+            visible={showAccidentModal}
+            onClose={() => setShowAccidentModal(false)}
+            employee={employee}
+            activeSession={activeSession}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            lang={lang}
+          />
+        </ModuleErrorBoundary>
+      )}
     </>
   );
-};
+});

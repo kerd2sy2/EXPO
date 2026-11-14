@@ -9,19 +9,21 @@ import {
 } from '../../types/delegate';
 import { workApi } from '../../services/work';
 import {
-  apiRequest,
   setAuthToken,
-  getStoredToken,
   loadStoredToken,
   getCachedUser,
   saveCachedUser,
-  isBiometricEnabled,
-  saveLastCredentialsForBiometrics,
   onSessionExpired,
 } from '../../services/api';
 import { AlertModalConfig } from '../../components/modals/ActionAlertBottomSheet';
 import { shiftSessionService } from '../shift/services/shiftSessionService';
 import { analytics } from '../../services/analytics';
+import {
+  isAdminOrSupervisorRole,
+  hasManadeebAppPermission,
+  mergeEmployeeProfile,
+} from './authProfileHelpers';
+import { createAuthLoginHandlers } from './authLoginHandlers';
 
 interface UseAuthSessionParams {
   lang: Language;
@@ -43,7 +45,6 @@ export function useAuthSession({
   currentTab,
   setCurrentTab,
   setAlertConfig,
-  setEnteredMotorcycle,
   setOrdersCount,
   isTakingPhotoRef,
   fetchViolations,
@@ -84,7 +85,6 @@ export function useAuthSession({
         } else if (result.status === 'INACTIVE') {
           setActiveSession(null);
         }
-        // If result.status === 'NETWORK_ERROR', keep current/cached activeSession untouched!
       } catch (err) {
         console.log('Error syncing active session:', err);
       } finally {
@@ -121,7 +121,6 @@ export function useAuthSession({
           return;
         }
 
-        // Load cached user, cached active session, and history together before first render
         const [cached, cachedActive, rawHistory] = await Promise.all([
           getCachedUser(),
           shiftSessionService.getCachedActiveSession(),
@@ -129,12 +128,7 @@ export function useAuthSession({
         ]);
 
         if (cached) {
-          if (
-            cached.is_admin ||
-            cached.role === 'ADMIN' ||
-            cached.role === 'SUPERVISOR' ||
-            cached.role === 'SUPER_ADMIN'
-          ) {
+          if (isAdminOrSupervisorRole(cached)) {
             await setAuthToken(null);
             await saveCachedUser(null);
             setEmployee(null);
@@ -145,8 +139,6 @@ export function useAuthSession({
 
           if (cached.id) {
             setEmployee(cached);
-
-            // Restore cached active shift into state immediately
             if (
               cachedActive &&
               (!cachedActive.employee_id || cachedActive.employee_id === cached.id)
@@ -155,7 +147,6 @@ export function useAuthSession({
             }
 
             if (!isSilentBackground) {
-              // Keep full Home Screen Skeleton visible during initial server verification
               setIsSessionSyncing(true);
               setTimeout(() => {
                 setIsSessionSyncing(false);
@@ -173,8 +164,6 @@ export function useAuthSession({
             }
 
             setLoading(false);
-
-            // Sync active shift session with server
             fetchActiveSession(cached.id);
 
             if (!isSilentBackground) {
@@ -184,7 +173,6 @@ export function useAuthSession({
           }
         }
 
-        // Silent background profile & permission verification
         workApi
           .getMe()
           .then(async (user) => {
@@ -196,12 +184,7 @@ export function useAuthSession({
               return;
             }
 
-            if (
-              (user as any).is_admin ||
-              (user as any).role === 'ADMIN' ||
-              (user as any).role === 'SUPERVISOR' ||
-              (user as any).role === 'SUPER_ADMIN'
-            ) {
+            if (isAdminOrSupervisorRole(user)) {
               await setAuthToken(null);
               await saveCachedUser(null);
               setEmployee(null);
@@ -210,16 +193,7 @@ export function useAuthSession({
             }
 
             if (user.id) {
-              const anyUser = user as any;
-              const perms = Array.isArray(anyUser.permissions) ? anyUser.permissions : [];
-              const hasManadeebAccess =
-                anyUser.app_permissions?.manadeeb === true ||
-                perms.includes('*') ||
-                perms.includes('apps.manadeeb') ||
-                perms.includes('app.manadeeb') ||
-                perms.length === 0;
-
-              if (!hasManadeebAccess || anyUser.app_permissions?.manadeeb === false) {
+              if (!hasManadeebAppPermission(user)) {
                 await setAuthToken(null);
                 await saveCachedUser(null);
                 setEmployee(null);
@@ -233,26 +207,10 @@ export function useAuthSession({
                 return;
               }
 
-              const merged: EmployeeProfile = {
-                ...(cached || {}),
-                ...user,
-                motorcycle_number: user.motorcycle_number || '',
-                key_number: user.key_number || '',
-                national_id: user.national_id || '',
-                personal_image: user.personal_image || '',
-                national_id_image: user.national_id_image || '',
-                driving_license_image: user.driving_license_image || '',
-                passport_image: user.passport_image || '',
-                vehicle_registration_image: user.vehicle_registration_image || '',
-                employee_number: user.employee_number || '',
-                phone: user.phone || '',
-                branch_name: user.branch_name || '',
-              } as EmployeeProfile;
-
+              const merged = mergeEmployeeProfile(cached, user);
               setEmployee(merged);
               await saveCachedUser(merged);
 
-              // Only re-fetch if we didn't already have a cached user id
               if (!cached?.id) {
                 fetchActiveSession(merged.id);
                 fetchHistory(merged.id);
@@ -286,7 +244,6 @@ export function useAuthSession({
     [fetchActiveSession, fetchHistory, fetchViolations, setAlertConfig]
   );
 
-  // Foreground resume & heartbeat sync
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
@@ -319,7 +276,6 @@ export function useAuthSession({
     };
   }, [employee?.id, Boolean(activeSession), fetchActiveSession, isTakingPhotoRef]);
 
-  // Listen for unrecoverable session expiry
   useEffect(() => {
     const unsub = onSessionExpired(() => {
       setAlertConfig({
@@ -346,7 +302,6 @@ export function useAuthSession({
     return unsub;
   }, [lang, setAlertConfig, setCurrentTab]);
 
-  // Identify employee in analytics
   useEffect(() => {
     if (employee?.id) {
       analytics.identify(employee.id, {
@@ -358,7 +313,6 @@ export function useAuthSession({
     }
   }, [employee?.id]);
 
-  // Auto-refresh profile when opening Profile tab
   useEffect(() => {
     if (currentTab === 'profile' && employee?.id) {
       workApi
@@ -384,7 +338,7 @@ export function useAuthSession({
     try {
       if (employee && employee.id) {
         await Promise.all([
-          workApi.getMe().then((u) => {
+          workApi.getMe(true).then((u) => {
             if (u) {
               const updated = {
                 ...(u as EmployeeProfile),
@@ -408,259 +362,23 @@ export function useAuthSession({
     }
   }, [employee, fetchActiveSession, fetchHistory, fetchViolations, checkSession]);
 
-  const handleLogin = async (rawPhone?: string, rawPass?: string) => {
-    const inputVal = (rawPhone || '').trim();
-    if (!inputVal) {
-      const msg = t.phoneRequired || (lang === 'ar' ? 'يرجى إدخال رقم الهاتف' : 'Phone number is required');
-      setLoginError(msg);
-      throw new Error(msg);
-    }
-
-    const password = (rawPass || '').trim();
-    if (!password) {
-      const msg = t.passwordRequired || (lang === 'ar' ? 'يرجى إدخال كلمة المرور' : 'Password is required');
-      setLoginError(msg);
-      throw new Error(msg);
-    }
-
-    setSubmitting(true);
-    setLoginError('');
-    try {
-      const res = await workApi.login(inputVal, password);
-
-      const isActualAdmin = Boolean(
-        res &&
-          res.admin &&
-          (res.admin.role === 'ADMIN' ||
-            res.admin.role === 'SUPER_ADMIN' ||
-            res.admin.role === 'SUPERVISOR')
-      );
-
-      if (isActualAdmin) {
-        const errorMsg =
-          lang === 'ar'
-            ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة'
-            : 'You do not have permission to access the app. Please contact administration.';
-        setLoginError(errorMsg);
-        await setAuthToken(null);
-        await saveCachedUser(null);
-        setEmployee(null);
-        throw new Error(errorMsg);
-      } else if (res && (res.employee || res.is_employee || (res as any).id)) {
-        const emp = (res.employee || res) as EmployeeProfile;
-
-        const cachedSession = await shiftSessionService.getCachedActiveSession(emp.id);
-        if (cachedSession) {
-          setActiveSession(cachedSession);
-          setTimeout(() => {
-            setIsSessionSyncing(false);
-          }, 1200);
-        }
-        setIsSessionSyncing(true);
-
-        if (res.access_token) {
-          await setAuthToken(res.access_token, res.refresh_token || res.access_token);
-          const bioOn = await isBiometricEnabled();
-          if (bioOn && emp.national_id) {
-            await saveLastCredentialsForBiometrics(
-              emp.national_id,
-              res.access_token,
-              emp,
-              res.refresh_token || res.access_token
-            );
-          }
-        }
-        await saveCachedUser(emp);
-        setEmployee(emp);
-        setCurrentTab('home');
-
-        workApi
-          .getMe()
-          .then(async (fresh) => {
-            if (fresh && fresh.id) {
-              setEmployee(
-                (prev) =>
-                  ({
-                    ...(prev || {}),
-                    ...fresh,
-                    personal_image: fresh.personal_image || prev?.personal_image || '',
-                    motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
-                    key_number: fresh.key_number || prev?.key_number || '',
-                    national_id: fresh.national_id || prev?.national_id || '',
-                    phone: fresh.phone || prev?.phone || '',
-                    branch_name: fresh.branch_name || prev?.branch_name || '',
-                  }) as EmployeeProfile
-              );
-              const bioOn = await isBiometricEnabled();
-              if (bioOn && res.access_token && fresh.national_id) {
-                saveLastCredentialsForBiometrics(
-                  fresh.national_id,
-                  res.access_token,
-                  fresh,
-                  res.refresh_token
-                );
-              }
-            }
-          })
-          .catch((e) => console.log('Notice refreshing profile on Login:', e));
-
-        fetchActiveSession(emp.id).catch(() => {});
-        fetchHistory(emp.id).catch(() => {});
-      } else {
-        const errorMsg =
-          t.passwordHint ||
-          (lang === 'ar'
-            ? 'بيانات الدخول غير صحيحة، يرجى التأكد من كلمة المرور'
-            : 'Invalid login credentials');
-        setLoginError(errorMsg);
-        throw new Error(errorMsg);
-      }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      let errorMsg =
-        err?.message ||
-        (lang === 'ar' ? 'تعذر تسجيل الدخول، تأكد من صحة البيانات' : 'Failed to log in');
-      if (
-        errorMsg.includes('صلاحية') ||
-        errorMsg.includes('مخصص') ||
-        errorMsg.toLowerCase().includes('permission') ||
-        errorMsg.toLowerCase().includes('access')
-      ) {
-        errorMsg =
-          lang === 'ar'
-            ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة'
-            : 'You do not have permission to access the app. Please contact administration.';
-      }
-      setLoginError(errorMsg);
-      throw new Error(errorMsg);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleOtpSuccess = async (loginResp?: any) => {
-    const token = loginResp?.access_token || loginResp?.token;
-    if (token) {
-      await setAuthToken(token, loginResp?.refresh_token || token);
-    }
-
-    const isActualAdmin = Boolean(
-      loginResp &&
-        loginResp.admin &&
-        (loginResp.admin.role === 'ADMIN' ||
-          loginResp.admin.role === 'SUPER_ADMIN' ||
-          loginResp.admin.role === 'SUPERVISOR')
-    );
-
-    if (isActualAdmin) {
-      const errorMsg =
-        lang === 'ar'
-          ? 'ليس لديك صلاحية الدخول إلى التطبيق، يرجى مراجعة الإدارة'
-          : 'You do not have permission to access the app. Please contact administration.';
-      setLoginError(errorMsg);
-      await setAuthToken(null);
-      await saveCachedUser(null);
-      setEmployee(null);
-      throw new Error(errorMsg);
-    }
-
-    let emp = loginResp?.employee || (loginResp?.id ? loginResp : null);
-    if (!emp) {
-      try {
-        const fresh = await workApi.getMe();
-        if (fresh && fresh.id) {
-          emp = fresh;
-        }
-      } catch (e) {
-        console.log('Notice getting fresh me:', e);
-      }
-    }
-
-    if (emp && emp.id) {
-      const cachedSession = await shiftSessionService.getCachedActiveSession(emp.id);
-      if (cachedSession) {
-        setActiveSession(cachedSession);
-        setTimeout(() => {
-          setIsSessionSyncing(false);
-        }, 1200);
-      }
-      setIsSessionSyncing(true);
-
-      setEmployee(emp);
-      await saveCachedUser(emp);
-      setCurrentTab('home');
-
-      workApi
-        .getMe()
-        .then(async (fresh) => {
-          if (fresh && fresh.id) {
-            setEmployee(
-              (prev) =>
-                ({
-                  ...(prev || {}),
-                  ...fresh,
-                  personal_image: fresh.personal_image || prev?.personal_image || '',
-                  motorcycle_number: fresh.motorcycle_number || prev?.motorcycle_number || '',
-                  key_number: fresh.key_number || prev?.key_number || '',
-                  national_id: fresh.national_id || prev?.national_id || '',
-                  phone: fresh.phone || prev?.phone || '',
-                  branch_name: fresh.branch_name || prev?.branch_name || '',
-                }) as EmployeeProfile
-            );
-            const bioOn = await isBiometricEnabled();
-            const curTok = loginResp?.access_token || getStoredToken();
-            if (bioOn && curTok && fresh.national_id) {
-              saveLastCredentialsForBiometrics(
-                fresh.national_id,
-                curTok,
-                fresh,
-                loginResp?.refresh_token
-              );
-            }
-          }
-        })
-        .catch((e) => console.log('Notice refreshing profile on OTP/Bio:', e));
-
-      fetchActiveSession(emp.id).catch(() => {});
-      fetchHistory(emp.id).catch(() => {});
-    } else {
-      await checkSession();
-      setCurrentTab('home');
-    }
-  };
-
-  const handleLogout = async () => {
-    setAlertConfig({
-      type: 'confirm',
-      title: t.logout,
-      message:
-        lang === 'ar'
-          ? 'هل أنت متأكد من رغبتك في تسجيل الخروج من التطبيق؟'
-          : 'Are you sure you want to log out from the app?',
-      primaryButtonText: t.logout,
-      secondaryButtonText: isRTL ? 'إلغاء' : 'Cancel',
-      onPrimaryPress: async () => {
-        try {
-          if (employee?.id) {
-            await apiRequest(`/employees/me/push-token?employee_id=${employee.id}`, {
-              method: 'POST',
-              body: JSON.stringify({ push_token: '' }),
-              timeoutMs: 3000,
-            }).catch(() => {});
-          }
-          await setAuthToken(null);
-          await saveCachedUser(null);
-          await shiftSessionService.confirmShiftEnded();
-        } catch (e) {
-          console.log('Logout error', e);
-        }
-        setEmployee(null);
-        setActiveSession(null);
-        setHistorySessions([]);
-        setCurrentTab('home');
-      },
-    });
-  };
+  const { handleLogin, handleOtpSuccess, handleLogout } = createAuthLoginHandlers({
+    lang,
+    isRTL,
+    t,
+    employee,
+    setEmployee,
+    setSubmitting,
+    setLoginError,
+    setActiveSession,
+    setIsSessionSyncing,
+    setHistorySessions,
+    setCurrentTab,
+    setAlertConfig,
+    fetchActiveSession,
+    fetchHistory,
+    checkSession,
+  });
 
   return {
     employee,
@@ -689,4 +407,3 @@ export function useAuthSession({
     handleLogout,
   };
 }
-

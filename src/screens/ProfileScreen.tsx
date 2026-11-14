@@ -1,43 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-  StyleSheet,
-  Dimensions,
-  Animated,
-  PanResponder,
-  ActivityIndicator,
-  Alert,
-  Switch,
-  ScrollView,
-  Platform,
-  Modal,
-} from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { EmployeeProfile, WorkSession, Language, ThemeColors, PreviewPhotoData } from '../types/delegate';
 import { ActionAlertBottomSheet, AlertModalConfig } from '../components/modals/ActionAlertBottomSheet';
 import { ChangePasswordModal } from '../components/modals/ChangePasswordModal';
 import { AddPhoneBottomSheet } from '../components/modals/AddPhoneBottomSheet';
+import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 import { formatBranchName } from '../utils/branchUtils';
 import { formatBikePlateForDisplay } from '../utils/plateUtils';
 import { workApi } from '../services/work';
 import {
-  API_BASE_URL,
-  getTrustedDevicesList,
-  revokeTrustedDevice,
-  TrustedDeviceItem,
   isBiometricEnabled,
   setBiometricEnabled,
   saveLastCredentialsForBiometrics,
   getStoredToken,
   loadStoredToken,
 } from '../services/api';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.22;
+import { profileScreenStyles as styles } from './profile/profileScreenStyles';
+import { ProfileDocumentsDeck } from './profile/ProfileDocumentsDeck';
+import { ProfileSettingsCard } from './profile/ProfileSettingsCard';
+import { ProfilePhoneSuccessModal } from './profile/ProfilePhoneSuccessModal';
 
 interface ProfileScreenProps {
   employee: EmployeeProfile;
@@ -60,7 +43,7 @@ interface ProfileScreenProps {
   t: any;
 }
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({
+export const ProfileScreen: React.FC<ProfileScreenProps> = React.memo(({
   employee,
   activeSession,
   activeBikeRegistrationImage,
@@ -93,7 +76,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
     const bike = activeSession?.motorcycle_number || currentEmp.motorcycle_number;
     if (bike && currentEmp.id) {
-      workApi.getLastKM(currentEmp.id, bike)
+      workApi
+        .getLastKM(currentEmp.id, bike)
         .then((res) => {
           if (res?.registration_image) {
             setVehicleRegImage(res.registration_image);
@@ -101,19 +85,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         })
         .catch(() => {});
     }
-  }, [activeBikeRegistrationImage, currentEmp.vehicle_registration_image, currentEmp.motorcycle_number, activeSession?.motorcycle_number, currentEmp.id]);
+  }, [
+    activeBikeRegistrationImage,
+    currentEmp.vehicle_registration_image,
+    currentEmp.motorcycle_number,
+    activeSession?.motorcycle_number,
+    currentEmp.id,
+  ]);
 
   useEffect(() => {
     setCurrentEmp(employee);
   }, [employee]);
 
-  // Trusted Devices State & Management
-  const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceItem[]>([]);
-  const [loadingDevices, setLoadingDevices] = useState(false);
   const [alertConfig, setAlertConfig] = useState<AlertModalConfig | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-
-  // Phone Saved Success Bottom Sheet (Smooth, no dark screen)
   const [showPhoneSuccessSheet, setShowPhoneSuccessSheet] = useState(false);
   const successSheetTranslateY = useRef(new Animated.Value(350)).current;
   const successSheetTimerRef = useRef<any>(null);
@@ -144,45 +129,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     });
   };
 
-  const loadDevices = async () => {
-    if (currentEmp?.national_id) {
-      setLoadingDevices(true);
-      try {
-        const devs = await getTrustedDevicesList(employee.national_id);
-        setTrustedDevices(devs);
-      } catch (e) {
-        console.log('Error loading trusted devices:', e);
-      } finally {
-        setLoadingDevices(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    loadDevices();
-  }, [employee?.national_id]);
-
-  const confirmRevokeDevice = (device: TrustedDeviceItem) => {
-    setAlertConfig({
-      type: 'confirm',
-      title: t.revokeDeviceTitle || (isRTL ? 'إزالة توثيق الجهاز' : 'Remove Trusted Device'),
-      message: t.revokeDeviceMsg
-        ? t.revokeDeviceMsg.replace('{name}', device.name)
-        : (isRTL
-            ? `هل أنت متأكد من رغبتك في حذف توثيق (${device.name})؟\nسيتطلب تسجيل الدخول القادم رمز تحقق OTP جديد من المشرف.`
-            : `Are you sure you want to revoke trust for (${device.name})?\nNext login will require a new supervisor OTP.`),
-      primaryButtonText: t.revokeDeviceBtn || (isRTL ? 'إزالة التوثيق' : 'Revoke'),
-      secondaryButtonText: t.cancelBtn || (isRTL ? 'إلغاء' : 'Cancel'),
-      onPrimaryPress: async () => {
-        if (employee?.national_id) {
-          await revokeTrustedDevice(employee.national_id, device.uuid);
-          await loadDevices();
-        }
-      },
-    });
-  };
-
-  // Biometric Management in Profile
   const [biometricsAvailable, setBiometricsAvailable] = useState(false);
   const [biometricsOn, setBiometricsOn] = useState(false);
 
@@ -207,7 +153,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (val) {
       try {
         const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: t.biometricConfirmTitle || (isRTL ? 'تأكيد البصمة لتفعيل الدخول السريع' : 'Confirm Biometrics to Enable'),
+          promptMessage:
+            t.biometricConfirmTitle ||
+            (isRTL ? 'تأكيد البصمة لتفعيل الدخول السريع' : 'Confirm Biometrics to Enable'),
           cancelLabel: t.cancelBtn || (isRTL ? 'إلغاء' : 'Cancel'),
           disableDeviceFallback: false,
         });
@@ -221,9 +169,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           setAlertConfig({
             type: 'info',
             title: t.biometricEnabledTitle || (isRTL ? 'تم التفعيل بنجاح' : 'Enabled Successfully'),
-            message: t.biometricEnabledMsg || (isRTL
-              ? 'تم تفعيل الدخول بالبصمة بنجاح لهذا الجهاز.'
-              : 'Biometric login has been activated on this device.'),
+            message:
+              t.biometricEnabledMsg ||
+              (isRTL
+                ? 'تم تفعيل الدخول بالبصمة بنجاح لهذا الجهاز.'
+                : 'Biometric login has been activated on this device.'),
             primaryButtonText: t.okBtn || (isRTL ? 'حسناً' : 'OK'),
           });
         }
@@ -236,25 +186,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   };
 
-  // Format document URLs if stored as relative path
-  const formatDocUrl = (url?: string) => {
-    if (!url) return null;
-    if (url.startsWith('http') || url.startsWith('data:')) return url;
-    const cleanUrl = url.replace(/^\/+/, '');
-    if (cleanUrl.startsWith('uploads/')) {
-      return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/${cleanUrl}`;
-    }
-    return `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/uploads/${cleanUrl}`;
-  };
-
   const rawActiveBike = activeSession?.motorcycle_number || currentEmp.motorcycle_number;
   const activeBikeNumber = formatBikePlateForDisplay(rawActiveBike, lang);
-  const currentVehicleRegImage = vehicleRegImage || activeBikeRegistrationImage || currentEmp.vehicle_registration_image;
-
-  const nationalIdPhotoUrl = formatDocUrl(currentEmp.national_id_image);
-  const drivingLicensePhotoUrl = formatDocUrl(currentEmp.driving_license_image);
-  const vehicleRegPhotoUrl = formatDocUrl(currentVehicleRegImage);
-  const passportPhotoUrl = formatDocUrl(currentEmp.passport_image);
+  const currentVehicleRegImage =
+    vehicleRegImage || activeBikeRegistrationImage || currentEmp.vehicle_registration_image;
 
   const rawPhone = (
     currentEmp.phone ||
@@ -263,153 +198,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     ''
   ).trim();
   const hasPhone = Boolean(rawPhone && rawPhone !== '' && rawPhone !== '—');
-
-  // 4 Documents Deck in exact order
-  const allDocuments = [
-    {
-      id: 'national_id',
-      title: t.idAndIqamaPhoto || 'صورة الهوية / الإقامة',
-      shortTitle: t.idAndIqamaPhoto || (isRTL ? 'الهوية الوطنية / الإقامة' : 'National ID / Iqama'),
-      icon: 'card-outline' as const,
-      iconFamily: 'ion',
-      accentColor: '#3b82f6',
-      badgeColor: 'rgba(59, 130, 246, 0.15)',
-      url: nationalIdPhotoUrl,
-    },
-    {
-      id: 'driving_license',
-      title: t.drivingLicensePhoto || 'صورة رخصة القيادة',
-      shortTitle: t.drivingLicensePhoto || (isRTL ? 'رخصة القيادة' : 'Driving License'),
-      icon: 'card-account-details-outline' as const,
-      iconFamily: 'material',
-      accentColor: '#10b981',
-      badgeColor: 'rgba(16, 185, 129, 0.15)',
-      url: drivingLicensePhotoUrl,
-    },
-    {
-      id: 'vehicle_registration',
-      title: activeBikeNumber
-        ? `${t.vehicleRegistrationPhoto || 'صورة استمارة الدباب'} (${activeBikeNumber})`
-        : (t.vehicleRegistrationPhoto || 'صورة رخصة الدباب (الاستمارة)'),
-      shortTitle: activeBikeNumber
-        ? `${t.vehicleRegistrationPhoto || 'استمارة'} (${activeBikeNumber})`
-        : (t.vehicleRegistrationPhoto || 'رخصة الدباب'),
-      icon: 'file-document-outline' as const,
-      iconFamily: 'material',
-      accentColor: '#f59e0b',
-      badgeColor: 'rgba(245, 158, 11, 0.15)',
-      url: vehicleRegPhotoUrl,
-    },
-    {
-      id: 'passport',
-      title: t.passportPhoto || 'صورة جواز السفر',
-      shortTitle: t.passportPhoto || (isRTL ? 'جواز السفر' : 'Passport'),
-      icon: 'passport' as const,
-      iconFamily: 'material',
-      accentColor: '#8b5cf6',
-      badgeColor: 'rgba(139, 92, 246, 0.15)',
-      url: passportPhotoUrl,
-    },
-  ];
-
-  // Only keep documents that have an uploaded photo / URL
-  const documents = allDocuments.filter((doc) => Boolean(doc.url));
-
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const position = useRef(new Animated.ValueXY()).current;
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gesture) => {
-        const isHorizontal = Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy);
-        if (isHorizontal) {
-          setParentScrollEnabled?.(false);
-        }
-        return isHorizontal;
-      },
-      onMoveShouldSetPanResponderCapture: (_, gesture) => {
-        const isHorizontal = Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2;
-        if (isHorizontal) {
-          setParentScrollEnabled?.(false);
-        }
-        return isHorizontal;
-      },
-      onPanResponderGrant: () => {
-        setParentScrollEnabled?.(false);
-      },
-      onPanResponderMove: (_, gesture) => {
-        position.setValue({ x: gesture.dx, y: gesture.dy * 0.08 });
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD) {
-          forceSwipe('right');
-        } else if (gesture.dx < -SWIPE_THRESHOLD) {
-          forceSwipe('left');
-        } else {
-          resetPosition();
-        }
-      },
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderTerminate: () => {
-        setParentScrollEnabled?.(true);
-        resetPosition();
-      },
-    })
-  ).current;
-
-  const forceSwipe = (direction: 'right' | 'left') => {
-    const x = direction === 'right' ? SCREEN_WIDTH + 80 : -SCREEN_WIDTH - 80;
-    Animated.timing(position, {
-      toValue: { x, y: 15 },
-      duration: 200,
-      useNativeDriver: false,
-    }).start(() => {
-      setParentScrollEnabled?.(true);
-      onSwipeComplete(direction);
-    });
-  };
-
-  const onSwipeComplete = (direction: 'right' | 'left') => {
-    position.setValue({ x: 0, y: 0 });
-    if (documents.length > 0) {
-      if (direction === 'left') {
-        setCurrentIndex((prev) => (prev + 1) % documents.length);
-      } else {
-        setCurrentIndex((prev) => (prev - 1 + documents.length) % documents.length);
-      }
-    }
-  };
-
-  const resetPosition = () => {
-    Animated.spring(position, {
-      toValue: { x: 0, y: 0 },
-      friction: 6,
-      tension: 45,
-      useNativeDriver: false,
-    }).start(() => {
-      setParentScrollEnabled?.(true);
-    });
-  };
-
-  const rotate = position.x.interpolate({
-    inputRange: [-SCREEN_WIDTH * 1.5, 0, SCREEN_WIDTH * 1.5],
-    outputRange: ['-22deg', '0deg', '22deg'],
-  });
-
-  const cardStyle: any = {
-    transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }],
-  };
-
-  const handleCardPress = (doc: (typeof allDocuments)[0]) => {
-    if (doc.url) {
-      onPreviewPhoto({
-        url: doc.url,
-        title: doc.title,
-        rotate: true,
-      });
-    }
-  };
 
   const tapCountRef = useRef(0);
   const lastTapRef = useRef(0);
@@ -420,9 +208,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       tapCountRef.current += 1;
       if (tapCountRef.current >= 3) {
         tapCountRef.current = 0;
-        if (onOpenDiagnostics) {
-          onOpenDiagnostics();
-        }
+        onOpenDiagnostics?.();
       }
     } else {
       tapCountRef.current = 1;
@@ -432,796 +218,176 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   return (
     <View style={styles.tabContainer}>
-      {/* Profile Header Card */}
-      <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.profileAvatarSection}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={handleAvatarTap}
-            style={[styles.profileAvatar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
-          >
-            {empPhotoUrl ? (
-              <Image source={{ uri: empPhotoUrl }} style={styles.profileAvatarImg} />
-            ) : (
-              <Ionicons name="person" size={44} color={colors.primary} />
-            )}
-          </TouchableOpacity>
-          <Text style={[styles.profileName, { color: colors.textPrimary }]}>{currentEmp.name}</Text>
-        </View>
-
-        {/* Info Rows */}
-        <View style={[styles.profileInfoList, { borderTopColor: colors.border }]}>
-          {/* National ID */}
-          <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Ionicons name="card-outline" size={15} color={colors.textSecondary} />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t.nationalId}</Text>
-            </View>
-            <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{currentEmp.national_id || '—'}</Text>
+      <ModuleErrorBoundary moduleName="بطاقة الملف الشخصي" colors={colors}>
+        <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.profileAvatarSection}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleAvatarTap}
+              style={[
+                styles.profileAvatar,
+                { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+              ]}
+            >
+              {empPhotoUrl ? (
+                <Image source={{ uri: empPhotoUrl }} style={styles.profileAvatarImg} />
+              ) : (
+                <Ionicons name="person" size={44} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+            <Text style={[styles.profileName, { color: colors.textPrimary }]}>{currentEmp.name}</Text>
           </View>
 
-          {/* Phone Number */}
-          <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Ionicons name="call-outline" size={15} color={colors.textSecondary} />
-              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                {t.phoneNumber || (isRTL ? 'رقم الهاتف' : 'Phone Number')}
-              </Text>
-            </View>
-
-            {hasPhone ? (
-              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
-                {rawPhone}
-              </Text>
-            ) : (
-              <TouchableOpacity
-                style={[
-                  styles.addPhoneBadgeBtn,
-                  {
-                    backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5',
-                    borderColor: '#10b981',
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
-                  },
-                ]}
-                onPress={() => setShowAddPhoneModal(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add-circle" size={16} color="#10b981" />
-                <Text style={styles.addPhoneBadgeText}>
-                  {t.addPhone || (isRTL ? 'إضافة رقم' : 'Add Phone')}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Branch (if available) */}
-          {currentEmp.branch_name && (
+          <View style={[styles.profileInfoList, { borderTopColor: colors.border }]}>
             <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Ionicons name="business-outline" size={15} color={colors.textSecondary} />
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t.branch}</Text>
+                <Ionicons name="card-outline" size={15} color={colors.textSecondary} />
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t.nationalId}</Text>
               </View>
               <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
-                {formatBranchName(currentEmp.branch_name, lang)}
+                {currentEmp.national_id || '—'}
               </Text>
             </View>
-          )}
-        </View>
-      </View>
 
-      {/* Official Documents Section (Native Smooth Horizontal Carousel) */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        {/* Header */}
-        <View style={[styles.sectionHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.titleGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="documents-outline" size={20} color={colors.primary} />
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              {t.officialDocuments || 'الوثائق والمستندات الرسمية'}
-            </Text>
-          </View>
-
-          <View style={[styles.counterBadge, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-            <Text style={[styles.counterBadgeText, { color: colors.primaryText }]}>
-              {documents.length > 0 ? `${currentIndex + 1} / ${documents.length}` : '0 / 0'}
-            </Text>
-          </View>
-        </View>
-
-        {documents.length > 0 ? (
-          <>
-            {/* 3D Flying Stack Deck Area */}
-            <View style={styles.deckContainer}>
-              {(() => {
-                const deckItems = [];
-                const total = documents.length;
-                const maxStack = Math.min(total, 3);
-                for (let i = 0; i < maxStack; i++) {
-                  const docIdx = (currentIndex + i) % total;
-                  deckItems.push({
-                    doc: documents[docIdx],
-                    depthIndex: i,
-                    isFront: i === 0,
-                  });
-                }
-                return deckItems.reverse().map((item) => {
-                  if (item.isFront) {
-                    return (
-                      <Animated.View
-                        key={`front-${item.doc.id}`}
-                        {...panResponder.panHandlers}
-                        style={[
-                          styles.flyingCard,
-                          cardStyle,
-                          {
-                            backgroundColor: colors.card,
-                            zIndex: 20,
-                          },
-                        ]}
-                      >
-                        <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                          <View style={[styles.cardIconBadge, { backgroundColor: item.doc.badgeColor }]}>
-                            {item.doc.iconFamily === 'ion' ? (
-                              <Ionicons name={item.doc.icon as any} size={20} color={item.doc.accentColor} />
-                            ) : (
-                              <MaterialCommunityIcons name={item.doc.icon as any} size={20} color={item.doc.accentColor} />
-                            )}
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text
-                              style={[
-                                styles.cardDocTitle,
-                                { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {item.doc.title}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          onPress={() => handleCardPress(item.doc)}
-                          style={styles.cardDirectImageTouch}
-                        >
-                          <Image
-                            source={{ uri: item.doc.url! }}
-                            style={styles.cardDirectImage}
-                            resizeMode="cover"
-                          />
-                        </TouchableOpacity>
-                      </Animated.View>
-                    );
-                  }
-
-                  const scale = 1 - item.depthIndex * 0.04;
-                  const translateY = item.depthIndex * 12;
-                  const opacity = 1 - item.depthIndex * 0.22;
-
-                  return (
-                    <View
-                      key={`stack-${item.doc.id}-${item.depthIndex}`}
-                      style={[
-                        styles.flyingCard,
-                        styles.backgroundDeckCard,
-                        {
-                          backgroundColor: colors.card,
-                          transform: [{ translateY }, { scale }],
-                          opacity,
-                          zIndex: 10 - item.depthIndex,
-                        },
-                      ]}
-                    >
-                      <View style={[styles.cardAccentBar, { backgroundColor: item.doc.accentColor }]} />
-                      <View style={[styles.cardHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                        <View style={[styles.cardIconBadge, { backgroundColor: item.doc.badgeColor }]}>
-                          {item.doc.iconFamily === 'ion' ? (
-                            <Ionicons name={item.doc.icon as any} size={18} color={item.doc.accentColor} />
-                          ) : (
-                            <MaterialCommunityIcons name={item.doc.icon as any} size={18} color={item.doc.accentColor} />
-                          )}
-                        </View>
-                        <Text
-                          style={[
-                            styles.cardDocTitle,
-                            { color: colors.textPrimary, textAlign: isRTL ? 'right' : 'left' },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.doc.title}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                });
-              })()}
-            </View>
-          </>
-        ) : (
-          <View style={[styles.cardEmptyPlaceholder, { borderColor: colors.border, height: 140, marginTop: 8 }]}>
-            <Ionicons name="document-text-outline" size={32} color={colors.textSecondary} />
-            <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
-              {t.noDocumentPhoto || 'لا توجد وثائق مرفقة حالياً'}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Language & Settings Box */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 12, textAlign: isRTL ? 'right' : 'left' }]}>
-          {t.appSettings}
-        </Text>
-
-        <TouchableOpacity
-          style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          onPress={onOpenLangModal}
-        >
-          <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="globe-outline" size={20} color={colors.primary} />
-            <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-              {t.language}
-            </Text>
-          </View>
-          <Text style={[styles.settingRowVal, { color: colors.primary }]}>
-            {lang === 'ar' ? 'العربية' : lang === 'en' ? 'English' : lang === 'bn' ? 'বাংলা' : 'اردو'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Theme Mode Toggle (الوضع الفاتح / المظلم) */}
-        {onToggleTheme && (
-          <View
-            style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          >
-            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Ionicons
-                name={isDarkMode ? 'moon-outline' : 'sunny-outline'}
-                size={20}
-                color={isDarkMode ? '#fbbf24' : '#f59e0b'}
-              />
-              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                  {t.appTheme || (isRTL ? 'مظهر التطبيق' : 'App Theme')}
-                </Text>
-                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                  {isDarkMode ? (t.darkMode || 'الوضع المظلم') : (t.lightMode || 'الوضع الفاتح')}
+            <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Ionicons name="call-outline" size={15} color={colors.textSecondary} />
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                  {t.phoneNumber || (isRTL ? 'رقم الهاتف' : 'Phone Number')}
                 </Text>
               </View>
-            </View>
-            <Switch
-              value={isDarkMode}
-              onValueChange={onToggleTheme}
-              trackColor={{ false: '#cbd5e1', true: '#f59e0b' }}
-              thumbColor="#ffffff"
-            />
-          </View>
-        )}
 
-        {/* Biometrics Toggle Row */}
-        {biometricsAvailable && (
-          <View
-            style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          >
-            <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Ionicons name="finger-print" size={20} color={colors.primary} />
-              <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-                  {t.biometricLogin || 'تسجيل الدخول بالبصمة'}
-                </Text>
-                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>
-                  {t.biometricLoginSub || 'بصمة الإصبع أو الوجه'}
+              {hasPhone ? (
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{rawPhone}</Text>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.addPhoneBadgeBtn,
+                    {
+                      backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5',
+                      borderColor: '#10b981',
+                      flexDirection: isRTL ? 'row-reverse' : 'row',
+                    },
+                  ]}
+                  onPress={() => setShowAddPhoneModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add-circle" size={16} color="#10b981" />
+                  <Text style={styles.addPhoneBadgeText}>
+                    {t.addPhone || (isRTL ? 'إضافة رقم' : 'Add Phone')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {currentEmp.branch_name && (
+              <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.infoLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <Ionicons name="business-outline" size={15} color={colors.textSecondary} />
+                  <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{t.branch}</Text>
+                </View>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
+                  {formatBranchName(currentEmp.branch_name, lang)}
                 </Text>
               </View>
-            </View>
-            <Switch
-              value={biometricsOn}
-              onValueChange={handleToggleBiometrics}
-              trackColor={{ false: '#94a3b8', true: '#10b981' }}
-              thumbColor="#ffffff"
-            />
+            )}
           </View>
-        )}
+        </View>
+      </ModuleErrorBoundary>
 
-        {/* Change Password Row */}
-        <TouchableOpacity
-          style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          onPress={() => setShowPasswordModal(true)}
-        >
-          <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="key-outline" size={20} color={colors.primary} />
-            <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-              {t.changePassword}
-            </Text>
-          </View>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
-        </TouchableOpacity>
+      <ProfileDocumentsDeck
+        employee={currentEmp}
+        activeBikeNumber={activeBikeNumber}
+        currentVehicleRegImage={currentVehicleRegImage}
+        colors={colors}
+        isRTL={isRTL}
+        t={t}
+        setParentScrollEnabled={setParentScrollEnabled}
+        onPreviewPhoto={onPreviewPhoto}
+      />
 
-        {/* Check for Updates Row */}
-        <TouchableOpacity
-          style={[styles.settingRow, { borderBottomColor: colors.border, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          onPress={onCheckForUpdates}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="cloud-download-outline" size={20} color={colors.primary} />
-            <Text style={[styles.settingRowText, { color: colors.textPrimary }]}>
-              {t.checkForUpdates || (isRTL ? 'تحديث التطبيق' : 'Check for Updates')}
-            </Text>
-          </View>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textSecondary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.settingRow, { borderBottomWidth: 0, flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          onPress={onLogout}
-        >
-          <View style={[styles.settingRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-            <Text style={[styles.settingRowText, { color: '#ef4444' }]}>{t.logout}</Text>
-          </View>
-          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color="#ef4444" />
-        </TouchableOpacity>
-      </View>
-
-      <ChangePasswordModal
-        visible={showPasswordModal}
+      <ProfileSettingsCard
+        lang={lang}
         colors={colors}
         isDarkMode={isDarkMode}
         isRTL={isRTL}
         t={t}
-        onClose={() => setShowPasswordModal(false)}
-        onSuccess={() => {
-          setShowPasswordModal(false);
-          setAlertConfig({
-            type: 'success',
-            title: t.passwordChangedSuccess,
-            message: isRTL
-              ? 'تم تحديث كلمة المرور الخاصة بك بنجاح، يمكنك استخدامها في المرات القادمة.'
-              : 'Your account password has been updated successfully.',
-            primaryButtonText: t.okBtn || 'حسناً',
-            onPrimaryPress: () => setAlertConfig(null),
-          });
-        }}
+        biometricsAvailable={biometricsAvailable}
+        biometricsOn={biometricsOn}
+        onOpenLangModal={onOpenLangModal}
+        onToggleTheme={onToggleTheme}
+        onToggleBiometrics={handleToggleBiometrics}
+        onOpenPasswordModal={() => setShowPasswordModal(true)}
+        onCheckForUpdates={onCheckForUpdates}
+        onLogout={onLogout}
       />
 
-      <AddPhoneBottomSheet
-        visible={showAddPhoneModal}
-        colors={colors}
-        isDarkMode={isDarkMode}
-        isRTL={isRTL}
-        t={t}
-        onClose={() => setShowAddPhoneModal(false)}
-        onSuccess={(newPhone, updatedEmp) => {
-          setShowAddPhoneModal(false);
-          const updated: EmployeeProfile = updatedEmp || { ...currentEmp, phone: newPhone };
-          setCurrentEmp(updated);
-          onUpdateEmployee?.(updated);
-          triggerPhoneSavedSheet();
-        }}
-      />
-
-      {/* Phone Saved Bottom Sheet Modal (Clean, smooth, no dark overlay) */}
-      <Modal
-        visible={showPhoneSuccessSheet}
-        transparent={true}
-        animationType="none"
-        statusBarTranslucent
-        onRequestClose={closePhoneSavedSheet}
-      >
-        <View style={styles.phoneSuccessOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            activeOpacity={1}
-            onPress={closePhoneSavedSheet}
+      {showPasswordModal && (
+        <ModuleErrorBoundary moduleName="تغيير كلمة المرور" colors={colors} fallback={null}>
+          <ChangePasswordModal
+            visible={showPasswordModal}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            t={t}
+            onClose={() => setShowPasswordModal(false)}
+            onSuccess={() => {
+              setShowPasswordModal(false);
+              setAlertConfig({
+                type: 'success',
+                title: t.passwordChangedSuccess,
+                message: isRTL
+                  ? 'تم تحديث كلمة المرور الخاصة بك بنجاح، يمكنك استخدامها في المرات القادمة.'
+                  : 'Your account password has been updated successfully.',
+                primaryButtonText: t.okBtn || 'حسناً',
+                onPrimaryPress: () => setAlertConfig(null),
+              });
+            }}
           />
-          <Animated.View
-            style={[
-              styles.phoneSuccessCard,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                transform: [{ translateY: successSheetTranslateY }],
-              },
-            ]}
-          >
-            <View style={[styles.phoneSuccessDragBar, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }]} />
-            <View style={[styles.phoneSuccessIconCircle, { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5' }]}>
-              <Ionicons name="checkmark-circle" size={34} color="#10b981" />
-            </View>
-            <Text style={[styles.phoneSuccessTitle, { color: colors.textPrimary }]}>
-              {t.phoneSavedSuccess || (isRTL ? 'تم حفظ الرقم بنجاح' : 'Phone Saved Successfully')}
-            </Text>
-            <Text style={[styles.phoneSuccessSubtitle, { color: colors.textSecondary }]}>
-              {t.phoneSavedSub || (isRTL ? 'تم تثبيت وتحديث رقم هاتفك في الملف الشخصي' : 'Your phone number has been updated in your profile')}
-            </Text>
-            <TouchableOpacity
-              style={[styles.phoneSuccessBtn, { backgroundColor: '#10b981' }]}
-              onPress={closePhoneSavedSheet}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.phoneSuccessBtnText}>
-                {t.okBtn || (isRTL ? 'حسناً' : 'OK')}
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </Modal>
+        </ModuleErrorBoundary>
+      )}
 
-      <ActionAlertBottomSheet
-        config={alertConfig}
+      {showAddPhoneModal && (
+        <ModuleErrorBoundary moduleName="إضافة رقم الهاتف" colors={colors} fallback={null}>
+          <AddPhoneBottomSheet
+            visible={showAddPhoneModal}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            t={t}
+            onClose={() => setShowAddPhoneModal(false)}
+            onSuccess={(newPhone, updatedEmp) => {
+              setShowAddPhoneModal(false);
+              const updated: EmployeeProfile = updatedEmp || { ...currentEmp, phone: newPhone };
+              setCurrentEmp(updated);
+              onUpdateEmployee?.(updated);
+              triggerPhoneSavedSheet();
+            }}
+          />
+        </ModuleErrorBoundary>
+      )}
+
+      <ProfilePhoneSuccessModal
+        visible={showPhoneSuccessSheet}
+        translateY={successSheetTranslateY}
         colors={colors}
         isDarkMode={isDarkMode}
         isRTL={isRTL}
-        onClose={() => setAlertConfig(null)}
+        t={t}
+        onClose={closePhoneSavedSheet}
       />
+
+      {Boolean(alertConfig) && (
+        <ModuleErrorBoundary moduleName="تنبيهات الملف الشخصي" colors={colors} fallback={null}>
+          <ActionAlertBottomSheet
+            config={alertConfig}
+            colors={colors}
+            isDarkMode={isDarkMode}
+            isRTL={isRTL}
+            onClose={() => setAlertConfig(null)}
+          />
+        </ModuleErrorBoundary>
+      )}
     </View>
   );
-};
-
-const styles = StyleSheet.create({
-  tabContainer: {
-    padding: 16,
-  },
-  profileCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 18,
-    marginBottom: 16,
-  },
-  profileAvatarSection: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  profileAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    overflow: 'hidden',
-  },
-  profileAvatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  profileInfoList: {
-    borderTopWidth: 1,
-    paddingTop: 12,
-    gap: 12,
-  },
-  infoRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  infoLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  infoLabelGroup: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  phoneLockedBadge: {
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  phoneValueLocked: {
-    fontSize: 13,
-    fontWeight: '800',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    letterSpacing: 0.5,
-  },
-  addPhoneBadgeBtn: {
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1.2,
-  },
-  addPhoneBadgeText: {
-    color: '#10b981',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  card: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 18,
-    marginBottom: 16,
-  },
-  sectionHeaderRow: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  titleGroup: {
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  counterBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  counterBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  docTabsContainer: {
-    gap: 8,
-    paddingVertical: 6,
-    marginBottom: 8,
-  },
-  docTabPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  docTabPillText: {
-    fontSize: 12,
-  },
-  deckContainer: {
-    height: 255,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-    position: 'relative',
-  },
-  flyingCard: {
-    position: 'absolute',
-    width: '100%',
-    height: 245,
-    borderRadius: 20,
-    borderWidth: 0,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 8,
-    overflow: 'hidden',
-  },
-  backgroundDeckCard: {
-    pointerEvents: 'none',
-  },
-  deckFooterRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginTop: 8,
-  },
-  deckArrowBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swipeInstruction: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  imageZoomHintBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  imageZoomHintText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  cardAccentBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-  },
-  cardHeader: {
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  cardIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardDocTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  cardDirectImageTouch: {
-    flex: 1,
-    width: '100%',
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  cardDirectImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 14,
-  },
-  cardEmptyPlaceholder: {
-    flex: 1,
-    width: '100%',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  placeholderText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  settingRow: {
-    paddingVertical: 14,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  settingRowRight: {
-    alignItems: 'center',
-    gap: 10,
-  },
-  settingRowText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  settingRowVal: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  devicesList: {
-    gap: 10,
-    marginTop: 4,
-  },
-  deviceRow: {
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 12,
-  },
-  deviceIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deviceInfoCol: {
-    flex: 1,
-    gap: 4,
-  },
-  deviceNameRow: {
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  deviceNameText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  currentDeviceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  currentDeviceBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#10b981',
-  },
-  deviceOsText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  deviceDeleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  phoneSuccessOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.12)',
-  },
-  phoneSuccessCard: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 22,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 16,
-  },
-  phoneSuccessDragBar: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: 14,
-  },
-  phoneSuccessIconCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  phoneSuccessTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  phoneSuccessSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    textAlign: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 12,
-  },
-  phoneSuccessBtn: {
-    width: '100%',
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  phoneSuccessBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
 });

@@ -7,7 +7,7 @@ import { ShiftCardSkeleton } from './components/ShiftCardSkeleton';
 import { ModuleErrorBoundary } from '../../components/ModuleErrorBoundary';
 import { parsePlateComponents, getPlateLetterSlots } from '../../utils/plateUtils';
 
-export const ShiftScreen: React.FC<ShiftScreenProps> = ({
+export const ShiftScreen: React.FC<ShiftScreenProps> = React.memo(({
   employee,
   activeSession,
   isSessionSyncing = false,
@@ -183,7 +183,7 @@ export const ShiftScreen: React.FC<ShiftScreenProps> = ({
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   tabContainer: {
