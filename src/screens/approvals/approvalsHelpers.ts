@@ -48,7 +48,7 @@ export const calcShiftHours = (startIso?: string, endIso?: string): string => {
     const hrs = Math.floor(totalMins / 60);
     const mins = totalMins % 60;
     if (hrs === 0) return `${mins} د`;
-    return mins > 0 ? `${hrs} س ${mins} د` : `${hrs} ساعة`;
+    return mins > 0 ? `${mins} د ${hrs} س` : `${hrs} ساعة`;
   } catch {
     return '0 س';
   }

@@ -235,12 +235,14 @@ export const SupervisorTabContent: React.FC<SupervisorTabContentProps> = React.m
                   const sid = String(s.id);
                   if (seenSessionIds.has(sid)) return;
                   seenSessionIds.add(sid);
-                  if (s.status !== 'COMPLETED' || !s.end_time) return;
+                  if (s.status !== 'COMPLETED') return;
                   if (!isInCurrentOperationalDay(s.start_time, s.end_time)) return;
                   const empKey = String(s.employee_id || '');
                   if (!empKey) return;
                   const prev = completedTodayByEmp.get(empKey);
-                  if (!prev || new Date(s.end_time).getTime() > new Date(prev.end_time || 0).getTime()) {
+                  const curTime = new Date(s.end_time || s.start_time || 0).getTime();
+                  const prevTime = prev ? new Date(prev.end_time || prev.start_time || 0).getTime() : -1;
+                  if (!prev || curTime > prevTime) {
                     completedTodayByEmp.set(empKey, s);
                   }
                 });
