@@ -10,6 +10,7 @@ import { toArabicDigits, formatArabicNumber } from '../../utils/formatters';
 import { calculateNextExportNumber, saveLastUsedExportNumber } from '../../utils/exportNumber';
 import { mergeUpdatedCustodyDay } from './ahdaHomeHelpers';
 import { useAhdaCustodyMediaActions } from './useAhdaCustodyMediaActions';
+import { invalidateCustodyPdfCache } from '../../services/pdf/pdfFontAndAssetCache';
 
 export function useAhdaCustodyMutations({
   currentUser,
@@ -223,35 +224,19 @@ export function useAhdaCustodyMutations({
       let targetDayId = currentDay?.id;
       let uploadedUrl = '';
 
-      if (!targetDayId && invoiceImageUri) {
-        const [createdDay, url] = await Promise.all([
-          custodyService.createDay({
-            date: selectedDate,
-            added_amount: 0,
-            branch_id: activeBranch?.id || undefined,
-          }),
-          custodyService.uploadInvoiceImage(invoiceImageUri),
-        ]);
+      if (!targetDayId) {
+        const createdDay = await custodyService.createDay({
+          date: selectedDate,
+          added_amount: 0,
+          branch_id: activeBranch?.id || undefined,
+        });
         targetDayId = createdDay.id;
-        uploadedUrl = url;
         setDays((prev: CustodyDayData[]) =>
           mergeUpdatedCustodyDay(prev, createdDay, bId, activeStoredLedger)
         );
-      } else {
-        if (!targetDayId) {
-          const createdDay = await custodyService.createDay({
-            date: selectedDate,
-            added_amount: 0,
-            branch_id: activeBranch?.id || undefined,
-          });
-          targetDayId = createdDay.id;
-          setDays((prev: CustodyDayData[]) =>
-            mergeUpdatedCustodyDay(prev, createdDay, bId, activeStoredLedger)
-          );
-        }
-        if (invoiceImageUri) {
-          uploadedUrl = await custodyService.uploadInvoiceImage(invoiceImageUri);
-        }
+      }
+      if (invoiceImageUri) {
+        uploadedUrl = await custodyService.uploadInvoiceImage(invoiceImageUri);
       }
 
       const isAdvance = selectedCategory === 'internet_advance' || selectedCategory === 'advance';
@@ -373,6 +358,7 @@ export function useAhdaCustodyMutations({
           mergeUpdatedCustodyDay(prev, updatedDay, bId, activeStoredLedger)
         );
       }
+      void invalidateCustodyPdfCache(selectedDate);
       void loadCustodyData(true, undefined, true);
       setAlertConfig({
         type: 'success',
@@ -423,13 +409,8 @@ export function useAhdaCustodyMutations({
               prev.map((d) => {
                 if (!d.expenses?.some((e) => e.id === item.id)) return d;
                 const filtered = d.expenses.filter((e) => e.id !== item.id);
-                const newTotal = Math.max(0, (d.total_expenses || 0) - (item.amount || 0));
-                return {
-                  ...d,
-                  expenses: filtered,
-                  total_expenses: newTotal,
-                  closing_balance: (d.opening_balance || 0) + (d.added_amount || 0) - newTotal,
-                };
+                const newTotal = filtered.filter((e) => !e.is_excluded).reduce((sum, e) => sum + (e.amount || 0), 0);
+                return { ...d, expenses: filtered, total_expenses: newTotal, closing_balance: (d.opening_balance || 0) + (d.added_amount || 0) - newTotal };
               })
             );
           }
@@ -469,11 +450,8 @@ export function useAhdaCustodyMutations({
         setDays((prev: CustodyDayData[]) =>
           prev.map((d) => {
             if (!d.expenses?.some((e) => e.id === item.id)) return d;
-            const updatedList = d.expenses.map((e) =>
-              e.id === item.id ? { ...e, is_excluded: nextExcluded } : e
-            );
-            const activeExpenses = updatedList.filter((e) => !e.is_excluded);
-            const newTotal = activeExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+            const updatedList = d.expenses.map((e) => (e.id === item.id ? { ...e, is_excluded: nextExcluded } : e));
+            const newTotal = updatedList.filter((e) => !e.is_excluded).reduce((sum, e) => sum + (e.amount || 0), 0);
             return {
               ...d,
               expenses: updatedList,
@@ -483,6 +461,7 @@ export function useAhdaCustodyMutations({
           })
         );
       }
+      void invalidateCustodyPdfCache(selectedDate);
       void loadCustodyData(true, undefined, true);
       setAlertConfig({
         type: 'success',

@@ -206,8 +206,9 @@ export async function invalidateCustodyPdfCache(dateStr?: string): Promise<void>
 
 export function getCustodyPdfCacheUri(day: CustodyDayData, customLedgerUrl?: string): string {
   const dateStr = String(day.date || '').replace(/[^0-9-]/g, '_');
-  const count = (day.expenses || []).length;
-  const total = Math.round(Number(day.total_expenses || 0) * 100);
+  const activeExpenses = (day.expenses || []).filter((e) => !e.is_excluded);
+  const count = activeExpenses.length;
+  const total = Math.round(activeExpenses.reduce((sum, e) => sum + (e.amount || 0), 0) * 100);
   const added = Math.round(Number(day.added_amount || 0) * 100);
   const openBal = Math.round(Number(day.opening_balance || 0) * 100);
 

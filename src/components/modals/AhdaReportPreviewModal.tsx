@@ -142,10 +142,9 @@ export const AhdaReportPreviewModal: React.FC<AhdaReportPreviewModalProps> = ({
   );
   const logsAddedSum = custodyAddedLogs.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const addedAmount = Number(currentDay?.added_amount || 0) > 0 ? Number(currentDay?.added_amount) : logsAddedSum;
-  const totalExpenses = Number(currentDay?.total_expenses || 0);
+  const expenses = (currentDay?.expenses || []).filter((e) => !e.is_excluded);
+  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
   const closingBalance = Number(effectiveOpening + addedAmount - totalExpenses);
-
-  const expenses = currentDay?.expenses || [];
 
   const groupedCategories = REPORT_CATEGORIES.map((cat) => {
     const catExpenses = expenses.filter((e) => e.category === cat.key);

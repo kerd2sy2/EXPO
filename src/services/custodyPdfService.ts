@@ -69,7 +69,7 @@ export const exportCustodyDayToPdf = async (
   const allImageUrls: string[] = [];
   if (activeLedgerUrl) allImageUrls.push(activeLedgerUrl);
   (day.expenses || []).forEach((e) => {
-    if (e.image_url) allImageUrls.push(e.image_url);
+    if (!e.is_excluded && e.image_url) allImageUrls.push(e.image_url);
   });
   if (allImageUrls.length > 0) {
     await Promise.all(allImageUrls.map((u) => fetchImageBytes(u, !!options?.forceRegenerate)));
@@ -96,12 +96,10 @@ export const exportCustodyDayToPdf = async (
   const painters = createPdfPainters(riyalImg);
   const effectiveOpening = day.opening_balance ?? 0;
   const addedAmount = day.added_amount ?? 0;
-  const totalExpenses = day.total_expenses ?? 0;
-  const closingBalance =
-    day.closing_balance !== undefined && day.closing_balance !== null
-      ? day.closing_balance
-      : effectiveOpening + addedAmount - totalExpenses;
-  const expenses = day.expenses || [];
+  // استبعاد الفواتير المعلقة/المستبعدة من تقرير الـ PDF والحسابات
+  const expenses = (day.expenses || []).filter((e) => !e.is_excluded);
+  const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+  const closingBalance = effectiveOpening + addedAmount - totalExpenses;
 
   const allPages: PDFPage[] = [];
   const page1 = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);

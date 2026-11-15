@@ -418,12 +418,30 @@ export function useAhdaCustodyState({
     }
   }, [onUpdateUser, branches, loadCustodyData, setActiveBranchState, setMustSelectBranch, setShowBranchModal]);
 
-  const currentDay = useMemo(() => days.find((d) => d.date === selectedDate) || null, [days, selectedDate]);
+  const currentDay = useMemo(() => {
+    const raw = days.find((d) => d.date === selectedDate) || null;
+    if (!raw) return null;
+    const activeExpenses = (raw.expenses || []).filter((e) => !e.is_excluded);
+    const activeTotalExpenses = activeExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const effectiveOpening = raw.opening_balance || 0;
+    const addedAmount = raw.added_amount || 0;
+    return {
+      ...raw,
+      total_expenses: activeTotalExpenses,
+      closing_balance: effectiveOpening + addedAmount - activeTotalExpenses,
+    };
+  }, [days, selectedDate]);
 
   const effectiveOpeningBalance = useMemo(() => {
     if (currentDay?.opening_balance && currentDay.opening_balance > 0) return currentDay.opening_balance;
     const previousDays = days.filter((d) => d.date < selectedDate).sort((a, b) => b.date.localeCompare(a.date));
-    return previousDays[0]?.closing_balance ?? currentDay?.opening_balance ?? 0;
+    if (previousDays.length > 0) {
+      const prev = previousDays[0];
+      const prevActiveExpenses = (prev.expenses || []).filter((e) => !e.is_excluded);
+      const prevTotal = prevActiveExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+      return (prev.opening_balance || 0) + (prev.added_amount || 0) - prevTotal;
+    }
+    return currentDay?.opening_balance ?? 0;
   }, [days, selectedDate, currentDay]);
 
   const custodyAddedLogs = useMemo(() => dayLogs.filter((l) => l.action_type === 'ADD_CUSTODY'), [dayLogs]);

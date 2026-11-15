@@ -25,6 +25,13 @@ const AhdaDayExpensesSummaryCardComponent: React.FC<AhdaDayExpensesSummaryCardPr
   onPressPdf,
   onLongPressPdf,
 }) => {
+  const activeExpenses = (currentDay?.expenses || []).filter((e) => !e.is_excluded);
+  const activeTotal = currentDay?.expenses
+    ? activeExpenses.reduce((s, e) => s + (e.amount || 0), 0)
+    : (currentDay?.total_expenses ?? 0);
+  const totalCount = currentDay?.expenses?.length || 0;
+  const excludedCount = totalCount - activeExpenses.length;
+
   return (
     <View style={styles.rowWrapper}>
       {/* 1. PDF Icon Button on the RIGHT (Tap -> Download/Share, Long-Press -> Preview) */}
@@ -76,7 +83,9 @@ const AhdaDayExpensesSummaryCardComponent: React.FC<AhdaDayExpensesSummaryCardPr
             </Text>
             <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 4, marginTop: 2 }}>
               <Text style={styles.simpleInvoicesSub}>
-                {toArabicDigits(currentDay?.expenses?.length || 0)} فواتير مسجلة • {formatArabicNumber(currentDay?.total_expenses ?? 0, 2)}
+                {excludedCount > 0
+                  ? `${toArabicDigits(activeExpenses.length)} فواتير معتمدة (${toArabicDigits(excludedCount)} مستبعدة) • ${formatArabicNumber(activeTotal, 2)}`
+                  : `${toArabicDigits(totalCount)} فواتير مسجلة • ${formatArabicNumber(activeTotal, 2)}`}
               </Text>
               <Image
                 source={require('../../assets/Saudi_Riyal_Symbol.svg.webp')}

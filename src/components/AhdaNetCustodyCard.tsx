@@ -290,34 +290,6 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
         </View>
       </View>
 
-      {/* زرار حذف وإدارة العهدة في نص الكرت */}
-      {(custodyAddedLogs.length > 0 || (currentDay?.added_amount ?? 0) > 0) && (
-        <View style={styles.centerManageCustodyContainer}>
-          <TouchableOpacity
-            style={[
-              styles.centerManageCustodyBtn,
-              {
-                backgroundColor: isDarkMode ? '#7f1d1d22' : '#fef2f2',
-                borderColor: isDarkMode ? '#b91c1c66' : '#fecaca',
-              },
-            ]}
-            onPress={(e) => {
-              e.stopPropagation();
-              onPressManageLogs();
-            }}
-            activeOpacity={0.8}
-            hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
-          >
-            <Ionicons name="trash-outline" size={13} color="#ef4444" />
-            <Text style={[styles.centerManageCustodyText, { color: '#dc2626' }]}>
-              {custodyAddedLogs.length > 0
-                ? `حذف وإدارة العهدة (${toArabicDigits(custodyAddedLogs.length)} إضافات)`
-                : 'حذف وإدارة العهدة المضافة'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       {/* Footer 4-Stats Details: باقي أمس • العهدة المضافة • إجمالي العهدة اليوم • إجمالي المصاريف */}
       <View style={[styles.targetDetailsRow, { borderTopColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
         {/* 1. باقي أمس (افتتاحي) */}
@@ -390,6 +362,34 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
           </View>
         </View>
       </View>
+
+      {/* زرار حذف العهدة صغير جداً وتحت الكروت الـ 4 */}
+      {(custodyAddedLogs.length > 0 || (currentDay?.added_amount ?? 0) > 0) && (
+        <View style={styles.centerManageCustodyContainer}>
+          <TouchableOpacity
+            style={[
+              styles.centerManageCustodyBtn,
+              {
+                backgroundColor: isDarkMode ? '#7f1d1d1f' : '#fef2f2',
+                borderColor: isDarkMode ? '#b91c1c44' : '#fecaca',
+              },
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              onPressManageLogs();
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
+          >
+            <Ionicons name="trash-outline" size={10} color="#ef4444" />
+            <Text style={[styles.centerManageCustodyText, { color: '#dc2626' }]}>
+              {custodyAddedLogs.length > 0
+                ? `حذف عهدة (${toArabicDigits(custodyAddedLogs.length)})`
+                : 'حذف العهدة'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </TouchableOpacity>
     </Animated.View>
   );

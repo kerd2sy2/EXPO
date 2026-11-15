@@ -46,12 +46,18 @@ const AhdaCategoryGridComponent: React.FC<AhdaCategoryGridProps> = ({
       <View style={styles.categoryGrid}>
         {categories.map((cat) => {
           let val = 0;
-          if (cat.key === 'fuel') val = currentDay?.totals?.fuel || 0;
-          else if (cat.key === 'internet_advance') val = currentDay?.totals?.internet_advance || 0;
-          else if (cat.key === 'advance') val = currentDay?.totals?.advance || 0;
-          else if (cat.key === 'license') val = currentDay?.totals?.license || 0;
-          else if (cat.key === 'spare_parts') val = currentDay?.totals?.spare_parts || 0;
-          else if (cat.key === 'other') val = currentDay?.totals?.other || 0;
+          if (currentDay?.expenses && currentDay.expenses.length > 0) {
+            val = currentDay.expenses
+              .filter((e) => !e.is_excluded && e.category === cat.key)
+              .reduce((s, e) => s + (e.amount || 0), 0);
+          } else {
+            if (cat.key === 'fuel') val = currentDay?.totals?.fuel || 0;
+            else if (cat.key === 'internet_advance') val = currentDay?.totals?.internet_advance || 0;
+            else if (cat.key === 'advance') val = currentDay?.totals?.advance || 0;
+            else if (cat.key === 'license') val = currentDay?.totals?.license || 0;
+            else if (cat.key === 'spare_parts') val = currentDay?.totals?.spare_parts || 0;
+            else if (cat.key === 'other') val = currentDay?.totals?.other || 0;
+          }
 
           return (
             <TouchableOpacity

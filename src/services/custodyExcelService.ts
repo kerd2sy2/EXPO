@@ -217,9 +217,12 @@ export const exportCustodyDayToExcel = async (day: CustodyDayData): Promise<void
       other: 'مصاريف أخرى',
     };
 
-    if (day.expenses && day.expenses.length > 0) {
-      for (let i = 0; i < day.expenses.length; i++) {
-        const item: CustodyExpenseItem = day.expenses[i];
+    const activeExpenses = (day.expenses || []).filter((e) => !e.is_excluded);
+    const activeTotalExpenses = activeExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+
+    if (activeExpenses && activeExpenses.length > 0) {
+      for (let i = 0; i < activeExpenses.length; i++) {
+        const item: CustodyExpenseItem = activeExpenses[i];
         const timeStr = item.created_at
           ? new Date(item.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
           : '—';
@@ -284,12 +287,12 @@ export const exportCustodyDayToExcel = async (day: CustodyDayData): Promise<void
     endRow1.font = { bold: true };
     endRow1.alignment = { horizontal: 'right', vertical: 'middle' };
 
-    const endRow2 = sheet.addRow(['إجمالي المصاريف الموثقة:', `${day.total_expenses.toFixed(2)} ر.س`]);
+    const endRow2 = sheet.addRow(['إجمالي المصاريف الموثقة:', `${activeTotalExpenses.toFixed(2)} ر.س`]);
     sheet.mergeCells(`A${endRow2.number}:E${endRow2.number}`);
     endRow2.font = { bold: true, color: { argb: 'FFDC2626' } };
     endRow2.alignment = { horizontal: 'right', vertical: 'middle' };
 
-    const endRow3 = sheet.addRow(['صافي الرصيد المتبقي للإقفال:', `${day.closing_balance.toFixed(2)} ر.س`]);
+    const endRow3 = sheet.addRow(['صافي الرصيد المتبقي للإقفال:', `${(totalAvailable - activeTotalExpenses).toFixed(2)} ر.س`]);
     sheet.mergeCells(`A${endRow3.number}:E${endRow3.number}`);
     endRow3.font = { bold: true, size: 13, color: { argb: 'FF16A34A' } };
     endRow3.alignment = { horizontal: 'right', vertical: 'middle' };
