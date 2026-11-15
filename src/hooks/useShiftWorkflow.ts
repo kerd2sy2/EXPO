@@ -26,14 +26,13 @@ export function useShiftWorkflow(
 
   // Synchronize enteredMotorcycle and confirmation whenever employee profile updates (e.g. supervisor linked a bike)
   useEffect(() => {
+    if (activeSession) return;
     const currentAssigned = employee?.motorcycle_number?.trim() || '';
-    if (currentAssigned && !enteredMotorcycle) {
+    if (currentAssigned) {
       setEnteredMotorcycle(currentAssigned);
       setIsPlateConfirmed(true);
-    } else if (currentAssigned && enteredMotorcycle === currentAssigned) {
-      setIsPlateConfirmed(true);
     }
-  }, [employee?.motorcycle_number]);
+  }, [employee?.motorcycle_number, Boolean(activeSession)]);
 
   const isTakingPhotoRef = useRef(false);
   const lastFetchedBikeRef = useRef<string>('');

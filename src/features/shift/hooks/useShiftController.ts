@@ -132,26 +132,32 @@ export function useShiftController(params: UseShiftControllerParams) {
   };
 
   const handleStartShiftClick = () => {
-    const hasAssignedBike = Boolean(employee?.motorcycle_number?.trim());
-    if (!activeSession && !isPlateConfirmed && !hasAssignedBike) {
+    const currentAssigned = employee?.motorcycle_number?.trim() || '';
+    if (!activeSession && currentAssigned) {
+      if (enteredMotorcycle !== currentAssigned) {
+        setEnteredMotorcycle(currentAssigned);
+      }
+      setIsPlateConfirmed(true);
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+      setCurrentTab('shift');
+    } else if (!activeSession && !isPlateConfirmed) {
       setShowPlateScannerModal(true);
     } else {
-      if (hasAssignedBike && !isPlateConfirmed) {
-        setIsPlateConfirmed(true);
-      }
       mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       setCurrentTab('shift');
     }
   };
 
   const handleNavigateToTab = (tab: TabType) => {
-    const hasAssignedBike = Boolean(employee?.motorcycle_number?.trim());
-    if (tab === 'shift' && !activeSession && !isPlateConfirmed && !hasAssignedBike) {
+    const currentAssigned = employee?.motorcycle_number?.trim() || '';
+    if (tab === 'shift' && !activeSession && currentAssigned) {
+      if (enteredMotorcycle !== currentAssigned) {
+        setEnteredMotorcycle(currentAssigned);
+      }
+      setIsPlateConfirmed(true);
+    } else if (tab === 'shift' && !activeSession && !isPlateConfirmed) {
       setShowPlateScannerModal(true);
       return;
-    }
-    if (tab === 'shift' && hasAssignedBike && !isPlateConfirmed) {
-      setIsPlateConfirmed(true);
     }
     if (tab === 'history') {
       const currentMonth = getCurrentMonthInfo(lang);
