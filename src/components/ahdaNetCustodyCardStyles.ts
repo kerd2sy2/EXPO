@@ -110,6 +110,26 @@ export const ahdaNetCustodyCardStyles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
+  centerManageCustodyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  centerManageCustodyBtn: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  centerManageCustodyText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
   dateRowContainer: {
     flexDirection: 'row-reverse',
     alignItems: 'center',

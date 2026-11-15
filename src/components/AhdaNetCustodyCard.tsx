@@ -290,6 +290,34 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
         </View>
       </View>
 
+      {/* زرار حذف وإدارة العهدة في نص الكرت */}
+      {(custodyAddedLogs.length > 0 || (currentDay?.added_amount ?? 0) > 0) && (
+        <View style={styles.centerManageCustodyContainer}>
+          <TouchableOpacity
+            style={[
+              styles.centerManageCustodyBtn,
+              {
+                backgroundColor: isDarkMode ? '#7f1d1d22' : '#fef2f2',
+                borderColor: isDarkMode ? '#b91c1c66' : '#fecaca',
+              },
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              onPressManageLogs();
+            }}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+          >
+            <Ionicons name="trash-outline" size={13} color="#ef4444" />
+            <Text style={[styles.centerManageCustodyText, { color: '#dc2626' }]}>
+              {custodyAddedLogs.length > 0
+                ? `حذف وإدارة العهدة (${toArabicDigits(custodyAddedLogs.length)} إضافات)`
+                : 'حذف وإدارة العهدة المضافة'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Footer 4-Stats Details: باقي أمس • العهدة المضافة • إجمالي العهدة اليوم • إجمالي المصاريف */}
       <View style={[styles.targetDetailsRow, { borderTopColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
         {/* 1. باقي أمس (افتتاحي) */}
@@ -324,17 +352,6 @@ const AhdaNetCustodyCardComponent: React.FC<AhdaNetCustodyCardProps> = ({
               resizeMode="contain"
             />
           </View>
-          {custodyAddedLogs.length > 0 && (
-            <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation();
-                onPressManageLogs();
-              }}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              <Text style={styles.miniLogLink}>{toArabicDigits(custodyAddedLogs.length)} إضافات (إدارة/حذف)</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         <View style={[styles.detailDivider, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
