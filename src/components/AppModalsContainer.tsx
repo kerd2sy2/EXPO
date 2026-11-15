@@ -29,6 +29,7 @@ import { PlateScannerModal } from '../features/plate-scanner';
 import { AccidentAlertModal } from './modals/AccidentAlertModal';
 import { ReportTypePickerModal } from './modals/ReportTypePickerModal';
 import { OperationVideoModal } from './OperationVideoModal';
+import { DelegateQrScannerModal } from './modals/qr-scanner/DelegateQrScannerModal';
 import { ModuleErrorBoundary } from './ModuleErrorBoundary';
 
 export interface AppModalsContainerProps {
@@ -401,6 +402,18 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = React.memo(
           isRTL={isRTL}
         />
       )}
+
+      {/* Delegate QR Quick-Link Scanner Modal */}
+      <ModuleErrorBoundary moduleName="ماسح رمز المندوب (QR)" fallback={null}>
+        <DelegateQrScannerModal
+          branchDelegates={branchDelegates}
+          branchId={employee?.branch_id}
+          onEmployeeUpdated={onRefreshSupervisorData}
+          colors={colors}
+          isDarkMode={isDarkMode}
+          isRTL={isRTL}
+        />
+      </ModuleErrorBoundary>
     </>
   );
 });

@@ -8,6 +8,7 @@ import {
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { EmployeeProfile, ThemeColors } from '../types/delegate';
+import { openDelegateQrScanner } from './modals/qr-scanner/qrScannerHelpers';
 
 export interface HomeHeaderProps {
   employee: EmployeeProfile;
@@ -85,6 +86,15 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
       </TouchableOpacity>
 
       <View style={[styles.headerActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <TouchableOpacity
+          style={styles.headerBellBtn}
+          onPress={openDelegateQrScanner}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="scan-outline" size={22} color={colors.textPrimary} />
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.headerBellBtn}
           onPress={onPressNotifications}
