@@ -55,9 +55,16 @@ const ExpenseCardComponent: React.FC<ExpenseCardProps> = ({
             ? isDarkMode
               ? '#064e3b18'
               : '#ecfdf5'
+            : item.is_excluded
+            ? isDarkMode ? '#1e293b88' : '#f8fafc'
             : colors.card,
-          borderColor: isReorderMode ? '#059669' : colors.border,
-          borderWidth: isReorderMode ? 1.5 : 1,
+          borderColor: isReorderMode
+            ? '#059669'
+            : item.is_excluded
+            ? '#f59e0b88'
+            : colors.border,
+          borderWidth: isReorderMode ? 1.5 : item.is_excluded ? 1.2 : 1,
+          opacity: item.is_excluded ? 0.88 : 1,
         },
       ]}
     >
@@ -145,14 +152,37 @@ const ExpenseCardComponent: React.FC<ExpenseCardProps> = ({
               البيان: {item.recipient_name || '—'}
             </Text>
           </View>
-          {item.export_number ? (
-            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 5, marginTop: 4 }}>
-              <Ionicons name="barcode-outline" size={13} color="#0284c7" />
-              <Text style={{ fontSize: 12, fontWeight: '800', color: '#0284c7' }}>
-                رقم الوارد: {item.export_number}
-              </Text>
-            </View>
-          ) : null}
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+            {item.export_number ? (
+              <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 5 }}>
+                <Ionicons name="barcode-outline" size={13} color="#0284c7" />
+                <Text style={{ fontSize: 12, fontWeight: '800', color: '#0284c7' }}>
+                  رقم الوارد: {item.export_number}
+                </Text>
+              </View>
+            ) : <View />}
+
+            {item.is_excluded ? (
+              <View
+                style={{
+                  flexDirection: 'row-reverse',
+                  alignItems: 'center',
+                  gap: 4,
+                  backgroundColor: isDarkMode ? '#78350f33' : '#fef3c7',
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  borderColor: '#f59e0b',
+                }}
+              >
+                <Ionicons name="eye-off-outline" size={12} color="#d97706" />
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#b45309' }}>
+                  مستبعدة من الحسابات
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
 
         {/* Bottom: Amount Badge + Attachment indicator / Reorder Action Prompt */}

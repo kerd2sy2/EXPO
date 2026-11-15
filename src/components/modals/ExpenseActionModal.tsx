@@ -18,6 +18,7 @@ interface ExpenseActionModalProps {
   colors: ThemeColors;
   isDarkMode: boolean;
   onEdit: (item: CustodyExpenseItem) => void;
+  onToggleExclude?: (item: CustodyExpenseItem) => void;
   onDelete: (item: CustodyExpenseItem) => void;
   onClose: () => void;
 }
@@ -29,12 +30,14 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
   colors,
   isDarkMode,
   onEdit,
+  onToggleExclude,
   onDelete,
   onClose,
 }) => {
   if (!expense || !visible) return null;
 
   const catObj = categories.find((c) => c.key === expense.category) || categories[categories.length - 1];
+  const isExcluded = Boolean(expense.is_excluded);
 
   return (
     <Modal
@@ -67,8 +70,77 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
             </View>
           </View>
 
-          {/* Standard Actions (Edit / Delete) */}
+          {/* Status badge if excluded */}
+          {isExcluded ? (
+            <View
+              style={{
+                flexDirection: 'row-reverse',
+                alignItems: 'center',
+                backgroundColor: '#fef3c7',
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 10,
+                marginBottom: 12,
+                gap: 6,
+              }}
+            >
+              <Ionicons name="eye-off-outline" size={16} color="#d97706" />
+              <Text style={{ fontSize: 12, color: '#b45309', fontWeight: '700' }}>
+                هذه الفاتورة مستبعدة ومخفية حالياً من إجمالي الحسابات
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Standard Actions (Edit / Toggle Exclude / Delete) */}
           <View style={styles.actionSheetBtnsCol}>
+            {/* Toggle Exclude / Include Option */}
+            {onToggleExclude ? (
+              <TouchableOpacity
+                style={[
+                  styles.sheetOptionBtn,
+                  {
+                    backgroundColor: isExcluded
+                      ? isDarkMode ? '#064e3b22' : '#ecfdf5'
+                      : isDarkMode ? '#78350f22' : '#fffbeb',
+                    borderColor: isExcluded ? '#10b981' : '#f59e0b',
+                  },
+                ]}
+                onPress={() => {
+                  onClose();
+                  onToggleExclude(expense);
+                }}
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    styles.sheetOptionIconBox,
+                    { backgroundColor: isExcluded ? '#d1fae5' : '#fef3c7' },
+                  ]}
+                >
+                  <Ionicons
+                    name={isExcluded ? 'eye-outline' : 'eye-off-outline'}
+                    size={18}
+                    color={isExcluded ? '#059669' : '#d97706'}
+                  />
+                </View>
+                <View style={{ alignItems: 'flex-end', flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.sheetOptionText,
+                      { color: isExcluded ? '#059669' : '#d97706' },
+                    ]}
+                  >
+                    {isExcluded ? 'إعادة الفاتورة للحسابات' : 'إخفاء الفاتورة من الحسابات مؤقتاً'}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                    {isExcluded
+                      ? 'سيتم احتساب مبلغها مجدداً في الإجمالي والرصيد'
+                      : 'تبقى مسجلة للحفظ دون احتساب مبلغها في الرصيد'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : null}
+
             {/* Edit Option */}
             <TouchableOpacity
               style={[

@@ -153,6 +153,7 @@ export const AhdaHomeScreen: React.FC<AhdaHomeScreenProps> = ({
               onBack={state.handleCloseDayExpenses}
               onOpenAddExpense={() => state.handleOpenAddExpenseFast(state.selectedCategoryFilter)}
               onEditExpense={mutations.handleOpenEditExpense}
+              onToggleExcludeExpense={mutations.handleToggleExcludeExpense}
               onDeleteExpense={mutations.handleDeleteExpense}
               onPreviewImage={(url) => state.setPreviewImage(url)}
               onReorderExpenses={mutations.handleReorderExpenses}

@@ -42,6 +42,7 @@ interface AhdaDayExpensesScreenProps {
   onBack: () => void;
   onOpenAddExpense: () => void;
   onEditExpense: (item: CustodyExpenseItem) => void;
+  onToggleExcludeExpense?: (item: CustodyExpenseItem) => void;
   onDeleteExpense: (item: CustodyExpenseItem) => void;
   onPreviewImage: (url: string) => void;
   onReorderExpenses?: (reorderedExpenses: CustodyExpenseItem[]) => void;
@@ -62,6 +63,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
   onBack,
   onOpenAddExpense,
   onEditExpense,
+  onToggleExcludeExpense,
   onDeleteExpense,
   onPreviewImage,
   onReorderExpenses,
@@ -363,6 +365,7 @@ export const AhdaDayExpensesScreen: React.FC<AhdaDayExpensesScreenProps> = ({
           colors={colors}
           isDarkMode={isDarkMode}
           onEdit={onEditExpense}
+          onToggleExclude={onToggleExcludeExpense}
           onDelete={onDeleteExpense}
           onClose={() => setSelectedExpenseForAction(null)}
         />

@@ -10,6 +10,7 @@ export interface CustodyExpenseItem {
   amount: number;
   recipient_name: string;
   export_number?: string;
+  is_excluded?: boolean;
   image_url?: string;
   created_by_id?: string;
   created_by_name?: string;
@@ -47,6 +48,7 @@ export interface AddExpensePayload {
   amount: number;
   recipient_name: string;
   export_number?: string;
+  is_excluded?: boolean;
   image_url?: string;
   date?: string;
 }

@@ -454,12 +454,63 @@ export function useAhdaCustodyMutations({
     });
   };
 
+  // 5b. Toggle Exclude Expense from Totals
+  const handleToggleExcludeExpense = async (item: CustodyExpenseItem) => {
+    const nextExcluded = !item.is_excluded;
+    try {
+      const updatedDay = await custodyService.updateExpense(item.id, {
+        is_excluded: nextExcluded,
+      });
+      if (updatedDay && updatedDay.id && updatedDay.date) {
+        setDays((prev: CustodyDayData[]) =>
+          mergeUpdatedCustodyDay(prev, updatedDay, bId, activeStoredLedger)
+        );
+      } else {
+        setDays((prev: CustodyDayData[]) =>
+          prev.map((d) => {
+            if (!d.expenses?.some((e) => e.id === item.id)) return d;
+            const updatedList = d.expenses.map((e) =>
+              e.id === item.id ? { ...e, is_excluded: nextExcluded } : e
+            );
+            const activeExpenses = updatedList.filter((e) => !e.is_excluded);
+            const newTotal = activeExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+            return {
+              ...d,
+              expenses: updatedList,
+              total_expenses: newTotal,
+              closing_balance: (d.opening_balance || 0) + (d.added_amount || 0) - newTotal,
+            };
+          })
+        );
+      }
+      void loadCustodyData(true, undefined, true);
+      setAlertConfig({
+        type: 'success',
+        title: nextExcluded ? 'تم استبعاد الفاتورة من الحسابات' : 'تمت إعادة الفاتورة للحسابات',
+        message: nextExcluded
+          ? 'تم إخفاء واستبعاد مبلغ الفاتورة من الرصيد والإجمالي مع بقائها مسجلة.'
+          : 'تمت إعادة احتساب مبلغ الفاتورة ضمن إجمالي المصاريف والرصيد بنجاح.',
+      });
+    } catch (err: any) {
+      const denied = is403Error(err);
+      setAlertConfig({
+        type: denied ? 'warning' : 'error',
+        title: denied ? 'غير مصرح' : 'فشل التعديل',
+        message: denied
+          ? 'ليس لديك صلاحية لتعديل حالة الفواتير.'
+          : err?.message || 'حدث خطأ أثناء تحديث حالة الفاتورة.',
+      });
+      if (denied) refreshProfileOn403();
+    }
+  };
+
   return {
     handleSaveCustodyAmount,
     handleDeleteCustodyEntry,
     handleSaveExpense,
     handleOpenEditExpense,
     handleSaveEditExpense,
+    handleToggleExcludeExpense,
     handleDeleteExpense,
     ...mediaActions,
   };
