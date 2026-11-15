@@ -7,7 +7,8 @@ export function useShiftWorkflow(
   activeSession: WorkSession | null
 ) {
   // Shift Inputs (Start)
-  const [enteredMotorcycle, setEnteredMotorcycle] = useState('');
+  const assignedBike = employee?.motorcycle_number?.trim() || '';
+  const [enteredMotorcycle, setEnteredMotorcycle] = useState(assignedBike);
   const [startKm, setStartKm] = useState('');
   const [startKmImage, setStartKmImage] = useState<string | null>(null);
   const startKmImageRef = useRef<string | null>(null);
@@ -17,11 +18,22 @@ export function useShiftWorkflow(
   const [activeBikeRegistrationImage, setActiveBikeRegistrationImage] = useState<string | null>(null);
   const [needsOilChange, setNeedsOilChange] = useState(false);
 
-  // Plate Photo & OCR State
+  // Plate Photo & OCR State: if employee already has an assigned bike linked by supervisor, mark plate as confirmed by default
   const [startPlateImage, setStartPlateImage] = useState<string | null>(null);
   const startPlateImageRef = useRef<string | null>(null);
-  const [isPlateConfirmed, setIsPlateConfirmed] = useState(false);
+  const [isPlateConfirmed, setIsPlateConfirmed] = useState(Boolean(assignedBike));
   const [isScanningPlate, setIsScanningPlate] = useState(false);
+
+  // Synchronize enteredMotorcycle and confirmation whenever employee profile updates (e.g. supervisor linked a bike)
+  useEffect(() => {
+    const currentAssigned = employee?.motorcycle_number?.trim() || '';
+    if (currentAssigned && !enteredMotorcycle) {
+      setEnteredMotorcycle(currentAssigned);
+      setIsPlateConfirmed(true);
+    } else if (currentAssigned && enteredMotorcycle === currentAssigned) {
+      setIsPlateConfirmed(true);
+    }
+  }, [employee?.motorcycle_number]);
 
   const isTakingPhotoRef = useRef(false);
   const lastFetchedBikeRef = useRef<string>('');

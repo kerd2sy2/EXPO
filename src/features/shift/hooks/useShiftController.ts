@@ -132,18 +132,26 @@ export function useShiftController(params: UseShiftControllerParams) {
   };
 
   const handleStartShiftClick = () => {
-    if (!activeSession && !isPlateConfirmed) {
+    const hasAssignedBike = Boolean(employee?.motorcycle_number?.trim());
+    if (!activeSession && !isPlateConfirmed && !hasAssignedBike) {
       setShowPlateScannerModal(true);
     } else {
+      if (hasAssignedBike && !isPlateConfirmed) {
+        setIsPlateConfirmed(true);
+      }
       mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       setCurrentTab('shift');
     }
   };
 
   const handleNavigateToTab = (tab: TabType) => {
-    if (tab === 'shift' && !activeSession && !isPlateConfirmed) {
+    const hasAssignedBike = Boolean(employee?.motorcycle_number?.trim());
+    if (tab === 'shift' && !activeSession && !isPlateConfirmed && !hasAssignedBike) {
       setShowPlateScannerModal(true);
       return;
+    }
+    if (tab === 'shift' && hasAssignedBike && !isPlateConfirmed) {
+      setIsPlateConfirmed(true);
     }
     if (tab === 'history') {
       const currentMonth = getCurrentMonthInfo(lang);
